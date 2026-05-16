@@ -400,6 +400,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="regression">⭐ Ortalama Regresyon</option>
           <option value="oddeven">⭐ Tek-Çift Denge</option>
           <option value="neighbor">⭐ Komşu Isısı</option>
+          <option value="streak">🚀 Son Form</option>
+          <option value="spread">📐 Spektral Yayılım</option>
+          <option value="sumtarget">🎯 Toplam Hedefi</option>
+          <option value="ensemble">👑 Süper Hibrit</option>
         </select>
         <div id="algoScorePanel"></div>
       </div>
@@ -458,6 +462,10 @@ const ALGOS = [
   { id:'regression',   name:'⭐ Ortalama Regresyon',   desc:'Tarihin altında kalan sayılar yukarı döner — düşük frekanslı ama yakın zamanda görülen sayıları seçer', expert:true },
   { id:'oddeven',      name:'⭐ Tek-Çift Denge',        desc:'Son çekilişlerdeki tek/çift oranını analiz ederek zıt ağırlıklı dengeli seçim yapar', expert:true },
   { id:'neighbor',     name:'⭐ Komşu Isısı',           desc:'Sayı komşuluklarında oluşan ısı haritasından tepe noktalarını seçer', expert:true },
+  { id:'streak',       name:'🚀 Son Form',              desc:'Son 10 çekilişte birden fazla görülen sayıları yüksek ağırlıkla seçer', expert:true },
+  { id:'spread',       name:'📐 Spektral Yayılım',      desc:'Sayı aralığını 7 eşit bölgeye böler, her bölgenin en sıcak sayısını seçer', expert:true },
+  { id:'sumtarget',    name:'🎯 Toplam Hedefi',         desc:'Tarihsel ortalama toplama en yakın kombinasyonu seçer', expert:true },
+  { id:'ensemble',     name:'👑 Süper Hibrit',          desc:'14 algoritmayı birden çalıştırır; en çok oy alan sayıları seçer — en güçlü mod', expert:true },
 ];
 
 // ── Real historical draw data ────────────────────────────────
@@ -903,6 +911,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
   const hasHist=Object.keys(freq).length>0;
   const pool=range(1,game.max);
   const bonusPool=game.bonusCount>0?range(1,game.bonusMax):[];
+  const smartBonus=()=>game.bonusCount>0?(hasHist?pickUnique(bonusPool,game.bonusCount,bonusPool.map(n=>freq[n]||.1)):pickUnique(bonusPool,game.bonusCount)):[];
   let mainNums,bonusNums=[];
 
   switch(algo){
@@ -952,7 +961,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const cutLow=Math.floor(pool.length*.2),cutHigh=Math.floor(pool.length*.8);
       const mid=sortedByF.slice(cutLow,cutHigh);
       mid.sort((a,b)=>Math.abs((freq[a]||0)-avgF)-Math.abs((freq[b]||0)-avgF));
-      mainNums=mid.slice(0,game.count).sort((a,b)=>a-b);bonusNums=[];
+      mainNums=mid.slice(0,game.count).sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'momentum':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
@@ -972,7 +981,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         return{n,score:gap*freqRatio*100};
       });
       mScored.sort((a,b)=>b.score-a.score);
-      mainNums=mScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=[];
+      mainNums=mScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'correlation':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
@@ -994,7 +1003,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         });
       const candidates=pool.filter(n=>!toRemove.has(n)).sort((a,b)=>(freq[b]||0)-(freq[a]||0));
       mainNums=(candidates.length>=game.count?candidates:pool.sort((a,b)=>(freq[b]||0)-(freq[a]||0))).slice(0,game.count).sort((a,b)=>a-b);
-      bonusNums=[];
+      bonusNums=smartBonus();
       break;}
     case 'cycle':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
@@ -1014,7 +1023,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         return{n,score:1/((Math.abs(gapSoFar-avgGap)+1)*std)};
       });
       cyScored.sort((a,b)=>b.score-a.score);
-      mainNums=cyScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=[];
+      mainNums=cyScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'hotzone':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
@@ -1025,7 +1034,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const hzPool=[];segs.slice(0,2).forEach(seg=>{for(let n=seg.lo;n<=seg.hi;n++)hzPool.push(n);});
       hzPool.sort((a,b)=>(freq[b]||0)-(freq[a]||0));
       const hzRem=pool.filter(n=>!hzPool.includes(n)).sort((a,b)=>(freq[b]||0)-(freq[a]||0));
-      mainNums=[...hzPool,...hzRem].slice(0,game.count).sort((a,b)=>a-b);bonusNums=[];
+      mainNums=[...hzPool,...hzRem].slice(0,game.count).sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'regression':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
@@ -1041,7 +1050,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         return{n,score:deficit+rf};
       });
       rgScored.sort((a,b)=>b.score-a.score);
-      mainNums=rgScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=[];
+      mainNums=rgScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'oddeven':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
@@ -1054,7 +1063,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const tEven=game.count-tOdd;
       const odds=pool.filter(n=>n%2===1).sort((a,b)=>(freq[b]||0)-(freq[a]||0));
       const evens=pool.filter(n=>n%2===0).sort((a,b)=>(freq[b]||0)-(freq[a]||0));
-      mainNums=[...odds.slice(0,tOdd),...evens.slice(0,tEven)].sort((a,b)=>a-b);bonusNums=[];
+      mainNums=[...odds.slice(0,tOdd),...evens.slice(0,tEven)].sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'neighbor':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
@@ -1064,7 +1073,66 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       peaks.sort((a,b)=>heat[b]-heat[a]);
       const allByHeat=[...pool].sort((a,b)=>heat[b]-heat[a]);
       const nbCombined=[...new Set([...peaks,...allByHeat])];
-      mainNums=nbCombined.slice(0,game.count).sort((a,b)=>a-b);bonusNums=[];
+      mainNums=nbCombined.slice(0,game.count).sort((a,b)=>a-b);bonusNums=smartBonus();
+      break;}
+    case 'streak':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const skDraws=drawsOverride||state.pastDraws||[];
+      const skRec=skDraws.slice(-Math.min(10,skDraws.length));
+      const skF={};
+      skRec.forEach(d=>{const nums=(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=game.max);nums.forEach(n=>{skF[n]=(skF[n]||0)+1;});});
+      const skScored=pool.map(n=>({n,s:(skF[n]||0)*5+(freq[n]||0)*1.5}));
+      skScored.sort((a,b)=>b.s-a.s);
+      mainNums=skScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=smartBonus();
+      break;}
+    case 'spread':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const zSize=game.max/game.count;
+      const spPicks=[];
+      for(let z=0;z<game.count;z++){
+        const lo=Math.floor(z*zSize)+1;
+        const hi=z===game.count-1?game.max:Math.floor((z+1)*zSize);
+        let best=lo,bestF=freq[lo]||0;
+        for(let n=lo;n<=hi;n++){if((freq[n]||0)>bestF){best=n;bestF=freq[n]||0;}}
+        spPicks.push(best);
+      }
+      mainNums=spPicks.sort((a,b)=>a-b);bonusNums=smartBonus();
+      break;}
+    case 'sumtarget':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const stDraws=drawsOverride||state.pastDraws||[];
+      let sumT=0,sumC=0;
+      stDraws.forEach(d=>{const nums=(Array.isArray(d)?d:d.nums||[]).slice(0,game.count);if(nums.length>=3){sumT+=nums.reduce((s,n)=>s+n,0);sumC++;}});
+      const targetSum=sumC>0?sumT/sumC:(game.max+1)*game.count/2;
+      const topF=pool.map(n=>({n,f:freq[n]||0})).sort((a,b)=>b.f-a.f).slice(0,Math.min(pool.length,game.count*4));
+      let stBest=null,stBestDiff=Infinity;
+      for(let i=0;i<60;i++){
+        const cand=pickUnique(topF.map(x=>x.n),game.count,topF.map(x=>Math.max(.1,x.f)));
+        const sum=cand.reduce((s,n)=>s+n,0);
+        const diff=Math.abs(sum-targetSum);
+        if(diff<stBestDiff){stBestDiff=diff;stBest=cand;}
+      }
+      mainNums=stBest.sort((a,b)=>a-b);bonusNums=smartBonus();
+      break;}
+    case 'ensemble':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const subAlgos=['hot','cold','balanced','entropy','momentum','correlation','cycle','hotzone','regression','oddeven','neighbor','streak','spread','sumtarget'];
+      const votes={},bVotes={};
+      pool.forEach(n=>votes[n]=0);
+      bonusPool.forEach(n=>bVotes[n]=0);
+      subAlgos.forEach(a=>{
+        const r=generateNumbers(game,a,freq,drawsOverride);
+        r.main.forEach(n=>{votes[n]=(votes[n]||0)+1;});
+        r.bonus.forEach(n=>{bVotes[n]=(bVotes[n]||0)+1;});
+      });
+      const enScored=pool.map(n=>({n,v:votes[n]||0,f:freq[n]||0}));
+      enScored.sort((a,b)=>b.v-a.v||b.f-a.f);
+      mainNums=enScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);
+      if(game.bonusCount>0){
+        const bScored=bonusPool.map(n=>({n,v:bVotes[n]||0,f:freq[n]||0}));
+        bScored.sort((a,b)=>b.v-a.v||b.f-a.f);
+        bonusNums=bScored.slice(0,game.bonusCount).map(x=>x.n);
+      }else bonusNums=[];
       break;}
     default:return generateNumbers(game,'random',freq,drawsOverride);
   }
@@ -1073,7 +1141,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
 
 // ── Confidence ───────────────────────────────────────────────
 function calcConfidence(algo){
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -1231,7 +1299,7 @@ function updateBtDateOptions(){
   updateAlgoScores();
 }
 
-const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu'};
+const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit'};
 
 function updateAlgoScores(){
   const gameId=document.getElementById('btGame').value;
