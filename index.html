@@ -6,285 +6,237 @@
 <title>Türk Loto Tahmin Makinesi</title>
 <style>
 :root {
-  --bg: #0a0a1a; --surface: #12122a; --surface2: #1a1a3a; --border: #2a2a5a;
-  --accent: #6c63ff; --accent2: #ff6584; --gold: #ffd700;
-  --green: #00e676; --red: #ff4757; --blue: #00b4d8;
-  --text: #e0e0ff; --muted: #7878a0; --ball-size: 52px;
+  --bg:#0a0a1a; --surface:#12122a; --surface2:#1a1a3a; --border:#2a2a5a;
+  --accent:#6c63ff; --accent2:#ff6584; --gold:#ffd700;
+  --green:#00e676; --red:#ff4757; --blue:#00b4d8;
+  --text:#e0e0ff; --muted:#7878a0; --ball-size:52px;
 }
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; overflow-x: hidden; }
-body::before {
-  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
-  background-image:
-    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 30% 80%, rgba(255,255,255,.2) 0%, transparent 100%),
-    radial-gradient(1px 1px at 55% 12%, rgba(255,255,255,.3) 0%, transparent 100%),
-    radial-gradient(1px 1px at 75% 60%, rgba(255,255,255,.2) 0%, transparent 100%),
-    radial-gradient(2px 2px at 20% 50%, rgba(255,255,255,.12) 0%, transparent 100%),
-    radial-gradient(2px 2px at 65% 30%, rgba(255,255,255,.12) 0%, transparent 100%),
-    radial-gradient(2px 2px at 85% 70%, rgba(255,255,255,.12) 0%, transparent 100%);
-}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:radial-gradient(1px 1px at 10% 20%,rgba(255,255,255,.3) 0%,transparent 100%),
+    radial-gradient(1px 1px at 30% 80%,rgba(255,255,255,.2) 0%,transparent 100%),
+    radial-gradient(1px 1px at 55% 12%,rgba(255,255,255,.3) 0%,transparent 100%),
+    radial-gradient(1px 1px at 75% 60%,rgba(255,255,255,.2) 0%,transparent 100%),
+    radial-gradient(2px 2px at 20% 50%,rgba(255,255,255,.1) 0%,transparent 100%),
+    radial-gradient(2px 2px at 65% 30%,rgba(255,255,255,.1) 0%,transparent 100%),
+    radial-gradient(2px 2px at 85% 70%,rgba(255,255,255,.1) 0%,transparent 100%);}
 
-/* ── Nav ─────────────────────────────── */
-.main-nav {
-  position: sticky; top: 0; z-index: 100;
-  background: rgba(10,10,26,.92); backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--border); padding: 0 16px;
-}
-.nav-inner { max-width: 960px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 52px; gap: 12px; }
-.nav-brand {
-  font-size: .98rem; font-weight: 800; white-space: nowrap;
-  background: linear-gradient(135deg, var(--gold), var(--accent));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-}
-.nav-tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 10px; padding: 4px; }
-.nav-tab { background: none; border: none; border-radius: 7px; color: var(--muted); font-size: .8rem; font-weight: 600; padding: 6px 14px; cursor: pointer; transition: all .2s; white-space: nowrap; }
-.nav-tab.active { background: var(--surface); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+/* Nav */
+.main-nav{position:sticky;top:0;z-index:100;background:rgba(10,10,26,.93);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 16px}
+.nav-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:52px;gap:12px}
+.nav-brand{font-size:.96rem;font-weight:800;white-space:nowrap;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-tabs{display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px}
+.nav-tab{background:none;border:none;border-radius:7px;color:var(--muted);font-size:.8rem;font-weight:600;padding:6px 14px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.nav-tab.active{background:var(--surface);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.3)}
 
-/* ── Layout ──────────────────────────── */
-.page { display: none; }
-.page.active { display: block; }
-.app { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 20px 16px 60px; }
+/* Pages */
+.page{display:none}.page.active{display:block}
+.app{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:20px 16px 60px}
 
-/* ── Header ──────────────────────────── */
-.header { text-align: center; margin-bottom: 28px; }
-.header h1 {
-  font-size: clamp(1.7rem,5vw,2.6rem); font-weight: 800; letter-spacing: -.5px; margin-bottom: 6px;
-  background: linear-gradient(135deg, var(--gold), var(--accent), var(--accent2));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-}
-.header p { color: var(--muted); font-size: .93rem; }
-.jackpot-badge {
-  display: inline-block; margin-top: 10px; padding: 4px 16px; border-radius: 20px;
-  background: linear-gradient(135deg,#7b2ff7,#f107a3); font-size: .78rem; font-weight: 700;
-  letter-spacing: 1px; text-transform: uppercase; animation: pulse-badge 2s ease-in-out infinite;
-}
-@keyframes pulse-badge { 0%,100%{box-shadow:0 0 0 0 rgba(123,47,247,.4)} 50%{box-shadow:0 0 0 8px rgba(123,47,247,0)} }
+/* Header */
+.header{text-align:center;margin-bottom:28px}
+.header h1{font-size:clamp(1.7rem,5vw,2.6rem);font-weight:800;letter-spacing:-.5px;margin-bottom:6px;
+  background:linear-gradient(135deg,var(--gold),var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.header p{color:var(--muted);font-size:.92rem}
+.jackpot-badge{display:inline-block;margin-top:10px;padding:4px 16px;border-radius:20px;
+  background:linear-gradient(135deg,#7b2ff7,#f107a3);font-size:.76rem;font-weight:700;
+  letter-spacing:1px;text-transform:uppercase;animation:pulse-badge 2s ease-in-out infinite}
+@keyframes pulse-badge{0%,100%{box-shadow:0 0 0 0 rgba(123,47,247,.4)}50%{box-shadow:0 0 0 8px rgba(123,47,247,0)}}
 
-/* ── Card ────────────────────────────── */
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
-.card-title {
-  font-size: .73rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
-  color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
-}
-.card-title::before { content:''; display:inline-block; width:3px; height:14px; background:var(--accent); border-radius:2px; }
+/* Card */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px}
+.card-title{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--muted);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.card-title::before{content:'';display:inline-block;width:3px;height:14px;background:var(--accent);border-radius:2px}
 
-/* ── Game grid ───────────────────────── */
-.game-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(120px,1fr)); gap: 10px; }
-.game-btn { background:var(--surface2); border:2px solid var(--border); border-radius:12px; padding:12px 8px; cursor:pointer; transition:all .2s; text-align:center; color:var(--text); }
-.game-btn:hover { border-color:var(--accent); background:rgba(108,99,255,.1); }
-.game-btn.active { border-color:var(--accent); background:rgba(108,99,255,.2); box-shadow:0 0 20px rgba(108,99,255,.2); }
-.game-btn .game-emoji { font-size:1.4rem; display:block; margin-bottom:4px; }
-.game-btn .game-name  { font-size:.78rem; font-weight:700; display:block; }
-.game-btn .game-range { font-size:.68rem; color:var(--muted); display:block; margin-top:2px; }
+/* Game grid */
+.game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.game-btn{background:var(--surface2);border:2px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;transition:all .2s;text-align:center;color:var(--text)}
+.game-btn:hover{border-color:var(--accent);background:rgba(108,99,255,.1)}
+.game-btn.active{border-color:var(--accent);background:rgba(108,99,255,.2);box-shadow:0 0 20px rgba(108,99,255,.2)}
+.game-btn .game-emoji{font-size:1.35rem;display:block;margin-bottom:4px}
+.game-btn .game-name{font-size:.76rem;font-weight:700;display:block}
+.game-btn .game-range{font-size:.66rem;color:var(--muted);display:block;margin-top:2px}
 
-/* ── Algo grid ───────────────────────── */
-.algo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:10px; }
-.algo-btn { background:var(--surface2); border:2px solid var(--border); border-radius:12px; padding:12px; cursor:pointer; transition:all .2s; color:var(--text); text-align:left; }
-.algo-btn:hover { border-color:var(--accent2); background:rgba(255,101,132,.08); }
-.algo-btn.active { border-color:var(--accent2); background:rgba(255,101,132,.15); }
-.algo-btn .algo-name { font-size:.83rem; font-weight:700; display:block; margin-bottom:3px; }
-.algo-btn .algo-desc { font-size:.68rem; color:var(--muted); display:block; line-height:1.4; }
+/* Algo grid */
+.algo-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px}
+.algo-btn{background:var(--surface2);border:2px solid var(--border);border-radius:12px;padding:12px;cursor:pointer;transition:all .2s;color:var(--text);text-align:left}
+.algo-btn:hover{border-color:var(--accent2);background:rgba(255,101,132,.08)}
+.algo-btn.active{border-color:var(--accent2);background:rgba(255,101,132,.15)}
+.algo-btn .algo-name{font-size:.82rem;font-weight:700;display:block;margin-bottom:3px}
+.algo-btn .algo-desc{font-size:.67rem;color:var(--muted);display:block;line-height:1.4}
 
-/* ── Generate button ─────────────────── */
-.generate-btn {
-  width:100%; padding:17px; border:none; border-radius:14px;
-  background:linear-gradient(135deg,var(--accent),#9c59ff); color:#fff;
-  font-size:1.02rem; font-weight:800; letter-spacing:.5px; cursor:pointer;
-  transition:all .2s; position:relative; overflow:hidden; text-transform:uppercase;
-}
-.generate-btn::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,.1),transparent); opacity:0; transition:opacity .2s; }
-.generate-btn:hover::before { opacity:1; }
-.generate-btn:hover { transform:translateY(-1px); box-shadow:0 8px 28px rgba(108,99,255,.4); }
-.generate-btn:active { transform:translateY(0); }
-.generate-btn.spinning { animation:btn-pulse .6s ease-in-out; }
-@keyframes btn-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(.98)} }
+/* Generate button */
+.generate-btn{width:100%;padding:17px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--accent),#9c59ff);
+  color:#fff;font-size:1rem;font-weight:800;letter-spacing:.5px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;text-transform:uppercase}
+.generate-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.1),transparent);opacity:0;transition:opacity .2s}
+.generate-btn:hover::before{opacity:1}
+.generate-btn:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(108,99,255,.4)}
+.generate-btn:active{transform:translateY(0)}
+.generate-btn.spinning{animation:btn-pulse .6s ease-in-out}
+@keyframes btn-pulse{0%,100%{transform:scale(1)}50%{transform:scale(.98)}}
 
-/* ── Ticket ──────────────────────────── */
-.ticket {
-  background:linear-gradient(135deg,#1e1e45,#12122a);
-  border:1px solid rgba(108,99,255,.3); border-radius:16px; padding:22px;
-  position:relative; overflow:hidden;
-}
-.ticket::before { content:''; position:absolute; top:-40px; right:-40px; width:150px; height:150px; background:radial-gradient(circle,rgba(108,99,255,.15) 0%,transparent 70%); pointer-events:none; }
-.ticket-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
-.ticket-game { font-size:.88rem; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:1px; }
-.ticket-algo-tag { font-size:.68rem; padding:3px 10px; border-radius:10px; background:rgba(255,101,132,.2); border:1px solid rgba(255,101,132,.4); color:var(--accent2); }
+/* Ticket */
+.ticket{background:linear-gradient(135deg,#1e1e45,#12122a);border:1px solid rgba(108,99,255,.3);border-radius:16px;padding:22px;position:relative;overflow:hidden}
+.ticket::before{content:'';position:absolute;top:-40px;right:-40px;width:150px;height:150px;background:radial-gradient(circle,rgba(108,99,255,.15) 0%,transparent 70%);pointer-events:none}
+.ticket-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.ticket-game{font-size:.86rem;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px}
+.ticket-algo-tag{font-size:.67rem;padding:3px 10px;border-radius:10px;background:rgba(255,101,132,.2);border:1px solid rgba(255,101,132,.4);color:var(--accent2)}
 
-/* ── Balls ───────────────────────────── */
-.balls-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:8px; }
-.ball {
-  width:var(--ball-size); height:var(--ball-size); border-radius:50%;
-  display:flex; align-items:center; justify-content:center;
-  font-size:1rem; font-weight:900; flex-shrink:0;
-  transition:transform .15s; cursor:default;
-}
-.ball:hover { transform:scale(1.08); }
-.ball.white  { background:radial-gradient(circle at 35% 30%,#fff,#b0b0c8); color:#1a1a3a; box-shadow:0 4px 14px rgba(0,0,0,.4); }
-.ball.red    { background:radial-gradient(circle at 35% 30%,#ff6b6b,#c0392b); color:#fff; box-shadow:0 4px 14px rgba(192,57,43,.5); }
-.ball.gold   { background:radial-gradient(circle at 35% 30%,#ffe066,#b8860b); color:#3a2000; box-shadow:0 4px 14px rgba(184,134,11,.5); }
-.ball.blue   { background:radial-gradient(circle at 35% 30%,#74b9ff,#0c6ef0); color:#fff; box-shadow:0 4px 14px rgba(12,110,240,.5); }
-.ball.green  { background:radial-gradient(circle at 35% 30%,#55efc4,#00b894); color:#003d2e; box-shadow:0 4px 14px rgba(0,184,148,.5); }
-.ball.purple { background:radial-gradient(circle at 35% 30%,#a29bfe,#6c5ce7); color:#fff; box-shadow:0 4px 14px rgba(108,92,231,.5); }
-.ball.special { background:radial-gradient(circle at 35% 30%,#fdcb6e,#e17055); color:#fff; box-shadow:0 4px 14px rgba(225,112,85,.5); outline:2px solid var(--gold); outline-offset:2px; }
-.ball.rolling { animation:roll .5s ease-in-out; }
-@keyframes roll { 0%{transform:scale(0) rotate(-180deg);opacity:0} 60%{transform:scale(1.15) rotate(10deg);opacity:1} 80%{transform:scale(.95) rotate(-5deg)} 100%{transform:scale(1) rotate(0)} }
-.ball.matched   { outline:3px solid var(--green) !important; outline-offset:2px; box-shadow:0 0 16px rgba(0,230,118,.5) !important; }
-.ball.unmatched { opacity:.35; }
-.balls-divider { display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:1.1rem; }
-.mini-ball { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:900; flex-shrink:0; }
+/* Balls */
+.balls-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px}
+.ball{width:var(--ball-size);height:var(--ball-size);border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:.95rem;font-weight:900;flex-shrink:0;transition:transform .15s;cursor:default}
+.ball:hover{transform:scale(1.08)}
+.ball.white {background:radial-gradient(circle at 35% 30%,#fff,#b0b0c8);color:#1a1a3a;box-shadow:0 4px 14px rgba(0,0,0,.4)}
+.ball.red   {background:radial-gradient(circle at 35% 30%,#ff6b6b,#c0392b);color:#fff;box-shadow:0 4px 14px rgba(192,57,43,.5)}
+.ball.gold  {background:radial-gradient(circle at 35% 30%,#ffe066,#b8860b);color:#3a2000;box-shadow:0 4px 14px rgba(184,134,11,.5)}
+.ball.blue  {background:radial-gradient(circle at 35% 30%,#74b9ff,#0c6ef0);color:#fff;box-shadow:0 4px 14px rgba(12,110,240,.5)}
+.ball.green {background:radial-gradient(circle at 35% 30%,#55efc4,#00b894);color:#003d2e;box-shadow:0 4px 14px rgba(0,184,148,.5)}
+.ball.purple{background:radial-gradient(circle at 35% 30%,#a29bfe,#6c5ce7);color:#fff;box-shadow:0 4px 14px rgba(108,92,231,.5)}
+.ball.special{background:radial-gradient(circle at 35% 30%,#fdcb6e,#e17055);color:#fff;box-shadow:0 4px 14px rgba(225,112,85,.5);outline:2px solid var(--gold);outline-offset:2px}
+.ball.rolling{animation:roll .5s ease-in-out}
+@keyframes roll{0%{transform:scale(0) rotate(-180deg);opacity:0}60%{transform:scale(1.15) rotate(10deg);opacity:1}80%{transform:scale(.95) rotate(-5deg)}100%{transform:scale(1) rotate(0)}}
+.ball.matched  {outline:3px solid var(--green)!important;outline-offset:2px;box-shadow:0 0 16px rgba(0,230,118,.5)!important}
+.ball.unmatched{opacity:.32}
+.balls-divider{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:1.1rem}
+.mini-ball{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:900;flex-shrink:0}
 
-/* ── Ticket footer ───────────────────── */
-.ticket-footer { margin-top:14px; padding-top:12px; border-top:1px dashed rgba(255,255,255,.08); display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
-.confidence-bar-wrap { flex:1; min-width:150px; }
-.confidence-label { font-size:.7rem; color:var(--muted); margin-bottom:5px; display:flex; justify-content:space-between; }
-.confidence-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
-.confidence-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .8s cubic-bezier(.34,1.56,.64,1); }
-.copy-btn { background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--muted); font-size:.76rem; padding:6px 11px; cursor:pointer; transition:all .2s; }
-.copy-btn:hover { border-color:var(--accent); color:var(--text); }
+/* Ticket footer */
+.ticket-footer{margin-top:14px;padding-top:12px;border-top:1px dashed rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.confidence-bar-wrap{flex:1;min-width:150px}
+.confidence-label{font-size:.7rem;color:var(--muted);margin-bottom:5px;display:flex;justify-content:space-between}
+.confidence-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.confidence-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .8s cubic-bezier(.34,1.56,.64,1)}
+.copy-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:.75rem;padding:6px 11px;cursor:pointer;transition:all .2s}
+.copy-btn:hover{border-color:var(--accent);color:var(--text)}
 
-/* ── Saved tickets ───────────────────── */
-.saved-list { display:flex; flex-direction:column; gap:10px; max-height:340px; overflow-y:auto; }
-.saved-ticket { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; transition:border-color .2s; }
-.saved-ticket:hover { border-color:rgba(108,99,255,.4); }
-.saved-balls { display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
-.saved-meta { font-size:.7rem; color:var(--muted); white-space:nowrap; }
-.icon-btn { background:none; border:none; cursor:pointer; font-size:.85rem; padding:4px 6px; border-radius:6px; transition:background .2s; color:var(--muted); }
-.icon-btn:hover { background:rgba(255,255,255,.06); color:var(--text); }
-.icon-btn.del:hover { color:var(--red); }
+/* Saved tickets */
+.saved-list{display:flex;flex-direction:column;gap:10px;max-height:340px;overflow-y:auto}
+.saved-ticket{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;transition:border-color .2s}
+.saved-ticket:hover{border-color:rgba(108,99,255,.4)}
+.saved-balls{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.saved-meta{font-size:.7rem;color:var(--muted);white-space:nowrap}
+.icon-btn{background:none;border:none;cursor:pointer;font-size:.84rem;padding:4px 6px;border-radius:6px;transition:background .2s;color:var(--muted)}
+.icon-btn:hover{background:rgba(255,255,255,.06);color:var(--text)}
+.icon-btn.del:hover{color:var(--red)}
 
-/* ── Stats ───────────────────────────── */
-.stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px; margin-bottom:16px; }
-.stat-box { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px; text-align:center; }
-.stat-val { font-size:1.45rem; font-weight:900; background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
-.stat-label { font-size:.66rem; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-top:4px; }
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:10px;margin-bottom:16px}
+.stat-box{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:12px;text-align:center}
+.stat-val{font-size:1.4rem;font-weight:900;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-label{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-top:4px}
 
-/* ── Freq chart ──────────────────────── */
-.freq-chart { display:flex; flex-direction:column; gap:5px; max-height:240px; overflow-y:auto; }
-.freq-row { display:grid; grid-template-columns:34px 1fr 26px; align-items:center; gap:8px; font-size:.76rem; }
-.freq-num { text-align:right; font-weight:700; }
-.freq-bar-wrap { height:13px; background:var(--border); border-radius:6px; overflow:hidden; }
-.freq-bar-fill { height:100%; border-radius:6px; transition:width .6s ease; }
-.freq-count { color:var(--muted); text-align:right; }
+/* Freq chart */
+.freq-chart{display:flex;flex-direction:column;gap:5px;max-height:240px;overflow-y:auto}
+.freq-row{display:grid;grid-template-columns:34px 1fr 26px;align-items:center;gap:8px;font-size:.75rem}
+.freq-num{text-align:right;font-weight:700}
+.freq-bar-wrap{height:13px;background:var(--border);border-radius:6px;overflow:hidden}
+.freq-bar-fill{height:100%;border-radius:6px;transition:width .6s ease}
+.freq-count{color:var(--muted);text-align:right}
 
-/* ── Hot/cold ────────────────────────── */
-.hot-cold-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-.hot-cold-title { font-size:.7rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; font-weight:700; }
-.hot-cold-title.hot { color:#ff6b6b; }
-.hot-cold-title.cold { color:#74b9ff; }
-.hc-balls { display:flex; flex-wrap:wrap; gap:5px; }
-.hc-ball { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:900; flex-shrink:0; }
-.hc-ball.hot  { background:radial-gradient(circle at 35% 30%,#ff7675,#d63031); color:#fff; box-shadow:0 2px 8px rgba(214,48,49,.4); }
-.hc-ball.cold { background:radial-gradient(circle at 35% 30%,#a8d8ff,#0c6ef0); color:#fff; box-shadow:0 2px 8px rgba(12,110,240,.4); }
+/* Hot/cold */
+.hot-cold-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hot-cold-title{font-size:.7rem;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:700}
+.hot-cold-title.hot{color:#ff6b6b}.hot-cold-title.cold{color:#74b9ff}
+.hc-balls{display:flex;flex-wrap:wrap;gap:5px}
+.hc-ball{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:900;flex-shrink:0}
+.hc-ball.hot {background:radial-gradient(circle at 35% 30%,#ff7675,#d63031);color:#fff;box-shadow:0 2px 8px rgba(214,48,49,.4)}
+.hc-ball.cold{background:radial-gradient(circle at 35% 30%,#a8d8ff,#0c6ef0);color:#fff;box-shadow:0 2px 8px rgba(12,110,240,.4)}
 
-/* ── Inputs ──────────────────────────── */
-.past-draws-input, .dated-draws-input {
-  width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px;
-  padding:10px 12px; color:var(--text); font-size:.83rem; font-family:monospace;
-  outline:none; resize:vertical; transition:border-color .2s;
-}
-.past-draws-input { min-height:78px; }
-.dated-draws-input { min-height:130px; line-height:1.8; }
-.past-draws-input:focus, .dated-draws-input:focus { border-color:var(--accent); }
-.parse-btn { background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--accent); font-size:.8rem; font-weight:700; padding:7px 13px; cursor:pointer; transition:all .2s; margin-top:8px; }
-.parse-btn:hover { background:rgba(108,99,255,.1); border-color:var(--accent); }
-.parse-status { font-size:.74rem; margin-top:6px; padding:6px 10px; border-radius:6px; display:none; }
-.parse-status.success { background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.3); color:var(--green); display:block; }
-.parse-status.error   { background:rgba(255,71,87,.1);  border:1px solid rgba(255,71,87,.3);  color:var(--red);   display:block; }
+/* Inputs */
+.past-draws-input,.dated-draws-input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-size:.81rem;font-family:monospace;outline:none;resize:vertical;transition:border-color .2s}
+.past-draws-input{min-height:78px}.dated-draws-input{min-height:130px;line-height:1.8}
+.past-draws-input:focus,.dated-draws-input:focus{border-color:var(--accent)}
+.parse-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--accent);font-size:.79rem;font-weight:700;padding:7px 13px;cursor:pointer;transition:all .2s;margin-top:8px}
+.parse-btn:hover{background:rgba(108,99,255,.1);border-color:var(--accent)}
+.parse-btn.secondary{color:var(--muted)}
+.parse-btn.green-btn{color:var(--green);border-color:rgba(0,230,118,.3)}
+.parse-btn.green-btn:hover{background:rgba(0,230,118,.08);border-color:var(--green)}
+.parse-status{font-size:.73rem;margin-top:6px;padding:6px 10px;border-radius:6px;display:none}
+.parse-status.success{background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.3);color:var(--green);display:block}
+.parse-status.error  {background:rgba(255,71,87,.1); border:1px solid rgba(255,71,87,.3); color:var(--red);  display:block}
+.parse-status.info   {background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);color:var(--accent);display:block}
 
-/* ── Counter ─────────────────────────── */
-.counter-row { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
-.counter-label { font-size:.84rem; color:var(--muted); }
-.counter-ctrl { display:flex; align-items:center; background:var(--surface2); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
-.counter-ctrl button { background:none; border:none; color:var(--text); font-size:1.1rem; width:34px; height:34px; cursor:pointer; transition:background .2s; display:flex; align-items:center; justify-content:center; }
-.counter-ctrl button:hover { background:rgba(255,255,255,.06); }
-.counter-val { min-width:36px; text-align:center; font-weight:700; font-size:.93rem; border-left:1px solid var(--border); border-right:1px solid var(--border); height:34px; display:flex; align-items:center; justify-content:center; }
+/* Counter */
+.counter-row{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.counter-label{font-size:.83rem;color:var(--muted)}
+.counter-ctrl{display:flex;align-items:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.counter-ctrl button{background:none;border:none;color:var(--text);font-size:1.1rem;width:34px;height:34px;cursor:pointer;transition:background .2s;display:flex;align-items:center;justify-content:center}
+.counter-ctrl button:hover{background:rgba(255,255,255,.06)}
+.counter-val{min-width:36px;text-align:center;font-weight:700;font-size:.92rem;border-left:1px solid var(--border);border-right:1px solid var(--border);height:34px;display:flex;align-items:center;justify-content:center}
 
-/* ── Tabs ────────────────────────────── */
-.tabs { display:flex; gap:4px; background:var(--surface2); border-radius:10px; padding:4px; margin-bottom:16px; }
-.tab-btn { flex:1; background:none; border:none; border-radius:7px; color:var(--muted); font-size:.76rem; font-weight:600; padding:7px 4px; cursor:pointer; transition:all .2s; text-align:center; }
-.tab-btn.active { background:var(--surface); color:var(--text); box-shadow:0 2px 8px rgba(0,0,0,.3); }
-.tab-panel { display:none; }
-.tab-panel.active { display:block; }
+/* Tabs */
+.tabs{display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:16px}
+.tab-btn{flex:1;background:none;border:none;border-radius:7px;color:var(--muted);font-size:.75rem;font-weight:600;padding:7px 4px;cursor:pointer;transition:all .2s;text-align:center}
+.tab-btn.active{background:var(--surface);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.tab-panel{display:none}.tab-panel.active{display:block}
 
-/* ── Empty state ─────────────────────── */
-.empty-state { text-align:center; padding:28px 20px; color:var(--muted); font-size:.88rem; }
-.empty-state .empty-icon { font-size:2.3rem; display:block; margin-bottom:8px; opacity:.5; }
+/* Empty state */
+.empty-state{text-align:center;padding:26px 20px;color:var(--muted);font-size:.87rem}
+.empty-state .empty-icon{font-size:2.2rem;display:block;margin-bottom:8px;opacity:.5}
+.section-divider{height:1px;background:var(--border);margin:14px 0}
 
-/* ── Misc ────────────────────────────── */
-.section-divider { height:1px; background:var(--border); margin:14px 0; }
+/* Form controls */
+.bt-config{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px}
+.form-group label{display:block;font-size:.69rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.form-group select,.form-group input[type=date]{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-size:.85rem;outline:none;transition:border-color .2s;cursor:pointer}
+.form-group select:focus,.form-group input[type=date]:focus{border-color:var(--accent)}
+.form-group select option{background:var(--surface2);color:var(--text)}
 
-/* ── Form controls (backtest) ────────── */
-.bt-config { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
-.form-group label { display:block; font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px; }
-.form-group select, .form-group input[type=date] {
-  width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px;
-  padding:9px 12px; color:var(--text); font-size:.86rem; outline:none;
-  transition:border-color .2s; cursor:pointer;
-}
-.form-group select:focus, .form-group input[type=date]:focus { border-color:var(--accent); }
-.form-group select option { background:var(--surface2); color:var(--text); }
+/* Run button */
+.run-btn{width:100%;padding:15px;border:none;border-radius:14px;background:linear-gradient(135deg,#00b894,#00cec9);color:#fff;font-size:.97rem;font-weight:800;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:.5px}
+.run-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,184,148,.35)}
+.run-btn:active{transform:translateY(0)}
 
-/* ── Run button ──────────────────────── */
-.run-btn {
-  width:100%; padding:15px; border:none; border-radius:14px;
-  background:linear-gradient(135deg,#00b894,#00cec9); color:#fff;
-  font-size:.98rem; font-weight:800; cursor:pointer; transition:all .2s;
-  text-transform:uppercase; letter-spacing:.5px;
-}
-.run-btn:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(0,184,148,.35); }
-.run-btn:active { transform:translateY(0); }
+/* Backtest */
+.bt-info-box{background:rgba(108,99,255,.07);border:1px solid rgba(108,99,255,.22);border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:.79rem;color:var(--muted);line-height:1.75}
+.bt-info-box strong{color:var(--text)}.bt-info-box code{color:var(--accent);font-family:monospace}
+.bt-result{border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.bt-result-header{background:var(--surface2);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.bt-result-title{font-size:.87rem;font-weight:700}
+.bt-score-badge{font-size:1.03rem;font-weight:900;padding:4px 14px;border-radius:20px}
+.bt-score-badge.excellent{background:rgba(0,230,118,.2); color:var(--green); border:1px solid rgba(0,230,118,.4)}
+.bt-score-badge.good     {background:rgba(253,203,110,.2);color:#fdcb6e;      border:1px solid rgba(253,203,110,.4)}
+.bt-score-badge.fair     {background:rgba(108,99,255,.2); color:var(--accent);border:1px solid rgba(108,99,255,.4)}
+.bt-score-badge.poor     {background:rgba(255,71,87,.15); color:var(--red);   border:1px solid rgba(255,71,87,.3)}
+.bt-result-body{padding:16px}
+.bt-section-label{font-size:.66rem;text-transform:uppercase;letter-spacing:1px;color:var(--muted);margin-bottom:8px;font-weight:700}
+.bt-balls-section{margin-bottom:14px}
+.bt-no-actual{background:rgba(255,255,255,.03);border:1px dashed rgba(255,255,255,.1);border-radius:10px;padding:16px;text-align:center;color:var(--muted);font-size:.79rem}
+.prize-label{display:inline-block;padding:2px 8px;border-radius:6px;font-size:.65rem;font-weight:700;letter-spacing:.5px;margin-left:6px}
+.prize-jackpot{background:rgba(255,215,0,.2);color:var(--gold);  border:1px solid rgba(255,215,0,.4)}
+.prize-high   {background:rgba(0,230,118,.15);color:var(--green); border:1px solid rgba(0,230,118,.3)}
+.prize-mid    {background:rgba(108,99,255,.15);color:var(--accent);border:1px solid rgba(108,99,255,.3)}
+.prize-low    {background:rgba(120,120,160,.15);color:var(--muted);border:1px solid rgba(120,120,160,.3)}
 
-/* ── Backtest result ─────────────────── */
-.bt-info-box {
-  background:rgba(108,99,255,.07); border:1px solid rgba(108,99,255,.22);
-  border-radius:12px; padding:14px 16px; margin-bottom:16px;
-  font-size:.8rem; color:var(--muted); line-height:1.75;
-}
-.bt-info-box strong { color:var(--text); }
-.bt-info-box code { color:var(--accent); font-family:monospace; }
+/* BT history */
+.bt-history{display:flex;flex-direction:column;gap:8px;max-height:380px;overflow-y:auto}
+.bt-hist-row{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 14px;display:grid;grid-template-columns:28px 1fr auto auto;align-items:center;gap:10px;font-size:.77rem;transition:border-color .2s}
+.bt-hist-row:hover{border-color:rgba(108,99,255,.4)}
+.bt-hist-nums{color:var(--muted);font-family:monospace;font-size:.74rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bt-hist-date{color:var(--muted);font-size:.7rem;white-space:nowrap}
+.bt-hist-score{font-weight:700;font-size:.82rem;color:var(--green);white-space:nowrap}
 
-.bt-result { border:1px solid var(--border); border-radius:14px; overflow:hidden; }
-.bt-result-header { background:var(--surface2); padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
-.bt-result-title { font-size:.88rem; font-weight:700; }
-.bt-score-badge { font-size:1.05rem; font-weight:900; padding:4px 14px; border-radius:20px; }
-.bt-score-badge.excellent { background:rgba(0,230,118,.2);  color:var(--green); border:1px solid rgba(0,230,118,.4); }
-.bt-score-badge.good      { background:rgba(253,203,110,.2); color:#fdcb6e;      border:1px solid rgba(253,203,110,.4); }
-.bt-score-badge.fair      { background:rgba(108,99,255,.2);  color:var(--accent); border:1px solid rgba(108,99,255,.4); }
-.bt-score-badge.poor      { background:rgba(255,71,87,.15);  color:var(--red);   border:1px solid rgba(255,71,87,.3); }
-.bt-result-body { padding:16px; }
-.bt-section-label { font-size:.67rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:8px; font-weight:700; }
-.bt-balls-section { margin-bottom:14px; }
-.bt-no-actual { background:rgba(255,255,255,.03); border:1px dashed rgba(255,255,255,.1); border-radius:10px; padding:16px; text-align:center; color:var(--muted); font-size:.8rem; }
-.prize-label { display:inline-block; padding:2px 8px; border-radius:6px; font-size:.66rem; font-weight:700; letter-spacing:.5px; margin-left:6px; }
-.prize-jackpot { background:rgba(255,215,0,.2);  color:var(--gold);   border:1px solid rgba(255,215,0,.4); }
-.prize-high    { background:rgba(0,230,118,.15); color:var(--green);  border:1px solid rgba(0,230,118,.3); }
-.prize-mid     { background:rgba(108,99,255,.15);color:var(--accent); border:1px solid rgba(108,99,255,.3); }
+/* Data load buttons */
+.game-data-btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.data-load-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:.72rem;font-weight:600;padding:5px 10px;cursor:pointer;transition:all .2s}
+.data-load-btn:hover{border-color:var(--green);color:var(--green);background:rgba(0,230,118,.06)}
 
-/* ── Backtest history ────────────────── */
-.bt-history { display:flex; flex-direction:column; gap:8px; max-height:380px; overflow-y:auto; }
-.bt-hist-row { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px 14px; display:grid; grid-template-columns:28px 1fr auto auto; align-items:center; gap:10px; font-size:.78rem; cursor:pointer; transition:border-color .2s; }
-.bt-hist-row:hover { border-color:rgba(108,99,255,.4); }
-.bt-hist-nums { color:var(--muted); font-family:monospace; font-size:.76rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.bt-hist-date { color:var(--muted); font-size:.7rem; white-space:nowrap; }
-.bt-hist-score { font-weight:700; font-size:.83rem; color:var(--green); white-space:nowrap; }
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:.82rem;z-index:1000;transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;white-space:nowrap}
+#toast.show{transform:translateX(-50%) translateY(0)}
 
-/* ── Toast ───────────────────────────── */
-#toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px 20px; font-size:.83rem; z-index:1000; transition:transform .3s cubic-bezier(.34,1.56,.64,1); pointer-events:none; white-space:nowrap; }
-#toast.show { transform:translateX(-50%) translateY(0); }
+/* Scrollbar */
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
-/* ── Scrollbar ───────────────────────── */
-::-webkit-scrollbar { width:5px; }
-::-webkit-scrollbar-track { background:transparent; }
-::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
-
-/* ── Responsive ──────────────────────── */
-@media (max-width:600px) {
-  :root { --ball-size:42px; }
-  .bt-config { grid-template-columns:1fr; }
-  .bt-hist-row { grid-template-columns:24px 1fr auto; }
-  .bt-hist-date { display:none; }
-  .hot-cold-grid { grid-template-columns:1fr; }
+/* Responsive */
+@media(max-width:600px){
+  :root{--ball-size:40px}
+  .bt-config{grid-template-columns:1fr}
+  .bt-hist-row{grid-template-columns:24px 1fr auto}
+  .bt-hist-date{display:none}
+  .hot-cold-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -302,9 +254,8 @@ body::before {
 
 <div class="app">
 
-<!-- ═══════════════════ PAGE: GENERATOR ═══════════════════ -->
+<!-- ═══════════ PAGE: GENERATOR ═══════════ -->
 <div id="page-generator" class="page active">
-
   <div class="header">
     <h1>🎱 Loto Tahmin Makinesi</h1>
     <p>İstatistiksel analize dayalı akıllı tahmin motoru</p>
@@ -322,12 +273,15 @@ body::before {
   </div>
 
   <div class="card">
-    <div class="card-title">Geçmiş Çekilişler (İsteğe Bağlı – Doğruluğu Artırır)</div>
-    <div style="font-size:.77rem;color:var(--muted);margin-bottom:8px">
+    <div class="card-title">Geçmiş Çekilişler</div>
+    <div style="font-size:.76rem;color:var(--muted);margin-bottom:8px">
       Her satıra bir çekiliş girin. Örnek: <code style="color:var(--accent)">5 12 23 36 41 49</code>
     </div>
-    <textarea class="past-draws-input" id="pastDrawsInput" placeholder="5 12 23 36 41 49&#10;3 17 28 33 45 7&#10;1 9 19 31 42 49"></textarea>
-    <button class="parse-btn" onclick="parsePastDraws()">📊 Çekilişleri Analiz Et</button>
+    <textarea class="past-draws-input" id="pastDrawsInput" placeholder="5 12 23 36 41 49&#10;3 17 28 33 45 7"></textarea>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      <button class="parse-btn" onclick="parsePastDraws()">📊 Analiz Et</button>
+      <button class="parse-btn green-btn" onclick="loadGenHistory()">📥 Gerçek Verileri Yükle</button>
+    </div>
     <div class="parse-status" id="parseStatus"></div>
   </div>
 
@@ -365,22 +319,20 @@ body::before {
         <div class="stat-box"><div class="stat-val" id="statDraws">0</div><div class="stat-label">Çekiliş</div></div>
         <div class="stat-box"><div class="stat-val" id="statUnique">—</div><div class="stat-label">Tekil Sayı</div></div>
       </div>
-      <div style="margin-bottom:8px;font-size:.76rem;color:var(--muted)">Sayı Frekansı (geçmişten)</div>
+      <div style="margin-bottom:8px;font-size:.75rem;color:var(--muted)">Sayı Frekansı (geçmişten)</div>
       <div class="freq-chart" id="freqChart">
-        <div class="empty-state" style="padding:18px 0"><span class="empty-icon">📊</span>Frekansı görmek için çekiliş verisi yükleyin.</div>
+        <div class="empty-state" style="padding:16px 0"><span class="empty-icon">📊</span>Çekiliş verisi yükleyin.</div>
       </div>
     </div>
     <div class="tab-panel" id="tab-hotcold">
-      <div id="hotColdDisplay"><div class="empty-state"><span class="empty-icon">🌡️</span>Sıcak &amp; soğuk sayıları görmek için çekiliş verisi yükleyin.</div></div>
+      <div id="hotColdDisplay"><div class="empty-state"><span class="empty-icon">🌡️</span>Çekiliş verisi yükleyin.</div></div>
     </div>
   </div>
-
 </div><!-- /page-generator -->
 
 
-<!-- ═══════════════════ PAGE: BACKTESTING ═══════════════════ -->
+<!-- ═══════════ PAGE: BACKTEST ═══════════ -->
 <div id="page-backtest" class="page">
-
   <div class="header">
     <h1>📅 Geçmiş Test</h1>
     <p>Algoritmanın geçmişteki performansını ölç</p>
@@ -388,23 +340,23 @@ body::before {
 
   <div class="bt-info-box">
     <strong>Nasıl çalışır?</strong><br>
-    1. Tarihli geçmiş çekiliş verisi girin → <code>YYYY-AA-GG n1 n2 n3 ...</code><br>
-    2. Test etmek istediğiniz oyunu ve tarihi seçin<br>
-    3. Algoritma yalnızca <strong>seçilen tarihten önceki</strong> verileri kullanarak tahmin üretir<br>
-    4. Seçilen tarihteki gerçek sonuçla karşılaştırma gösterilir
+    1. Seçili oyunun gerçek verilerini yükleyin (veya kendiniz girin)<br>
+    2. Test etmek istediğiniz tarihi seçin<br>
+    3. Algoritma yalnızca <strong>seçilen tarihten önceki</strong> verilerle tahmin yapar<br>
+    4. Gerçek sonuçla karşılaştırmalı analiz gösterilir
   </div>
 
   <div class="card">
-    <div class="card-title">Tarihli Geçmiş Çekiliş Verisi</div>
-    <div style="font-size:.77rem;color:var(--muted);margin-bottom:10px">
+    <div class="card-title">Tarihli Çekiliş Verisi</div>
+    <div style="font-size:.76rem;color:var(--muted);margin-bottom:10px">
       Format: <code style="color:var(--accent)">YYYY-AA-GG n1 n2 n3 ...</code> &nbsp;|&nbsp;
-      Şans Topu joker topu: <code style="color:var(--accent)">2024-01-15 5 12 23 31 34 | 8</code>
+      Joker için: <code style="color:var(--accent)">2024-01-15 6 23 41 55 72 89 | 34</code>
     </div>
     <textarea class="dated-draws-input" id="datedDrawsInput"
-      placeholder="2024-06-15 7 14 22 31 38 47&#10;2024-06-12 3 11 19 28 35 42&#10;2024-06-08 5 13 21 30 37 44"></textarea>
-    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      placeholder="2026-05-13 6 39 41 59 70 89 | 21&#10;2026-05-11 18 36 38 48 53 81 | 74&#10;2026-05-09 17 25 28 53 72 79 | 61"></textarea>
+    <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
       <button class="parse-btn" onclick="parseDatedDraws()">📅 Verileri Yükle</button>
-      <button class="parse-btn" style="color:var(--muted)" onclick="loadSampleBtData()">📋 Örnek Veri Yükle</button>
+      <button class="parse-btn green-btn" onclick="loadBtHistory()">📥 Gerçek Verileri Yükle</button>
     </div>
     <div class="parse-status" id="btParseStatus"></div>
   </div>
@@ -462,19 +414,18 @@ body::before {
       <div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>
     </div>
   </div>
-
 </div><!-- /page-backtest -->
 
 </div><!-- /app -->
 <div id="toast"></div>
 
 <script>
-// ── Game & algo definitions ──────────────────────────────────
+// ── Game definitions (corrected) ─────────────────────────────
 const GAMES = [
-  { id:'sayisal',  name:'Sayısal Loto', emoji:'🔵', count:6,  max:49, bonusCount:0, bonusMax:0,  mainColor:'blue',  bonusColor:'',    range:'6 / 49',      drawCount:6  },
-  { id:'super',    name:'Süper Loto',   emoji:'⭐', count:6,  max:54, bonusCount:0, bonusMax:0,  mainColor:'gold',  bonusColor:'',    range:'6 / 54',      drawCount:6  },
-  { id:'sans',     name:'Şans Topu',    emoji:'🔴', count:5,  max:34, bonusCount:1, bonusMax:14, mainColor:'white', bonusColor:'red', range:'5/34 + 1/14', drawCount:6  },
-  { id:'onnumara', name:'On Numara',    emoji:'🟢', count:10, max:80, bonusCount:0, bonusMax:0,  mainColor:'green', bonusColor:'',    range:'10 / 80',     drawCount:22 },
+  { id:'sayisal',  name:'Sayısal Loto', emoji:'🔵', count:6,  max:90, bonusCount:1, bonusMax:90, mainColor:'blue',  bonusColor:'red',  range:'6/90 + Joker', drawCount:7  },
+  { id:'super',    name:'Süper Loto',   emoji:'⭐', count:6,  max:60, bonusCount:0, bonusMax:0,  mainColor:'gold',  bonusColor:'',     range:'6 / 60',       drawCount:6  },
+  { id:'sans',     name:'Şans Topu',    emoji:'🔴', count:5,  max:34, bonusCount:1, bonusMax:14, mainColor:'white', bonusColor:'red',  range:'5/34 + 1/14',  drawCount:6  },
+  { id:'onnumara', name:'On Numara',    emoji:'🟢', count:10, max:80, bonusCount:0, bonusMax:0,  mainColor:'green', bonusColor:'',     range:'10 / 80',      drawCount:22 },
 ];
 
 const ALGOS = [
@@ -486,182 +437,519 @@ const ALGOS = [
   { id:'wheeling', name:'🔄 Wheeling',         desc:'En iyi sayı havuzundan maksimum kapsama sağlar' },
 ];
 
-// ── State ────────────────────────────────────────────────────
-const state = {
-  selectedGame: 'sayisal', selectedAlgo: 'balanced',
-  ticketCount: 1, pastDraws: [], frequency: {},
-  savedTickets: [], totalGenerated: 0,
-  datedDraws: [],   // [{date, nums, bonus}]
-  btHistory: [],
+// ── Real historical draw data ────────────────────────────────
+// Source: Milli Piyango official results (Sep 2025 – May 2026)
+const DRAW_DATA = {
+sayisal:`2026-05-13 6 39 41 59 70 89 | 21
+2026-05-11 18 36 38 48 53 81 | 74
+2026-05-09 17 25 28 53 72 79 | 61
+2026-05-06 18 30 50 55 72 82 | 40
+2026-05-04 7 12 35 47 60 82 | 15
+2026-05-02 3 37 62 64 70 87 | 47
+2026-04-29 38 64 68 78 84 88 | 70
+2026-04-27 11 19 27 34 35 81 | 29
+2026-04-25 10 27 63 64 70 90 | 61
+2026-04-22 12 17 38 48 64 68 | 84
+2026-04-20 28 33 53 78 83 88 | 21
+2026-04-18 3 6 38 48 66 69 | 89
+2026-04-15 4 35 48 56 64 76 | 46
+2026-04-13 3 13 24 48 76 81 | 74
+2026-04-11 2 9 30 45 50 52 | 37
+2026-04-08 5 13 26 42 62 80 | 87
+2026-04-06 40 43 50 55 69 75 | 62
+2026-04-04 19 29 42 59 72 82 | 27
+2026-04-01 9 29 33 56 64 74 | 12
+2026-03-30 4 16 23 63 66 76 | 48
+2026-03-28 4 5 7 17 63 72 | 86
+2026-03-25 14 19 40 41 43 78 | 46
+2026-03-23 20 28 31 45 67 68 | 24
+2026-03-21 6 13 26 47 67 71 | 89
+2026-03-18 10 12 35 53 55 86 | 89
+2026-03-16 23 38 47 61 78 83 | 81
+2026-03-14 24 32 40 43 46 77 | 17
+2026-03-11 24 29 52 57 64 71 | 53
+2026-03-09 7 23 38 55 57 90 | 87
+2026-03-07 12 32 57 67 80 82 | 22
+2026-03-04 44 46 60 67 87 88 | 21
+2026-03-02 18 26 29 58 65 80 | 21
+2026-02-28 2 21 22 44 48 81 | 42
+2026-02-25 4 14 27 33 41 84 | 68
+2026-02-23 6 7 10 11 39 55 | 70
+2026-02-21 31 35 66 68 71 82 | 15
+2026-02-18 13 19 50 55 62 82 | 90
+2026-02-16 1 3 8 33 49 71 | 64
+2026-02-14 15 26 41 50 74 76 | 1
+2026-02-11 34 45 66 73 74 79 | 29
+2026-02-09 45 67 74 77 87 89 | 37
+2026-02-07 8 30 65 67 72 80 | 26
+2026-02-04 8 46 50 52 67 69 | 64
+2026-02-02 21 42 51 53 57 74 | 69
+2026-01-31 16 28 31 41 59 74 | 35
+2026-01-28 6 42 67 74 78 83 | 2
+2026-01-26 14 22 27 40 51 70 | 57
+2026-01-24 6 24 30 40 63 78 | 9
+2026-01-21 6 23 40 50 71 89 | 4
+2026-01-19 2 21 27 62 74 81 | 33
+2026-01-17 10 26 28 57 65 82 | 34
+2026-01-14 2 3 8 41 68 90 | 5
+2026-01-12 6 31 38 51 66 68 | 88
+2026-01-10 3 23 55 59 69 82 | 36
+2026-01-07 13 24 44 79 80 89 | 39
+2026-01-05 4 12 37 50 64 89 | 41
+2026-01-03 30 47 58 68 70 78 | 37
+2025-12-31 13 14 19 25 32 45 | 23
+2025-12-29 36 57 59 67 80 85 | 18
+2025-12-27 9 13 29 41 74 82 | 39
+2025-12-24 13 24 30 40 60 75 | 47
+2025-12-22 19 24 41 44 56 71 | 23
+2025-12-17 3 6 8 28 55 82 | 17
+2025-12-15 2 3 17 48 68 82 | 29
+2025-12-13 7 57 67 70 74 86 | 4
+2025-12-10 30 38 43 54 62 71 | 74
+2025-12-08 8 29 38 73 76 88 | 13
+2025-12-06 14 38 56 73 74 87 | 29
+2025-12-03 2 6 19 47 53 62 | 56
+2025-12-01 16 33 61 63 72 84 | 60
+2025-11-29 7 20 32 41 56 72 | 44
+2025-11-26 14 23 24 27 49 85 | 22
+2025-11-24 24 34 59 60 61 70 | 53
+2025-11-22 18 32 35 72 80 87 | 85
+2025-11-19 5 15 59 61 82 86 | 62
+2025-11-17 17 27 31 32 43 65 | 26
+2025-11-15 33 43 46 66 72 90 | 35
+2025-11-12 1 8 25 38 71 83 | 80
+2025-11-10 2 16 32 75 76 86 | 23
+2025-11-03 7 14 16 20 27 62 | 81
+2025-11-01 33 45 47 50 72 76 | 80
+2025-10-29 2 6 12 18 36 53 | 75
+2025-10-27 4 6 25 45 57 62 | 88
+2025-10-25 16 20 27 46 57 79 | 53
+2025-10-22 1 7 10 15 33 71 | 4
+2025-10-20 1 29 43 53 75 88 | 90
+2025-10-18 10 13 18 39 63 85 | 60
+2025-10-15 2 10 53 73 77 90 | 36
+2025-10-13 24 36 50 63 65 68 | 71
+2025-10-11 6 12 15 16 19 55 | 32
+2025-10-08 4 27 37 41 48 73 | 76
+2025-10-06 23 31 41 48 58 75 | 60
+2025-10-04 8 12 15 23 34 56 | 58
+2025-10-01 4 28 40 54 57 65 | 14
+2025-09-29 14 35 57 70 76 83 | 36
+2025-09-24 18 48 53 61 64 65 | 31
+2025-09-22 39 59 62 68 76 77 | 23
+2025-09-20 14 24 49 60 61 83 | 6
+2025-09-17 5 25 61 73 74 82 | 68
+2025-09-15 7 23 39 41 47 82 | 40
+2025-09-13 3 35 39 40 49 90 | 4`,
+
+super:`2026-05-14 13 18 35 45 46 50
+2026-05-12 2 19 28 30 31 37
+2026-05-10 1 8 31 38 40 56
+2026-05-07 1 11 20 33 35 47
+2026-05-05 14 20 31 35 38 39
+2026-05-03 1 13 19 27 42 56
+2026-04-30 25 35 39 41 54 56
+2026-04-28 2 14 22 34 48 59
+2026-04-26 6 36 38 44 49 53
+2026-04-23 9 26 30 39 41 45
+2026-04-21 8 31 35 36 49 55
+2026-04-19 1 11 26 49 55 59
+2026-04-16 15 20 29 51 56 57
+2026-04-14 13 19 21 30 42 43
+2026-04-12 11 19 23 27 28 39
+2026-04-09 6 18 33 40 50 58
+2026-04-07 10 29 36 42 46 52
+2026-04-05 1 3 14 19 48 56
+2026-04-02 6 11 22 36 37 53
+2026-03-31 2 16 35 51 52 56
+2026-03-29 1 17 28 30 32 42
+2026-03-26 7 14 17 25 42 49
+2026-03-24 7 9 20 22 28 39
+2026-03-22 8 9 20 30 33 55
+2026-03-19 18 21 34 43 47 50
+2026-03-17 1 6 7 19 31 44
+2026-03-15 5 12 21 28 35 42
+2026-03-12 3 22 38 41 44 50
+2026-03-10 7 9 14 36 52 55
+2026-03-08 11 41 43 44 51 57
+2026-03-05 3 11 16 25 37 41
+2026-03-03 17 18 21 27 37 51
+2026-03-01 3 14 27 32 43 44
+2026-02-26 3 19 26 37 44 57
+2026-02-24 6 19 31 39 47 51
+2026-02-22 14 16 30 42 46 55
+2026-02-19 6 8 43 49 58 60
+2026-02-17 2 14 31 38 47 54
+2026-02-15 9 16 31 34 40 58
+2026-02-12 3 5 10 22 23 52
+2026-02-10 9 29 36 46 47 52
+2026-02-08 8 18 21 29 36 38
+2026-02-05 14 24 34 42 51 60
+2026-02-03 21 33 43 47 55 59
+2026-02-01 7 17 21 25 32 52
+2026-01-29 1 4 7 8 11 41
+2026-01-27 1 7 16 34 38 42
+2026-01-25 12 20 23 38 49 50
+2026-01-22 1 2 36 42 49 55
+2026-01-20 6 26 32 43 48 54
+2026-01-18 9 24 25 33 44 52
+2026-01-15 1 22 27 41 44 46
+2026-01-13 7 19 23 32 48 55
+2026-01-11 3 8 10 12 32 42
+2026-01-08 3 7 12 22 23 55
+2026-01-06 6 9 25 29 45 57
+2026-01-04 20 21 23 26 32 37
+2026-01-01 34 36 39 45 53 55
+2025-12-30 6 34 35 36 56 57
+2025-12-28 6 31 35 41 44 46
+2025-12-25 2 7 19 21 23 59
+2025-12-23 13 20 33 35 40 48
+2025-12-21 9 11 12 21 32 34
+2025-12-18 4 7 31 35 40 52
+2025-12-16 5 9 32 35 55 56
+2025-12-14 2 9 27 30 36 55
+2025-12-11 1 8 29 39 41 50
+2025-12-09 17 28 32 36 38 51
+2025-12-07 19 33 37 39 56 57
+2025-12-04 9 11 18 35 49 50
+2025-12-02 2 9 16 19 29 52
+2025-11-30 9 12 22 34 43 56
+2025-11-27 5 7 8 28 47 58
+2025-11-25 2 15 28 39 48 50
+2025-11-23 12 19 41 51 54 59
+2025-11-20 2 27 34 37 48 60
+2025-11-18 1 9 16 30 45 54
+2025-11-16 6 9 16 20 26 46
+2025-11-13 9 13 18 25 29 58
+2025-11-11 7 12 14 15 17 40
+2025-11-09 18 26 34 48 49 56
+2025-11-06 2 16 20 31 39 55
+2025-11-04 10 11 26 46 54 60
+2025-11-02 15 17 20 39 44 47
+2025-10-30 1 6 35 54 56 59
+2025-10-28 10 22 39 41 48 49
+2025-10-26 18 22 26 44 53 55
+2025-10-23 14 23 36 45 47 48
+2025-10-21 2 3 11 25 51 52
+2025-10-19 13 20 32 35 37 41
+2025-10-16 1 20 22 39 52 57
+2025-10-14 3 23 28 39 44 57
+2025-10-12 2 33 41 54 58 60
+2025-10-09 4 8 15 30 43 47
+2025-10-07 1 8 16 20 22 41
+2025-10-05 1 3 9 25 37 44
+2025-10-02 2 14 21 25 42 60
+2025-09-30 15 19 23 25 38 53
+2025-09-28 10 14 31 35 55 57
+2025-09-25 1 7 10 26 33 35`,
+
+sans:`2026-05-13 5 7 11 15 21 | 6
+2026-05-10 4 6 20 23 33 | 12
+2026-05-06 3 20 25 32 34 | 13
+2026-05-03 2 8 19 26 29 | 13
+2026-04-29 1 6 21 25 34 | 4
+2026-04-26 6 17 26 29 32 | 9
+2026-04-22 1 16 24 31 34 | 5
+2026-04-19 3 14 16 17 34 | 13
+2026-04-15 1 2 13 16 19 | 13
+2026-04-12 2 6 11 19 24 | 8
+2026-04-08 5 17 28 29 30 | 13
+2026-04-05 9 14 19 20 25 | 3
+2026-04-01 7 10 12 13 22 | 14
+2026-03-29 3 11 12 17 20 | 2
+2026-03-25 8 18 27 28 31 | 12
+2026-03-22 2 9 15 18 29 | 9
+2026-03-18 8 13 26 29 31 | 13
+2026-03-15 7 8 10 20 33 | 14
+2026-03-11 6 11 14 24 27 | 14
+2026-03-08 1 8 23 30 33 | 10
+2026-03-04 2 5 16 24 26 | 11
+2026-03-01 1 9 14 25 31 | 10
+2026-02-25 8 15 24 26 27 | 14
+2026-02-22 3 11 24 29 31 | 10
+2026-02-18 6 15 19 21 23 | 12
+2026-02-15 8 20 24 30 33 | 12
+2026-02-11 19 20 24 28 32 | 13
+2026-02-08 4 12 16 28 29 | 1
+2026-02-04 2 5 8 28 33 | 7
+2026-02-01 9 15 19 20 33 | 3
+2026-01-28 2 4 12 13 20 | 10
+2026-01-25 1 7 10 11 13 | 9
+2026-01-21 15 16 18 30 33 | 6
+2026-01-18 8 9 22 26 29 | 12
+2026-01-14 4 10 11 29 34 | 11
+2026-01-11 7 9 16 21 26 | 11
+2026-01-07 3 5 8 18 34 | 6
+2026-01-04 1 12 22 33 34 | 5
+2025-12-31 2 5 11 31 33 | 9
+2025-12-28 3 12 14 15 33 | 14
+2025-12-24 1 3 8 10 34 | 2
+2025-12-21 3 6 9 22 30 | 10
+2025-12-17 4 12 18 25 29 | 13
+2025-12-14 9 11 15 18 33 | 5
+2025-12-10 8 17 20 30 34 | 4
+2025-12-07 8 21 22 26 29 | 5
+2025-12-03 2 6 19 20 22 | 10
+2025-11-30 5 15 22 25 27 | 8
+2025-11-26 5 7 21 25 32 | 4
+2025-11-23 2 8 20 21 27 | 8
+2025-11-19 1 6 10 19 29 | 8
+2025-11-16 1 2 7 14 20 | 5
+2025-11-12 3 10 20 27 33 | 8
+2025-11-09 2 24 28 30 33 | 10
+2025-11-05 1 7 8 11 22 | 11
+2025-11-02 2 8 22 25 29 | 9
+2025-10-29 5 9 22 23 25 | 7
+2025-10-26 3 17 19 26 29 | 8
+2025-10-22 7 14 15 18 23 | 5
+2025-10-19 4 6 7 14 29 | 4
+2025-10-15 4 6 12 18 25 | 9
+2025-10-12 3 12 13 14 17 | 12
+2025-10-08 4 6 7 16 33 | 4
+2025-10-05 4 5 11 12 18 | 9
+2025-10-01 3 5 21 23 26 | 12
+2025-09-28 6 10 16 21 34 | 9
+2025-09-24 2 5 12 22 31 | 7
+2025-09-21 4 6 8 10 31 | 14
+2025-09-17 16 19 24 30 31 | 3
+2025-09-14 3 5 25 28 31 | 4
+2025-09-10 7 19 23 27 33 | 3
+2025-09-07 2 8 17 21 31 | 8
+2025-09-03 3 19 21 25 34 | 10
+2025-08-31 8 28 30 32 34 | 3
+2025-08-27 16 18 20 21 32 | 13
+2025-08-24 8 10 13 19 22 | 9
+2025-08-20 5 22 23 28 31 | 5
+2025-08-17 5 12 24 32 34 | 1
+2025-08-13 2 8 9 15 19 | 3
+2025-08-10 2 16 20 29 34 | 2
+2025-08-06 15 17 22 24 29 | 10
+2025-08-03 4 14 15 17 28 | 3
+2025-07-30 2 3 10 16 23 | 14
+2025-07-27 4 7 10 11 27 | 8
+2025-07-23 1 5 20 23 29 | 10
+2025-07-20 1 8 16 17 22 | 14
+2025-07-16 5 8 14 15 33 | 7
+2025-07-13 2 20 25 27 33 | 8
+2025-07-09 5 7 12 21 31 | 2
+2025-07-06 1 2 4 7 16 | 7
+2025-07-02 7 15 16 26 30 | 2
+2025-06-29 9 18 22 32 33 | 3
+2025-06-25 8 10 12 20 28 | 5
+2025-06-22 5 6 21 22 31 | 9
+2025-06-18 13 17 30 32 34 | 14
+2025-06-15 14 18 19 20 27 | 7
+2025-06-11 1 9 18 22 25 | 6
+2025-06-08 3 7 8 16 21 | 14
+2025-06-04 5 11 23 27 30 | 2
+2025-06-01 12 13 18 21 26 | 6`,
+
+onnumara:`2026-05-15 3 9 10 13 16 18 31 35 37 40 43 44 45 48 52 54 58 63 64 66 70 73
+2026-05-11 1 2 6 13 17 21 24 27 33 38 39 43 48 56 60 61 62 66 70 74 76 80
+2026-05-08 6 12 14 15 18 19 24 27 29 31 40 42 50 53 59 61 62 63 71 72 74 77
+2026-05-04 1 10 11 13 14 17 19 20 24 28 32 33 46 48 52 58 59 60 65 69 72 79
+2026-05-01 3 11 12 14 16 17 23 25 27 29 37 39 42 49 50 54 56 58 59 61 63 71
+2026-04-27 5 7 8 11 14 18 24 27 31 40 46 47 48 50 51 56 59 61 62 64 66 67
+2026-04-24 8 11 15 16 18 33 36 37 49 52 55 56 58 63 64 66 67 68 72 75 76 79
+2026-04-20 5 7 18 25 27 28 31 32 34 35 38 50 52 55 60 61 67 69 73 75 78 79
+2026-04-17 1 5 8 9 10 16 23 25 26 33 37 38 48 52 53 56 58 61 64 70 77 78
+2026-04-13 1 2 8 9 20 25 27 29 36 37 41 49 53 54 55 57 62 65 68 72 74 77
+2026-04-10 3 6 7 9 12 15 17 18 20 24 25 31 33 37 40 41 46 49 53 57 60 77
+2026-04-06 3 7 9 18 21 27 29 36 39 42 45 54 55 59 61 69 73 74 76 77 79 80
+2026-04-03 5 6 9 16 20 21 26 27 28 30 38 46 48 50 53 54 56 66 67 69 79 80
+2026-03-30 2 3 8 10 11 12 18 20 21 25 28 35 37 38 46 51 55 63 68 72 75 79
+2026-03-27 2 7 9 17 25 32 34 35 41 43 46 51 52 53 58 59 67 68 71 75 78 79
+2026-03-23 2 12 14 16 19 23 26 31 33 34 36 38 43 52 56 57 61 66 69 70 72 78
+2026-03-20 4 7 8 12 18 19 22 25 29 34 35 38 39 42 43 46 49 61 64 65 68 71
+2026-03-16 6 10 16 23 28 31 34 36 37 38 39 42 45 49 50 57 63 65 66 71 76 79
+2026-03-13 4 5 11 17 18 19 26 27 29 30 31 34 40 46 47 48 50 55 61 64 73 80
+2026-03-09 1 5 11 13 16 17 24 28 31 39 41 46 50 52 55 62 66 70 72 77 79 80
+2026-03-06 8 12 14 16 18 21 22 23 29 36 43 44 46 47 48 50 55 59 61 69 71 78
+2026-03-02 6 9 18 23 28 32 35 36 42 45 46 47 52 54 55 56 61 68 70 73 78 79
+2026-02-27 1 2 7 8 9 11 23 27 28 30 32 39 51 58 64 67 70 73 75 76 79 80
+2026-02-23 2 3 6 7 15 16 25 26 30 31 36 38 39 41 50 53 62 74 75 76 77 79
+2026-02-20 10 11 12 19 22 27 29 31 35 44 45 47 48 51 58 63 69 70 71 72 75 77
+2026-02-16 5 12 13 19 20 22 24 34 36 37 40 41 46 55 56 62 67 68 70 74 78 80
+2026-02-13 3 6 9 11 19 26 28 29 32 37 39 40 42 49 51 60 61 64 66 68 69 73
+2026-02-09 2 3 4 6 9 16 17 18 21 37 39 41 42 43 50 61 62 63 69 76 77 79
+2026-02-06 2 7 13 14 15 25 29 32 40 48 50 59 65 66 67 70 71 72 76 77 79 80
+2026-02-02 10 11 13 18 19 20 21 26 27 32 34 39 42 45 49 54 60 61 67 68 69 73
+2026-01-30 2 5 12 15 16 21 23 25 28 34 36 37 38 49 51 57 58 60 61 71 76 79`
 };
 
-const getGame = id => GAMES.find(g => g.id === (id || state.selectedGame));
+// ── State ────────────────────────────────────────────────────
+const state = {
+  selectedGame:'sayisal', selectedAlgo:'balanced',
+  ticketCount:1, pastDraws:[], frequency:{},
+  savedTickets:[], totalGenerated:0,
+  datedDraws:[], btHistory:[],
+};
+
+const getGame = id => GAMES.find(g=>g.id===(id||state.selectedGame));
 
 // ── Navigation ───────────────────────────────────────────────
-function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  document.querySelectorAll('.nav-tab')[name === 'generator' ? 0 : 1].classList.add('active');
+function showPage(name){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  document.querySelectorAll('.nav-tab')[name==='generator'?0:1].classList.add('active');
 }
 
 // ── Init grids ───────────────────────────────────────────────
-function initGameGrid() {
-  document.getElementById('gameGrid').innerHTML = GAMES.map(g => `
-    <button class="game-btn ${g.id === state.selectedGame ? 'active' : ''}" onclick="selectGame('${g.id}')">
+function initGameGrid(){
+  document.getElementById('gameGrid').innerHTML=GAMES.map(g=>`
+    <button class="game-btn ${g.id===state.selectedGame?'active':''}" onclick="selectGame('${g.id}')">
       <span class="game-emoji">${g.emoji}</span>
       <span class="game-name">${g.name}</span>
       <span class="game-range">${g.range}</span>
     </button>`).join('');
 }
-
-function initAlgoGrid() {
-  document.getElementById('algoGrid').innerHTML = ALGOS.map(a => `
-    <button class="algo-btn ${a.id === state.selectedAlgo ? 'active' : ''}" onclick="selectAlgo('${a.id}')">
+function initAlgoGrid(){
+  document.getElementById('algoGrid').innerHTML=ALGOS.map(a=>`
+    <button class="algo-btn ${a.id===state.selectedAlgo?'active':''}" onclick="selectAlgo('${a.id}')">
       <span class="algo-name">${a.name}</span>
       <span class="algo-desc">${a.desc}</span>
     </button>`).join('');
 }
+function selectGame(id){ state.selectedGame=id; initGameGrid(); }
+function selectAlgo(id){ state.selectedAlgo=id; initAlgoGrid(); }
+function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCount+d)); document.getElementById('countVal').textContent=state.ticketCount; }
 
-function selectGame(id) { state.selectedGame = id; initGameGrid(); }
-function selectAlgo(id)  { state.selectedAlgo = id; initAlgoGrid(); }
-function adjustCount(d)  { state.ticketCount = Math.max(1, Math.min(10, state.ticketCount + d)); document.getElementById('countVal').textContent = state.ticketCount; }
+// ── Load real data buttons ───────────────────────────────────
+function loadGenHistory(){
+  const id=state.selectedGame;
+  if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
+  // Strip dates for the generator (plain numbers only)
+  const plain=DRAW_DATA[id].split('\n').map(line=>{
+    const noDate=line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'');
+    return noDate;
+  }).join('\n');
+  document.getElementById('pastDrawsInput').value=plain;
+  parsePastDraws();
+  showToast('✅ '+getGame(id).name+' gerçek verileri yüklendi');
+}
 
-// ── Past-draws parser (generator page) ──────────────────────
-function parsePastDraws() {
-  const raw = document.getElementById('pastDrawsInput').value.trim();
-  const status = document.getElementById('parseStatus');
-  if (!raw) { status.className='parse-status error'; status.textContent='⚠️ Lütfen önce geçmiş çekiliş verisi girin.'; return; }
-  const draws = [];
-  raw.split('\n').filter(l=>l.trim()).forEach(line => {
-    const nums = line.replace(/[|+]/g,' ').match(/\d+/g);
-    if (nums && nums.length >= 2) draws.push(nums.map(Number));
+function loadBtHistory(){
+  const id=document.getElementById('btGame').value;
+  if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
+  document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
+  parseDatedDraws();
+  showToast('✅ '+getGame(id).name+' gerçek verileri yüklendi');
+}
+
+// ── Past-draws parser (generator) ───────────────────────────
+function parsePastDraws(){
+  const raw=document.getElementById('pastDrawsInput').value.trim();
+  const status=document.getElementById('parseStatus');
+  if(!raw){status.className='parse-status error';status.textContent='⚠️ Lütfen önce çekiliş verisi girin.';return;}
+  const draws=[];
+  raw.split('\n').filter(l=>l.trim()).forEach(line=>{
+    const nums=line.replace(/[|+]/g,' ').match(/\d+/g);
+    if(nums&&nums.length>=2) draws.push(nums.map(Number));
   });
-  if (!draws.length) { status.className='parse-status error'; status.textContent='❌ Çekiliş ayrıştırılamadı. Format: 5 12 23 36 41 (her satıra bir çekiliş)'; return; }
-  state.pastDraws = draws;
-  const freq = {};
-  draws.forEach(d => d.forEach(n => { freq[n]=(freq[n]||0)+1; }));
-  state.frequency = freq;
+  if(!draws.length){status.className='parse-status error';status.textContent='❌ Çekiliş ayrıştırılamadı.';return;}
+  state.pastDraws=draws;
+  const freq={};
+  draws.forEach(d=>d.forEach(n=>{freq[n]=(freq[n]||0)+1;}));
+  state.frequency=freq;
   status.className='parse-status success';
   status.textContent=`✅ ${draws.length} çekiliş yüklendi. ${Object.keys(freq).length} tekil sayı bulundu.`;
   updateStats(); renderFreqChart(); renderHotCold();
 }
 
 // ── Number generation ────────────────────────────────────────
-function rng(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function rng(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
+function range(min,max){const a=[];for(let i=min;i<=max;i++)a.push(i);return a;}
 
-function range(min,max){ const a=[]; for(let i=min;i<=max;i++) a.push(i); return a; }
-
-function pickUnique(pool, count, weights) {
-  const result=[], rem=[...pool], remW=weights?[...weights]:null;
-  for (let i=0; i<count && rem.length>0; i++) {
+function pickUnique(pool,count,weights){
+  const result=[],rem=[...pool],remW=weights?[...weights]:null;
+  for(let i=0;i<count&&rem.length>0;i++){
     let idx=0;
-    if (remW) {
-      const tot=remW.reduce((s,w)=>s+w,0); let r=Math.random()*tot;
-      for (let j=0;j<remW.length;j++){ r-=remW[j]; if(r<=0){idx=j;break;} }
-    } else { idx=Math.floor(Math.random()*rem.length); }
-    result.push(rem[idx]);
-    rem.splice(idx,1);
-    if (remW) remW.splice(idx,1);
+    if(remW){
+      const tot=remW.reduce((s,w)=>s+w,0);let r=Math.random()*tot;
+      for(let j=0;j<remW.length;j++){r-=remW[j];if(r<=0){idx=j;break;}}
+    }else{idx=Math.floor(Math.random()*rem.length);}
+    result.push(rem[idx]);rem.splice(idx,1);if(remW)remW.splice(idx,1);
   }
   return result;
 }
 
-function generateNumbers(game, algo, freqOverride) {
-  const freq = freqOverride || state.frequency;
-  const hasHist = Object.keys(freq).length > 0;
-  const pool = range(1, game.max);
-  const bonusPool = game.bonusCount > 0 ? range(1, game.bonusMax) : [];
-  let mainNums, bonusNums = [];
+function generateNumbers(game,algo,freqOverride){
+  const freq=freqOverride||state.frequency;
+  const hasHist=Object.keys(freq).length>0;
+  const pool=range(1,game.max);
+  const bonusPool=game.bonusCount>0?range(1,game.bonusMax):[];
+  let mainNums,bonusNums=[];
 
-  switch(algo) {
+  switch(algo){
     case 'random':
-      mainNums = pickUnique(pool, game.count);
-      bonusNums = pickUnique(bonusPool, game.bonusCount);
+      mainNums=pickUnique(pool,game.count);
+      bonusNums=pickUnique(bonusPool,game.bonusCount);
       break;
-
     case 'hot':
-      if (!hasHist) return generateNumbers(game,'random',freq);
-      mainNums = pickUnique(pool, game.count, pool.map(n=>freq[n]||.1));
-      bonusNums = pickUnique(bonusPool, game.bonusCount, bonusPool.map(n=>freq[n]||.1));
+      if(!hasHist)return generateNumbers(game,'random',freq);
+      mainNums=pickUnique(pool,game.count,pool.map(n=>freq[n]||.1));
+      bonusNums=pickUnique(bonusPool,game.bonusCount,bonusPool.map(n=>freq[n]||.1));
       break;
-
-    case 'cold': {
-      if (!hasHist) return generateNumbers(game,'random',freq);
-      const mx = Math.max(...Object.values(freq),1);
-      mainNums = pickUnique(pool, game.count, pool.map(n=>Math.max(.1,mx-(freq[n]||0)+.5)));
-      if (bonusPool.length) {
-        const bmx = Math.max(...bonusPool.map(n=>freq[n]||0),1);
-        bonusNums = pickUnique(bonusPool, game.bonusCount, bonusPool.map(n=>Math.max(.1,bmx-(freq[n]||0)+.5)));
-      }
-      break;
-    }
-
-    case 'balanced': {
-      if (!hasHist) return generateNumbers(game,'random',freq);
-      const hc=Math.floor(game.count/3), cc=Math.floor(game.count/3), rc=game.count-hc-cc;
+    case 'cold':{
+      if(!hasHist)return generateNumbers(game,'random',freq);
+      const mx=Math.max(...Object.values(freq),1);
+      mainNums=pickUnique(pool,game.count,pool.map(n=>Math.max(.1,mx-(freq[n]||0)+.5)));
+      if(bonusPool.length){const bmx=Math.max(...bonusPool.map(n=>freq[n]||0),1);bonusNums=pickUnique(bonusPool,game.bonusCount,bonusPool.map(n=>Math.max(.1,bmx-(freq[n]||0)+.5)));}
+      break;}
+    case 'balanced':{
+      if(!hasHist)return generateNumbers(game,'random',freq);
+      const hc=Math.floor(game.count/3),cc=Math.floor(game.count/3),rc=game.count-hc-cc;
       const sorted=[...pool].sort((a,b)=>(freq[b]||0)-(freq[a]||0));
       const hp=sorted.slice(0,Math.ceil(pool.length*.3));
       const cp=sorted.slice(-Math.ceil(pool.length*.3));
-      const picks_h=pickUnique(hp,hc);
-      const picks_c=pickUnique(cp.filter(n=>!picks_h.includes(n)),cc);
-      const rp=pool.filter(n=>!picks_h.includes(n)&&!picks_c.includes(n));
-      mainNums=[...picks_h,...picks_c,...pickUnique(rp,rc)];
+      const ph=pickUnique(hp,hc);
+      const pc=pickUnique(cp.filter(n=>!ph.includes(n)),cc);
+      const rp=pool.filter(n=>!ph.includes(n)&&!pc.includes(n));
+      mainNums=[...ph,...pc,...pickUnique(rp,rc)];
       bonusNums=pickUnique(bonusPool,game.bonusCount);
-      break;
-    }
-
-    case 'delta': {
-      let cur=rng(1,Math.ceil(game.max/game.count)), nums=[];
-      for(let i=0;i<game.count;i++){ cur=Math.min(cur+rng(1,Math.ceil(game.max/game.count)),game.max); nums.push(cur); }
+      break;}
+    case 'delta':{
+      let cur=rng(1,Math.ceil(game.max/game.count)),nums=[];
+      for(let i=0;i<game.count;i++){cur=Math.min(cur+rng(1,Math.ceil(game.max/game.count)),game.max);nums.push(cur);}
       nums=[...new Set(nums)];
-      while(nums.length<game.count){ const n=rng(1,game.max); if(!nums.includes(n)) nums.push(n); }
-      mainNums=nums.slice(0,game.count);
-      bonusNums=pickUnique(bonusPool,game.bonusCount);
-      break;
-    }
-
-    case 'wheeling': {
-      const keyNums=hasHist
-        ? Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,Math.ceil(pool.length*.5)).map(e=>+e[0]).filter(n=>n>=1&&n<=game.max)
-        : pool;
-      mainNums=pickUnique(keyNums.length>=game.count?keyNums:pool,game.count);
-      bonusNums=pickUnique(bonusPool,game.bonusCount);
-      break;
-    }
-
-    default: return generateNumbers(game,'random',freq);
+      while(nums.length<game.count){const n=rng(1,game.max);if(!nums.includes(n))nums.push(n);}
+      mainNums=nums.slice(0,game.count);bonusNums=pickUnique(bonusPool,game.bonusCount);
+      break;}
+    case 'wheeling':{
+      const kn=hasHist?Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,Math.ceil(pool.length*.5)).map(e=>+e[0]).filter(n=>n>=1&&n<=game.max):pool;
+      mainNums=pickUnique(kn.length>=game.count?kn:pool,game.count);bonusNums=pickUnique(bonusPool,game.bonusCount);
+      break;}
+    default:return generateNumbers(game,'random',freq);
   }
-
-  return { main:mainNums.sort((a,b)=>a-b), bonus:bonusNums.sort((a,b)=>a-b) };
+  return{main:mainNums.sort((a,b)=>a-b),bonus:bonusNums.sort((a,b)=>a-b)};
 }
 
 // ── Confidence ───────────────────────────────────────────────
-function calcConfidence(algo) {
+function calcConfidence(algo){
   const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
 
-// ── Ball HTML ────────────────────────────────────────────────
-function ballEl(num, colorCls, delay=0, special=false, extraCls='', size='') {
-  const sizeStyle = size ? `--ball-size:${size};` : '';
-  return `<div class="ball ${colorCls}${special?' special':''}${extraCls?' '+extraCls:''} rolling" style="${sizeStyle}animation-delay:${delay}ms">${num}</div>`;
+// ── Ball HTML ─────────────────────────────────────────────────
+function ballEl(num,colorCls,delay=0,special=false,extra=''){
+  return `<div class="ball ${colorCls}${special?' special':''}${extra?' '+extra:''} rolling" style="animation-delay:${delay}ms">${num}</div>`;
 }
-function staticBall(num, colorCls, extraCls='', size='') {
-  const sizeStyle = size ? `--ball-size:${size};` : '';
-  return `<div class="ball ${colorCls}${extraCls?' '+extraCls:''}" style="${sizeStyle}animation:none">${num}</div>`;
+function staticBall(num,colorCls,extra='',sz=''){
+  const s=sz?`--ball-size:${sz};`:'';
+  return `<div class="ball ${colorCls}${extra?' '+extra:''}" style="${s}animation:none">${num}</div>`;
 }
 
-// ── Render ticket ────────────────────────────────────────────
-function renderTicket(td, game, algoId, idx=0) {
-  const algo = ALGOS.find(a=>a.id===algoId);
-  const conf = calcConfidence(algoId);
-  let ballsHtml = td.main.map((n,i)=>ballEl(n,game.mainColor,i*80)).join('');
-  if (td.bonus.length) ballsHtml += `<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>ballEl(n,game.bonusColor,(td.main.length+i)*80,true)).join('');
-  const allNums=[...td.main,...td.bonus], copy=allNums.join(' - '), tid=`t_${Date.now()}_${idx}`;
+// ── Render ticket ─────────────────────────────────────────────
+function renderTicket(td,game,algoId,idx=0){
+  const algo=ALGOS.find(a=>a.id===algoId);
+  const conf=calcConfidence(algoId);
+  let ballsHtml=td.main.map((n,i)=>ballEl(n,game.mainColor,i*70)).join('');
+  if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>ballEl(n,game.bonusColor,(td.main.length+i)*70,true)).join('');
+  const allNums=[...td.main,...td.bonus],copy=allNums.join(' - ');
   return `
-  <div class="ticket" id="${tid}" style="margin-bottom:${idx>0?'12px':'0'}">
+  <div class="ticket" style="margin-bottom:${idx>0?'12px':'0'}">
     <div class="ticket-header">
       <span class="ticket-game">${game.emoji} ${game.name}</span>
       <span class="ticket-algo-tag">${algo?.name||algoId}</span>
@@ -681,10 +969,10 @@ function renderTicket(td, game, algoId, idx=0) {
   </div>`;
 }
 
-// ── Generate ─────────────────────────────────────────────────
-function generateTickets() {
-  const game=getGame(), btn=document.getElementById('generateBtn');
-  btn.classList.add('spinning'); btn.textContent='🎲 Sayılar çekiliyor...';
+// ── Generate ──────────────────────────────────────────────────
+function generateTickets(){
+  const game=getGame(),btn=document.getElementById('generateBtn');
+  btn.classList.add('spinning');btn.textContent='🎲 Sayılar çekiliyor...';
   setTimeout(()=>{
     const tickets=Array.from({length:state.ticketCount},()=>generateNumbers(game,state.selectedAlgo));
     const container=document.getElementById('ticketContainer');
@@ -692,50 +980,47 @@ function generateTickets() {
     document.getElementById('ticketCard').style.display='block';
     document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
     requestAnimationFrame(()=>{
-      document.querySelectorAll('.confidence-fill').forEach(el=>
-        setTimeout(()=>{ el.style.width=el.dataset.target+'%'; },300)
-      );
+      document.querySelectorAll('.confidence-fill').forEach(el=>setTimeout(()=>{el.style.width=el.dataset.target+'%';},300));
     });
-    state.totalGenerated+=state.ticketCount; updateStats();
-    btn.classList.remove('spinning'); btn.textContent='🎰 Şanslı Sayıları Üret';
+    state.totalGenerated+=state.ticketCount;updateStats();
+    btn.classList.remove('spinning');btn.textContent='🎰 Şanslı Sayıları Üret';
   },400);
 }
 
-// ── Save/delete tickets ──────────────────────────────────────
-function saveTicket(nums, gameName, mainColor, bonusColor, mainCount) {
+// ── Save/delete ───────────────────────────────────────────────
+function saveTicket(nums,gameName,mainColor,bonusColor,mainCount){
   state.savedTickets.unshift({id:Date.now(),nums,gameName,mainColor,bonusColor,mainCount,time:new Date().toLocaleTimeString()});
-  renderSavedTickets(); updateStats(); showToast('✅ Bilet kaydedildi!');
+  renderSavedTickets();updateStats();showToast('✅ Bilet kaydedildi!');
 }
-function deleteTicket(id) {
+function deleteTicket(id){
   state.savedTickets=state.savedTickets.filter(t=>t.id!==id);
-  renderSavedTickets(); updateStats(); showToast('🗑️ Bilet silindi');
+  renderSavedTickets();updateStats();showToast('🗑️ Bilet silindi');
 }
-function renderSavedTickets() {
+function renderSavedTickets(){
   const c=document.getElementById('savedList');
-  if (!state.savedTickets.length){ c.innerHTML='<div class="empty-state"><span class="empty-icon">🎟️</span>Henüz kaydedilmiş bilet yok.</div>'; return; }
+  if(!state.savedTickets.length){c.innerHTML='<div class="empty-state"><span class="empty-icon">🎟️</span>Henüz kaydedilmiş bilet yok.</div>';return;}
   c.innerHTML=state.savedTickets.map(t=>`
     <div class="saved-ticket">
       <div class="saved-balls">${t.nums.map((n,i)=>`<div class="mini-ball ${i<t.mainCount?t.mainColor:t.bonusColor}">${n}</div>`).join('')}</div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        <div class="saved-meta">${t.gameName}</div>
-        <div class="saved-meta">${t.time}</div>
+        <div class="saved-meta">${t.gameName}</div><div class="saved-meta">${t.time}</div>
         <button class="icon-btn del" onclick="deleteTicket(${t.id})">🗑️</button>
       </div>
     </div>`).join('');
 }
 
-// ── Stats / freq / hot-cold ──────────────────────────────────
-function updateStats() {
+// ── Stats ─────────────────────────────────────────────────────
+function updateStats(){
   document.getElementById('statGenerated').textContent=state.totalGenerated;
   document.getElementById('statSaved').textContent=state.savedTickets.length;
   document.getElementById('statDraws').textContent=state.pastDraws.length;
   document.getElementById('statUnique').textContent=Object.keys(state.frequency).length||'—';
 }
-function renderFreqChart() {
-  const chart=document.getElementById('freqChart'), freq=state.frequency;
-  if (!Object.keys(freq).length){ chart.innerHTML='<div class="empty-state" style="padding:18px 0"><span class="empty-icon">📊</span>Henüz veri yok.</div>'; return; }
-  const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,40);
-  const mx=sorted[0][1], colors=['#6c63ff','#ff6584','#ffd700','#00e676','#00b4d8','#a29bfe'];
+function renderFreqChart(){
+  const chart=document.getElementById('freqChart'),freq=state.frequency;
+  if(!Object.keys(freq).length){chart.innerHTML='<div class="empty-state" style="padding:16px 0"><span class="empty-icon">📊</span>Veri yok.</div>';return;}
+  const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,50);
+  const mx=sorted[0][1],colors=['#6c63ff','#ff6584','#ffd700','#00e676','#00b4d8','#a29bfe'];
   chart.innerHTML=sorted.map(([num,cnt],i)=>`
     <div class="freq-row">
       <div class="freq-num">${num}</div>
@@ -743,26 +1028,25 @@ function renderFreqChart() {
       <div class="freq-count">${cnt}</div>
     </div>`).join('');
 }
-function renderHotCold() {
-  const el=document.getElementById('hotColdDisplay'), freq=state.frequency;
-  if (!Object.keys(freq).length){ el.innerHTML='<div class="empty-state"><span class="empty-icon">🌡️</span>Sıcak &amp; soğuk sayıları görmek için çekiliş verisi yükleyin.</div>'; return; }
+function renderHotCold(){
+  const el=document.getElementById('hotColdDisplay'),freq=state.frequency;
+  if(!Object.keys(freq).length){el.innerHTML='<div class="empty-state"><span class="empty-icon">🌡️</span>Veri yok.</div>';return;}
   const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]);
-  const top=sorted.slice(0,10).map(([n])=>+n), bot=sorted.slice(-10).reverse().map(([n])=>+n);
+  const top=sorted.slice(0,12).map(([n])=>+n),bot=sorted.slice(-12).reverse().map(([n])=>+n);
   el.innerHTML=`
     <div class="hot-cold-grid">
-      <div><div class="hot-cold-title hot">🔥 Sıcak Sayılar (En Çok Çekilen)</div><div class="hc-balls">${top.map(n=>`<div class="hc-ball hot">${n}</div>`).join('')}</div></div>
-      <div><div class="hot-cold-title cold">❄️ Soğuk Sayılar (Geciken)</div><div class="hc-balls">${bot.map(n=>`<div class="hc-ball cold">${n}</div>`).join('')}</div></div>
+      <div><div class="hot-cold-title hot">🔥 Sıcak Sayılar</div><div class="hc-balls">${top.map(n=>`<div class="hc-ball hot">${n}</div>`).join('')}</div></div>
+      <div><div class="hot-cold-title cold">❄️ Soğuk Sayılar</div><div class="hc-balls">${bot.map(n=>`<div class="hc-ball cold">${n}</div>`).join('')}</div></div>
     </div>
     <div class="section-divider"></div>
-    <div style="font-size:.76rem;color:var(--muted);line-height:1.7">
-      <strong style="color:var(--text)">Sıcak sayılar</strong> yüklenen geçmişte en sık çekilen sayılardır.<br>
-      <strong style="color:var(--text)">Soğuk sayılar</strong> gecikmiş — son zamanlarda az çıkan sayılardır.<br>
-      İkisini birleştirmek için <strong style="color:var(--accent2)">Dengeli Karışım</strong> algoritmasını kullanın.
+    <div style="font-size:.75rem;color:var(--muted);line-height:1.7">
+      <strong style="color:var(--text)">Sıcak sayılar</strong> geçmişte en sık çekilen sayılardır.<br>
+      <strong style="color:var(--text)">Soğuk sayılar</strong> gecikmiş — son zamanlarda az çıkanlardır.
     </div>`;
 }
 
-// ── Tabs ─────────────────────────────────────────────────────
-function switchTab(name) {
+// ── Tabs ──────────────────────────────────────────────────────
+function switchTab(name){
   const names=['saved','stats','hotcold'];
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',names[i]===name));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
@@ -771,21 +1055,20 @@ function switchTab(name) {
 // ══════════════════════════════════════════════════════════════
 // BACKTESTING
 // ══════════════════════════════════════════════════════════════
-
-function parseDatedDraws() {
+function parseDatedDraws(){
   const raw=document.getElementById('datedDrawsInput').value.trim();
   const status=document.getElementById('btParseStatus');
-  if (!raw){ status.className='parse-status error'; status.textContent='⚠️ Lütfen önce tarihli çekiliş verisi girin.'; return; }
+  if(!raw){status.className='parse-status error';status.textContent='⚠️ Lütfen önce tarihli veri girin.';return;}
   const draws=[];
   raw.split('\n').filter(l=>l.trim()).forEach(line=>{
     const dm=line.match(/^(\d{4}-\d{2}-\d{2})/);
-    if (!dm) return;
-    const date=dm[1], rest=line.slice(date.length), parts=rest.split('|');
+    if(!dm)return;
+    const date=dm[1],rest=line.slice(date.length),parts=rest.split('|');
     const nums=(parts[0].match(/\d+/g)||[]).map(Number);
     const bonus=parts[1]?(parts[1].match(/\d+/g)||[]).map(Number):[];
-    if (nums.length>=1) draws.push({date,nums,bonus});
+    if(nums.length>=1)draws.push({date,nums,bonus});
   });
-  if (!draws.length){ status.className='parse-status error'; status.textContent='❌ Çekiliş ayrıştırılamadı. Format: YYYY-AA-GG n1 n2 ...'; return; }
+  if(!draws.length){status.className='parse-status error';status.textContent='❌ Çekiliş ayrıştırılamadı.';return;}
   draws.sort((a,b)=>a.date.localeCompare(b.date));
   state.datedDraws=draws;
   status.className='parse-status success';
@@ -793,116 +1076,110 @@ function parseDatedDraws() {
   updateBtDateOptions();
 }
 
-function updateBtDateOptions() {
+function updateBtDateOptions(){
   const sel=document.getElementById('btDate');
-  // Offer dates that have at least 2 prior draws for training
   const valid=state.datedDraws.filter((_,i)=>i>=2).map(d=>d.date);
-  if (!valid.length){ sel.innerHTML='<option value="">— Yeterli veri yok (en az 3 çekiliş gerekli) —</option>'; return; }
+  if(!valid.length){sel.innerHTML='<option value="">— Yeterli veri yok —</option>';return;}
   sel.innerHTML=valid.map(d=>`<option value="${d}">${d}</option>`).join('');
   sel.value=valid[valid.length-1];
 }
 
-function buildFreq(draws) {
+function buildFreq(draws){
   const freq={};
-  draws.forEach(d=>[...d.nums,...d.bonus].forEach(n=>{ freq[n]=(freq[n]||0)+1; }));
+  draws.forEach(d=>[...d.nums,...d.bonus].forEach(n=>{freq[n]=(freq[n]||0)+1;}));
   return freq;
 }
 
-function prizeTier(game, mMain, mBonus) {
-  if (game.id==='sayisal'||game.id==='super') {
-    if (mMain===game.count) return {label:'Büyük İkramiye',cls:'prize-jackpot'};
-    if (mMain===5) return {label:'5 Bilen',cls:'prize-high'};
-    if (mMain===4) return {label:'4 Bilen',cls:'prize-mid'};
-    if (mMain===3) return {label:'3 Bilen',cls:'prize-mid'};
+// ── Prize tier (corrected for all games) ────────────────────
+function prizeTier(game,mMain,mBonus){
+  if(game.id==='sayisal'){
+    if(mMain===6&&mBonus===1)return{label:'Büyük İkramiye (6+J)',cls:'prize-jackpot'};
+    if(mMain===6)            return{label:'İkinci İkramiye (6)',cls:'prize-high'};
+    if(mMain===5&&mBonus===1)return{label:'Üçüncü İkramiye (5+J)',cls:'prize-high'};
+    if(mMain===5)            return{label:'Dördüncü İkramiye (5)',cls:'prize-mid'};
+    if(mMain===4&&mBonus===1)return{label:'Beşinci İkramiye (4+J)',cls:'prize-mid'};
+    if(mMain===4)            return{label:'Altıncı İkramiye (4)',cls:'prize-mid'};
+    if(mMain===3&&mBonus===1)return{label:'Yedinci İkramiye (3+J)',cls:'prize-low'};
+    if(mMain===3)            return{label:'Sekizinci İkramiye (3)',cls:'prize-low'};
+    if(mMain===2&&mBonus===1)return{label:'Teşvik İkramiyesi (2+J)',cls:'prize-low'};
   }
-  if (game.id==='sans') {
-    if (mMain===5&&mBonus===1) return {label:'Büyük İkramiye',cls:'prize-jackpot'};
-    if (mMain===5) return {label:'5+0 Bilen',cls:'prize-high'};
-    if (mMain===4&&mBonus===1) return {label:'4+1 Bilen',cls:'prize-high'};
-    if (mMain===4) return {label:'4+0 Bilen',cls:'prize-mid'};
-    if (mMain===3&&mBonus===1) return {label:'3+1 Bilen',cls:'prize-mid'};
+  if(game.id==='super'){
+    if(mMain===6)return{label:'Büyük İkramiye (6)',cls:'prize-jackpot'};
+    if(mMain===5)return{label:'İkinci İkramiye (5)',cls:'prize-high'};
+    if(mMain===4)return{label:'Üçüncü İkramiye (4)',cls:'prize-mid'};
+    if(mMain===3)return{label:'Dördüncü İkramiye (3)',cls:'prize-low'};
   }
-  if (game.id==='onnumara') {
-    if (mMain===10) return {label:'Büyük İkramiye',cls:'prize-jackpot'};
-    if (mMain>=9)   return {label:`${mMain} Bilen`,cls:'prize-high'};
-    if (mMain>=6)   return {label:`${mMain} Bilen`,cls:'prize-mid'};
+  if(game.id==='sans'){
+    if(mMain===5&&mBonus===1)return{label:'Büyük İkramiye (5+1)',cls:'prize-jackpot'};
+    if(mMain===5)            return{label:'İkinci İkramiye (5+0)',cls:'prize-high'};
+    if(mMain===4&&mBonus===1)return{label:'Üçüncü İkramiye (4+1)',cls:'prize-high'};
+    if(mMain===4)            return{label:'Dördüncü İkramiye (4+0)',cls:'prize-mid'};
+    if(mMain===3&&mBonus===1)return{label:'Beşinci İkramiye (3+1)',cls:'prize-mid'};
+    if(mMain===3)            return{label:'Altıncı İkramiye (3+0)',cls:'prize-low'};
+  }
+  if(game.id==='onnumara'){
+    if(mMain===10)return{label:'Büyük İkramiye (10)',cls:'prize-jackpot'};
+    if(mMain===9) return{label:'İkinci İkramiye (9)',cls:'prize-high'};
+    if(mMain===8) return{label:'Üçüncü İkramiye (8)',cls:'prize-high'};
+    if(mMain===7) return{label:'Dördüncü İkramiye (7)',cls:'prize-mid'};
+    if(mMain===6) return{label:'Beşinci İkramiye (6)',cls:'prize-mid'};
+    if(mMain===5) return{label:'Altıncı İkramiye (5)',cls:'prize-low'};
   }
   return null;
 }
 
-function runBacktest() {
+function runBacktest(){
   const gameId=document.getElementById('btGame').value;
   const testDate=document.getElementById('btDate').value;
   const algoId=document.getElementById('btAlgo').value;
   const win=document.getElementById('btWindow').value;
-  if (!testDate){ showToast('⚠️ Lütfen bir test tarihi seçin'); return; }
-
+  if(!testDate){showToast('⚠️ Lütfen bir test tarihi seçin');return;}
   const game=getGame(gameId);
   let prior=state.datedDraws.filter(d=>d.date<testDate);
-  if (win!=='all') prior=prior.slice(-parseInt(win));
-  if (!prior.length){ showToast('⚠️ Seçilen tarihten önce yeterli veri yok'); return; }
-
+  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(!prior.length){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
   const freq=buildFreq(prior);
   const pred=generateNumbers(game,algoId,freq);
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
-
-  let mMain=0, mBonus=0;
-  if (actual) {
-    const aSet=new Set(actual.nums);
-    mMain=pred.main.filter(n=>aSet.has(n)).length;
-    if (game.bonusCount>0) mBonus=pred.bonus.filter(n=>new Set(actual.bonus).has(n)).length;
+  let mMain=0,mBonus=0;
+  if(actual){
+    mMain=pred.main.filter(n=>new Set(actual.nums).has(n)).length;
+    if(game.bonusCount>0)mBonus=pred.bonus.filter(n=>new Set(actual.bonus).has(n)).length;
   }
-
-  const rs=document.getElementById('btResultSection'), rc=document.getElementById('btResultContent');
+  const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
   rs.style.display='block';
   rc.innerHTML=buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,prior.length);
   rs.scrollIntoView({behavior:'smooth',block:'nearest'});
-
   const total=pred.main.length+pred.bonus.length;
-  state.btHistory.unshift({game,pred,actual,mMain,mBonus,testDate,algoId,prior:prior.length,
-    score:actual?`${mMain+mBonus}/${total}`:'—'});
+  state.btHistory.unshift({game,pred,actual,mMain,mBonus,testDate,algoId,prior:prior.length,score:actual?`${mMain+mBonus}/${total}`:'—'});
   renderBtHistory();
 }
 
-function buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,priorCount) {
+function buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,priorCount){
   const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
   const total=pred.main.length+pred.bonus.length;
   const matched=mMain+mBonus;
   const pct=actual?Math.round(matched/total*100):null;
   const scoreCls=pct===null?'poor':pct>=60?'excellent':pct>=40?'good':pct>=20?'fair':'poor';
   const prize=actual?prizeTier(game,mMain,mBonus):null;
-
-  // Predicted balls — highlight matches if actual is known
   const aSet=actual?new Set(actual.nums):null;
   const aBSet=actual?new Set(actual.bonus):null;
-  const predBalls=pred.main.map(n=>{
-    const cls=aSet?(aSet.has(n)?'matched':'unmatched'):'';
-    return staticBall(n,game.mainColor,cls);
-  }).join('');
-  const predBonus=pred.bonus.length?
-    `<div class="balls-divider">+</div>`+pred.bonus.map(n=>{
-      const cls=aBSet?(aBSet.has(n)?'matched':'unmatched'):'';
-      return staticBall(n,game.bonusColor+' special',cls);
-    }).join(''):'';
-
-  // Actual balls
+  const predBalls=pred.main.map(n=>staticBall(n,game.mainColor,aSet?(aSet.has(n)?'matched':'unmatched'):'')).join('');
+  const predBonus=pred.bonus.length?`<div class="balls-divider">+</div>`+pred.bonus.map(n=>staticBall(n,game.bonusColor+' special',aBSet?(aBSet.has(n)?'matched':'unmatched'):'')).join(''):'';
   let actualHtml='';
-  if (actual) {
+  if(actual){
     const pSet=new Set(pred.main);
-    // For On Numara, use slightly smaller balls since there are 22
-    const sz=game.id==='onnumara'?'40px':'';
-    const actualBalls=actual.nums.map(n=>staticBall(n,game.mainColor,pSet.has(n)?'matched':'unmatched',sz)).join('');
-    const actualBonus=actual.bonus.length?
-      `<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special',new Set(pred.bonus).has(n)?'matched':'unmatched',sz)).join(''):'';
+    const sz=game.id==='onnumara'?'38px':'';
+    const aBallsHtml=actual.nums.map(n=>staticBall(n,game.mainColor,pSet.has(n)?'matched':'unmatched',sz)).join('');
+    const aBonusHtml=actual.bonus.length?`<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special',new Set(pred.bonus).has(n)?'matched':'unmatched',sz)).join(''):'';
     actualHtml=`
       <div class="bt-balls-section">
-        <div class="bt-section-label">Gerçek Çekiliş — ${testDate}${game.id==='onnumara'?' (22 sayı çekildi)':''}</div>
-        <div class="balls-row" style="justify-content:flex-start">${actualBalls}${actualBonus}</div>
+        <div class="bt-section-label">Gerçek Çekiliş — ${testDate}${game.id==='onnumara'?' · 22 sayı çekildi':''}</div>
+        <div class="balls-row" style="justify-content:flex-start">${aBallsHtml}${aBonusHtml}</div>
       </div>`;
-  } else {
-    actualHtml=`<div class="bt-no-actual">📭 <strong>${testDate}</strong> tarihine ait gerçek çekiliş verisi bulunamadı.<br><span style="font-size:.74rem">Bu tarihin verisini girin veya farklı bir tarih seçin.</span></div>`;
+  }else{
+    actualHtml=`<div class="bt-no-actual">📭 <strong>${testDate}</strong> tarihine ait gerçek çekiliş verisi bulunamadı.</div>`;
   }
-
   return `
   <div class="bt-result">
     <div class="bt-result-header">
@@ -910,7 +1187,7 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,priorCoun
       <div style="display:flex;align-items:center;gap:6px">
         ${actual
           ?`<div class="bt-score-badge ${scoreCls}">${matched}/${total} eşleşti</div>${prize?`<span class="prize-label ${prize.cls}">${prize.label}</span>`:''}`
-          :`<span style="color:var(--muted);font-size:.8rem">Karşılaştırma yapılamadı</span>`}
+          :`<span style="color:var(--muted);font-size:.79rem">Karşılaştırma yapılamadı</span>`}
       </div>
     </div>
     <div class="bt-result-body">
@@ -921,20 +1198,21 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,priorCoun
       ${actualHtml}
       ${actual?`
       <div class="section-divider"></div>
-      <div style="font-size:.76rem;color:var(--muted);line-height:1.7">
+      <div style="font-size:.74rem;color:var(--muted);line-height:1.7">
         <span style="color:var(--green)">● Yeşil çerçeve</span> = eşleşen sayı &nbsp;·&nbsp;
-        <span style="opacity:.45">● Soluk</span> = eşleşmeyen sayı
-        ${game.id==='onnumara'?`<br>On Numara'da 22 sayı çekilir; tahminlerinizin kaçının o 22 içinde çıktığı gösterilir.`:''}
+        <span style="opacity:.4">● Soluk</span> = eşleşmeyen sayı
+        ${game.id==='onnumara'?`<br>On Numara'da 22 sayı çekilir; tahmininizin kaçının bu 22 içinde çıktığı gösterilir.`:''}
+        ${game.id==='sayisal'?`<br>Sayısal Loto'da 6 ana sayı + 1 Joker çekilir. Joker ekstra kazanç sağlar.`:''}
       </div>`:''}
     </div>
   </div>`;
 }
 
-function renderBtHistory() {
+function renderBtHistory(){
   const c=document.getElementById('btHistory');
-  if (!state.btHistory.length){ c.innerHTML='<div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>'; return; }
-  c.innerHTML=state.btHistory.map((h,i)=>`
-    <div class="bt-hist-row" onclick="scrollToResult(${i})">
+  if(!state.btHistory.length){c.innerHTML='<div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>';return;}
+  c.innerHTML=state.btHistory.map(h=>`
+    <div class="bt-hist-row">
       <div>${h.game.emoji}</div>
       <div class="bt-hist-nums">${[...h.pred.main,...h.pred.bonus].join(' · ')}</div>
       <div class="bt-hist-date">${h.testDate}</div>
@@ -942,67 +1220,17 @@ function renderBtHistory() {
     </div>`).join('');
 }
 
-function scrollToResult(i) {
-  if (i!==0) return; // only latest is rendered in result section
-  document.getElementById('btResultSection').scrollIntoView({behavior:'smooth',block:'start'});
+// ── Utils ─────────────────────────────────────────────────────
+function copyNums(text){
+  navigator.clipboard.writeText(text).then(()=>showToast('📋 Kopyalandı: '+text)).catch(()=>showToast('Sayılar: '+text));
 }
-
-// ── Sample backtest data ─────────────────────────────────────
-function loadSampleBtData() {
-  const d=`2024-01-06 3 14 22 31 38 47
-2024-01-10 7 11 19 28 40 49
-2024-01-13 2 16 24 33 42 48
-2024-01-17 5 13 21 30 37 46
-2024-01-20 8 17 25 34 41 44
-2024-01-24 1 12 20 29 36 45
-2024-01-27 4 15 23 32 39 43
-2024-01-31 6 18 26 35 38 47
-2024-02-03 9 14 22 31 40 48
-2024-02-07 3 11 19 28 37 46
-2024-02-10 7 16 24 33 42 49
-2024-02-14 2 13 21 30 39 47
-2024-02-17 5 17 25 34 41 45
-2024-02-21 8 12 20 29 38 44
-2024-02-24 1 15 23 32 40 48
-2024-02-28 4 18 26 35 39 46
-2024-03-02 6 11 21 30 37 47
-2024-03-06 3 16 22 33 40 49
-2024-03-09 7 13 25 31 41 45
-2024-03-13 2 14 19 32 38 48`;
-  document.getElementById('datedDrawsInput').value=d;
-  parseDatedDraws();
-  showToast('📋 Örnek veri yüklendi');
-}
-
-// ── Utilities ────────────────────────────────────────────────
-function copyNums(text) {
-  navigator.clipboard.writeText(text)
-    .then(()=>showToast('📋 Sayılar kopyalandı: '+text))
-    .catch(()=>showToast('Sayılar: '+text));
-}
-function showToast(msg) {
-  const el=document.getElementById('toast');
-  el.textContent=msg; el.classList.add('show');
+function showToast(msg){
+  const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'),2800);
 }
 
-// ── Boot ─────────────────────────────────────────────────────
-initGameGrid();
-initAlgoGrid();
-renderSavedTickets();
-updateStats();
-
-// Pre-load sample draws in generator for demo
-document.getElementById('pastDrawsInput').value=`3 14 22 31 38 47
-7 11 19 28 40 49
-2 16 24 33 42 48
-5 13 21 30 37 46
-8 17 25 34 41 44
-1 12 20 29 36 45
-4 15 23 32 39 43
-6 18 26 35 38 47
-9 14 22 31 40 48
-3 11 19 28 37 46`.trim();
+// ── Boot ──────────────────────────────────────────────────────
+initGameGrid();initAlgoGrid();renderSavedTickets();updateStats();
 </script>
 </body>
 </html>
