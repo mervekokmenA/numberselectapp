@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lotto Guessing Machine</title>
+<title>Türk Loto Tahmin Makinesi</title>
 <style>
   :root {
     --bg: #0a0a1a;
@@ -837,64 +837,39 @@
 
   <!-- Header -->
   <div class="header">
-    <h1>🎱 Lotto Guessing Machine</h1>
-    <p>Smart prediction engine powered by statistical analysis</p>
-    <span class="jackpot-badge">✨ Lucky Numbers Generator</span>
+    <h1>🎱 Loto Tahmin Makinesi</h1>
+    <p>İstatistiksel analize dayalı akıllı tahmin motoru</p>
+    <span class="jackpot-badge">✨ Şanslı Sayılar Üreticisi</span>
   </div>
 
   <!-- Game Selector -->
   <div class="card">
-    <div class="card-title">Choose Your Game</div>
+    <div class="card-title">Oyun Seçin</div>
     <div class="game-grid" id="gameGrid"></div>
-  </div>
-
-  <!-- Custom Game (hidden by default) -->
-  <div class="card" id="customCard" style="display:none">
-    <div class="card-title">Custom Game Settings</div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Main Numbers (Count)</label>
-        <input type="number" id="customCount" value="6" min="1" max="10">
-      </div>
-      <div class="form-group">
-        <label>Main Number Range (Max)</label>
-        <input type="number" id="customMax" value="49" min="5" max="99">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label>Bonus Ball Count (0 = none)</label>
-        <input type="number" id="customBonusCount" value="0" min="0" max="3">
-      </div>
-      <div class="form-group">
-        <label>Bonus Ball Range (Max)</label>
-        <input type="number" id="customBonusMax" value="20" min="1" max="50">
-      </div>
-    </div>
   </div>
 
   <!-- Algorithm Selector -->
   <div class="card">
-    <div class="card-title">Prediction Algorithm</div>
+    <div class="card-title">Tahmin Algoritması</div>
     <div class="algo-grid" id="algoGrid"></div>
   </div>
 
   <!-- Past Draws for Analysis -->
   <div class="card">
-    <div class="card-title">Historical Draws (Optional – Improves Accuracy)</div>
+    <div class="card-title">Geçmiş Çekilişler (İsteğe Bağlı – Doğruluğu Artırır)</div>
     <div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">
-      Paste past winning numbers (one draw per line, numbers separated by spaces or commas). Example: <code style="color:var(--accent)">5 12 23 36 41 | 7</code>
+      Geçmiş kazanan sayıları yapıştırın (her satır bir çekiliş, sayılar boşluk veya virgülle ayrılmış). Örnek: <code style="color:var(--accent)">5 12 23 36 41 49</code>
     </div>
-    <textarea class="past-draws-input" id="pastDrawsInput" placeholder="5 12 23 36 41&#10;3 17 28 33 45&#10;1 9 19 31 42 49"></textarea>
-    <button class="parse-btn" onclick="parsePastDraws()">📊 Analyze Draws</button>
+    <textarea class="past-draws-input" id="pastDrawsInput" placeholder="5 12 23 36 41 49&#10;3 17 28 33 45 7&#10;1 9 19 31 42 49"></textarea>
+    <button class="parse-btn" onclick="parsePastDraws()">📊 Çekilişleri Analiz Et</button>
     <div class="parse-status" id="parseStatus"></div>
   </div>
 
   <!-- Generate -->
   <div class="card">
-    <div class="card-title">Generate Tickets</div>
+    <div class="card-title">Bilet Üret</div>
     <div class="counter-row">
-      <span class="counter-label">Number of tickets:</span>
+      <span class="counter-label">Bilet sayısı:</span>
       <div class="counter-ctrl">
         <button onclick="adjustCount(-1)">−</button>
         <div class="counter-val" id="countVal">1</div>
@@ -902,43 +877,43 @@
       </div>
     </div>
     <button class="generate-btn" id="generateBtn" onclick="generateTickets()">
-      🎰 Generate Lucky Numbers
+      🎰 Şanslı Sayıları Üret
     </button>
   </div>
 
   <!-- Result Ticket -->
   <div class="card" id="ticketCard" style="display:none">
-    <div class="card-title">Your Lucky Numbers</div>
+    <div class="card-title">Şanslı Sayılarınız</div>
     <div id="ticketContainer"></div>
   </div>
 
   <!-- Analysis & History Tabs -->
   <div class="card">
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('saved')">🎫 Saved Tickets</button>
-      <button class="tab-btn" onclick="switchTab('stats')">📈 Statistics</button>
-      <button class="tab-btn" onclick="switchTab('hotcold')">🔥 Hot & Cold</button>
+      <button class="tab-btn active" onclick="switchTab('saved')">🎫 Kaydedilen Biletler</button>
+      <button class="tab-btn" onclick="switchTab('stats')">📈 İstatistikler</button>
+      <button class="tab-btn" onclick="switchTab('hotcold')">🔥 Sıcak & Soğuk</button>
     </div>
 
     <!-- Saved Tickets -->
     <div class="tab-panel active" id="tab-saved">
       <div id="savedList">
-        <div class="empty-state"><span class="empty-icon">🎟️</span>No saved tickets yet. Generate and save some!</div>
+        <div class="empty-state"><span class="empty-icon">🎟️</span>Henüz kaydedilmiş bilet yok. Üretin ve kaydedin!</div>
       </div>
     </div>
 
     <!-- Statistics -->
     <div class="tab-panel" id="tab-stats">
       <div class="stats-grid" id="statsGrid">
-        <div class="stat-box"><div class="stat-val" id="statGenerated">0</div><div class="stat-label">Generated</div></div>
-        <div class="stat-box"><div class="stat-val" id="statSaved">0</div><div class="stat-label">Saved</div></div>
-        <div class="stat-box"><div class="stat-val" id="statDraws">0</div><div class="stat-label">Draws Loaded</div></div>
-        <div class="stat-box"><div class="stat-val" id="statUnique">—</div><div class="stat-label">Unique Nums</div></div>
+        <div class="stat-box"><div class="stat-val" id="statGenerated">0</div><div class="stat-label">Üretilen</div></div>
+        <div class="stat-box"><div class="stat-val" id="statSaved">0</div><div class="stat-label">Kaydedilen</div></div>
+        <div class="stat-box"><div class="stat-val" id="statDraws">0</div><div class="stat-label">Çekiliş</div></div>
+        <div class="stat-box"><div class="stat-val" id="statUnique">—</div><div class="stat-label">Tekil Sayı</div></div>
       </div>
 
-      <div style="margin-bottom:8px; font-size:0.78rem; color:var(--muted);">Number Frequency (from history)</div>
+      <div style="margin-bottom:8px; font-size:0.78rem; color:var(--muted);">Sayı Frekansı (geçmişten)</div>
       <div class="freq-chart" id="freqChart">
-        <div class="empty-state" style="padding:20px 0;"><span class="empty-icon">📊</span>Load historical draws to see frequency.</div>
+        <div class="empty-state" style="padding:20px 0;"><span class="empty-icon">📊</span>Frekansı görmek için geçmiş çekiliş verisi yükleyin.</div>
       </div>
     </div>
 
@@ -957,28 +932,23 @@
 <script>
 // ===================== GAME DEFINITIONS =====================
 const GAMES = [
-  { id: 'powerball',    name: 'Powerball',       emoji: '🇺🇸', count: 5, max: 69, bonusCount: 1, bonusMax: 26, mainColor: 'white', bonusColor: 'red',    range: '1–69 + PB' },
-  { id: 'mega',         name: 'Mega Millions',   emoji: '💫',  count: 5, max: 70, bonusCount: 1, bonusMax: 25, mainColor: 'gold',  bonusColor: 'blue',   range: '1–70 + MB' },
-  { id: 'euromillions', name: 'EuroMillions',    emoji: '🇪🇺', count: 5, max: 50, bonusCount: 2, bonusMax: 12, mainColor: 'blue',  bonusColor: 'gold',   range: '1–50 + 2★' },
-  { id: 'uk49s',        name: 'UK 49s',          emoji: '🇬🇧', count: 6, max: 49, bonusCount: 1, bonusMax: 49, mainColor: 'green', bonusColor: 'red',    range: '1–49 + 1' },
-  { id: 'lotto649',     name: 'Lotto 6/49',      emoji: '🍁',  count: 6, max: 49, bonusCount: 1, bonusMax: 49, mainColor: 'white', bonusColor: 'gold',   range: '1–49 + B' },
-  { id: 'pick3',        name: 'Pick 3',          emoji: '3️⃣',  count: 3, max: 9,  bonusCount: 0, bonusMax: 0,  mainColor: 'purple',bonusColor: '',       range: '0–9 (3 digits)' },
-  { id: 'pick4',        name: 'Pick 4',          emoji: '4️⃣',  count: 4, max: 9,  bonusCount: 0, bonusMax: 0,  mainColor: 'purple',bonusColor: '',       range: '0–9 (4 digits)' },
-  { id: 'custom',       name: 'Custom',          emoji: '⚙️',  count: 6, max: 49, bonusCount: 0, bonusMax: 0,  mainColor: 'white', bonusColor: 'red',    range: 'Your rules' },
+  { id: 'sayisal', name: 'Sayısal Loto', emoji: '🔵', count: 6, max: 49, bonusCount: 0, bonusMax: 0,  mainColor: 'blue',   bonusColor: '',     range: '6 / 49' },
+  { id: 'super',   name: 'Süper Loto',   emoji: '⭐', count: 6, max: 54, bonusCount: 0, bonusMax: 0,  mainColor: 'gold',   bonusColor: '',     range: '6 / 54' },
+  { id: 'sans',    name: 'Şans Topu',    emoji: '🔴', count: 5, max: 34, bonusCount: 1, bonusMax: 14, mainColor: 'white',  bonusColor: 'red',  range: '5/34 + 1/14' },
 ];
 
 const ALGOS = [
-  { id: 'random',    name: 'Pure Random',    desc: 'True random selection – every number has equal chance' },
-  { id: 'hot',       name: '🔥 Hot Numbers', desc: 'Favor numbers drawn most frequently in recent history' },
-  { id: 'cold',      name: '❄️ Cold Numbers', desc: 'Pick overdue numbers that haven\'t appeared recently' },
-  { id: 'balanced',  name: '⚖️ Balanced Mix', desc: 'Mix of hot, cold, and random for a balanced ticket' },
-  { id: 'delta',     name: '△ Delta System', desc: 'Uses spacing patterns between numbers for selection' },
-  { id: 'wheeling',  name: '🔄 Wheeling',    desc: 'Covers multiple combinations to maximize coverage' },
+  { id: 'random',   name: 'Tam Rastgele',    desc: 'Her sayının eşit şansa sahip olduğu gerçek rastgele seçim' },
+  { id: 'hot',      name: '🔥 Sıcak Sayılar', desc: 'Geçmişte en sık çekilen sayıları tercih eder' },
+  { id: 'cold',     name: '❄️ Soğuk Sayılar', desc: 'Son zamanlarda çekilmeyen gecikmiş sayıları seçer' },
+  { id: 'balanced', name: '⚖️ Dengeli Karışım', desc: 'Sıcak, soğuk ve rastgele sayıların dengeli karışımı' },
+  { id: 'delta',    name: '△ Delta Sistemi', desc: 'Sayılar arasındaki aralık örüntülerini kullanır' },
+  { id: 'wheeling', name: '🔄 Wheeling',     desc: 'En iyi sayı havuzundan maksimum kapsama sağlar' },
 ];
 
 // ===================== STATE =====================
 let state = {
-  selectedGame: 'powerball',
+  selectedGame: 'sayisal',
   selectedAlgo: 'balanced',
   ticketCount: 1,
   pastDraws: [],
@@ -988,19 +958,6 @@ let state = {
 };
 
 function getGame() {
-  if (state.selectedGame === 'custom') {
-    return {
-      id: 'custom',
-      name: 'Custom Game',
-      emoji: '⚙️',
-      count: parseInt(document.getElementById('customCount').value) || 6,
-      max: parseInt(document.getElementById('customMax').value) || 49,
-      bonusCount: parseInt(document.getElementById('customBonusCount').value) || 0,
-      bonusMax: parseInt(document.getElementById('customBonusMax').value) || 20,
-      mainColor: 'white',
-      bonusColor: 'red',
-    };
-  }
   return GAMES.find(g => g.id === state.selectedGame);
 }
 
@@ -1029,8 +986,6 @@ function initAlgoGrid() {
 function selectGame(id) {
   state.selectedGame = id;
   initGameGrid();
-  const customCard = document.getElementById('customCard');
-  customCard.style.display = id === 'custom' ? 'block' : 'none';
 }
 
 function selectAlgo(id) {
@@ -1050,7 +1005,7 @@ function parsePastDraws() {
 
   if (!raw) {
     status.className = 'parse-status error';
-    status.textContent = '⚠️ Please enter some past draw data first.';
+    status.textContent = '⚠️ Lütfen önce geçmiş çekiliş verisi girin.';
     return;
   }
 
@@ -1068,7 +1023,7 @@ function parsePastDraws() {
 
   if (draws.length === 0) {
     status.className = 'parse-status error';
-    status.textContent = '❌ Could not parse any draws. Use format: 5 12 23 36 41 (one draw per line)';
+    status.textContent = '❌ Çekiliş ayrıştırılamadı. Format: 5 12 23 36 41 (her satıra bir çekiliş)';
     return;
   }
 
@@ -1084,7 +1039,7 @@ function parsePastDraws() {
   state.frequency = freq;
 
   status.className = 'parse-status success';
-  status.textContent = `✅ Loaded ${draws.length} draws. Found ${Object.keys(freq).length} unique numbers.`;
+  status.textContent = `✅ ${draws.length} çekiliş yüklendi. ${Object.keys(freq).length} tekil sayı bulundu.`;
 
   updateStats();
   renderFreqChart();
@@ -1125,12 +1080,9 @@ function range(min, max) {
 }
 
 function generateNumbers(game, algo) {
-  // For Pick 3/4, allow repeat digits
-  const isDigit = game.id === 'pick3' || game.id === 'pick4';
-
   let mainNums, bonusNums = [];
 
-  const pool = isDigit ? range(0, game.max) : range(1, game.max);
+  const pool = range(1, game.max);
   const bonusPool = game.bonusCount > 0 ? range(1, game.bonusMax) : [];
 
   const freq = state.frequency;
@@ -1138,21 +1090,15 @@ function generateNumbers(game, algo) {
 
   switch (algo) {
     case 'random': {
-      if (isDigit) {
-        mainNums = Array.from({length: game.count}, () => Math.floor(Math.random() * (game.max + 1)));
-      } else {
-        mainNums = pickUnique(pool, game.count);
-        bonusNums = pickUnique(bonusPool, game.bonusCount);
-      }
+      mainNums = pickUnique(pool, game.count);
+      bonusNums = pickUnique(bonusPool, game.bonusCount);
       break;
     }
 
     case 'hot': {
       if (!hasHistory) return generateNumbers(game, 'random');
       const weights = pool.map(n => (freq[n] || 0.1));
-      mainNums = isDigit
-        ? Array.from({length: game.count}, () => weightedPick(pool, weights))
-        : pickUnique(pool, game.count, weights);
+      mainNums = pickUnique(pool, game.count, weights);
 
       const bWeights = bonusPool.map(n => (freq[n] || 0.1));
       bonusNums = pickUnique(bonusPool, game.bonusCount, bWeights);
@@ -1163,9 +1109,7 @@ function generateNumbers(game, algo) {
       if (!hasHistory) return generateNumbers(game, 'random');
       const maxFreq = Math.max(...Object.values(freq), 1);
       const weights = pool.map(n => Math.max(0.1, maxFreq - (freq[n] || 0) + 0.5));
-      mainNums = isDigit
-        ? Array.from({length: game.count}, () => weightedPick(pool, weights))
-        : pickUnique(pool, game.count, weights);
+      mainNums = pickUnique(pool, game.count, weights);
 
       const bMaxFreq = Math.max(...bonusPool.map(n => freq[n] || 0), 1);
       const bWeights = bonusPool.map(n => Math.max(0.1, bMaxFreq - (freq[n] || 0) + 0.5));
@@ -1294,17 +1238,17 @@ function renderTicket(ticketData, gameObj, algoId, index = 0) {
       <div class="ticket-footer">
         <div class="confidence-bar-wrap">
           <div class="confidence-label">
-            <span>Confidence Score</span>
+            <span>Güven Skoru</span>
             <span style="color:var(--text);font-weight:700">${confidence}%</span>
           </div>
           <div class="confidence-bar">
             <div class="confidence-fill" style="width:0%" data-target="${confidence}"></div>
           </div>
         </div>
-        <button class="copy-btn" onclick="copyNumbers('${copyText}')">📋 Copy</button>
+        <button class="copy-btn" onclick="copyNumbers('${copyText}')">📋 Kopyala</button>
         <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,0.3)"
           onclick="saveTicket('${ticketId}', ${JSON.stringify(allNums)}, '${gameObj.name}', '${gameObj.mainColor}', '${gameObj.bonusColor}', ${ticketData.main.length})">
-          💾 Save
+          💾 Kaydet
         </button>
       </div>
     </div>
@@ -1316,7 +1260,7 @@ function generateTickets() {
   const game = getGame();
   const btn = document.getElementById('generateBtn');
   btn.classList.add('spinning');
-  btn.textContent = '🎲 Drawing numbers...';
+  btn.textContent = '🎲 Sayılar çekiliyor...';
 
   setTimeout(() => {
     const tickets = [];
@@ -1344,7 +1288,7 @@ function generateTickets() {
     updateStats();
 
     btn.classList.remove('spinning');
-    btn.textContent = '🎰 Generate Lucky Numbers';
+    btn.textContent = '🎰 Şanslı Sayıları Üret';
   }, 400);
 }
 
@@ -1354,13 +1298,13 @@ function saveTicket(ticketId, nums, gameName, mainColor, bonusColor, mainCount) 
   state.savedTickets.unshift(ticket);
   renderSavedTickets();
   updateStats();
-  showToast('✅ Ticket saved!');
+  showToast('✅ Bilet kaydedildi!');
 }
 
 function renderSavedTickets() {
   const container = document.getElementById('savedList');
   if (state.savedTickets.length === 0) {
-    container.innerHTML = '<div class="empty-state"><span class="empty-icon">🎟️</span>No saved tickets yet.</div>';
+    container.innerHTML = '<div class="empty-state"><span class="empty-icon">🎟️</span>Henüz kaydedilmiş bilet yok.</div>';
     return;
   }
 
@@ -1390,7 +1334,7 @@ function deleteTicket(id) {
   state.savedTickets = state.savedTickets.filter(t => t.id !== id);
   renderSavedTickets();
   updateStats();
-  showToast('🗑️ Ticket removed');
+  showToast('🗑️ Bilet silindi');
 }
 
 // ===================== STATS =====================
@@ -1405,7 +1349,7 @@ function renderFreqChart() {
   const chart = document.getElementById('freqChart');
   const freq = state.frequency;
   if (Object.keys(freq).length === 0) {
-    chart.innerHTML = '<div class="empty-state" style="padding:20px 0"><span class="empty-icon">📊</span>No data yet.</div>';
+    chart.innerHTML = '<div class="empty-state" style="padding:20px 0"><span class="empty-icon">📊</span>Henüz veri yok.</div>';
     return;
   }
 
@@ -1433,7 +1377,7 @@ function renderHotCold() {
   const display = document.getElementById('hotColdDisplay');
   const freq = state.frequency;
   if (Object.keys(freq).length === 0) {
-    display.innerHTML = '<div class="empty-state"><span class="empty-icon">🌡️</span>Load draws to see hot & cold numbers.</div>';
+    display.innerHTML = '<div class="empty-state"><span class="empty-icon">🌡️</span>Sıcak & soğuk sayıları görmek için çekiliş verisi yükleyin.</div>';
     return;
   }
 
@@ -1447,19 +1391,19 @@ function renderHotCold() {
   display.innerHTML = `
     <div class="hot-cold-grid">
       <div class="hot-cold-section">
-        <div class="hot-cold-title hot">🔥 Hot Numbers (Most Drawn)</div>
+        <div class="hot-cold-title hot">🔥 Sıcak Sayılar (En Çok Çekilen)</div>
         <div class="hc-balls">${hotBalls}</div>
       </div>
       <div class="hot-cold-section">
-        <div class="hot-cold-title cold">❄️ Cold Numbers (Overdue)</div>
+        <div class="hot-cold-title cold">❄️ Soğuk Sayılar (Geciken)</div>
         <div class="hc-balls">${coldBalls}</div>
       </div>
     </div>
     <div class="section-divider"></div>
     <div style="font-size:0.78rem;color:var(--muted);line-height:1.6">
-      <strong style="color:var(--text)">Hot numbers</strong> appeared most frequently in your loaded history.<br>
-      <strong style="color:var(--text)">Cold numbers</strong> are overdue — they haven't appeared as often recently.<br>
-      Use <strong style="color:var(--accent2)">Balanced Mix</strong> to combine both for optimized picks.
+      <strong style="color:var(--text)">Sıcak sayılar</strong> yüklenen geçmişte en sık çekilen sayılardır.<br>
+      <strong style="color:var(--text)">Soğuk sayılar</strong> gecikmiş — son zamanlarda az çıkan sayılardır.<br>
+      İkisini birleştirmek için <strong style="color:var(--accent2)">Dengeli Karışım</strong> algoritmasını kullanın.
     </div>
   `;
 }
@@ -1477,9 +1421,9 @@ function switchTab(name) {
 // ===================== UTILS =====================
 function copyNumbers(text) {
   navigator.clipboard.writeText(text).then(() => {
-    showToast('📋 Numbers copied: ' + text);
+    showToast('📋 Sayılar kopyalandı: ' + text);
   }).catch(() => {
-    showToast('Numbers: ' + text);
+    showToast('Sayılar: ' + text);
   });
 }
 
@@ -1496,23 +1440,23 @@ initAlgoGrid();
 renderSavedTickets();
 updateStats();
 
-// Load some sample draw data for Powerball to demo the stats
+// Sayısal Loto örnek çekilişleri (6/49)
 const sampleDraws = `
-7 13 24 36 48 | 12
-2 17 29 41 55 | 8
-5 11 22 38 52 | 3
-1 18 28 45 60 | 17
-9 14 33 40 57 | 22
-3 16 25 42 65 | 11
-6 20 31 47 58 | 15
-8 12 27 39 54 | 7
-4 19 30 43 62 | 19
-10 15 26 37 56 | 14
-2 21 32 46 59 | 6
-7 11 23 41 63 | 18
-5 14 29 44 51 | 9
-3 18 35 48 66 | 20
-1 16 28 40 55 | 13
+3 14 22 31 38 47
+7 11 19 28 40 49
+2 16 24 33 42 48
+5 13 21 30 37 46
+8 17 25 34 41 44
+1 12 20 29 36 45
+4 15 23 32 39 43
+6 18 26 35 38 47
+9 14 22 31 40 48
+3 11 19 28 37 46
+7 16 24 33 42 49
+2 13 21 30 39 47
+5 17 25 34 41 45
+8 12 20 29 38 44
+1 15 23 32 40 48
 `.trim();
 document.getElementById('pastDrawsInput').value = sampleDraws;
 </script>
