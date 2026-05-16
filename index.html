@@ -103,6 +103,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .ball.rolling{animation:roll .5s ease-in-out}
 @keyframes roll{0%{transform:scale(0) rotate(-180deg);opacity:0}60%{transform:scale(1.15) rotate(10deg);opacity:1}80%{transform:scale(.95) rotate(-5deg)}100%{transform:scale(1) rotate(0)}}
 .ball.matched  {outline:3px solid var(--green)!important;outline-offset:2px;box-shadow:0 0 16px rgba(0,230,118,.5)!important}
+.ball.near     {outline:3px solid #ffd700!important;outline-offset:2px;box-shadow:0 0 12px rgba(255,215,0,.4)!important}
 .ball.unmatched{opacity:.32}
 .balls-divider{display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:1.1rem}
 .mini-ball{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:900;flex-shrink:0}
@@ -371,7 +372,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="bt-config">
       <div class="form-group">
         <label>Oyun</label>
-        <select id="btGame" onchange="updateBtDateOptions()">
+        <select id="btGame" onchange="loadBtHistory()">
           <option value="sayisal">🔵 Sayısal Loto</option>
           <option value="super">⭐ Süper Loto</option>
           <option value="sans">🔴 Şans Topu</option>
@@ -395,6 +396,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="momentum">⭐ Momentum Skoru</option>
           <option value="correlation">⭐ Korelasyon Kırma</option>
           <option value="cycle">⭐ Döngü Tespiti</option>
+          <option value="hotzone">⭐ Sıcak Bölge</option>
+          <option value="regression">⭐ Ortalama Regresyon</option>
+          <option value="oddeven">⭐ Tek-Çift Denge</option>
+          <option value="neighbor">⭐ Komşu Isısı</option>
         </select>
         <div id="algoScorePanel"></div>
       </div>
@@ -449,6 +454,10 @@ const ALGOS = [
   { id:'momentum',     name:'⭐ Momentum Skoru',        desc:'Gecikme × frekans çarpımıyla "patlama baskısı" yüksek sayıları seçer', expert:true },
   { id:'correlation',  name:'⭐ Korelasyon Kırma',      desc:'Birlikte sık çıkan sayı çiftlerini kırarak bağımsız yüksek frekanslı sayıları seçer', expert:true },
   { id:'cycle',        name:'⭐ Döngü Tespiti',         desc:'Ortalama çıkış aralığı dolmuş sayıları tespit eder ve seçer', expert:true },
+  { id:'hotzone',      name:'⭐ Sıcak Bölge',          desc:'En aktif sayı bölgesini bulur ve o bölgedeki yüksek frekanslı sayıları seçer', expert:true },
+  { id:'regression',   name:'⭐ Ortalama Regresyon',   desc:'Tarihin altında kalan sayılar yukarı döner — düşük frekanslı ama yakın zamanda görülen sayıları seçer', expert:true },
+  { id:'oddeven',      name:'⭐ Tek-Çift Denge',        desc:'Son çekilişlerdeki tek/çift oranını analiz ederek zıt ağırlıklı dengeli seçim yapar', expert:true },
+  { id:'neighbor',     name:'⭐ Komşu Isısı',           desc:'Sayı komşuluklarında oluşan ısı haritasından tepe noktalarını seçer', expert:true },
 ];
 
 // ── Real historical draw data ────────────────────────────────
@@ -807,6 +816,7 @@ function showPage(name){
   document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   document.querySelectorAll('.nav-tab')[name==='generator'?0:1].classList.add('active');
+  if(name==='backtest')loadBtHistory();
 }
 
 // ── Init grids ───────────────────────────────────────────────
@@ -1008,6 +1018,56 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       cyScored.sort((a,b)=>b.score-a.score);
       mainNums=cyScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=[];
       break;}
+    case 'hotzone':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const segCnt=5,segSz=Math.ceil(game.max/segCnt);
+      const segs=[];
+      for(let s=0;s<segCnt;s++){const lo=s*segSz+1,hi=Math.min((s+1)*segSz,game.max);let sc=0;for(let n=lo;n<=hi;n++)sc+=(freq[n]||0);segs.push({lo,hi,sc});}
+      segs.sort((a,b)=>b.sc-a.sc);
+      const hzPool=[];segs.slice(0,2).forEach(seg=>{for(let n=seg.lo;n<=seg.hi;n++)hzPool.push(n);});
+      hzPool.sort((a,b)=>(freq[b]||0)-(freq[a]||0));
+      const hzRem=pool.filter(n=>!hzPool.includes(n)).sort((a,b)=>(freq[b]||0)-(freq[a]||0));
+      mainNums=[...hzPool,...hzRem].slice(0,game.count).sort((a,b)=>a-b);bonusNums=[];
+      break;}
+    case 'regression':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const rgDraws=drawsOverride||state.pastDraws||[];
+      const rgTotal=Object.values(freq).reduce((s,v)=>s+v,0);
+      const rgAvg=rgTotal/pool.length;
+      const recentN=Math.min(10,rgDraws.length);
+      const recentF={};
+      rgDraws.slice(-recentN).forEach(d=>{const nums=Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])];nums.forEach(n=>{recentF[n]=(recentF[n]||0)+1;});});
+      const rgScored=pool.map(n=>{
+        const f=freq[n]||0,rf=recentF[n]||0;
+        const deficit=Math.max(0,rgAvg-f)*2;
+        return{n,score:deficit+rf};
+      });
+      rgScored.sort((a,b)=>b.score-a.score);
+      mainNums=rgScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=[];
+      break;}
+    case 'oddeven':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const oeDraws=drawsOverride||state.pastDraws||[];
+      const recentOE=oeDraws.slice(-Math.min(20,oeDraws.length));
+      let oddT=0,evenT=0;
+      recentOE.forEach(d=>{const nums=(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=game.max);nums.forEach(n=>{if(n%2===1)oddT++;else evenT++;});});
+      const oddRatio=oddT/(oddT+evenT||1);
+      const tOdd=oddRatio>0.5?Math.floor(game.count*.4):Math.ceil(game.count*.6);
+      const tEven=game.count-tOdd;
+      const odds=pool.filter(n=>n%2===1).sort((a,b)=>(freq[b]||0)-(freq[a]||0));
+      const evens=pool.filter(n=>n%2===0).sort((a,b)=>(freq[b]||0)-(freq[a]||0));
+      mainNums=[...odds.slice(0,tOdd),...evens.slice(0,tEven)].sort((a,b)=>a-b);bonusNums=[];
+      break;}
+    case 'neighbor':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const heat={};
+      pool.forEach(n=>{heat[n]=(freq[n]||0)*4+(freq[n-1]||0)*2+(freq[n+1]||0)*2+(freq[n-2]||0)+(freq[n+2]||0);});
+      const peaks=pool.filter(n=>heat[n]>=(heat[n-1]||0)&&heat[n]>=(heat[n+1]||0)&&heat[n]>0);
+      peaks.sort((a,b)=>heat[b]-heat[a]);
+      const allByHeat=[...pool].sort((a,b)=>heat[b]-heat[a]);
+      const nbCombined=[...new Set([...peaks,...allByHeat])];
+      mainNums=nbCombined.slice(0,game.count).sort((a,b)=>a-b);bonusNums=[];
+      break;}
     default:return generateNumbers(game,'random',freq,drawsOverride);
   }
   return{main:mainNums.sort((a,b)=>a-b),bonus:bonusNums.sort((a,b)=>a-b)};
@@ -1015,7 +1075,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
 
 // ── Confidence ───────────────────────────────────────────────
 function calcConfidence(algo){
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -1173,7 +1233,7 @@ function updateBtDateOptions(){
   updateAlgoScores();
 }
 
-const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü'};
+const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu'};
 
 function updateAlgoScores(){
   const gameId=document.getElementById('btGame').value;
@@ -1261,21 +1321,26 @@ function runBacktest(){
   const freq=buildFreq(prior);
   const pred=generateNumbers(game,algoId,freq,prior);
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
-  let mMain=0,mBonus=0;
+  let mMain=0,mBonus=0,nearTotal=0;
   if(actual){
-    mMain=pred.main.filter(n=>new Set(actual.nums).has(n)).length;
-    if(game.bonusCount>0)mBonus=pred.bonus.filter(n=>new Set(actual.bonus).has(n)).length;
+    const aS=new Set(actual.nums);
+    mMain=pred.main.filter(n=>aS.has(n)).length;
+    nearTotal=pred.main.filter(n=>!aS.has(n)&&(aS.has(n-1)||aS.has(n+1))).length;
+    if(game.bonusCount>0){
+      const aBs=new Set(actual.bonus);
+      mBonus=pred.bonus.filter(n=>aBs.has(n)).length;
+      nearTotal+=pred.bonus.filter(n=>!aBs.has(n)&&(aBs.has(n-1)||aBs.has(n+1))).length;
+    }
   }
   const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
   rs.style.display='block';
-  rc.innerHTML=buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,prior.length);
-  rs.scrollIntoView({behavior:'smooth',block:'nearest'});
+  rc.innerHTML=buildResultHtml(game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId,prior.length);
   const total=pred.main.length+pred.bonus.length;
-  state.btHistory.unshift({game,pred,actual,mMain,mBonus,testDate,algoId,prior:prior.length,score:actual?`${mMain+mBonus}/${total}`:'—'});
+  state.btHistory.unshift({game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId,prior:prior.length,score:actual?`${mMain+mBonus}/${total}${nearTotal>0?` +${nearTotal}≈`:''}`:'—'});
   renderBtHistory();
 }
 
-function buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,priorCount){
+function buildResultHtml(game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId,priorCount){
   const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
   const total=pred.main.length+pred.bonus.length;
   const matched=mMain+mBonus;
@@ -1284,8 +1349,14 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,priorCoun
   const prize=actual?prizeTier(game,mMain,mBonus):null;
   const aSet=actual?new Set(actual.nums):null;
   const aBSet=actual?new Set(actual.bonus):null;
-  const predBalls=pred.main.map(n=>staticBall(n,game.mainColor,aSet?(aSet.has(n)?'matched':'unmatched'):'')).join('');
-  const predBonus=pred.bonus.length?`<div class="balls-divider">+</div>`+pred.bonus.map(n=>staticBall(n,game.bonusColor+' special',aBSet?(aBSet.has(n)?'matched':'unmatched'):'')).join(''):'';
+  const predBalls=pred.main.map(n=>{
+    const cls=aSet?(aSet.has(n)?'matched':(aSet.has(n-1)||aSet.has(n+1))?'near':'unmatched'):'';
+    return staticBall(n,game.mainColor,cls);
+  }).join('');
+  const predBonus=pred.bonus.length?`<div class="balls-divider">+</div>`+pred.bonus.map(n=>{
+    const cls=aBSet?(aBSet.has(n)?'matched':(aBSet.has(n-1)||aBSet.has(n+1))?'near':'unmatched'):'';
+    return staticBall(n,game.bonusColor+' special',cls);
+  }).join(''):'';
   let actualHtml='';
   if(actual){
     const pSet=new Set(pred.main);
@@ -1306,7 +1377,7 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,priorCoun
       <div class="bt-result-title">${game.emoji} ${game.name} · ${testDate}</div>
       <div style="display:flex;align-items:center;gap:6px">
         ${actual
-          ?`<div class="bt-score-badge ${scoreCls}">${matched}/${total} eşleşti</div>${prize?`<span class="prize-label ${prize.cls}">${prize.label}</span>`:''}`
+          ?`<div class="bt-score-badge ${scoreCls}">${matched}/${total} eşleşti${nearTotal>0?` · ${nearTotal} yakın`:''}</div>${prize?`<span class="prize-label ${prize.cls}">${prize.label}</span>`:''}`
           :`<span style="color:var(--muted);font-size:.79rem">Karşılaştırma yapılamadı</span>`}
       </div>
     </div>
@@ -1319,7 +1390,8 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,priorCoun
       ${actual?`
       <div class="section-divider"></div>
       <div style="font-size:.74rem;color:var(--muted);line-height:1.7">
-        <span style="color:var(--green)">● Yeşil çerçeve</span> = eşleşen sayı &nbsp;·&nbsp;
+        <span style="color:var(--green)">● Yeşil</span> = tam eşleşme &nbsp;·&nbsp;
+        <span style="color:#ffd700">● Sarı</span> = ±1 yakın &nbsp;·&nbsp;
         <span style="opacity:.4">● Soluk</span> = eşleşmeyen sayı
         ${game.id==='onnumara'?`<br>On Numara'da 22 sayı çekilir; tahmininizin kaçının bu 22 içinde çıktığı gösterilir.`:''}
         ${game.id==='sayisal'?`<br>Sayısal Loto'da 1–90 arası 6 sayı çekilir.`:''}
