@@ -1,871 +1,336 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="tr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Türk Loto Tahmin Makinesi</title>
 <style>
-  :root {
-    --bg: #0a0a1a;
-    --surface: #12122a;
-    --surface2: #1a1a3a;
-    --border: #2a2a5a;
-    --accent: #6c63ff;
-    --accent2: #ff6584;
-    --gold: #ffd700;
-    --green: #00e676;
-    --red: #ff4757;
-    --blue: #00b4d8;
-    --text: #e0e0ff;
-    --muted: #7878a0;
-    --ball-size: 56px;
-  }
-
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-
-  body {
-    background: var(--bg);
-    color: var(--text);
-    font-family: 'Segoe UI', system-ui, sans-serif;
-    min-height: 100vh;
-    overflow-x: hidden;
-  }
-
-  /* Stars background */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-      radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.3) 0%, transparent 100%),
-      radial-gradient(1px 1px at 30% 80%, rgba(255,255,255,0.2) 0%, transparent 100%),
-      radial-gradient(1px 1px at 50% 10%, rgba(255,255,255,0.3) 0%, transparent 100%),
-      radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,0.2) 0%, transparent 100%),
-      radial-gradient(1px 1px at 90% 40%, rgba(255,255,255,0.3) 0%, transparent 100%),
-      radial-gradient(2px 2px at 20% 50%, rgba(255,255,255,0.15) 0%, transparent 100%),
-      radial-gradient(2px 2px at 60% 30%, rgba(255,255,255,0.15) 0%, transparent 100%),
-      radial-gradient(2px 2px at 80% 70%, rgba(255,255,255,0.15) 0%, transparent 100%);
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  .app {
-    position: relative;
-    z-index: 1;
-    max-width: 960px;
-    margin: 0 auto;
-    padding: 20px 16px 60px;
-  }
-
-  /* Header */
-  .header {
-    text-align: center;
-    margin-bottom: 32px;
-  }
-
-  .header h1 {
-    font-size: clamp(1.8rem, 5vw, 2.8rem);
-    font-weight: 800;
-    background: linear-gradient(135deg, var(--gold), var(--accent), var(--accent2));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    letter-spacing: -0.5px;
-    margin-bottom: 6px;
-  }
-
-  .header p {
-    color: var(--muted);
-    font-size: 0.95rem;
-  }
-
-  .jackpot-badge {
-    display: inline-block;
-    margin-top: 10px;
-    padding: 4px 16px;
-    border-radius: 20px;
-    background: linear-gradient(135deg, #7b2ff7, #f107a3);
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    animation: pulse-badge 2s ease-in-out infinite;
-  }
-
-  @keyframes pulse-badge {
-    0%, 100% { box-shadow: 0 0 0 0 rgba(123, 47, 247, 0.4); }
-    50% { box-shadow: 0 0 0 8px rgba(123, 47, 247, 0); }
-  }
-
-  /* Card */
-  .card {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 16px;
-  }
-
-  .card-title {
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: var(--muted);
-    margin-bottom: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .card-title::before {
-    content: '';
-    display: inline-block;
-    width: 3px;
-    height: 14px;
-    background: var(--accent);
-    border-radius: 2px;
-  }
-
-  /* Game selector */
-  .game-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 10px;
-  }
-
-  .game-btn {
-    background: var(--surface2);
-    border: 2px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-    color: var(--text);
-  }
-
-  .game-btn:hover {
-    border-color: var(--accent);
-    background: rgba(108, 99, 255, 0.1);
-  }
-
-  .game-btn.active {
-    border-color: var(--accent);
-    background: rgba(108, 99, 255, 0.2);
-    box-shadow: 0 0 20px rgba(108, 99, 255, 0.2);
-  }
-
-  .game-btn .game-emoji { font-size: 1.4rem; display: block; margin-bottom: 4px; }
-  .game-btn .game-name { font-size: 0.8rem; font-weight: 700; display: block; }
-  .game-btn .game-range { font-size: 0.7rem; color: var(--muted); display: block; margin-top: 2px; }
-
-  /* Algorithm selector */
-  .algo-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 10px;
-  }
-
-  .algo-btn {
-    background: var(--surface2);
-    border: 2px solid var(--border);
-    border-radius: 12px;
-    padding: 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-    color: var(--text);
-    text-align: left;
-  }
-
-  .algo-btn:hover { border-color: var(--accent2); background: rgba(255, 101, 132, 0.08); }
-  .algo-btn.active { border-color: var(--accent2); background: rgba(255, 101, 132, 0.15); }
-
-  .algo-btn .algo-name { font-size: 0.85rem; font-weight: 700; display: block; margin-bottom: 3px; }
-  .algo-btn .algo-desc { font-size: 0.7rem; color: var(--muted); display: block; line-height: 1.4; }
-
-  /* Generate button */
-  .generate-btn {
-    width: 100%;
-    padding: 18px;
-    border: none;
-    border-radius: 14px;
-    background: linear-gradient(135deg, var(--accent), #9c59ff);
-    color: #fff;
-    font-size: 1.05rem;
-    font-weight: 800;
-    letter-spacing: 0.5px;
-    cursor: pointer;
-    transition: all 0.2s;
-    position: relative;
-    overflow: hidden;
-    text-transform: uppercase;
-  }
-
-  .generate-btn::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
-
-  .generate-btn:hover::before { opacity: 1; }
-  .generate-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(108, 99, 255, 0.4); }
-  .generate-btn:active { transform: translateY(0); }
-  .generate-btn.spinning { animation: btn-pulse 0.6s ease-in-out; }
-
-  @keyframes btn-pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(0.98); }
-  }
-
-  /* Ticket display */
-  .ticket {
-    background: linear-gradient(135deg, #1e1e45, #12122a);
-    border: 1px solid rgba(108, 99, 255, 0.3);
-    border-radius: 16px;
-    padding: 24px;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .ticket::before {
-    content: '';
-    position: absolute;
-    top: -40px; right: -40px;
-    width: 150px; height: 150px;
-    background: radial-gradient(circle, rgba(108,99,255,0.15) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  .ticket-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-  }
-
-  .ticket-game {
-    font-size: 0.9rem;
-    font-weight: 700;
-    color: var(--gold);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
-
-  .ticket-algo-tag {
-    font-size: 0.7rem;
-    padding: 3px 10px;
-    border-radius: 10px;
-    background: rgba(255, 101, 132, 0.2);
-    border: 1px solid rgba(255, 101, 132, 0.4);
-    color: var(--accent2);
-  }
-
-  /* Balls */
-  .balls-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    justify-content: center;
-    margin-bottom: 10px;
-  }
-
-  .ball {
-    width: var(--ball-size);
-    height: var(--ball-size);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.1rem;
-    font-weight: 900;
-    position: relative;
-    cursor: default;
-    transition: transform 0.15s;
-    flex-shrink: 0;
-  }
-
-  .ball:hover { transform: scale(1.08); }
-
-  .ball.white {
-    background: radial-gradient(circle at 35% 30%, #ffffff, #b0b0c8);
-    color: #1a1a3a;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.2);
-  }
-
-  .ball.red {
-    background: radial-gradient(circle at 35% 30%, #ff6b6b, #c0392b);
-    color: #fff;
-    box-shadow: 0 4px 15px rgba(192,57,43,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
-  }
-
-  .ball.gold {
-    background: radial-gradient(circle at 35% 30%, #ffe066, #b8860b);
-    color: #3a2000;
-    box-shadow: 0 4px 15px rgba(184,134,11,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
-  }
-
-  .ball.blue {
-    background: radial-gradient(circle at 35% 30%, #74b9ff, #0c6ef0);
-    color: #fff;
-    box-shadow: 0 4px 15px rgba(12,110,240,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
-  }
-
-  .ball.green {
-    background: radial-gradient(circle at 35% 30%, #55efc4, #00b894);
-    color: #003d2e;
-    box-shadow: 0 4px 15px rgba(0,184,148,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
-  }
-
-  .ball.purple {
-    background: radial-gradient(circle at 35% 30%, #a29bfe, #6c5ce7);
-    color: #fff;
-    box-shadow: 0 4px 15px rgba(108,92,231,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
-  }
-
-  .ball.special {
-    background: radial-gradient(circle at 35% 30%, #fdcb6e, #e17055);
-    color: #fff;
-    box-shadow: 0 4px 15px rgba(225,112,85,0.5), inset 0 -2px 4px rgba(0,0,0,0.3);
-    outline: 2px solid var(--gold);
-    outline-offset: 2px;
-  }
-
-  .ball.rolling {
-    animation: roll 0.5s ease-in-out;
-  }
-
-  @keyframes roll {
-    0% { transform: scale(0) rotate(-180deg); opacity: 0; }
-    60% { transform: scale(1.15) rotate(10deg); opacity: 1; }
-    80% { transform: scale(0.95) rotate(-5deg); }
-    100% { transform: scale(1) rotate(0); }
-  }
-
-  .balls-divider {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--muted);
-    font-size: 1.2rem;
-    padding: 0 2px;
-  }
-
-  .ticket-footer {
-    margin-top: 16px;
-    padding-top: 14px;
-    border-top: 1px dashed rgba(255,255,255,0.08);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  .confidence-bar-wrap {
-    flex: 1;
-    min-width: 160px;
-  }
-
-  .confidence-label {
-    font-size: 0.72rem;
-    color: var(--muted);
-    margin-bottom: 5px;
-    display: flex;
-    justify-content: space-between;
-  }
-
-  .confidence-bar {
-    height: 6px;
-    background: var(--border);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-
-  .confidence-fill {
-    height: 100%;
-    border-radius: 3px;
-    background: linear-gradient(90deg, var(--accent), var(--accent2));
-    transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
-  }
-
-  .copy-btn {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--muted);
-    font-size: 0.78rem;
-    padding: 6px 12px;
-    cursor: pointer;
-    transition: all 0.2s;
-  }
-
-  .copy-btn:hover { border-color: var(--accent); color: var(--text); }
-
-  /* Saved tickets */
-  .saved-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    max-height: 340px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-  }
-
-  .saved-ticket {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px 16px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-    transition: border-color 0.2s;
-  }
-
-  .saved-ticket:hover { border-color: rgba(108,99,255,0.4); }
-
-  .saved-balls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-  }
-
-  .mini-ball {
-    --ball-size: 36px;
-    width: var(--ball-size);
-    height: var(--ball-size);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 900;
-    flex-shrink: 0;
-  }
-
-  .saved-meta {
-    font-size: 0.72rem;
-    color: var(--muted);
-    white-space: nowrap;
-  }
-
-  .saved-actions {
-    display: flex;
-    gap: 6px;
-  }
-
-  .icon-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 0.85rem;
-    padding: 4px 6px;
-    border-radius: 6px;
-    transition: background 0.2s;
-    color: var(--muted);
-  }
-  .icon-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
-  .icon-btn.del:hover { color: var(--red); }
-
-  /* Stats */
-  .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-
-  .stat-box {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 12px;
-    text-align: center;
-  }
-
-  .stat-val {
-    font-size: 1.5rem;
-    font-weight: 900;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-
-  .stat-label {
-    font-size: 0.68rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-top: 4px;
-  }
-
-  /* Frequency chart */
-  .freq-chart {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    max-height: 260px;
-    overflow-y: auto;
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-  }
-
-  .freq-row {
-    display: grid;
-    grid-template-columns: 36px 1fr 28px;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.78rem;
-  }
-
-  .freq-num {
-    text-align: right;
-    font-weight: 700;
-    color: var(--text);
-  }
-
-  .freq-bar-wrap {
-    height: 14px;
-    background: var(--border);
-    border-radius: 7px;
-    overflow: hidden;
-  }
-
-  .freq-bar-fill {
-    height: 100%;
-    border-radius: 7px;
-    transition: width 0.6s ease;
-  }
-
-  .freq-count {
-    color: var(--muted);
-    text-align: right;
-  }
-
-  /* Custom game form */
-  .form-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    margin-bottom: 10px;
-  }
-
-  .form-group label {
-    display: block;
-    font-size: 0.72rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 5px;
-  }
-
-  .form-group input {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 12px;
-    color: var(--text);
-    font-size: 0.9rem;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  .form-group input:focus { border-color: var(--accent); }
-
-  /* Past draws input */
-  .past-draws-input {
-    width: 100%;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    color: var(--text);
-    font-size: 0.85rem;
-    font-family: monospace;
-    outline: none;
-    resize: vertical;
-    min-height: 80px;
-    transition: border-color 0.2s;
-  }
-
-  .past-draws-input:focus { border-color: var(--accent); }
-
-  .parse-btn {
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    color: var(--accent);
-    font-size: 0.82rem;
-    font-weight: 700;
-    padding: 7px 14px;
-    cursor: pointer;
-    transition: all 0.2s;
-    margin-top: 8px;
-  }
-
-  .parse-btn:hover { background: rgba(108,99,255,0.1); border-color: var(--accent); }
-
-  .parse-status {
-    font-size: 0.75rem;
-    margin-top: 6px;
-    padding: 6px 10px;
-    border-radius: 6px;
-    display: none;
-  }
-
-  .parse-status.success { background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.3); color: var(--green); display: block; }
-  .parse-status.error { background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); color: var(--red); display: block; }
-
-  /* Quick picks counter */
-  .counter-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 16px;
-  }
-
-  .counter-label { font-size: 0.85rem; color: var(--muted); }
-
-  .counter-ctrl {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    overflow: hidden;
-  }
-
-  .counter-ctrl button {
-    background: none;
-    border: none;
-    color: var(--text);
-    font-size: 1.1rem;
-    width: 34px;
-    height: 34px;
-    cursor: pointer;
-    transition: background 0.2s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .counter-ctrl button:hover { background: rgba(255,255,255,0.06); }
-
-  .counter-val {
-    min-width: 36px;
-    text-align: center;
-    font-weight: 700;
-    font-size: 0.95rem;
-    border-left: 1px solid var(--border);
-    border-right: 1px solid var(--border);
-    height: 34px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  /* Tabs */
-  .tabs {
-    display: flex;
-    gap: 4px;
-    background: var(--surface2);
-    border-radius: 10px;
-    padding: 4px;
-    margin-bottom: 16px;
-  }
-
-  .tab-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    border-radius: 7px;
-    color: var(--muted);
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 7px 4px;
-    cursor: pointer;
-    transition: all 0.2s;
-    text-align: center;
-  }
-
-  .tab-btn.active {
-    background: var(--surface);
-    color: var(--text);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  }
-
-  .tab-panel { display: none; }
-  .tab-panel.active { display: block; }
-
-  /* Empty state */
-  .empty-state {
-    text-align: center;
-    padding: 30px 20px;
-    color: var(--muted);
-    font-size: 0.9rem;
-  }
-
-  .empty-state .empty-icon {
-    font-size: 2.5rem;
-    display: block;
-    margin-bottom: 8px;
-    opacity: 0.5;
-  }
-
-  /* Tooltip */
-  .tooltip {
-    position: relative;
-    display: inline-block;
-  }
-
-  /* Toast */
-  #toast {
-    position: fixed;
-    bottom: 24px;
-    left: 50%;
-    transform: translateX(-50%) translateY(80px);
-    background: var(--surface2);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 20px;
-    font-size: 0.85rem;
-    z-index: 1000;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-    pointer-events: none;
-    white-space: nowrap;
-  }
-
-  #toast.show { transform: translateX(-50%) translateY(0); }
-
-  /* Responsive */
-  @media (max-width: 600px) {
-    :root { --ball-size: 46px; }
-    .game-grid { grid-template-columns: repeat(3, 1fr); }
-    .algo-grid { grid-template-columns: 1fr 1fr; }
-    .form-row { grid-template-columns: 1fr; }
-  }
-
-  /* Scrollbar */
-  ::-webkit-scrollbar { width: 5px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-
-  /* Number input rows */
-  .draw-history-row {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 6px;
-    align-items: center;
-  }
-
-  .hot-cold-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
-
-  .hot-cold-section { }
-  .hot-cold-title {
-    font-size: 0.72rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    margin-bottom: 8px;
-    font-weight: 700;
-  }
-  .hot-cold-title.hot { color: #ff6b6b; }
-  .hot-cold-title.cold { color: #74b9ff; }
-
-  .hc-balls {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-  }
-
-  .hc-ball {
-    --ball-size: 34px;
-    width: var(--ball-size);
-    height: var(--ball-size);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.72rem;
-    font-weight: 900;
-    flex-shrink: 0;
-  }
-
-  .hc-ball.hot {
-    background: radial-gradient(circle at 35% 30%, #ff7675, #d63031);
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(214,48,49,0.4);
-  }
-
-  .hc-ball.cold {
-    background: radial-gradient(circle at 35% 30%, #a8d8ff, #0c6ef0);
-    color: #fff;
-    box-shadow: 0 2px 8px rgba(12,110,240,0.4);
-  }
-
-  .section-divider {
-    height: 1px;
-    background: var(--border);
-    margin: 16px 0;
-  }
-
-  .lucky-label {
-    font-size: 0.7rem;
-    color: var(--muted);
-    text-align: center;
-    margin-top: 10px;
-    font-style: italic;
-  }
+:root {
+  --bg: #0a0a1a; --surface: #12122a; --surface2: #1a1a3a; --border: #2a2a5a;
+  --accent: #6c63ff; --accent2: #ff6584; --gold: #ffd700;
+  --green: #00e676; --red: #ff4757; --blue: #00b4d8;
+  --text: #e0e0ff; --muted: #7878a0; --ball-size: 52px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; overflow-x: hidden; }
+body::before {
+  content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 30% 80%, rgba(255,255,255,.2) 0%, transparent 100%),
+    radial-gradient(1px 1px at 55% 12%, rgba(255,255,255,.3) 0%, transparent 100%),
+    radial-gradient(1px 1px at 75% 60%, rgba(255,255,255,.2) 0%, transparent 100%),
+    radial-gradient(2px 2px at 20% 50%, rgba(255,255,255,.12) 0%, transparent 100%),
+    radial-gradient(2px 2px at 65% 30%, rgba(255,255,255,.12) 0%, transparent 100%),
+    radial-gradient(2px 2px at 85% 70%, rgba(255,255,255,.12) 0%, transparent 100%);
+}
+
+/* ── Nav ─────────────────────────────── */
+.main-nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(10,10,26,.92); backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border); padding: 0 16px;
+}
+.nav-inner { max-width: 960px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 52px; gap: 12px; }
+.nav-brand {
+  font-size: .98rem; font-weight: 800; white-space: nowrap;
+  background: linear-gradient(135deg, var(--gold), var(--accent));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.nav-tabs { display: flex; gap: 4px; background: var(--surface2); border-radius: 10px; padding: 4px; }
+.nav-tab { background: none; border: none; border-radius: 7px; color: var(--muted); font-size: .8rem; font-weight: 600; padding: 6px 14px; cursor: pointer; transition: all .2s; white-space: nowrap; }
+.nav-tab.active { background: var(--surface); color: var(--text); box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+
+/* ── Layout ──────────────────────────── */
+.page { display: none; }
+.page.active { display: block; }
+.app { position: relative; z-index: 1; max-width: 960px; margin: 0 auto; padding: 20px 16px 60px; }
+
+/* ── Header ──────────────────────────── */
+.header { text-align: center; margin-bottom: 28px; }
+.header h1 {
+  font-size: clamp(1.7rem,5vw,2.6rem); font-weight: 800; letter-spacing: -.5px; margin-bottom: 6px;
+  background: linear-gradient(135deg, var(--gold), var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.header p { color: var(--muted); font-size: .93rem; }
+.jackpot-badge {
+  display: inline-block; margin-top: 10px; padding: 4px 16px; border-radius: 20px;
+  background: linear-gradient(135deg,#7b2ff7,#f107a3); font-size: .78rem; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; animation: pulse-badge 2s ease-in-out infinite;
+}
+@keyframes pulse-badge { 0%,100%{box-shadow:0 0 0 0 rgba(123,47,247,.4)} 50%{box-shadow:0 0 0 8px rgba(123,47,247,0)} }
+
+/* ── Card ────────────────────────────── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 16px; }
+.card-title {
+  font-size: .73rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px;
+  color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;
+}
+.card-title::before { content:''; display:inline-block; width:3px; height:14px; background:var(--accent); border-radius:2px; }
+
+/* ── Game grid ───────────────────────── */
+.game-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(120px,1fr)); gap: 10px; }
+.game-btn { background:var(--surface2); border:2px solid var(--border); border-radius:12px; padding:12px 8px; cursor:pointer; transition:all .2s; text-align:center; color:var(--text); }
+.game-btn:hover { border-color:var(--accent); background:rgba(108,99,255,.1); }
+.game-btn.active { border-color:var(--accent); background:rgba(108,99,255,.2); box-shadow:0 0 20px rgba(108,99,255,.2); }
+.game-btn .game-emoji { font-size:1.4rem; display:block; margin-bottom:4px; }
+.game-btn .game-name  { font-size:.78rem; font-weight:700; display:block; }
+.game-btn .game-range { font-size:.68rem; color:var(--muted); display:block; margin-top:2px; }
+
+/* ── Algo grid ───────────────────────── */
+.algo-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(148px,1fr)); gap:10px; }
+.algo-btn { background:var(--surface2); border:2px solid var(--border); border-radius:12px; padding:12px; cursor:pointer; transition:all .2s; color:var(--text); text-align:left; }
+.algo-btn:hover { border-color:var(--accent2); background:rgba(255,101,132,.08); }
+.algo-btn.active { border-color:var(--accent2); background:rgba(255,101,132,.15); }
+.algo-btn .algo-name { font-size:.83rem; font-weight:700; display:block; margin-bottom:3px; }
+.algo-btn .algo-desc { font-size:.68rem; color:var(--muted); display:block; line-height:1.4; }
+
+/* ── Generate button ─────────────────── */
+.generate-btn {
+  width:100%; padding:17px; border:none; border-radius:14px;
+  background:linear-gradient(135deg,var(--accent),#9c59ff); color:#fff;
+  font-size:1.02rem; font-weight:800; letter-spacing:.5px; cursor:pointer;
+  transition:all .2s; position:relative; overflow:hidden; text-transform:uppercase;
+}
+.generate-btn::before { content:''; position:absolute; inset:0; background:linear-gradient(135deg,rgba(255,255,255,.1),transparent); opacity:0; transition:opacity .2s; }
+.generate-btn:hover::before { opacity:1; }
+.generate-btn:hover { transform:translateY(-1px); box-shadow:0 8px 28px rgba(108,99,255,.4); }
+.generate-btn:active { transform:translateY(0); }
+.generate-btn.spinning { animation:btn-pulse .6s ease-in-out; }
+@keyframes btn-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(.98)} }
+
+/* ── Ticket ──────────────────────────── */
+.ticket {
+  background:linear-gradient(135deg,#1e1e45,#12122a);
+  border:1px solid rgba(108,99,255,.3); border-radius:16px; padding:22px;
+  position:relative; overflow:hidden;
+}
+.ticket::before { content:''; position:absolute; top:-40px; right:-40px; width:150px; height:150px; background:radial-gradient(circle,rgba(108,99,255,.15) 0%,transparent 70%); pointer-events:none; }
+.ticket-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+.ticket-game { font-size:.88rem; font-weight:700; color:var(--gold); text-transform:uppercase; letter-spacing:1px; }
+.ticket-algo-tag { font-size:.68rem; padding:3px 10px; border-radius:10px; background:rgba(255,101,132,.2); border:1px solid rgba(255,101,132,.4); color:var(--accent2); }
+
+/* ── Balls ───────────────────────────── */
+.balls-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:8px; }
+.ball {
+  width:var(--ball-size); height:var(--ball-size); border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:1rem; font-weight:900; flex-shrink:0;
+  transition:transform .15s; cursor:default;
+}
+.ball:hover { transform:scale(1.08); }
+.ball.white  { background:radial-gradient(circle at 35% 30%,#fff,#b0b0c8); color:#1a1a3a; box-shadow:0 4px 14px rgba(0,0,0,.4); }
+.ball.red    { background:radial-gradient(circle at 35% 30%,#ff6b6b,#c0392b); color:#fff; box-shadow:0 4px 14px rgba(192,57,43,.5); }
+.ball.gold   { background:radial-gradient(circle at 35% 30%,#ffe066,#b8860b); color:#3a2000; box-shadow:0 4px 14px rgba(184,134,11,.5); }
+.ball.blue   { background:radial-gradient(circle at 35% 30%,#74b9ff,#0c6ef0); color:#fff; box-shadow:0 4px 14px rgba(12,110,240,.5); }
+.ball.green  { background:radial-gradient(circle at 35% 30%,#55efc4,#00b894); color:#003d2e; box-shadow:0 4px 14px rgba(0,184,148,.5); }
+.ball.purple { background:radial-gradient(circle at 35% 30%,#a29bfe,#6c5ce7); color:#fff; box-shadow:0 4px 14px rgba(108,92,231,.5); }
+.ball.special { background:radial-gradient(circle at 35% 30%,#fdcb6e,#e17055); color:#fff; box-shadow:0 4px 14px rgba(225,112,85,.5); outline:2px solid var(--gold); outline-offset:2px; }
+.ball.rolling { animation:roll .5s ease-in-out; }
+@keyframes roll { 0%{transform:scale(0) rotate(-180deg);opacity:0} 60%{transform:scale(1.15) rotate(10deg);opacity:1} 80%{transform:scale(.95) rotate(-5deg)} 100%{transform:scale(1) rotate(0)} }
+.ball.matched   { outline:3px solid var(--green) !important; outline-offset:2px; box-shadow:0 0 16px rgba(0,230,118,.5) !important; }
+.ball.unmatched { opacity:.35; }
+.balls-divider { display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:1.1rem; }
+.mini-ball { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:900; flex-shrink:0; }
+
+/* ── Ticket footer ───────────────────── */
+.ticket-footer { margin-top:14px; padding-top:12px; border-top:1px dashed rgba(255,255,255,.08); display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+.confidence-bar-wrap { flex:1; min-width:150px; }
+.confidence-label { font-size:.7rem; color:var(--muted); margin-bottom:5px; display:flex; justify-content:space-between; }
+.confidence-bar { height:6px; background:var(--border); border-radius:3px; overflow:hidden; }
+.confidence-fill { height:100%; border-radius:3px; background:linear-gradient(90deg,var(--accent),var(--accent2)); transition:width .8s cubic-bezier(.34,1.56,.64,1); }
+.copy-btn { background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--muted); font-size:.76rem; padding:6px 11px; cursor:pointer; transition:all .2s; }
+.copy-btn:hover { border-color:var(--accent); color:var(--text); }
+
+/* ── Saved tickets ───────────────────── */
+.saved-list { display:flex; flex-direction:column; gap:10px; max-height:340px; overflow-y:auto; }
+.saved-ticket { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; transition:border-color .2s; }
+.saved-ticket:hover { border-color:rgba(108,99,255,.4); }
+.saved-balls { display:flex; flex-wrap:wrap; gap:5px; align-items:center; }
+.saved-meta { font-size:.7rem; color:var(--muted); white-space:nowrap; }
+.icon-btn { background:none; border:none; cursor:pointer; font-size:.85rem; padding:4px 6px; border-radius:6px; transition:background .2s; color:var(--muted); }
+.icon-btn:hover { background:rgba(255,255,255,.06); color:var(--text); }
+.icon-btn.del:hover { color:var(--red); }
+
+/* ── Stats ───────────────────────────── */
+.stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:10px; margin-bottom:16px; }
+.stat-box { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:12px; text-align:center; }
+.stat-val { font-size:1.45rem; font-weight:900; background:linear-gradient(135deg,var(--accent),var(--accent2)); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.stat-label { font-size:.66rem; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-top:4px; }
+
+/* ── Freq chart ──────────────────────── */
+.freq-chart { display:flex; flex-direction:column; gap:5px; max-height:240px; overflow-y:auto; }
+.freq-row { display:grid; grid-template-columns:34px 1fr 26px; align-items:center; gap:8px; font-size:.76rem; }
+.freq-num { text-align:right; font-weight:700; }
+.freq-bar-wrap { height:13px; background:var(--border); border-radius:6px; overflow:hidden; }
+.freq-bar-fill { height:100%; border-radius:6px; transition:width .6s ease; }
+.freq-count { color:var(--muted); text-align:right; }
+
+/* ── Hot/cold ────────────────────────── */
+.hot-cold-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.hot-cold-title { font-size:.7rem; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; font-weight:700; }
+.hot-cold-title.hot { color:#ff6b6b; }
+.hot-cold-title.cold { color:#74b9ff; }
+.hc-balls { display:flex; flex-wrap:wrap; gap:5px; }
+.hc-ball { width:32px; height:32px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.7rem; font-weight:900; flex-shrink:0; }
+.hc-ball.hot  { background:radial-gradient(circle at 35% 30%,#ff7675,#d63031); color:#fff; box-shadow:0 2px 8px rgba(214,48,49,.4); }
+.hc-ball.cold { background:radial-gradient(circle at 35% 30%,#a8d8ff,#0c6ef0); color:#fff; box-shadow:0 2px 8px rgba(12,110,240,.4); }
+
+/* ── Inputs ──────────────────────────── */
+.past-draws-input, .dated-draws-input {
+  width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:10px 12px; color:var(--text); font-size:.83rem; font-family:monospace;
+  outline:none; resize:vertical; transition:border-color .2s;
+}
+.past-draws-input { min-height:78px; }
+.dated-draws-input { min-height:130px; line-height:1.8; }
+.past-draws-input:focus, .dated-draws-input:focus { border-color:var(--accent); }
+.parse-btn { background:var(--surface2); border:1px solid var(--border); border-radius:8px; color:var(--accent); font-size:.8rem; font-weight:700; padding:7px 13px; cursor:pointer; transition:all .2s; margin-top:8px; }
+.parse-btn:hover { background:rgba(108,99,255,.1); border-color:var(--accent); }
+.parse-status { font-size:.74rem; margin-top:6px; padding:6px 10px; border-radius:6px; display:none; }
+.parse-status.success { background:rgba(0,230,118,.1); border:1px solid rgba(0,230,118,.3); color:var(--green); display:block; }
+.parse-status.error   { background:rgba(255,71,87,.1);  border:1px solid rgba(255,71,87,.3);  color:var(--red);   display:block; }
+
+/* ── Counter ─────────────────────────── */
+.counter-row { display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+.counter-label { font-size:.84rem; color:var(--muted); }
+.counter-ctrl { display:flex; align-items:center; background:var(--surface2); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+.counter-ctrl button { background:none; border:none; color:var(--text); font-size:1.1rem; width:34px; height:34px; cursor:pointer; transition:background .2s; display:flex; align-items:center; justify-content:center; }
+.counter-ctrl button:hover { background:rgba(255,255,255,.06); }
+.counter-val { min-width:36px; text-align:center; font-weight:700; font-size:.93rem; border-left:1px solid var(--border); border-right:1px solid var(--border); height:34px; display:flex; align-items:center; justify-content:center; }
+
+/* ── Tabs ────────────────────────────── */
+.tabs { display:flex; gap:4px; background:var(--surface2); border-radius:10px; padding:4px; margin-bottom:16px; }
+.tab-btn { flex:1; background:none; border:none; border-radius:7px; color:var(--muted); font-size:.76rem; font-weight:600; padding:7px 4px; cursor:pointer; transition:all .2s; text-align:center; }
+.tab-btn.active { background:var(--surface); color:var(--text); box-shadow:0 2px 8px rgba(0,0,0,.3); }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+/* ── Empty state ─────────────────────── */
+.empty-state { text-align:center; padding:28px 20px; color:var(--muted); font-size:.88rem; }
+.empty-state .empty-icon { font-size:2.3rem; display:block; margin-bottom:8px; opacity:.5; }
+
+/* ── Misc ────────────────────────────── */
+.section-divider { height:1px; background:var(--border); margin:14px 0; }
+
+/* ── Form controls (backtest) ────────── */
+.bt-config { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px; }
+.form-group label { display:block; font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-bottom:5px; }
+.form-group select, .form-group input[type=date] {
+  width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:8px;
+  padding:9px 12px; color:var(--text); font-size:.86rem; outline:none;
+  transition:border-color .2s; cursor:pointer;
+}
+.form-group select:focus, .form-group input[type=date]:focus { border-color:var(--accent); }
+.form-group select option { background:var(--surface2); color:var(--text); }
+
+/* ── Run button ──────────────────────── */
+.run-btn {
+  width:100%; padding:15px; border:none; border-radius:14px;
+  background:linear-gradient(135deg,#00b894,#00cec9); color:#fff;
+  font-size:.98rem; font-weight:800; cursor:pointer; transition:all .2s;
+  text-transform:uppercase; letter-spacing:.5px;
+}
+.run-btn:hover { transform:translateY(-1px); box-shadow:0 8px 24px rgba(0,184,148,.35); }
+.run-btn:active { transform:translateY(0); }
+
+/* ── Backtest result ─────────────────── */
+.bt-info-box {
+  background:rgba(108,99,255,.07); border:1px solid rgba(108,99,255,.22);
+  border-radius:12px; padding:14px 16px; margin-bottom:16px;
+  font-size:.8rem; color:var(--muted); line-height:1.75;
+}
+.bt-info-box strong { color:var(--text); }
+.bt-info-box code { color:var(--accent); font-family:monospace; }
+
+.bt-result { border:1px solid var(--border); border-radius:14px; overflow:hidden; }
+.bt-result-header { background:var(--surface2); padding:12px 16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; }
+.bt-result-title { font-size:.88rem; font-weight:700; }
+.bt-score-badge { font-size:1.05rem; font-weight:900; padding:4px 14px; border-radius:20px; }
+.bt-score-badge.excellent { background:rgba(0,230,118,.2);  color:var(--green); border:1px solid rgba(0,230,118,.4); }
+.bt-score-badge.good      { background:rgba(253,203,110,.2); color:#fdcb6e;      border:1px solid rgba(253,203,110,.4); }
+.bt-score-badge.fair      { background:rgba(108,99,255,.2);  color:var(--accent); border:1px solid rgba(108,99,255,.4); }
+.bt-score-badge.poor      { background:rgba(255,71,87,.15);  color:var(--red);   border:1px solid rgba(255,71,87,.3); }
+.bt-result-body { padding:16px; }
+.bt-section-label { font-size:.67rem; text-transform:uppercase; letter-spacing:1px; color:var(--muted); margin-bottom:8px; font-weight:700; }
+.bt-balls-section { margin-bottom:14px; }
+.bt-no-actual { background:rgba(255,255,255,.03); border:1px dashed rgba(255,255,255,.1); border-radius:10px; padding:16px; text-align:center; color:var(--muted); font-size:.8rem; }
+.prize-label { display:inline-block; padding:2px 8px; border-radius:6px; font-size:.66rem; font-weight:700; letter-spacing:.5px; margin-left:6px; }
+.prize-jackpot { background:rgba(255,215,0,.2);  color:var(--gold);   border:1px solid rgba(255,215,0,.4); }
+.prize-high    { background:rgba(0,230,118,.15); color:var(--green);  border:1px solid rgba(0,230,118,.3); }
+.prize-mid     { background:rgba(108,99,255,.15);color:var(--accent); border:1px solid rgba(108,99,255,.3); }
+
+/* ── Backtest history ────────────────── */
+.bt-history { display:flex; flex-direction:column; gap:8px; max-height:380px; overflow-y:auto; }
+.bt-hist-row { background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px 14px; display:grid; grid-template-columns:28px 1fr auto auto; align-items:center; gap:10px; font-size:.78rem; cursor:pointer; transition:border-color .2s; }
+.bt-hist-row:hover { border-color:rgba(108,99,255,.4); }
+.bt-hist-nums { color:var(--muted); font-family:monospace; font-size:.76rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bt-hist-date { color:var(--muted); font-size:.7rem; white-space:nowrap; }
+.bt-hist-score { font-weight:700; font-size:.83rem; color:var(--green); white-space:nowrap; }
+
+/* ── Toast ───────────────────────────── */
+#toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(80px); background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:10px 20px; font-size:.83rem; z-index:1000; transition:transform .3s cubic-bezier(.34,1.56,.64,1); pointer-events:none; white-space:nowrap; }
+#toast.show { transform:translateX(-50%) translateY(0); }
+
+/* ── Scrollbar ───────────────────────── */
+::-webkit-scrollbar { width:5px; }
+::-webkit-scrollbar-track { background:transparent; }
+::-webkit-scrollbar-thumb { background:var(--border); border-radius:3px; }
+
+/* ── Responsive ──────────────────────── */
+@media (max-width:600px) {
+  :root { --ball-size:42px; }
+  .bt-config { grid-template-columns:1fr; }
+  .bt-hist-row { grid-template-columns:24px 1fr auto; }
+  .bt-hist-date { display:none; }
+  .hot-cold-grid { grid-template-columns:1fr; }
+}
 </style>
 </head>
 <body>
+
+<nav class="main-nav">
+  <div class="nav-inner">
+    <span class="nav-brand">🎱 Loto Tahmin Makinesi</span>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="showPage('generator')">🎰 Tahmin</button>
+      <button class="nav-tab"        onclick="showPage('backtest')">📅 Geçmiş Test</button>
+    </div>
+  </div>
+</nav>
+
 <div class="app">
 
-  <!-- Header -->
+<!-- ═══════════════════ PAGE: GENERATOR ═══════════════════ -->
+<div id="page-generator" class="page active">
+
   <div class="header">
     <h1>🎱 Loto Tahmin Makinesi</h1>
     <p>İstatistiksel analize dayalı akıllı tahmin motoru</p>
     <span class="jackpot-badge">✨ Şanslı Sayılar Üreticisi</span>
   </div>
 
-  <!-- Game Selector -->
   <div class="card">
     <div class="card-title">Oyun Seçin</div>
     <div class="game-grid" id="gameGrid"></div>
   </div>
 
-  <!-- Algorithm Selector -->
   <div class="card">
     <div class="card-title">Tahmin Algoritması</div>
     <div class="algo-grid" id="algoGrid"></div>
   </div>
 
-  <!-- Past Draws for Analysis -->
   <div class="card">
     <div class="card-title">Geçmiş Çekilişler (İsteğe Bağlı – Doğruluğu Artırır)</div>
-    <div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">
-      Geçmiş kazanan sayıları yapıştırın (her satır bir çekiliş, sayılar boşluk veya virgülle ayrılmış). Örnek: <code style="color:var(--accent)">5 12 23 36 41 49</code>
+    <div style="font-size:.77rem;color:var(--muted);margin-bottom:8px">
+      Her satıra bir çekiliş girin. Örnek: <code style="color:var(--accent)">5 12 23 36 41 49</code>
     </div>
     <textarea class="past-draws-input" id="pastDrawsInput" placeholder="5 12 23 36 41 49&#10;3 17 28 33 45 7&#10;1 9 19 31 42 49"></textarea>
     <button class="parse-btn" onclick="parsePastDraws()">📊 Çekilişleri Analiz Et</button>
     <div class="parse-status" id="parseStatus"></div>
   </div>
 
-  <!-- Generate -->
   <div class="card">
     <div class="card-title">Bilet Üret</div>
     <div class="counter-row">
@@ -876,573 +341,659 @@
         <button onclick="adjustCount(1)">+</button>
       </div>
     </div>
-    <button class="generate-btn" id="generateBtn" onclick="generateTickets()">
-      🎰 Şanslı Sayıları Üret
-    </button>
+    <button class="generate-btn" id="generateBtn" onclick="generateTickets()">🎰 Şanslı Sayıları Üret</button>
   </div>
 
-  <!-- Result Ticket -->
   <div class="card" id="ticketCard" style="display:none">
     <div class="card-title">Şanslı Sayılarınız</div>
     <div id="ticketContainer"></div>
   </div>
 
-  <!-- Analysis & History Tabs -->
   <div class="card">
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('saved')">🎫 Kaydedilen Biletler</button>
-      <button class="tab-btn" onclick="switchTab('stats')">📈 İstatistikler</button>
-      <button class="tab-btn" onclick="switchTab('hotcold')">🔥 Sıcak & Soğuk</button>
+      <button class="tab-btn"        onclick="switchTab('stats')">📈 İstatistikler</button>
+      <button class="tab-btn"        onclick="switchTab('hotcold')">🔥 Sıcak &amp; Soğuk</button>
     </div>
-
-    <!-- Saved Tickets -->
     <div class="tab-panel active" id="tab-saved">
-      <div id="savedList">
-        <div class="empty-state"><span class="empty-icon">🎟️</span>Henüz kaydedilmiş bilet yok. Üretin ve kaydedin!</div>
-      </div>
+      <div id="savedList"><div class="empty-state"><span class="empty-icon">🎟️</span>Henüz kaydedilmiş bilet yok.</div></div>
     </div>
-
-    <!-- Statistics -->
     <div class="tab-panel" id="tab-stats">
-      <div class="stats-grid" id="statsGrid">
+      <div class="stats-grid">
         <div class="stat-box"><div class="stat-val" id="statGenerated">0</div><div class="stat-label">Üretilen</div></div>
         <div class="stat-box"><div class="stat-val" id="statSaved">0</div><div class="stat-label">Kaydedilen</div></div>
         <div class="stat-box"><div class="stat-val" id="statDraws">0</div><div class="stat-label">Çekiliş</div></div>
         <div class="stat-box"><div class="stat-val" id="statUnique">—</div><div class="stat-label">Tekil Sayı</div></div>
       </div>
-
-      <div style="margin-bottom:8px; font-size:0.78rem; color:var(--muted);">Sayı Frekansı (geçmişten)</div>
+      <div style="margin-bottom:8px;font-size:.76rem;color:var(--muted)">Sayı Frekansı (geçmişten)</div>
       <div class="freq-chart" id="freqChart">
-        <div class="empty-state" style="padding:20px 0;"><span class="empty-icon">📊</span>Frekansı görmek için geçmiş çekiliş verisi yükleyin.</div>
+        <div class="empty-state" style="padding:18px 0"><span class="empty-icon">📊</span>Frekansı görmek için çekiliş verisi yükleyin.</div>
       </div>
     </div>
-
-    <!-- Hot & Cold -->
     <div class="tab-panel" id="tab-hotcold">
-      <div id="hotColdDisplay">
-        <div class="empty-state"><span class="empty-icon">🌡️</span>Load historical draws to see hot & cold numbers.</div>
-      </div>
+      <div id="hotColdDisplay"><div class="empty-state"><span class="empty-icon">🌡️</span>Sıcak &amp; soğuk sayıları görmek için çekiliş verisi yükleyin.</div></div>
     </div>
   </div>
 
-</div>
+</div><!-- /page-generator -->
 
+
+<!-- ═══════════════════ PAGE: BACKTESTING ═══════════════════ -->
+<div id="page-backtest" class="page">
+
+  <div class="header">
+    <h1>📅 Geçmiş Test</h1>
+    <p>Algoritmanın geçmişteki performansını ölç</p>
+  </div>
+
+  <div class="bt-info-box">
+    <strong>Nasıl çalışır?</strong><br>
+    1. Tarihli geçmiş çekiliş verisi girin → <code>YYYY-AA-GG n1 n2 n3 ...</code><br>
+    2. Test etmek istediğiniz oyunu ve tarihi seçin<br>
+    3. Algoritma yalnızca <strong>seçilen tarihten önceki</strong> verileri kullanarak tahmin üretir<br>
+    4. Seçilen tarihteki gerçek sonuçla karşılaştırma gösterilir
+  </div>
+
+  <div class="card">
+    <div class="card-title">Tarihli Geçmiş Çekiliş Verisi</div>
+    <div style="font-size:.77rem;color:var(--muted);margin-bottom:10px">
+      Format: <code style="color:var(--accent)">YYYY-AA-GG n1 n2 n3 ...</code> &nbsp;|&nbsp;
+      Şans Topu joker topu: <code style="color:var(--accent)">2024-01-15 5 12 23 31 34 | 8</code>
+    </div>
+    <textarea class="dated-draws-input" id="datedDrawsInput"
+      placeholder="2024-06-15 7 14 22 31 38 47&#10;2024-06-12 3 11 19 28 35 42&#10;2024-06-08 5 13 21 30 37 44"></textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+      <button class="parse-btn" onclick="parseDatedDraws()">📅 Verileri Yükle</button>
+      <button class="parse-btn" style="color:var(--muted)" onclick="loadSampleBtData()">📋 Örnek Veri Yükle</button>
+    </div>
+    <div class="parse-status" id="btParseStatus"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Test Yapılandırması</div>
+    <div class="bt-config">
+      <div class="form-group">
+        <label>Oyun</label>
+        <select id="btGame" onchange="updateBtDateOptions()">
+          <option value="sayisal">🔵 Sayısal Loto</option>
+          <option value="super">⭐ Süper Loto</option>
+          <option value="sans">🔴 Şans Topu</option>
+          <option value="onnumara">🟢 On Numara</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Test Tarihi</label>
+        <select id="btDate"><option value="">— Önce veri yükleyin —</option></select>
+      </div>
+      <div class="form-group">
+        <label>Algoritma</label>
+        <select id="btAlgo">
+          <option value="balanced">⚖️ Dengeli Karışım</option>
+          <option value="hot">🔥 Sıcak Sayılar</option>
+          <option value="cold">❄️ Soğuk Sayılar</option>
+          <option value="random">🎲 Tam Rastgele</option>
+          <option value="delta">△ Delta Sistemi</option>
+          <option value="wheeling">🔄 Wheeling</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Eğitim Penceresi</label>
+        <select id="btWindow">
+          <option value="all">Tüm geçmiş çekilişler</option>
+          <option value="50">Son 50 çekiliş</option>
+          <option value="20">Son 20 çekiliş</option>
+          <option value="10">Son 10 çekiliş</option>
+        </select>
+      </div>
+    </div>
+    <button class="run-btn" onclick="runBacktest()">🔬 Geçmiş Testi Çalıştır</button>
+  </div>
+
+  <div id="btResultSection" style="display:none">
+    <div class="card">
+      <div class="card-title">Test Sonucu</div>
+      <div id="btResultContent"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Test Geçmişi</div>
+    <div class="bt-history" id="btHistory">
+      <div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>
+    </div>
+  </div>
+
+</div><!-- /page-backtest -->
+
+</div><!-- /app -->
 <div id="toast"></div>
 
 <script>
-// ===================== GAME DEFINITIONS =====================
+// ── Game & algo definitions ──────────────────────────────────
 const GAMES = [
-  { id: 'sayisal', name: 'Sayısal Loto', emoji: '🔵', count: 6, max: 49, bonusCount: 0, bonusMax: 0,  mainColor: 'blue',   bonusColor: '',     range: '6 / 49' },
-  { id: 'super',   name: 'Süper Loto',   emoji: '⭐', count: 6, max: 54, bonusCount: 0, bonusMax: 0,  mainColor: 'gold',   bonusColor: '',     range: '6 / 54' },
-  { id: 'sans',    name: 'Şans Topu',    emoji: '🔴', count: 5, max: 34, bonusCount: 1, bonusMax: 14, mainColor: 'white',  bonusColor: 'red',  range: '5/34 + 1/14' },
+  { id:'sayisal',  name:'Sayısal Loto', emoji:'🔵', count:6,  max:49, bonusCount:0, bonusMax:0,  mainColor:'blue',  bonusColor:'',    range:'6 / 49',      drawCount:6  },
+  { id:'super',    name:'Süper Loto',   emoji:'⭐', count:6,  max:54, bonusCount:0, bonusMax:0,  mainColor:'gold',  bonusColor:'',    range:'6 / 54',      drawCount:6  },
+  { id:'sans',     name:'Şans Topu',    emoji:'🔴', count:5,  max:34, bonusCount:1, bonusMax:14, mainColor:'white', bonusColor:'red', range:'5/34 + 1/14', drawCount:6  },
+  { id:'onnumara', name:'On Numara',    emoji:'🟢', count:10, max:80, bonusCount:0, bonusMax:0,  mainColor:'green', bonusColor:'',    range:'10 / 80',     drawCount:22 },
 ];
 
 const ALGOS = [
-  { id: 'random',   name: 'Tam Rastgele',    desc: 'Her sayının eşit şansa sahip olduğu gerçek rastgele seçim' },
-  { id: 'hot',      name: '🔥 Sıcak Sayılar', desc: 'Geçmişte en sık çekilen sayıları tercih eder' },
-  { id: 'cold',     name: '❄️ Soğuk Sayılar', desc: 'Son zamanlarda çekilmeyen gecikmiş sayıları seçer' },
-  { id: 'balanced', name: '⚖️ Dengeli Karışım', desc: 'Sıcak, soğuk ve rastgele sayıların dengeli karışımı' },
-  { id: 'delta',    name: '△ Delta Sistemi', desc: 'Sayılar arasındaki aralık örüntülerini kullanır' },
-  { id: 'wheeling', name: '🔄 Wheeling',     desc: 'En iyi sayı havuzundan maksimum kapsama sağlar' },
+  { id:'random',   name:'Tam Rastgele',      desc:'Her sayının eşit şansa sahip olduğu gerçek rastgele seçim' },
+  { id:'hot',      name:'🔥 Sıcak Sayılar',   desc:'Geçmişte en sık çekilen sayıları tercih eder' },
+  { id:'cold',     name:'❄️ Soğuk Sayılar',   desc:'Son zamanlarda çekilmeyen gecikmiş sayıları seçer' },
+  { id:'balanced', name:'⚖️ Dengeli Karışım', desc:'Sıcak, soğuk ve rastgele sayıların dengeli karışımı' },
+  { id:'delta',    name:'△ Delta Sistemi',    desc:'Sayılar arasındaki aralık örüntülerini kullanır' },
+  { id:'wheeling', name:'🔄 Wheeling',         desc:'En iyi sayı havuzundan maksimum kapsama sağlar' },
 ];
 
-// ===================== STATE =====================
-let state = {
-  selectedGame: 'sayisal',
-  selectedAlgo: 'balanced',
-  ticketCount: 1,
-  pastDraws: [],
-  frequency: {},
-  savedTickets: [],
-  totalGenerated: 0,
+// ── State ────────────────────────────────────────────────────
+const state = {
+  selectedGame: 'sayisal', selectedAlgo: 'balanced',
+  ticketCount: 1, pastDraws: [], frequency: {},
+  savedTickets: [], totalGenerated: 0,
+  datedDraws: [],   // [{date, nums, bonus}]
+  btHistory: [],
 };
 
-function getGame() {
-  return GAMES.find(g => g.id === state.selectedGame);
+const getGame = id => GAMES.find(g => g.id === (id || state.selectedGame));
+
+// ── Navigation ───────────────────────────────────────────────
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.nav-tab')[name === 'generator' ? 0 : 1].classList.add('active');
 }
 
-// ===================== INIT UI =====================
+// ── Init grids ───────────────────────────────────────────────
 function initGameGrid() {
-  const grid = document.getElementById('gameGrid');
-  grid.innerHTML = GAMES.map(g => `
+  document.getElementById('gameGrid').innerHTML = GAMES.map(g => `
     <button class="game-btn ${g.id === state.selectedGame ? 'active' : ''}" onclick="selectGame('${g.id}')">
       <span class="game-emoji">${g.emoji}</span>
       <span class="game-name">${g.name}</span>
       <span class="game-range">${g.range}</span>
-    </button>
-  `).join('');
+    </button>`).join('');
 }
 
 function initAlgoGrid() {
-  const grid = document.getElementById('algoGrid');
-  grid.innerHTML = ALGOS.map(a => `
+  document.getElementById('algoGrid').innerHTML = ALGOS.map(a => `
     <button class="algo-btn ${a.id === state.selectedAlgo ? 'active' : ''}" onclick="selectAlgo('${a.id}')">
       <span class="algo-name">${a.name}</span>
       <span class="algo-desc">${a.desc}</span>
-    </button>
-  `).join('');
+    </button>`).join('');
 }
 
-function selectGame(id) {
-  state.selectedGame = id;
-  initGameGrid();
-}
+function selectGame(id) { state.selectedGame = id; initGameGrid(); }
+function selectAlgo(id)  { state.selectedAlgo = id; initAlgoGrid(); }
+function adjustCount(d)  { state.ticketCount = Math.max(1, Math.min(10, state.ticketCount + d)); document.getElementById('countVal').textContent = state.ticketCount; }
 
-function selectAlgo(id) {
-  state.selectedAlgo = id;
-  initAlgoGrid();
-}
-
-function adjustCount(delta) {
-  state.ticketCount = Math.max(1, Math.min(10, state.ticketCount + delta));
-  document.getElementById('countVal').textContent = state.ticketCount;
-}
-
-// ===================== PAST DRAWS PARSING =====================
+// ── Past-draws parser (generator page) ──────────────────────
 function parsePastDraws() {
   const raw = document.getElementById('pastDrawsInput').value.trim();
   const status = document.getElementById('parseStatus');
-
-  if (!raw) {
-    status.className = 'parse-status error';
-    status.textContent = '⚠️ Lütfen önce geçmiş çekiliş verisi girin.';
-    return;
-  }
-
-  const lines = raw.split('\n').filter(l => l.trim());
+  if (!raw) { status.className='parse-status error'; status.textContent='⚠️ Lütfen önce geçmiş çekiliş verisi girin.'; return; }
   const draws = [];
-
-  for (const line of lines) {
-    // Strip bonus ball separator (| or +)
-    const clean = line.replace(/[|+]/g, ' ');
-    const nums = clean.match(/\d+/g);
-    if (nums && nums.length >= 2) {
-      draws.push(nums.map(Number));
-    }
-  }
-
-  if (draws.length === 0) {
-    status.className = 'parse-status error';
-    status.textContent = '❌ Çekiliş ayrıştırılamadı. Format: 5 12 23 36 41 (her satıra bir çekiliş)';
-    return;
-  }
-
-  state.pastDraws = draws;
-
-  // Build frequency map
-  const freq = {};
-  draws.forEach(draw => {
-    draw.forEach(n => {
-      freq[n] = (freq[n] || 0) + 1;
-    });
+  raw.split('\n').filter(l=>l.trim()).forEach(line => {
+    const nums = line.replace(/[|+]/g,' ').match(/\d+/g);
+    if (nums && nums.length >= 2) draws.push(nums.map(Number));
   });
+  if (!draws.length) { status.className='parse-status error'; status.textContent='❌ Çekiliş ayrıştırılamadı. Format: 5 12 23 36 41 (her satıra bir çekiliş)'; return; }
+  state.pastDraws = draws;
+  const freq = {};
+  draws.forEach(d => d.forEach(n => { freq[n]=(freq[n]||0)+1; }));
   state.frequency = freq;
-
-  status.className = 'parse-status success';
-  status.textContent = `✅ ${draws.length} çekiliş yüklendi. ${Object.keys(freq).length} tekil sayı bulundu.`;
-
-  updateStats();
-  renderFreqChart();
-  renderHotCold();
+  status.className='parse-status success';
+  status.textContent=`✅ ${draws.length} çekiliş yüklendi. ${Object.keys(freq).length} tekil sayı bulundu.`;
+  updateStats(); renderFreqChart(); renderHotCold();
 }
 
-// ===================== NUMBER GENERATION =====================
+// ── Number generation ────────────────────────────────────────
+function rng(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+function range(min,max){ const a=[]; for(let i=min;i<=max;i++) a.push(i); return a; }
+
 function pickUnique(pool, count, weights) {
-  const result = [];
-  let remaining = [...pool];
-  let remainingWeights = weights ? [...weights] : null;
-
-  for (let i = 0; i < count && remaining.length > 0; i++) {
-    let idx;
-    if (remainingWeights) {
-      const total = remainingWeights.reduce((s, w) => s + w, 0);
-      let r = Math.random() * total;
-      idx = 0;
-      for (let j = 0; j < remainingWeights.length; j++) {
-        r -= remainingWeights[j];
-        if (r <= 0) { idx = j; break; }
-      }
-    } else {
-      idx = Math.floor(Math.random() * remaining.length);
-    }
-    result.push(remaining[idx]);
-    remaining.splice(idx, 1);
-    if (remainingWeights) remainingWeights.splice(idx, 1);
+  const result=[], rem=[...pool], remW=weights?[...weights]:null;
+  for (let i=0; i<count && rem.length>0; i++) {
+    let idx=0;
+    if (remW) {
+      const tot=remW.reduce((s,w)=>s+w,0); let r=Math.random()*tot;
+      for (let j=0;j<remW.length;j++){ r-=remW[j]; if(r<=0){idx=j;break;} }
+    } else { idx=Math.floor(Math.random()*rem.length); }
+    result.push(rem[idx]);
+    rem.splice(idx,1);
+    if (remW) remW.splice(idx,1);
   }
-
   return result;
 }
 
-function range(min, max) {
-  const arr = [];
-  for (let i = min; i <= max; i++) arr.push(i);
-  return arr;
-}
-
-function generateNumbers(game, algo) {
-  let mainNums, bonusNums = [];
-
+function generateNumbers(game, algo, freqOverride) {
+  const freq = freqOverride || state.frequency;
+  const hasHist = Object.keys(freq).length > 0;
   const pool = range(1, game.max);
   const bonusPool = game.bonusCount > 0 ? range(1, game.bonusMax) : [];
+  let mainNums, bonusNums = [];
 
-  const freq = state.frequency;
-  const hasHistory = Object.keys(freq).length > 0;
-
-  switch (algo) {
-    case 'random': {
+  switch(algo) {
+    case 'random':
       mainNums = pickUnique(pool, game.count);
       bonusNums = pickUnique(bonusPool, game.bonusCount);
       break;
-    }
 
-    case 'hot': {
-      if (!hasHistory) return generateNumbers(game, 'random');
-      const weights = pool.map(n => (freq[n] || 0.1));
-      mainNums = pickUnique(pool, game.count, weights);
-
-      const bWeights = bonusPool.map(n => (freq[n] || 0.1));
-      bonusNums = pickUnique(bonusPool, game.bonusCount, bWeights);
+    case 'hot':
+      if (!hasHist) return generateNumbers(game,'random',freq);
+      mainNums = pickUnique(pool, game.count, pool.map(n=>freq[n]||.1));
+      bonusNums = pickUnique(bonusPool, game.bonusCount, bonusPool.map(n=>freq[n]||.1));
       break;
-    }
 
     case 'cold': {
-      if (!hasHistory) return generateNumbers(game, 'random');
-      const maxFreq = Math.max(...Object.values(freq), 1);
-      const weights = pool.map(n => Math.max(0.1, maxFreq - (freq[n] || 0) + 0.5));
-      mainNums = pickUnique(pool, game.count, weights);
-
-      const bMaxFreq = Math.max(...bonusPool.map(n => freq[n] || 0), 1);
-      const bWeights = bonusPool.map(n => Math.max(0.1, bMaxFreq - (freq[n] || 0) + 0.5));
-      bonusNums = pickUnique(bonusPool, game.bonusCount, bWeights);
+      if (!hasHist) return generateNumbers(game,'random',freq);
+      const mx = Math.max(...Object.values(freq),1);
+      mainNums = pickUnique(pool, game.count, pool.map(n=>Math.max(.1,mx-(freq[n]||0)+.5)));
+      if (bonusPool.length) {
+        const bmx = Math.max(...bonusPool.map(n=>freq[n]||0),1);
+        bonusNums = pickUnique(bonusPool, game.bonusCount, bonusPool.map(n=>Math.max(.1,bmx-(freq[n]||0)+.5)));
+      }
       break;
     }
 
     case 'balanced': {
-      if (!hasHistory) return generateNumbers(game, 'random');
-      // 1/3 hot, 1/3 cold, 1/3 random
-      const hotCount = Math.floor(game.count / 3);
-      const coldCount = Math.floor(game.count / 3);
-      const randCount = game.count - hotCount - coldCount;
-
-      const sorted = pool.slice().sort((a, b) => (freq[b] || 0) - (freq[a] || 0));
-      const hotPool = sorted.slice(0, Math.ceil(pool.length * 0.3));
-      const coldPool = sorted.slice(-Math.ceil(pool.length * 0.3));
-
-      const hotPicks = pickUnique(hotPool, hotCount);
-      const coldPicks = pickUnique(coldPool.filter(n => !hotPicks.includes(n)), coldCount);
-      const randPool = pool.filter(n => !hotPicks.includes(n) && !coldPicks.includes(n));
-      const randPicks = pickUnique(randPool, randCount);
-
-      mainNums = [...hotPicks, ...coldPicks, ...randPicks];
-      bonusNums = pickUnique(bonusPool, game.bonusCount);
+      if (!hasHist) return generateNumbers(game,'random',freq);
+      const hc=Math.floor(game.count/3), cc=Math.floor(game.count/3), rc=game.count-hc-cc;
+      const sorted=[...pool].sort((a,b)=>(freq[b]||0)-(freq[a]||0));
+      const hp=sorted.slice(0,Math.ceil(pool.length*.3));
+      const cp=sorted.slice(-Math.ceil(pool.length*.3));
+      const picks_h=pickUnique(hp,hc);
+      const picks_c=pickUnique(cp.filter(n=>!picks_h.includes(n)),cc);
+      const rp=pool.filter(n=>!picks_h.includes(n)&&!picks_c.includes(n));
+      mainNums=[...picks_h,...picks_c,...pickUnique(rp,rc)];
+      bonusNums=pickUnique(bonusPool,game.bonusCount);
       break;
     }
 
     case 'delta': {
-      // Delta: generate small gaps between numbers
-      const deltas = Array.from({length: game.count}, () => Math.ceil(Math.random() * Math.ceil(game.max / game.count)));
-      let nums = [];
-      let cur = Math.floor(Math.random() * Math.ceil(game.max / game.count)) + 1;
-      for (const d of deltas) {
-        cur = Math.min(cur + d, game.max);
-        nums.push(cur);
-      }
-      // Dedupe, fill if needed
-      nums = [...new Set(nums)];
-      while (nums.length < game.count) {
-        const n = Math.floor(Math.random() * game.max) + 1;
-        if (!nums.includes(n)) nums.push(n);
-      }
-      nums = nums.slice(0, game.count);
-
-      mainNums = nums;
-      bonusNums = pickUnique(bonusPool, game.bonusCount);
+      let cur=rng(1,Math.ceil(game.max/game.count)), nums=[];
+      for(let i=0;i<game.count;i++){ cur=Math.min(cur+rng(1,Math.ceil(game.max/game.count)),game.max); nums.push(cur); }
+      nums=[...new Set(nums)];
+      while(nums.length<game.count){ const n=rng(1,game.max); if(!nums.includes(n)) nums.push(n); }
+      mainNums=nums.slice(0,game.count);
+      bonusNums=pickUnique(bonusPool,game.bonusCount);
       break;
     }
 
     case 'wheeling': {
-      // Pick from key pools and shuffle to guarantee coverage
-      const keyNumbers = hasHistory
-        ? Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, Math.ceil(pool.length * 0.5)).map(e => parseInt(e[0]))
+      const keyNums=hasHist
+        ? Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,Math.ceil(pool.length*.5)).map(e=>+e[0]).filter(n=>n>=1&&n<=game.max)
         : pool;
-      const filteredKey = keyNumbers.filter(n => n >= 1 && n <= game.max);
-      mainNums = pickUnique(filteredKey.length >= game.count ? filteredKey : pool, game.count);
-      bonusNums = pickUnique(bonusPool, game.bonusCount);
+      mainNums=pickUnique(keyNums.length>=game.count?keyNums:pool,game.count);
+      bonusNums=pickUnique(bonusPool,game.bonusCount);
       break;
     }
 
-    default:
-      return generateNumbers(game, 'random');
+    default: return generateNumbers(game,'random',freq);
   }
 
-  return {
-    main: mainNums.sort((a, b) => a - b),
-    bonus: bonusNums.sort((a, b) => a - b),
-  };
+  return { main:mainNums.sort((a,b)=>a-b), bonus:bonusNums.sort((a,b)=>a-b) };
 }
 
-function weightedPick(pool, weights) {
-  const total = weights.reduce((s, w) => s + w, 0);
-  let r = Math.random() * total;
-  for (let i = 0; i < pool.length; i++) {
-    r -= weights[i];
-    if (r <= 0) return pool[i];
-  }
-  return pool[pool.length - 1];
+// ── Confidence ───────────────────────────────────────────────
+function calcConfidence(algo) {
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70};
+  const hasHist=Object.keys(state.frequency).length>0;
+  return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
 
-// ===================== CONFIDENCE SCORE =====================
-function calcConfidence(nums, algo) {
-  // Simulated confidence based on algorithm + history availability
-  const base = { random: 30, hot: 55, cold: 50, balanced: 65, delta: 60, wheeling: 70 };
-  const b = base[algo] || 40;
-  const hasHistory = Object.keys(state.frequency).length > 0;
-  const bonus = hasHistory ? 15 : 0;
-  const jitter = Math.floor(Math.random() * 10) - 5;
-  return Math.min(99, Math.max(20, b + bonus + jitter));
+// ── Ball HTML ────────────────────────────────────────────────
+function ballEl(num, colorCls, delay=0, special=false, extraCls='', size='') {
+  const sizeStyle = size ? `--ball-size:${size};` : '';
+  return `<div class="ball ${colorCls}${special?' special':''}${extraCls?' '+extraCls:''} rolling" style="${sizeStyle}animation-delay:${delay}ms">${num}</div>`;
+}
+function staticBall(num, colorCls, extraCls='', size='') {
+  const sizeStyle = size ? `--ball-size:${size};` : '';
+  return `<div class="ball ${colorCls}${extraCls?' '+extraCls:''}" style="${sizeStyle}animation:none">${num}</div>`;
 }
 
-// ===================== RENDER TICKET =====================
-function ballHTML(num, colorClass, delay = 0, isSpecial = false) {
-  const cls = `ball ${colorClass}${isSpecial ? ' special' : ''} rolling`;
-  const style = `animation-delay:${delay}ms`;
-  return `<div class="${cls}" style="${style}" title="Number ${num}">${num}</div>`;
-}
-
-function renderTicket(ticketData, gameObj, algoId, index = 0) {
-  const algoObj = ALGOS.find(a => a.id === algoId);
-  const confidence = calcConfidence(ticketData.main, algoId);
-
-  let ballsHtml = ticketData.main.map((n, i) =>
-    ballHTML(n, gameObj.mainColor, i * 80)
-  ).join('');
-
-  if (ticketData.bonus.length > 0) {
-    ballsHtml += `<div class="balls-divider">+</div>`;
-    ballsHtml += ticketData.bonus.map((n, i) =>
-      ballHTML(n, gameObj.bonusColor, (ticketData.main.length + i) * 80, true)
-    ).join('');
-  }
-
-  const allNums = [...ticketData.main, ...ticketData.bonus];
-  const copyText = allNums.join(' - ');
-  const ticketId = `ticket_${Date.now()}_${index}`;
-
+// ── Render ticket ────────────────────────────────────────────
+function renderTicket(td, game, algoId, idx=0) {
+  const algo = ALGOS.find(a=>a.id===algoId);
+  const conf = calcConfidence(algoId);
+  let ballsHtml = td.main.map((n,i)=>ballEl(n,game.mainColor,i*80)).join('');
+  if (td.bonus.length) ballsHtml += `<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>ballEl(n,game.bonusColor,(td.main.length+i)*80,true)).join('');
+  const allNums=[...td.main,...td.bonus], copy=allNums.join(' - '), tid=`t_${Date.now()}_${idx}`;
   return `
-    <div class="ticket" id="${ticketId}" style="margin-bottom:${index > 0 ? '12px' : '0'}">
-      <div class="ticket-header">
-        <span class="ticket-game">${gameObj.emoji} ${gameObj.name}</span>
-        <span class="ticket-algo-tag">${algoObj?.name || algoId}</span>
-      </div>
-      <div class="balls-row">${ballsHtml}</div>
-      <div class="ticket-footer">
-        <div class="confidence-bar-wrap">
-          <div class="confidence-label">
-            <span>Güven Skoru</span>
-            <span style="color:var(--text);font-weight:700">${confidence}%</span>
-          </div>
-          <div class="confidence-bar">
-            <div class="confidence-fill" style="width:0%" data-target="${confidence}"></div>
-          </div>
-        </div>
-        <button class="copy-btn" onclick="copyNumbers('${copyText}')">📋 Kopyala</button>
-        <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,0.3)"
-          onclick="saveTicket('${ticketId}', ${JSON.stringify(allNums)}, '${gameObj.name}', '${gameObj.mainColor}', '${gameObj.bonusColor}', ${ticketData.main.length})">
-          💾 Kaydet
-        </button>
-      </div>
+  <div class="ticket" id="${tid}" style="margin-bottom:${idx>0?'12px':'0'}">
+    <div class="ticket-header">
+      <span class="ticket-game">${game.emoji} ${game.name}</span>
+      <span class="ticket-algo-tag">${algo?.name||algoId}</span>
     </div>
-  `;
+    <div class="balls-row">${ballsHtml}</div>
+    <div class="ticket-footer">
+      <div class="confidence-bar-wrap">
+        <div class="confidence-label"><span>Güven Skoru</span><span style="color:var(--text);font-weight:700">${conf}%</span></div>
+        <div class="confidence-bar"><div class="confidence-fill" style="width:0%" data-target="${conf}"></div></div>
+      </div>
+      <button class="copy-btn" onclick="copyNums('${copy}')">📋 Kopyala</button>
+      <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)"
+        onclick="saveTicket(${JSON.stringify(allNums)},'${game.name}','${game.mainColor}','${game.bonusColor}',${td.main.length})">
+        💾 Kaydet
+      </button>
+    </div>
+  </div>`;
 }
 
-// ===================== GENERATE =====================
+// ── Generate ─────────────────────────────────────────────────
 function generateTickets() {
-  const game = getGame();
-  const btn = document.getElementById('generateBtn');
-  btn.classList.add('spinning');
-  btn.textContent = '🎲 Sayılar çekiliyor...';
-
-  setTimeout(() => {
-    const tickets = [];
-    for (let i = 0; i < state.ticketCount; i++) {
-      tickets.push(generateNumbers(game, state.selectedAlgo));
-    }
-
-    const container = document.getElementById('ticketContainer');
-    container.innerHTML = tickets.map((t, i) =>
-      renderTicket(t, game, state.selectedAlgo, i)
-    ).join('');
-
-    document.getElementById('ticketCard').style.display = 'block';
-    document.getElementById('ticketCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-
-    // Animate confidence bars
-    requestAnimationFrame(() => {
-      document.querySelectorAll('.confidence-fill').forEach(el => {
-        const target = el.dataset.target;
-        setTimeout(() => { el.style.width = target + '%'; }, 300);
-      });
+  const game=getGame(), btn=document.getElementById('generateBtn');
+  btn.classList.add('spinning'); btn.textContent='🎲 Sayılar çekiliyor...';
+  setTimeout(()=>{
+    const tickets=Array.from({length:state.ticketCount},()=>generateNumbers(game,state.selectedAlgo));
+    const container=document.getElementById('ticketContainer');
+    container.innerHTML=tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i)).join('');
+    document.getElementById('ticketCard').style.display='block';
+    document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
+    requestAnimationFrame(()=>{
+      document.querySelectorAll('.confidence-fill').forEach(el=>
+        setTimeout(()=>{ el.style.width=el.dataset.target+'%'; },300)
+      );
     });
-
-    state.totalGenerated += state.ticketCount;
-    updateStats();
-
-    btn.classList.remove('spinning');
-    btn.textContent = '🎰 Şanslı Sayıları Üret';
-  }, 400);
+    state.totalGenerated+=state.ticketCount; updateStats();
+    btn.classList.remove('spinning'); btn.textContent='🎰 Şanslı Sayıları Üret';
+  },400);
 }
 
-// ===================== SAVE TICKET =====================
-function saveTicket(ticketId, nums, gameName, mainColor, bonusColor, mainCount) {
-  const ticket = { id: Date.now(), nums, gameName, mainColor, bonusColor, mainCount, time: new Date().toLocaleTimeString() };
-  state.savedTickets.unshift(ticket);
-  renderSavedTickets();
-  updateStats();
-  showToast('✅ Bilet kaydedildi!');
+// ── Save/delete tickets ──────────────────────────────────────
+function saveTicket(nums, gameName, mainColor, bonusColor, mainCount) {
+  state.savedTickets.unshift({id:Date.now(),nums,gameName,mainColor,bonusColor,mainCount,time:new Date().toLocaleTimeString()});
+  renderSavedTickets(); updateStats(); showToast('✅ Bilet kaydedildi!');
 }
-
-function renderSavedTickets() {
-  const container = document.getElementById('savedList');
-  if (state.savedTickets.length === 0) {
-    container.innerHTML = '<div class="empty-state"><span class="empty-icon">🎟️</span>Henüz kaydedilmiş bilet yok.</div>';
-    return;
-  }
-
-  container.innerHTML = state.savedTickets.map(t => {
-    const balls = t.nums.map((n, i) => {
-      const isBonus = i >= t.mainCount;
-      const color = isBonus ? t.bonusColor : t.mainColor;
-      return `<div class="mini-ball ${color}">${n}</div>`;
-    }).join('');
-
-    return `
-      <div class="saved-ticket">
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1">
-          <div class="saved-balls">${balls}</div>
-        </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-          <div class="saved-meta">${t.gameName}</div>
-          <div class="saved-meta">${t.time}</div>
-          <button class="icon-btn del" onclick="deleteTicket(${t.id})" title="Delete">🗑️</button>
-        </div>
-      </div>
-    `;
-  }).join('');
-}
-
 function deleteTicket(id) {
-  state.savedTickets = state.savedTickets.filter(t => t.id !== id);
-  renderSavedTickets();
-  updateStats();
-  showToast('🗑️ Bilet silindi');
+  state.savedTickets=state.savedTickets.filter(t=>t.id!==id);
+  renderSavedTickets(); updateStats(); showToast('🗑️ Bilet silindi');
+}
+function renderSavedTickets() {
+  const c=document.getElementById('savedList');
+  if (!state.savedTickets.length){ c.innerHTML='<div class="empty-state"><span class="empty-icon">🎟️</span>Henüz kaydedilmiş bilet yok.</div>'; return; }
+  c.innerHTML=state.savedTickets.map(t=>`
+    <div class="saved-ticket">
+      <div class="saved-balls">${t.nums.map((n,i)=>`<div class="mini-ball ${i<t.mainCount?t.mainColor:t.bonusColor}">${n}</div>`).join('')}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="saved-meta">${t.gameName}</div>
+        <div class="saved-meta">${t.time}</div>
+        <button class="icon-btn del" onclick="deleteTicket(${t.id})">🗑️</button>
+      </div>
+    </div>`).join('');
 }
 
-// ===================== STATS =====================
+// ── Stats / freq / hot-cold ──────────────────────────────────
 function updateStats() {
-  document.getElementById('statGenerated').textContent = state.totalGenerated;
-  document.getElementById('statSaved').textContent = state.savedTickets.length;
-  document.getElementById('statDraws').textContent = state.pastDraws.length;
-  document.getElementById('statUnique').textContent = Object.keys(state.frequency).length || '—';
+  document.getElementById('statGenerated').textContent=state.totalGenerated;
+  document.getElementById('statSaved').textContent=state.savedTickets.length;
+  document.getElementById('statDraws').textContent=state.pastDraws.length;
+  document.getElementById('statUnique').textContent=Object.keys(state.frequency).length||'—';
 }
-
 function renderFreqChart() {
-  const chart = document.getElementById('freqChart');
-  const freq = state.frequency;
-  if (Object.keys(freq).length === 0) {
-    chart.innerHTML = '<div class="empty-state" style="padding:20px 0"><span class="empty-icon">📊</span>Henüz veri yok.</div>';
-    return;
-  }
-
-  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 40);
-  const maxFreq = sorted[0][1];
-
-  const colors = ['#6c63ff','#ff6584','#ffd700','#00e676','#00b4d8','#a29bfe'];
-
-  chart.innerHTML = sorted.map(([num, cnt], i) => {
-    const pct = Math.round((cnt / maxFreq) * 100);
-    const color = colors[i % colors.length];
-    return `
-      <div class="freq-row">
-        <div class="freq-num">${num}</div>
-        <div class="freq-bar-wrap">
-          <div class="freq-bar-fill" style="width:${pct}%;background:${color}"></div>
-        </div>
-        <div class="freq-count">${cnt}</div>
-      </div>
-    `;
-  }).join('');
+  const chart=document.getElementById('freqChart'), freq=state.frequency;
+  if (!Object.keys(freq).length){ chart.innerHTML='<div class="empty-state" style="padding:18px 0"><span class="empty-icon">📊</span>Henüz veri yok.</div>'; return; }
+  const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,40);
+  const mx=sorted[0][1], colors=['#6c63ff','#ff6584','#ffd700','#00e676','#00b4d8','#a29bfe'];
+  chart.innerHTML=sorted.map(([num,cnt],i)=>`
+    <div class="freq-row">
+      <div class="freq-num">${num}</div>
+      <div class="freq-bar-wrap"><div class="freq-bar-fill" style="width:${Math.round(cnt/mx*100)}%;background:${colors[i%colors.length]}"></div></div>
+      <div class="freq-count">${cnt}</div>
+    </div>`).join('');
 }
-
 function renderHotCold() {
-  const display = document.getElementById('hotColdDisplay');
-  const freq = state.frequency;
-  if (Object.keys(freq).length === 0) {
-    display.innerHTML = '<div class="empty-state"><span class="empty-icon">🌡️</span>Sıcak & soğuk sayıları görmek için çekiliş verisi yükleyin.</div>';
-    return;
-  }
-
-  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
-  const top10 = sorted.slice(0, 10).map(([n]) => parseInt(n));
-  const bot10 = sorted.slice(-10).reverse().map(([n]) => parseInt(n));
-
-  const hotBalls = top10.map(n => `<div class="hc-ball hot">${n}</div>`).join('');
-  const coldBalls = bot10.map(n => `<div class="hc-ball cold">${n}</div>`).join('');
-
-  display.innerHTML = `
+  const el=document.getElementById('hotColdDisplay'), freq=state.frequency;
+  if (!Object.keys(freq).length){ el.innerHTML='<div class="empty-state"><span class="empty-icon">🌡️</span>Sıcak &amp; soğuk sayıları görmek için çekiliş verisi yükleyin.</div>'; return; }
+  const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]);
+  const top=sorted.slice(0,10).map(([n])=>+n), bot=sorted.slice(-10).reverse().map(([n])=>+n);
+  el.innerHTML=`
     <div class="hot-cold-grid">
-      <div class="hot-cold-section">
-        <div class="hot-cold-title hot">🔥 Sıcak Sayılar (En Çok Çekilen)</div>
-        <div class="hc-balls">${hotBalls}</div>
-      </div>
-      <div class="hot-cold-section">
-        <div class="hot-cold-title cold">❄️ Soğuk Sayılar (Geciken)</div>
-        <div class="hc-balls">${coldBalls}</div>
-      </div>
+      <div><div class="hot-cold-title hot">🔥 Sıcak Sayılar (En Çok Çekilen)</div><div class="hc-balls">${top.map(n=>`<div class="hc-ball hot">${n}</div>`).join('')}</div></div>
+      <div><div class="hot-cold-title cold">❄️ Soğuk Sayılar (Geciken)</div><div class="hc-balls">${bot.map(n=>`<div class="hc-ball cold">${n}</div>`).join('')}</div></div>
     </div>
     <div class="section-divider"></div>
-    <div style="font-size:0.78rem;color:var(--muted);line-height:1.6">
+    <div style="font-size:.76rem;color:var(--muted);line-height:1.7">
       <strong style="color:var(--text)">Sıcak sayılar</strong> yüklenen geçmişte en sık çekilen sayılardır.<br>
       <strong style="color:var(--text)">Soğuk sayılar</strong> gecikmiş — son zamanlarda az çıkan sayılardır.<br>
       İkisini birleştirmek için <strong style="color:var(--accent2)">Dengeli Karışım</strong> algoritmasını kullanın.
-    </div>
-  `;
+    </div>`;
 }
 
-// ===================== TABS =====================
+// ── Tabs ─────────────────────────────────────────────────────
 function switchTab(name) {
-  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-    btn.classList.toggle('active', ['saved','stats','hotcold'][i] === name);
-  });
-  document.querySelectorAll('.tab-panel').forEach(p => {
-    p.classList.toggle('active', p.id === 'tab-' + name);
-  });
+  const names=['saved','stats','hotcold'];
+  document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',names[i]===name));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
 }
 
-// ===================== UTILS =====================
-function copyNumbers(text) {
-  navigator.clipboard.writeText(text).then(() => {
-    showToast('📋 Sayılar kopyalandı: ' + text);
-  }).catch(() => {
-    showToast('Sayılar: ' + text);
+// ══════════════════════════════════════════════════════════════
+// BACKTESTING
+// ══════════════════════════════════════════════════════════════
+
+function parseDatedDraws() {
+  const raw=document.getElementById('datedDrawsInput').value.trim();
+  const status=document.getElementById('btParseStatus');
+  if (!raw){ status.className='parse-status error'; status.textContent='⚠️ Lütfen önce tarihli çekiliş verisi girin.'; return; }
+  const draws=[];
+  raw.split('\n').filter(l=>l.trim()).forEach(line=>{
+    const dm=line.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (!dm) return;
+    const date=dm[1], rest=line.slice(date.length), parts=rest.split('|');
+    const nums=(parts[0].match(/\d+/g)||[]).map(Number);
+    const bonus=parts[1]?(parts[1].match(/\d+/g)||[]).map(Number):[];
+    if (nums.length>=1) draws.push({date,nums,bonus});
   });
+  if (!draws.length){ status.className='parse-status error'; status.textContent='❌ Çekiliş ayrıştırılamadı. Format: YYYY-AA-GG n1 n2 ...'; return; }
+  draws.sort((a,b)=>a.date.localeCompare(b.date));
+  state.datedDraws=draws;
+  status.className='parse-status success';
+  status.textContent=`✅ ${draws.length} tarihli çekiliş yüklendi (${draws[0].date} → ${draws[draws.length-1].date}).`;
+  updateBtDateOptions();
 }
 
+function updateBtDateOptions() {
+  const sel=document.getElementById('btDate');
+  // Offer dates that have at least 2 prior draws for training
+  const valid=state.datedDraws.filter((_,i)=>i>=2).map(d=>d.date);
+  if (!valid.length){ sel.innerHTML='<option value="">— Yeterli veri yok (en az 3 çekiliş gerekli) —</option>'; return; }
+  sel.innerHTML=valid.map(d=>`<option value="${d}">${d}</option>`).join('');
+  sel.value=valid[valid.length-1];
+}
+
+function buildFreq(draws) {
+  const freq={};
+  draws.forEach(d=>[...d.nums,...d.bonus].forEach(n=>{ freq[n]=(freq[n]||0)+1; }));
+  return freq;
+}
+
+function prizeTier(game, mMain, mBonus) {
+  if (game.id==='sayisal'||game.id==='super') {
+    if (mMain===game.count) return {label:'Büyük İkramiye',cls:'prize-jackpot'};
+    if (mMain===5) return {label:'5 Bilen',cls:'prize-high'};
+    if (mMain===4) return {label:'4 Bilen',cls:'prize-mid'};
+    if (mMain===3) return {label:'3 Bilen',cls:'prize-mid'};
+  }
+  if (game.id==='sans') {
+    if (mMain===5&&mBonus===1) return {label:'Büyük İkramiye',cls:'prize-jackpot'};
+    if (mMain===5) return {label:'5+0 Bilen',cls:'prize-high'};
+    if (mMain===4&&mBonus===1) return {label:'4+1 Bilen',cls:'prize-high'};
+    if (mMain===4) return {label:'4+0 Bilen',cls:'prize-mid'};
+    if (mMain===3&&mBonus===1) return {label:'3+1 Bilen',cls:'prize-mid'};
+  }
+  if (game.id==='onnumara') {
+    if (mMain===10) return {label:'Büyük İkramiye',cls:'prize-jackpot'};
+    if (mMain>=9)   return {label:`${mMain} Bilen`,cls:'prize-high'};
+    if (mMain>=6)   return {label:`${mMain} Bilen`,cls:'prize-mid'};
+  }
+  return null;
+}
+
+function runBacktest() {
+  const gameId=document.getElementById('btGame').value;
+  const testDate=document.getElementById('btDate').value;
+  const algoId=document.getElementById('btAlgo').value;
+  const win=document.getElementById('btWindow').value;
+  if (!testDate){ showToast('⚠️ Lütfen bir test tarihi seçin'); return; }
+
+  const game=getGame(gameId);
+  let prior=state.datedDraws.filter(d=>d.date<testDate);
+  if (win!=='all') prior=prior.slice(-parseInt(win));
+  if (!prior.length){ showToast('⚠️ Seçilen tarihten önce yeterli veri yok'); return; }
+
+  const freq=buildFreq(prior);
+  const pred=generateNumbers(game,algoId,freq);
+  const actual=state.datedDraws.find(d=>d.date===testDate)||null;
+
+  let mMain=0, mBonus=0;
+  if (actual) {
+    const aSet=new Set(actual.nums);
+    mMain=pred.main.filter(n=>aSet.has(n)).length;
+    if (game.bonusCount>0) mBonus=pred.bonus.filter(n=>new Set(actual.bonus).has(n)).length;
+  }
+
+  const rs=document.getElementById('btResultSection'), rc=document.getElementById('btResultContent');
+  rs.style.display='block';
+  rc.innerHTML=buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,prior.length);
+  rs.scrollIntoView({behavior:'smooth',block:'nearest'});
+
+  const total=pred.main.length+pred.bonus.length;
+  state.btHistory.unshift({game,pred,actual,mMain,mBonus,testDate,algoId,prior:prior.length,
+    score:actual?`${mMain+mBonus}/${total}`:'—'});
+  renderBtHistory();
+}
+
+function buildResultHtml(game,pred,actual,mMain,mBonus,testDate,algoId,priorCount) {
+  const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
+  const total=pred.main.length+pred.bonus.length;
+  const matched=mMain+mBonus;
+  const pct=actual?Math.round(matched/total*100):null;
+  const scoreCls=pct===null?'poor':pct>=60?'excellent':pct>=40?'good':pct>=20?'fair':'poor';
+  const prize=actual?prizeTier(game,mMain,mBonus):null;
+
+  // Predicted balls — highlight matches if actual is known
+  const aSet=actual?new Set(actual.nums):null;
+  const aBSet=actual?new Set(actual.bonus):null;
+  const predBalls=pred.main.map(n=>{
+    const cls=aSet?(aSet.has(n)?'matched':'unmatched'):'';
+    return staticBall(n,game.mainColor,cls);
+  }).join('');
+  const predBonus=pred.bonus.length?
+    `<div class="balls-divider">+</div>`+pred.bonus.map(n=>{
+      const cls=aBSet?(aBSet.has(n)?'matched':'unmatched'):'';
+      return staticBall(n,game.bonusColor+' special',cls);
+    }).join(''):'';
+
+  // Actual balls
+  let actualHtml='';
+  if (actual) {
+    const pSet=new Set(pred.main);
+    // For On Numara, use slightly smaller balls since there are 22
+    const sz=game.id==='onnumara'?'40px':'';
+    const actualBalls=actual.nums.map(n=>staticBall(n,game.mainColor,pSet.has(n)?'matched':'unmatched',sz)).join('');
+    const actualBonus=actual.bonus.length?
+      `<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special',new Set(pred.bonus).has(n)?'matched':'unmatched',sz)).join(''):'';
+    actualHtml=`
+      <div class="bt-balls-section">
+        <div class="bt-section-label">Gerçek Çekiliş — ${testDate}${game.id==='onnumara'?' (22 sayı çekildi)':''}</div>
+        <div class="balls-row" style="justify-content:flex-start">${actualBalls}${actualBonus}</div>
+      </div>`;
+  } else {
+    actualHtml=`<div class="bt-no-actual">📭 <strong>${testDate}</strong> tarihine ait gerçek çekiliş verisi bulunamadı.<br><span style="font-size:.74rem">Bu tarihin verisini girin veya farklı bir tarih seçin.</span></div>`;
+  }
+
+  return `
+  <div class="bt-result">
+    <div class="bt-result-header">
+      <div class="bt-result-title">${game.emoji} ${game.name} · ${testDate}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        ${actual
+          ?`<div class="bt-score-badge ${scoreCls}">${matched}/${total} eşleşti</div>${prize?`<span class="prize-label ${prize.cls}">${prize.label}</span>`:''}`
+          :`<span style="color:var(--muted);font-size:.8rem">Karşılaştırma yapılamadı</span>`}
+      </div>
+    </div>
+    <div class="bt-result-body">
+      <div class="bt-balls-section">
+        <div class="bt-section-label">Tahmin — ${algoName} · ${priorCount} önceki çekiliş kullanıldı</div>
+        <div class="balls-row" style="justify-content:flex-start">${predBalls}${predBonus}</div>
+      </div>
+      ${actualHtml}
+      ${actual?`
+      <div class="section-divider"></div>
+      <div style="font-size:.76rem;color:var(--muted);line-height:1.7">
+        <span style="color:var(--green)">● Yeşil çerçeve</span> = eşleşen sayı &nbsp;·&nbsp;
+        <span style="opacity:.45">● Soluk</span> = eşleşmeyen sayı
+        ${game.id==='onnumara'?`<br>On Numara'da 22 sayı çekilir; tahminlerinizin kaçının o 22 içinde çıktığı gösterilir.`:''}
+      </div>`:''}
+    </div>
+  </div>`;
+}
+
+function renderBtHistory() {
+  const c=document.getElementById('btHistory');
+  if (!state.btHistory.length){ c.innerHTML='<div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>'; return; }
+  c.innerHTML=state.btHistory.map((h,i)=>`
+    <div class="bt-hist-row" onclick="scrollToResult(${i})">
+      <div>${h.game.emoji}</div>
+      <div class="bt-hist-nums">${[...h.pred.main,...h.pred.bonus].join(' · ')}</div>
+      <div class="bt-hist-date">${h.testDate}</div>
+      <div class="bt-hist-score">${h.score}</div>
+    </div>`).join('');
+}
+
+function scrollToResult(i) {
+  if (i!==0) return; // only latest is rendered in result section
+  document.getElementById('btResultSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+// ── Sample backtest data ─────────────────────────────────────
+function loadSampleBtData() {
+  const d=`2024-01-06 3 14 22 31 38 47
+2024-01-10 7 11 19 28 40 49
+2024-01-13 2 16 24 33 42 48
+2024-01-17 5 13 21 30 37 46
+2024-01-20 8 17 25 34 41 44
+2024-01-24 1 12 20 29 36 45
+2024-01-27 4 15 23 32 39 43
+2024-01-31 6 18 26 35 38 47
+2024-02-03 9 14 22 31 40 48
+2024-02-07 3 11 19 28 37 46
+2024-02-10 7 16 24 33 42 49
+2024-02-14 2 13 21 30 39 47
+2024-02-17 5 17 25 34 41 45
+2024-02-21 8 12 20 29 38 44
+2024-02-24 1 15 23 32 40 48
+2024-02-28 4 18 26 35 39 46
+2024-03-02 6 11 21 30 37 47
+2024-03-06 3 16 22 33 40 49
+2024-03-09 7 13 25 31 41 45
+2024-03-13 2 14 19 32 38 48`;
+  document.getElementById('datedDrawsInput').value=d;
+  parseDatedDraws();
+  showToast('📋 Örnek veri yüklendi');
+}
+
+// ── Utilities ────────────────────────────────────────────────
+function copyNums(text) {
+  navigator.clipboard.writeText(text)
+    .then(()=>showToast('📋 Sayılar kopyalandı: '+text))
+    .catch(()=>showToast('Sayılar: '+text));
+}
 function showToast(msg) {
-  const el = document.getElementById('toast');
-  el.textContent = msg;
-  el.classList.add('show');
-  setTimeout(() => el.classList.remove('show'), 2800);
+  const el=document.getElementById('toast');
+  el.textContent=msg; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),2800);
 }
 
-// ===================== BOOT =====================
+// ── Boot ─────────────────────────────────────────────────────
 initGameGrid();
 initAlgoGrid();
 renderSavedTickets();
 updateStats();
 
-// Sayısal Loto örnek çekilişleri (6/49)
-const sampleDraws = `
-3 14 22 31 38 47
+// Pre-load sample draws in generator for demo
+document.getElementById('pastDrawsInput').value=`3 14 22 31 38 47
 7 11 19 28 40 49
 2 16 24 33 42 48
 5 13 21 30 37 46
@@ -1451,14 +1002,7 @@ const sampleDraws = `
 4 15 23 32 39 43
 6 18 26 35 38 47
 9 14 22 31 40 48
-3 11 19 28 37 46
-7 16 24 33 42 49
-2 13 21 30 39 47
-5 17 25 34 41 45
-8 12 20 29 38 44
-1 15 23 32 40 48
-`.trim();
-document.getElementById('pastDrawsInput').value = sampleDraws;
+3 11 19 28 37 46`.trim();
 </script>
 </body>
 </html>
