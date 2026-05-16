@@ -437,7 +437,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <script>
 // ── Game definitions (corrected) ─────────────────────────────
 const GAMES = [
-  { id:'sayisal',  name:'Sayısal Loto', emoji:'🔵', count:6,  max:90, bonusCount:0, bonusMax:0,  mainColor:'blue',  bonusColor:'red',  range:'6 / 90',       drawCount:6  },
+  { id:'sayisal',  name:'Sayısal Loto', emoji:'🔵', count:7,  max:90, bonusCount:1, bonusMax:90, mainColor:'blue',  bonusColor:'red',  range:'7/90 + Joker',  drawCount:8  },
   { id:'super',    name:'Süper Loto',   emoji:'⭐', count:6,  max:60, bonusCount:0, bonusMax:0,  mainColor:'gold',  bonusColor:'',     range:'6 / 60',       drawCount:6  },
   { id:'sans',     name:'Şans Topu',    emoji:'🔴', count:5,  max:34, bonusCount:1, bonusMax:14, mainColor:'white', bonusColor:'red',  range:'5/34 + 1/14',  drawCount:6  },
   { id:'onnumara', name:'On Numara',    emoji:'🟢', count:10, max:80, bonusCount:0, bonusMax:0,  mainColor:'green', bonusColor:'',     range:'10 / 80',      drawCount:22 },
@@ -844,11 +844,9 @@ function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCo
 function loadGenHistory(){
   const id=state.selectedGame;
   if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
-  // Strip dates for the generator (plain numbers only); also strip joker for bonusCount:0 games
-  const g=getGame(id);
+  // Strip dates for the generator (plain numbers only)
   const plain=DRAW_DATA[id].split('\n').map(line=>{
-    const noDate=line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'');
-    return g.bonusCount===0?noDate.split('|')[0].trim():noDate;
+    return line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'');
   }).join('\n');
   document.getElementById('pastDrawsInput').value=plain;
   parsePastDraws();
@@ -1278,10 +1276,15 @@ function buildFreq(draws){
 // ── Prize tier (corrected for all games) ────────────────────
 function prizeTier(game,mMain,mBonus){
   if(game.id==='sayisal'){
-    if(mMain===6)return{label:'Büyük İkramiye (6)',cls:'prize-jackpot'};
-    if(mMain===5)return{label:'İkinci İkramiye (5)',cls:'prize-high'};
-    if(mMain===4)return{label:'Üçüncü İkramiye (4)',cls:'prize-mid'};
-    if(mMain===3)return{label:'Dördüncü İkramiye (3)',cls:'prize-low'};
+    if(mMain===7&&mBonus===1)return{label:'Büyük İkramiye (7+J)',cls:'prize-jackpot'};
+    if(mMain===7)            return{label:'İkinci İkramiye (7)',cls:'prize-high'};
+    if(mMain===6&&mBonus===1)return{label:'Üçüncü İkramiye (6+J)',cls:'prize-high'};
+    if(mMain===6)            return{label:'Dördüncü İkramiye (6)',cls:'prize-mid'};
+    if(mMain===5&&mBonus===1)return{label:'Beşinci İkramiye (5+J)',cls:'prize-mid'};
+    if(mMain===5)            return{label:'Altıncı İkramiye (5)',cls:'prize-mid'};
+    if(mMain===4&&mBonus===1)return{label:'Yedinci İkramiye (4+J)',cls:'prize-low'};
+    if(mMain===4)            return{label:'Sekizinci İkramiye (4)',cls:'prize-low'};
+    if(mMain===3&&mBonus===1)return{label:'Teşvik İkramiyesi (3+J)',cls:'prize-low'};
   }
   if(game.id==='super'){
     if(mMain===6)return{label:'Büyük İkramiye (6)',cls:'prize-jackpot'};
