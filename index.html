@@ -233,6 +233,22 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:.82rem;z-index:1000;transition:transform .3s cubic-bezier(.34,1.56,.64,1);pointer-events:none;white-space:nowrap}
 #toast.show{transform:translateX(-50%) translateY(0)}
 
+/* Algo search */
+.search-progress-bar{height:6px;border-radius:3px;background:var(--border);overflow:hidden;margin:8px 0}
+.search-progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;transition:width .3s}
+.search-result-grid{display:flex;flex-direction:column;gap:5px;margin-top:10px}
+.search-result-row{display:grid;grid-template-columns:1fr 72px 42px 56px;align-items:center;gap:8px;padding:7px 12px;border-radius:9px;border:1px solid var(--border);background:var(--surface2);font-size:.77rem}
+.search-result-row.top{border-color:rgba(255,215,0,.35);background:rgba(255,215,0,.05)}
+.sr-name{font-weight:600;color:var(--text);display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.sr-score{font-weight:800;color:var(--green);text-align:right;font-size:.82rem}
+.sr-bar{height:5px;border-radius:3px;background:var(--border);overflow:hidden}
+.sr-bar-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2))}
+.sr-cnt{font-size:.65rem;color:var(--muted);text-align:right}
+.sr-badge{font-size:.63rem;padding:2px 5px;border-radius:4px;font-weight:700;white-space:nowrap}
+.sr-badge.new{background:rgba(0,230,118,.2);color:var(--green);border:1px solid rgba(0,230,118,.4)}
+.sr-badge.good{background:rgba(255,215,0,.2);color:var(--gold);border:1px solid rgba(255,215,0,.4)}
+.search-tag{display:inline-block;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;background:rgba(0,230,118,.15);border:1px solid rgba(0,230,118,.4);color:var(--green);margin-bottom:4px}
+
 /* Scrollbar */
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
@@ -433,6 +449,17 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>
     </div>
   </div>
+  <div class="card">
+    <div class="card-title">🔬 Algoritma Keşfi — 50 Yöntem</div>
+    <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px">50 farklı algoritma varyantını tüm tarihsel çekilişler üzerinde arka planda test eder; en yüksek skoru alan ilk 5'i tahmin motoruna otomatik ekler.</p>
+    <button class="run-btn" id="searchBtn" onclick="runAlgoSearch()">🔍 50 Yöntemi Arka Planda Test Et</button>
+    <div id="searchProgressWrap" style="display:none;margin-top:10px">
+      <div style="font-size:.73rem;color:var(--muted)" id="searchStatusText">Başlatılıyor...</div>
+      <div class="search-progress-bar"><div class="search-progress-fill" id="searchProgressFill" style="width:0%"></div></div>
+    </div>
+    <div id="searchResults"></div>
+  </div>
+
 </div><!-- /page-backtest -->
 
 </div><!-- /app -->
@@ -909,6 +936,13 @@ function parsePastDraws(){
   updateStats(); renderFreqChart(); renderHotCold();
 }
 
+// ── Search-variant helpers (module-level) ────────────────────
+const SEARCH_VARIANT_FNS={};
+function svRF(draws,n,win){const rf={};draws.slice(-win).forEach(d=>[...(d.nums||[]),...(d.bonus||[])].forEach(x=>{rf[x]=(rf[x]||0)+1;}));return rf[n]||0;}
+function svEF(draws,n,dec){let s=0,w=1;for(let i=draws.length-1;i>=0;i--){if([...(draws[i].nums||[]),...(draws[i].bonus||[])].includes(n))s+=w;w*=dec;}return s;}
+function svBP(game,freq){return game.bonusCount>0?(Object.keys(freq).length?pickUnique(range(1,game.bonusMax),game.bonusCount,range(1,game.bonusMax).map(n=>freq[n]||.1)):pickUnique(range(1,game.bonusMax),game.bonusCount)):[];}
+function svLS(draws,n){for(let i=draws.length-1;i>=0;i--){if([...(draws[i].nums||[]),...(draws[i].bonus||[])].includes(n))return i;}return -1;}
+
 // ── Number generation ────────────────────────────────────────
 function rng(min,max){return Math.floor(Math.random()*(max-min+1))+min;}
 function range(min,max){const a=[];for(let i=min;i<=max;i++)a.push(i);return a;}
@@ -1154,7 +1188,14 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         bonusNums=bScored.slice(0,game.bonusCount).map(x=>x.n);
       }else bonusNums=[];
       break;}
-    default:return generateNumbers(game,'random',freq,drawsOverride);
+    default:{
+      if(SEARCH_VARIANT_FNS[algo]){
+        if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+        const normD=(drawsOverride||state.pastDraws||[]).map(d=>Array.isArray(d)?{nums:d,bonus:[]}:d);
+        try{return SEARCH_VARIANT_FNS[algo](game,freq,normD);}catch(e){}
+      }
+      return generateNumbers(game,'random',freq,drawsOverride);
+    }
   }
   return{main:mainNums.sort((a,b)=>a-b),bonus:bonusNums.sort((a,b)=>a-b)};
 }
@@ -1513,6 +1554,319 @@ function copyNums(text){
 function showToast(msg){
   const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'),2800);
+}
+
+// ══════════════════════════════════════════════════════════════
+// 50-VARIANT ALGORITHM SEARCH
+// ══════════════════════════════════════════════════════════════
+function buildSearchVariants(){
+  const V=[];
+  const mk=(id,name,fn)=>{V.push({id,name});SEARCH_VARIANT_FNS[id]=fn;};
+  const vBlend=(g,f,d,algos)=>{
+    const votes={};range(1,g.max).forEach(n=>{votes[n]=0;});
+    algos.forEach(a=>{try{generateNumbers(g,a,f,d).main.forEach(n=>{votes[n]++;});}catch(e){}});
+    return pickUnique(range(1,g.max),g.count,range(1,g.max).map(n=>votes[n]||.01));
+  };
+
+  // A: Frequency power (1–5)
+  mk('svPow15','🔢 Freq^1.5',   (g,f)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>Math.pow(f[n]||.1,1.5))),bonus:svBP(g,f)};});
+  mk('svPow2', '🔢 Freq²',      (g,f)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>Math.pow(f[n]||.1,2))),bonus:svBP(g,f)};});
+  mk('svPow3', '🔢 Freq³',      (g,f)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>Math.pow(f[n]||.1,3))),bonus:svBP(g,f)};});
+  mk('svLogF', '🔢 Log-Frekans',(g,f)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>Math.log(1+(f[n]||0)))),bonus:svBP(g,f)};});
+  mk('svSqrtF','🔢 √Frekans',   (g,f)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>Math.sqrt(f[n]||.1))),bonus:svBP(g,f)};});
+
+  // B: Recent windows (6–13)
+  [[5,'svR5'],[10,'svR10'],[15,'svR15'],[20,'svR20'],[30,'svR30']].forEach(([w,id])=>
+    mk(id,`⏱ Son-${w} Sıcak`,(g,f,d)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>svRF(d,n,w)+.1)),bonus:svBP(g,f)};})
+  );
+  mk('svR5p2', '⏱ Son-5²', (g,f,d)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>Math.pow(svRF(d,n,5)+.1,2))),bonus:svBP(g,f)};});
+  mk('svR10p2','⏱ Son-10²',(g,f,d)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>Math.pow(svRF(d,n,10)+.1,2))),bonus:svBP(g,f)};});
+  mk('svR20p2','⏱ Son-20²',(g,f,d)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>Math.pow(svRF(d,n,20)+.1,2))),bonus:svBP(g,f)};});
+
+  // C: Exponential decay (14–17)
+  [[.95,'svD95'],[.90,'svD90'],[.85,'svD85'],[.75,'svD75']].forEach(([dec,id])=>
+    mk(id,`📉 Üs-Azalım ${dec}`,(g,f,d)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>svEF(d,n,dec)+.01)),bonus:svBP(g,f)};})
+  );
+
+  // D: Gap / overdue (18–22)
+  mk('svGapLin', '⏳ Gap-Doğrusal',(g,f,d)=>{
+    const p=range(1,g.max),tot=d.length||1;
+    return{main:pickUnique(p,g.count,p.map(n=>{const ls=svLS(d,n);return ls===-1?tot*2:(tot-1-ls);})),bonus:svBP(g,f)};
+  });
+  mk('svGapSq',  '⏳ Gap²',(g,f,d)=>{
+    const p=range(1,g.max),tot=d.length||1;
+    return{main:pickUnique(p,g.count,p.map(n=>{const ls=svLS(d,n);const g2=ls===-1?tot:(tot-1-ls);return g2*g2;})),bonus:svBP(g,f)};
+  });
+  mk('svGapPres','⏳ Gap-Baskı',(g,f,d)=>{
+    const p=range(1,g.max),tot=d.length||1;
+    return{main:pickUnique(p,g.count,p.map(n=>{const ls=svLS(d,n);const gap=ls===-1?tot:(tot-1-ls);const exp=f[n]>0?tot/f[n]:tot;return gap/exp;})),bonus:svBP(g,f)};
+  });
+  mk('svGapFreq','⏳ Gap×Freq',(g,f,d)=>{
+    const p=range(1,g.max),tot=d.length||1;
+    return{main:pickUnique(p,g.count,p.map(n=>{const ls=svLS(d,n);const gap=ls===-1?tot:(tot-1-ls);return gap*(f[n]||.1)/tot;})),bonus:svBP(g,f)};
+  });
+  mk('svOverdue','⏳ Gecikmiş-Top',(g,f,d)=>{
+    const p=range(1,g.max),tot=d.length||1;
+    return{main:p.map(n=>({n,gap:svLS(d,n)===-1?tot*2:(tot-1-svLS(d,n))})).sort((a,b)=>b.gap-a.gap).slice(0,g.count).map(x=>x.n),bonus:svBP(g,f)};
+  });
+
+  // E: Momentum variants (23–27)
+  mk('svMomG2', '🚀 Mom-Gap²',(g,f,d)=>{
+    const p=range(1,g.max),tot=d.length||1,totF=Object.values(f).reduce((s,v)=>s+v,0)||1;
+    return{main:pickUnique(p,g.count,p.map(n=>{const ls=svLS(d,n);const gap=ls===-1?tot:(tot-1-ls);return gap*gap*(f[n]||.1)/totF;})),bonus:svBP(g,f)};
+  });
+  mk('svMomF2', '🚀 Mom-Freq²',(g,f,d)=>{
+    const p=range(1,g.max),tot=d.length||1,totF=Object.values(f).reduce((s,v)=>s+v,0)||1;
+    return{main:pickUnique(p,g.count,p.map(n=>{const ls=svLS(d,n);const gap=ls===-1?tot:(tot-1-ls);return gap*Math.pow((f[n]||.1)/totF,2)*1e4;})),bonus:svBP(g,f)};
+  });
+  mk('svMom3W', '🚀 Mom-3Yönlü',(g,f,d)=>{
+    const p=range(1,g.max),tot=d.length||1,totF=Object.values(f).reduce((s,v)=>s+v,0)||1;
+    return{main:pickUnique(p,g.count,p.map(n=>{const ls=svLS(d,n);const gap=ls===-1?tot:(tot-1-ls);return gap*(f[n]||.1)/totF*(svRF(d,n,10)+.1);})),bonus:svBP(g,f)};
+  });
+  mk('svMomDec','🚀 Mom-Azalım',(g,f,d)=>{
+    const p=range(1,g.max);
+    return{main:pickUnique(p,g.count,p.map(n=>svEF(d,n,.9)*(svRF(d,n,10)+.1))),bonus:svBP(g,f)};
+  });
+  mk('svMomRk', '🚀 Mom-Sıra',(g,f,d)=>{
+    const p=range(1,g.max);
+    const gRk=[...p].sort((a,b)=>svLS(d,a)-svLS(d,b)).reduce((m,n,i)=>(m[n]=p.length-i,m),{});
+    const fRk=[...p].sort((a,b)=>(f[b]||0)-(f[a]||0)).reduce((m,n,i)=>(m[n]=p.length-i,m),{});
+    return{main:[...p].sort((a,b)=>(gRk[b]+fRk[b])-(gRk[a]+fRk[a])).slice(0,g.count),bonus:svBP(g,f)};
+  });
+
+  // F: Streak variants (28–31)
+  [[5,'svSk5'],[15,'svSk15'],[20,'svSk20']].forEach(([w,id])=>
+    mk(id,`⚡ Streak-${w}`,(g,f,d)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>(svRF(d,n,w)+.1)*5+(f[n]||.1)*1.5)),bonus:svBP(g,f)};})
+  );
+  mk('svSkP2','⚡ Streak²',(g,f,d)=>{const p=range(1,g.max);return{main:pickUnique(p,g.count,p.map(n=>Math.pow(svRF(d,n,10)+.1,2)*(f[n]||.1))),bonus:svBP(g,f)};});
+
+  // G: Statistical (32–36)
+  mk('svZSc',   '📊 Z-Skor',(g,f)=>{
+    const p=range(1,g.max),vs=p.map(n=>f[n]||0);
+    const mn=vs.reduce((s,v)=>s+v,0)/vs.length;
+    const sd=Math.sqrt(vs.reduce((s,v)=>s+(v-mn)**2,0)/vs.length)||1;
+    return{main:pickUnique(p,g.count,p.map(n=>Math.abs(((f[n]||0)-mn)/sd)+.1)),bonus:svBP(g,f)};
+  });
+  mk('svMnRv',  '📊 Ort-Rev',(g,f)=>{
+    const p=range(1,g.max),vs=p.map(n=>f[n]||0);
+    const mn=vs.reduce((s,v)=>s+v,0)/vs.length;
+    return{main:pickUnique(p,g.count,p.map(n=>Math.max(.1,mn-(f[n]||0)))),bonus:svBP(g,f)};
+  });
+  mk('svTop15', '📊 İlk-%15',(g,f)=>{
+    const p=range(1,g.max),srt=[...p].sort((a,b)=>(f[b]||0)-(f[a]||0));
+    const top=srt.slice(0,Math.max(g.count,Math.ceil(p.length*.15)));
+    return{main:pickUnique(top,g.count,top.map(n=>f[n]||.1)),bonus:svBP(g,f)};
+  });
+  mk('svTop25', '📊 İlk-%25',(g,f)=>{
+    const p=range(1,g.max),srt=[...p].sort((a,b)=>(f[b]||0)-(f[a]||0));
+    const top=srt.slice(0,Math.max(g.count,Math.ceil(p.length*.25)));
+    return{main:pickUnique(top,g.count,top.map(n=>f[n]||.1)),bonus:svBP(g,f)};
+  });
+  mk('svDecile','📊 Desil-Denge',(g,f)=>{
+    const p=range(1,g.max);
+    const picks=[];
+    for(let i=0;i<g.count;i++){
+      const lo=Math.floor(i*p.length/g.count),hi=Math.floor((i+1)*p.length/g.count)-1;
+      const seg=p.slice(lo,hi+1);
+      picks.push(seg.reduce((bst,n)=>(f[n]||0)>(f[bst]||0)?n:bst,seg[0]));
+    }
+    return{main:[...new Set(picks)].slice(0,g.count),bonus:svBP(g,f)};
+  });
+
+  // H: Pattern combos (37–41)
+  mk('svHotCy', '🔀 Sıcak+Döngü',    (g,f,d)=>({main:vBlend(g,f,d,['hot','cycle']),bonus:svBP(g,f)}));
+  mk('svSkMom', '🔀 Form+Momentum',   (g,f,d)=>({main:vBlend(g,f,d,['streak','momentum']),bonus:svBP(g,f)}));
+  mk('svHotNb', '🔀 Sıcak+Komşu',    (g,f,d)=>({main:vBlend(g,f,d,['hot','neighbor']),bonus:svBP(g,f)}));
+  mk('svCyMom', '🔀 Döngü+Mom',       (g,f,d)=>({main:vBlend(g,f,d,['cycle','momentum']),bonus:svBP(g,f)}));
+  mk('svTriHot','🔀 Üçlü-Sıcak',(g,f,d)=>{
+    const p=range(1,g.max);
+    return{main:pickUnique(p,g.count,p.map(n=>(svRF(d,n,5)+.1)*(svRF(d,n,20)+.1)*(f[n]||.1))),bonus:svBP(g,f)};
+  });
+
+  // I: Ensemble variants (42–46)
+  mk('svEns3',  '👑 Ens3(Sıc+Form+Döng)',(g,f,d)=>({main:vBlend(g,f,d,['hot','streak','cycle']),bonus:svBP(g,f)}));
+  mk('svEns5',  '👑 Ens5',               (g,f,d)=>({main:vBlend(g,f,d,['hot','streak','cycle','momentum','neighbor']),bonus:svBP(g,f)}));
+  mk('svEnsRec','👑 Ens-Son20',(g,f,d)=>{
+    const rd=d.slice(-20),rf=buildFreq(rd);
+    return{main:vBlend(g,rf,rd,['hot','streak','momentum']),bonus:svBP(g,rf)};
+  });
+  mk('svCons3','👑 Uzlaşı-3+',(g,f,d)=>{
+    const algos=['hot','streak','cycle','momentum','neighbor','hotzone'];
+    const votes={};range(1,g.max).forEach(n=>{votes[n]=0;});
+    algos.forEach(a=>{try{generateNumbers(g,a,f,d).main.forEach(n=>{votes[n]++;});}catch(e){}});
+    const p=range(1,g.max);
+    const agreed=p.filter(n=>votes[n]>=3).sort((a,b)=>votes[b]-votes[a]);
+    const rest=p.filter(n=>votes[n]<3).sort((a,b)=>votes[b]-votes[a]);
+    return{main:[...agreed,...rest].slice(0,g.count),bonus:svBP(g,f)};
+  });
+  mk('svMetaB','👑 Meta-Güç',(g,f,d)=>{
+    const algos=['hot','streak','cycle','momentum','neighbor','hotzone','regression','oddeven'];
+    const votes={};range(1,g.max).forEach(n=>{votes[n]=0;});
+    algos.forEach(a=>{try{generateNumbers(g,a,f,d).main.forEach(n=>{votes[n]++;});}catch(e){}});
+    const p=range(1,g.max);
+    return{main:pickUnique(p,g.count,p.map(n=>Math.pow(votes[n]+.1,3)*(f[n]||.1))),bonus:svBP(g,f)};
+  });
+
+  // J: Novel (47–50)
+  const sumTarget=(g,f,d,pct)=>{
+    const sums=d.map(dr=>dr.nums.slice(0,g.count)).filter(ns=>ns.length>=3).map(ns=>ns.reduce((s,n)=>s+n,0)).sort((a,b)=>a-b);
+    const target=sums.length?sums[Math.floor(sums.length*pct)]:(g.max+1)*g.count/2;
+    const pool=range(1,g.max);
+    const topF=pool.map(n=>({n,f:f[n]||0})).sort((a,b)=>b.f-a.f).slice(0,g.count*4);
+    let best=null,bD=Infinity;
+    for(let i=0;i<40;i++){const c=pickUnique(topF.map(x=>x.n),g.count,topF.map(x=>Math.max(.1,x.f)));const df=Math.abs(c.reduce((s,n)=>s+n,0)-target);if(df<bD){bD=df;best=c;}}
+    return best||pickUnique(pool,g.count);
+  };
+  mk('svSumLo','🎯 Toplam-%35',(g,f,d)=>({main:sumTarget(g,f,d,.35),bonus:svBP(g,f)}));
+  mk('svSumHi','🎯 Toplam-%65',(g,f,d)=>({main:sumTarget(g,f,d,.65),bonus:svBP(g,f)}));
+  mk('svSpHot','📐 Yayılım+Sıcak',(g,f,d)=>{
+    const zSz=g.max/g.count;
+    const picks=[];
+    for(let z=0;z<g.count;z++){
+      const lo=Math.floor(z*zSz)+1,hi=z===g.count-1?g.max:Math.floor((z+1)*zSz);
+      let best=lo,bestS=0;
+      for(let n=lo;n<=hi;n++){const s=(f[n]||0)*3+svRF(d,n,10);if(s>bestS){best=n;bestS=s;}}
+      picks.push(best);
+    }
+    return{main:[...new Set(picks)].slice(0,g.count),bonus:svBP(g,f)};
+  });
+  mk('svSpRec','📐 Yayılım+Son',(g,f,d)=>{
+    const zSz=g.max/g.count;
+    const picks=[];
+    for(let z=0;z<g.count;z++){
+      const lo=Math.floor(z*zSz)+1,hi=z===g.count-1?g.max:Math.floor((z+1)*zSz);
+      let best=lo,bestS=0;
+      for(let n=lo;n<=hi;n++){const s=svRF(d,n,5)*5+svRF(d,n,15)*2+(f[n]||0)*.5;if(s>bestS){best=n;bestS=s;}}
+      picks.push(best);
+    }
+    return{main:[...new Set(picks)].slice(0,g.count),bonus:svBP(g,f)};
+  });
+
+  return V;
+}
+
+let _svCache=null;
+function getSearchVariants(){if(!_svCache)_svCache=buildSearchVariants();return _svCache;}
+
+// ── Run 50-variant async search ───────────────────────────────
+let _searchRunning=false;
+async function runAlgoSearch(){
+  if(_searchRunning){showToast('⚠️ Test zaten çalışıyor');return;}
+  _searchRunning=true;
+  const btn=document.getElementById('searchBtn');
+  const wrap=document.getElementById('searchProgressWrap');
+  const fill=document.getElementById('searchProgressFill');
+  const statusEl=document.getElementById('searchStatusText');
+  const resultsEl=document.getElementById('searchResults');
+  btn.disabled=true;wrap.style.display='block';resultsEl.innerHTML='';
+
+  const variants=getSearchVariants();
+  const scores=variants.map(v=>({id:v.id,name:v.name,score:0,draws:0}));
+
+  // Parse all game draws from embedded DRAW_DATA
+  const gameDraws={};
+  for(const g of GAMES){
+    const raw=DRAW_DATA[g.id];if(!raw)continue;
+    const draws=[];
+    raw.split('\n').filter(l=>l.trim()).forEach(line=>{
+      const dm=line.match(/^(\d{4}-\d{2}-\d{2})/);if(!dm)return;
+      const date=dm[1],rest=line.slice(date.length),parts=rest.split('|');
+      const nums=(parts[0].match(/\d+/g)||[]).map(Number);
+      const bonus=parts[1]?(parts[1].match(/\d+/g)||[]).map(Number):[];
+      if(nums.length>=1)draws.push({date,nums,bonus});
+    });
+    draws.sort((a,b)=>a.date.localeCompare(b.date));
+    gameDraws[g.id]=draws;
+  }
+
+  const total=variants.length;
+  for(let vi=0;vi<total;vi++){
+    const variant=variants[vi];
+    statusEl.textContent=`Test ediliyor: ${variant.name} (${vi+1}/${total})`;
+    fill.style.width=`${Math.round(vi/total*100)}%`;
+    await new Promise(r=>setTimeout(r,0)); // yield so UI updates
+
+    let totalM=0,drawCnt=0;
+    for(const g of GAMES){
+      const draws=gameDraws[g.id];if(!draws||draws.length<11)continue;
+      for(let i=10;i<draws.length;i++){
+        const prior=draws.slice(0,i);
+        const actual=draws[i];
+        const freq=buildFreq(prior);
+        let bestM=0;
+        for(let t=0;t<3;t++){
+          try{
+            const fn=SEARCH_VARIANT_FNS[variant.id];if(!fn)break;
+            const pred=fn(g,freq,prior);
+            const aSet=new Set(actual.nums);
+            let m=pred.main.filter(n=>aSet.has(n)).length;
+            if(g.bonusCount>0&&pred.bonus&&pred.bonus.length){
+              const aBSet=new Set(actual.bonus);
+              m+=pred.bonus.filter(n=>aBSet.has(n)).length;
+            }
+            if(m>bestM)bestM=m;
+          }catch(e){}
+        }
+        totalM+=bestM;drawCnt++;
+      }
+    }
+    scores[vi].score=drawCnt>0?totalM/drawCnt:0;
+    scores[vi].draws=drawCnt;
+  }
+
+  fill.style.width='100%';
+  statusEl.textContent='✅ Test tamamlandı!';
+  _searchRunning=false;
+  btn.disabled=false;
+
+  scores.sort((a,b)=>b.score-a.score);
+  const maxScore=scores[0].score||1;
+
+  // Add top 5 to ALGOS (if not already present)
+  const added=[];
+  scores.slice(0,5).forEach(s=>{
+    if(!ALGOS.find(a=>a.id===s.id)){
+      ALGOS.push({
+        id:s.id,name:s.name,
+        desc:`Ort. ${s.score.toFixed(2)} eşleşme — 50 yöntem araştırmasından otomatik keşfedildi`,
+        expert:true,discovered:true
+      });
+      added.push(s.name);
+    }
+  });
+  if(added.length){initAlgoGrid();refreshBtAlgoSelect();}
+
+  resultsEl.innerHTML=`
+    <div style="font-size:.75rem;color:var(--muted);margin:12px 0 8px">
+      ${total} yöntem · ${GAMES.length} oyun · ortalama eşleşme skoru (yüksek = iyi):
+    </div>
+    <div class="search-result-grid">
+    ${scores.slice(0,20).map((s,i)=>`
+      <div class="search-result-row${i<5?' top':''}">
+        <span class="sr-name">${i+1}. ${s.name}
+          ${i<3?`<span class="sr-badge new">★ Eklendi</span>`:i<5?`<span class="sr-badge good">✓ İyi</span>`:''}
+        </span>
+        <div class="sr-bar"><div class="sr-bar-fill" style="width:${Math.round(s.score/maxScore*100)}%"></div></div>
+        <span class="sr-score">${s.score.toFixed(2)}</span>
+        <span class="sr-cnt">${s.draws} test</span>
+      </div>`).join('')}
+    </div>
+    ${added.length
+      ?`<div style="font-size:.76rem;color:var(--green);margin-top:10px;padding:8px 12px;border-radius:8px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.2)">
+          ✅ ${added.length} yeni algoritma eklendi: ${added.join(', ')}
+        </div>`
+      :`<div style="font-size:.76rem;color:var(--muted);margin-top:10px;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,.03);border:1px dashed var(--border)">
+          ℹ️ Üst 5 yöntem zaten mevcut. Tekrar çalıştırmak için sayfayı yenileyin.
+        </div>`
+    }`;
+  showToast(`✅ ${total} yöntem test edildi`);
+}
+
+function refreshBtAlgoSelect(){
+  const sel=document.getElementById('btAlgo');if(!sel)return;
+  const cur=sel.value;
+  sel.innerHTML=ALGOS.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');
+  if(ALGOS.find(a=>a.id===cur))sel.value=cur;
 }
 
 // ── Boot ──────────────────────────────────────────────────────
