@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lotto Guessing Machine</title>
+<style>
+  :root {
+    --bg: #0a0a1a;
+    --surface: #12122a;
+    --surface2: #1a1a3a;
+    --border: #2a2a5a;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --gold: #ffd700;
+    --green: #00e676;
+    --red: #ff4757;
+    --blue: #00b4d8;
+    --text: #e0e0ff;
+    --muted: #7878a0;
+    --ball-size: 56px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Stars background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(1px 1px at 10% 20%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 30% 80%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(1px 1px at 50% 10%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(1px 1px at 70% 60%, rgba(255,255,255,0.2) 0%, transparent 100%),
+      radial-gradient(1px 1px at 90% 40%, rgba(255,255,255,0.3) 0%, transparent 100%),
+      radial-gradient(2px 2px at 20% 50%, rgba(255,255,255,0.15) 0%, transparent 100%),
+      radial-gradient(2px 2px at 60% 30%, rgba(255,255,255,0.15) 0%, transparent 100%),
+      radial-gradient(2px 2px at 80% 70%, rgba(255,255,255,0.15) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .app {
+    position: relative;
+    z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 20px 16px 60px;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 32px;
+  }
+
+  .header h1 {
+    font-size: clamp(1.8rem, 5vw, 2.8rem);
+    font-weight: 800;
+    background: linear-gradient(135deg, var(--gold), var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -0.5px;
+    margin-bottom: 6px;
+  }
+
+  .header p {
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+
+  .jackpot-badge {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 4px 16px;
+    border-radius: 20px;
+    background: linear-gradient(135deg, #7b2ff7, #f107a3);
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    animation: pulse-badge 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-badge {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(123, 47, 247, 0.4); }
+    50% { box-shadow: 0 0 0 8px rgba(123, 47, 247, 0); }
+  }
+
+  /* Card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+
+  .card-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 3px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+
+  /* Game selector */
+  .game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+  }
+
+  .game-btn {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+    color: var(--text);
+  }
+
+  .game-btn:hover {
+    border-color: var(--accent);
+    background: rgba(108, 99, 255, 0.1);
+  }
+
+  .game-btn.active {
+    border-color: var(--accent);
+    background: rgba(108, 99, 255, 0.2);
+    box-shadow: 0 0 20px rgba(108, 99, 255, 0.2);
+  }
+
+  .game-btn .game-emoji { font-size: 1.4rem; display: block; margin-bottom: 4px; }
+  .game-btn .game-name { font-size: 0.8rem; font-weight: 700; display: block; }
+  .game-btn .game-range { font-size: 0.7rem; color: var(--muted); display: block; margin-top: 2px; }
+
+  /* Algorithm selector */
+  .algo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+  }
+
+  .algo-btn {
+    background: var(--surface2);
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--text);
+    text-align: left;
+  }
+
+  .algo-btn:hover { border-color: var(--accent2); background: rgba(255, 101, 132, 0.08); }
+  .algo-btn.active { border-color: var(--accent2); background: rgba(255, 101, 132, 0.15); }
+
+  .algo-btn .algo-name { font-size: 0.85rem; font-weight: 700; display: block; margin-bottom: 3px; }
+  .algo-btn .algo-desc { font-size: 0.7rem; color: var(--muted); display: block; line-height: 1.4; }
+
+  /* Generate button */
+  .generate-btn {
+    width: 100%;
+    padding: 18px;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--accent), #9c59ff);
+    color: #fff;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    text-transform: uppercase;
+  }
+
+  .generate-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+
+  .generate-btn:hover::before { opacity: 1; }
+  .generate-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(108, 99, 255, 0.4); }
+  .generate-btn:active { transform: translateY(0); }
+  .generate-btn.spinning { animation: btn-pulse 0.6s ease-in-out; }
+
+  @keyframes btn-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(0.98); }
+  }
+
+  /* Ticket display */
+  .ticket {
+    background: linear-gradient(135deg, #1e1e45, #12122a);
+    border: 1px solid rgba(108, 99, 255, 0.3);
+    border-radius: 16px;
+    padding: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ticket::before {
+    content: '';
+    position: absolute;
+    top: -40px; right: -40px;
+    width: 150px; height: 150px;
+    background: radial-gradient(circle, rgba(108,99,255,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .ticket-game {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--gold);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .ticket-algo-tag {
+    font-size: 0.7rem;
+    padding: 3px 10px;
+    border-radius: 10px;
+    background: rgba(255, 101, 132, 0.2);
+    border: 1px solid rgba(255, 101, 132, 0.4);
+    color: var(--accent2);
+  }
+
+  /* Balls */
+  .balls-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 10px;
+  }
+
+  .ball {
+    width: var(--ball-size);
+    height: var(--ball-size);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: 900;
+    position: relative;
+    cursor: default;
+    transition: transform 0.15s;
+    flex-shrink: 0;
+  }
+
+  .ball:hover { transform: scale(1.08); }
+
+  .ball.white {
+    background: radial-gradient(circle at 35% 30%, #ffffff, #b0b0c8);
+    color: #1a1a3a;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.4), inset 0 -2px 4px rgba(0,0,0,0.2);
+  }
+
+  .ball.red {
+    background: radial-gradient(circle at 35% 30%, #ff6b6b, #c0392b);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(192,57,43,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
+  }
+
+  .ball.gold {
+    background: radial-gradient(circle at 35% 30%, #ffe066, #b8860b);
+    color: #3a2000;
+    box-shadow: 0 4px 15px rgba(184,134,11,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
+  }
+
+  .ball.blue {
+    background: radial-gradient(circle at 35% 30%, #74b9ff, #0c6ef0);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(12,110,240,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
+  }
+
+  .ball.green {
+    background: radial-gradient(circle at 35% 30%, #55efc4, #00b894);
+    color: #003d2e;
+    box-shadow: 0 4px 15px rgba(0,184,148,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
+  }
+
+  .ball.purple {
+    background: radial-gradient(circle at 35% 30%, #a29bfe, #6c5ce7);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(108,92,231,0.5), inset 0 -2px 4px rgba(0,0,0,0.2);
+  }
+
+  .ball.special {
+    background: radial-gradient(circle at 35% 30%, #fdcb6e, #e17055);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(225,112,85,0.5), inset 0 -2px 4px rgba(0,0,0,0.3);
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+
+  .ball.rolling {
+    animation: roll 0.5s ease-in-out;
+  }
+
+  @keyframes roll {
+    0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+    60% { transform: scale(1.15) rotate(10deg); opacity: 1; }
+    80% { transform: scale(0.95) rotate(-5deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  .balls-divider {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 1.2rem;
+    padding: 0 2px;
+  }
+
+  .ticket-footer {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px dashed rgba(255,255,255,0.08);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .confidence-bar-wrap {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .confidence-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 5px;
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .confidence-bar {
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .confidence-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: width 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .copy-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    padding: 6px 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .copy-btn:hover { border-color: var(--accent); color: var(--text); }
+
+  /* Saved tickets */
+  .saved-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 340px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .saved-ticket {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    transition: border-color 0.2s;
+  }
+
+  .saved-ticket:hover { border-color: rgba(108,99,255,0.4); }
+
+  .saved-balls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .mini-ball {
+    --ball-size: 36px;
+    width: var(--ball-size);
+    height: var(--ball-size);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+
+  .saved-meta {
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .saved-actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  .icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background 0.2s;
+    color: var(--muted);
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.06); color: var(--text); }
+  .icon-btn.del:hover { color: var(--red); }
+
+  /* Stats */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .stat-box {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat-val {
+    font-size: 1.5rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .stat-label {
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: 4px;
+  }
+
+  /* Frequency chart */
+  .freq-chart {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    max-height: 260px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  .freq-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 28px;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.78rem;
+  }
+
+  .freq-num {
+    text-align: right;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .freq-bar-wrap {
+    height: 14px;
+    background: var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+  }
+
+  .freq-bar-fill {
+    height: 100%;
+    border-radius: 7px;
+    transition: width 0.6s ease;
+  }
+
+  .freq-count {
+    color: var(--muted);
+    text-align: right;
+  }
+
+  /* Custom game form */
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+
+  .form-group label {
+    display: block;
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 5px;
+  }
+
+  .form-group input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .form-group input:focus { border-color: var(--accent); }
+
+  /* Past draws input */
+  .past-draws-input {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-size: 0.85rem;
+    font-family: monospace;
+    outline: none;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s;
+  }
+
+  .past-draws-input:focus { border-color: var(--accent); }
+
+  .parse-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--accent);
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 7px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+
+  .parse-btn:hover { background: rgba(108,99,255,0.1); border-color: var(--accent); }
+
+  .parse-status {
+    font-size: 0.75rem;
+    margin-top: 6px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    display: none;
+  }
+
+  .parse-status.success { background: rgba(0,230,118,0.1); border: 1px solid rgba(0,230,118,0.3); color: var(--green); display: block; }
+  .parse-status.error { background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); color: var(--red); display: block; }
+
+  /* Quick picks counter */
+  .counter-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .counter-label { font-size: 0.85rem; color: var(--muted); }
+
+  .counter-ctrl {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .counter-ctrl button {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 1.1rem;
+    width: 34px;
+    height: 34px;
+    cursor: pointer;
+    transition: background 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .counter-ctrl button:hover { background: rgba(255,255,255,0.06); }
+
+  .counter-val {
+    min-width: 36px;
+    text-align: center;
+    font-weight: 700;
+    font-size: 0.95rem;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 16px;
+  }
+
+  .tab-btn {
+    flex: 1;
+    background: none;
+    border: none;
+    border-radius: 7px;
+    color: var(--muted);
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 7px 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .tab-btn.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Empty state */
+  .empty-state {
+    text-align: center;
+    padding: 30px 20px;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .empty-state .empty-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 8px;
+    opacity: 0.5;
+  }
+
+  /* Tooltip */
+  .tooltip {
+    position: relative;
+    display: inline-block;
+  }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 0.85rem;
+    z-index: 1000;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Responsive */
+  @media (max-width: 600px) {
+    :root { --ball-size: 46px; }
+    .game-grid { grid-template-columns: repeat(3, 1fr); }
+    .algo-grid { grid-template-columns: 1fr 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* Number input rows */
+  .draw-history-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 6px;
+    align-items: center;
+  }
+
+  .hot-cold-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .hot-cold-section { }
+  .hot-cold-title {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .hot-cold-title.hot { color: #ff6b6b; }
+  .hot-cold-title.cold { color: #74b9ff; }
+
+  .hc-balls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .hc-ball {
+    --ball-size: 34px;
+    width: var(--ball-size);
+    height: var(--ball-size);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    font-weight: 900;
+    flex-shrink: 0;
+  }
+
+  .hc-ball.hot {
+    background: radial-gradient(circle at 35% 30%, #ff7675, #d63031);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(214,48,49,0.4);
+  }
+
+  .hc-ball.cold {
+    background: radial-gradient(circle at 35% 30%, #a8d8ff, #0c6ef0);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(12,110,240,0.4);
+  }
+
+  .section-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0;
+  }
+
+  .lucky-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 10px;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>🎱 Lotto Guessing Machine</h1>
+    <p>Smart prediction engine powered by statistical analysis</p>
+    <span class="jackpot-badge">✨ Lucky Numbers Generator</span>
+  </div>
+
+  <!-- Game Selector -->
+  <div class="card">
+    <div class="card-title">Choose Your Game</div>
+    <div class="game-grid" id="gameGrid"></div>
+  </div>
+
+  <!-- Custom Game (hidden by default) -->
+  <div class="card" id="customCard" style="display:none">
+    <div class="card-title">Custom Game Settings</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Main Numbers (Count)</label>
+        <input type="number" id="customCount" value="6" min="1" max="10">
+      </div>
+      <div class="form-group">
+        <label>Main Number Range (Max)</label>
+        <input type="number" id="customMax" value="49" min="5" max="99">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Bonus Ball Count (0 = none)</label>
+        <input type="number" id="customBonusCount" value="0" min="0" max="3">
+      </div>
+      <div class="form-group">
+        <label>Bonus Ball Range (Max)</label>
+        <input type="number" id="customBonusMax" value="20" min="1" max="50">
+      </div>
+    </div>
+  </div>
+
+  <!-- Algorithm Selector -->
+  <div class="card">
+    <div class="card-title">Prediction Algorithm</div>
+    <div class="algo-grid" id="algoGrid"></div>
+  </div>
+
+  <!-- Past Draws for Analysis -->
+  <div class="card">
+    <div class="card-title">Historical Draws (Optional – Improves Accuracy)</div>
+    <div style="font-size:0.78rem; color:var(--muted); margin-bottom:8px;">
+      Paste past winning numbers (one draw per line, numbers separated by spaces or commas). Example: <code style="color:var(--accent)">5 12 23 36 41 | 7</code>
+    </div>
+    <textarea class="past-draws-input" id="pastDrawsInput" placeholder="5 12 23 36 41&#10;3 17 28 33 45&#10;1 9 19 31 42 49"></textarea>
+    <button class="parse-btn" onclick="parsePastDraws()">📊 Analyze Draws</button>
+    <div class="parse-status" id="parseStatus"></div>
+  </div>
+
+  <!-- Generate -->
+  <div class="card">
+    <div class="card-title">Generate Tickets</div>
+    <div class="counter-row">
+      <span class="counter-label">Number of tickets:</span>
+      <div class="counter-ctrl">
+        <button onclick="adjustCount(-1)">−</button>
+        <div class="counter-val" id="countVal">1</div>
+        <button onclick="adjustCount(1)">+</button>
+      </div>
+    </div>
+    <button class="generate-btn" id="generateBtn" onclick="generateTickets()">
+      🎰 Generate Lucky Numbers
+    </button>
+  </div>
+
+  <!-- Result Ticket -->
+  <div class="card" id="ticketCard" style="display:none">
+    <div class="card-title">Your Lucky Numbers</div>
+    <div id="ticketContainer"></div>
+  </div>
+
+  <!-- Analysis & History Tabs -->
+  <div class="card">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('saved')">🎫 Saved Tickets</button>
+      <button class="tab-btn" onclick="switchTab('stats')">📈 Statistics</button>
+      <button class="tab-btn" onclick="switchTab('hotcold')">🔥 Hot & Cold</button>
+    </div>
+
+    <!-- Saved Tickets -->
+    <div class="tab-panel active" id="tab-saved">
+      <div id="savedList">
+        <div class="empty-state"><span class="empty-icon">🎟️</span>No saved tickets yet. Generate and save some!</div>
+      </div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="tab-panel" id="tab-stats">
+      <div class="stats-grid" id="statsGrid">
+        <div class="stat-box"><div class="stat-val" id="statGenerated">0</div><div class="stat-label">Generated</div></div>
+        <div class="stat-box"><div class="stat-val" id="statSaved">0</div><div class="stat-label">Saved</div></div>
+        <div class="stat-box"><div class="stat-val" id="statDraws">0</div><div class="stat-label">Draws Loaded</div></div>
+        <div class="stat-box"><div class="stat-val" id="statUnique">—</div><div class="stat-label">Unique Nums</div></div>
+      </div>
+
+      <div style="margin-bottom:8px; font-size:0.78rem; color:var(--muted);">Number Frequency (from history)</div>
+      <div class="freq-chart" id="freqChart">
+        <div class="empty-state" style="padding:20px 0;"><span class="empty-icon">📊</span>Load historical draws to see frequency.</div>
+      </div>
+    </div>
+
+    <!-- Hot & Cold -->
+    <div class="tab-panel" id="tab-hotcold">
+      <div id="hotColdDisplay">
+        <div class="empty-state"><span class="empty-icon">🌡️</span>Load historical draws to see hot & cold numbers.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ===================== GAME DEFINITIONS =====================
+const GAMES = [
+  { id: 'powerball',    name: 'Powerball',       emoji: '🇺🇸', count: 5, max: 69, bonusCount: 1, bonusMax: 26, mainColor: 'white', bonusColor: 'red',    range: '1–69 + PB' },
+  { id: 'mega',         name: 'Mega Millions',   emoji: '💫',  count: 5, max: 70, bonusCount: 1, bonusMax: 25, mainColor: 'gold',  bonusColor: 'blue',   range: '1–70 + MB' },
+  { id: 'euromillions', name: 'EuroMillions',    emoji: '🇪🇺', count: 5, max: 50, bonusCount: 2, bonusMax: 12, mainColor: 'blue',  bonusColor: 'gold',   range: '1–50 + 2★' },
+  { id: 'uk49s',        name: 'UK 49s',          emoji: '🇬🇧', count: 6, max: 49, bonusCount: 1, bonusMax: 49, mainColor: 'green', bonusColor: 'red',    range: '1–49 + 1' },
+  { id: 'lotto649',     name: 'Lotto 6/49',      emoji: '🍁',  count: 6, max: 49, bonusCount: 1, bonusMax: 49, mainColor: 'white', bonusColor: 'gold',   range: '1–49 + B' },
+  { id: 'pick3',        name: 'Pick 3',          emoji: '3️⃣',  count: 3, max: 9,  bonusCount: 0, bonusMax: 0,  mainColor: 'purple',bonusColor: '',       range: '0–9 (3 digits)' },
+  { id: 'pick4',        name: 'Pick 4',          emoji: '4️⃣',  count: 4, max: 9,  bonusCount: 0, bonusMax: 0,  mainColor: 'purple',bonusColor: '',       range: '0–9 (4 digits)' },
+  { id: 'custom',       name: 'Custom',          emoji: '⚙️',  count: 6, max: 49, bonusCount: 0, bonusMax: 0,  mainColor: 'white', bonusColor: 'red',    range: 'Your rules' },
+];
+
+const ALGOS = [
+  { id: 'random',    name: 'Pure Random',    desc: 'True random selection – every number has equal chance' },
+  { id: 'hot',       name: '🔥 Hot Numbers', desc: 'Favor numbers drawn most frequently in recent history' },
+  { id: 'cold',      name: '❄️ Cold Numbers', desc: 'Pick overdue numbers that haven\'t appeared recently' },
+  { id: 'balanced',  name: '⚖️ Balanced Mix', desc: 'Mix of hot, cold, and random for a balanced ticket' },
+  { id: 'delta',     name: '△ Delta System', desc: 'Uses spacing patterns between numbers for selection' },
+  { id: 'wheeling',  name: '🔄 Wheeling',    desc: 'Covers multiple combinations to maximize coverage' },
+];
+
+// ===================== STATE =====================
+let state = {
+  selectedGame: 'powerball',
+  selectedAlgo: 'balanced',
+  ticketCount: 1,
+  pastDraws: [],
+  frequency: {},
+  savedTickets: [],
+  totalGenerated: 0,
+};
+
+function getGame() {
+  if (state.selectedGame === 'custom') {
+    return {
+      id: 'custom',
+      name: 'Custom Game',
+      emoji: '⚙️',
+      count: parseInt(document.getElementById('customCount').value) || 6,
+      max: parseInt(document.getElementById('customMax').value) || 49,
+      bonusCount: parseInt(document.getElementById('customBonusCount').value) || 0,
+      bonusMax: parseInt(document.getElementById('customBonusMax').value) || 20,
+      mainColor: 'white',
+      bonusColor: 'red',
+    };
+  }
+  return GAMES.find(g => g.id === state.selectedGame);
+}
+
+// ===================== INIT UI =====================
+function initGameGrid() {
+  const grid = document.getElementById('gameGrid');
+  grid.innerHTML = GAMES.map(g => `
+    <button class="game-btn ${g.id === state.selectedGame ? 'active' : ''}" onclick="selectGame('${g.id}')">
+      <span class="game-emoji">${g.emoji}</span>
+      <span class="game-name">${g.name}</span>
+      <span class="game-range">${g.range}</span>
+    </button>
+  `).join('');
+}
+
+function initAlgoGrid() {
+  const grid = document.getElementById('algoGrid');
+  grid.innerHTML = ALGOS.map(a => `
+    <button class="algo-btn ${a.id === state.selectedAlgo ? 'active' : ''}" onclick="selectAlgo('${a.id}')">
+      <span class="algo-name">${a.name}</span>
+      <span class="algo-desc">${a.desc}</span>
+    </button>
+  `).join('');
+}
+
+function selectGame(id) {
+  state.selectedGame = id;
+  initGameGrid();
+  const customCard = document.getElementById('customCard');
+  customCard.style.display = id === 'custom' ? 'block' : 'none';
+}
+
+function selectAlgo(id) {
+  state.selectedAlgo = id;
+  initAlgoGrid();
+}
+
+function adjustCount(delta) {
+  state.ticketCount = Math.max(1, Math.min(10, state.ticketCount + delta));
+  document.getElementById('countVal').textContent = state.ticketCount;
+}
+
+// ===================== PAST DRAWS PARSING =====================
+function parsePastDraws() {
+  const raw = document.getElementById('pastDrawsInput').value.trim();
+  const status = document.getElementById('parseStatus');
+
+  if (!raw) {
+    status.className = 'parse-status error';
+    status.textContent = '⚠️ Please enter some past draw data first.';
+    return;
+  }
+
+  const lines = raw.split('\n').filter(l => l.trim());
+  const draws = [];
+
+  for (const line of lines) {
+    // Strip bonus ball separator (| or +)
+    const clean = line.replace(/[|+]/g, ' ');
+    const nums = clean.match(/\d+/g);
+    if (nums && nums.length >= 2) {
+      draws.push(nums.map(Number));
+    }
+  }
+
+  if (draws.length === 0) {
+    status.className = 'parse-status error';
+    status.textContent = '❌ Could not parse any draws. Use format: 5 12 23 36 41 (one draw per line)';
+    return;
+  }
+
+  state.pastDraws = draws;
+
+  // Build frequency map
+  const freq = {};
+  draws.forEach(draw => {
+    draw.forEach(n => {
+      freq[n] = (freq[n] || 0) + 1;
+    });
+  });
+  state.frequency = freq;
+
+  status.className = 'parse-status success';
+  status.textContent = `✅ Loaded ${draws.length} draws. Found ${Object.keys(freq).length} unique numbers.`;
+
+  updateStats();
+  renderFreqChart();
+  renderHotCold();
+}
+
+// ===================== NUMBER GENERATION =====================
+function pickUnique(pool, count, weights) {
+  const result = [];
+  let remaining = [...pool];
+  let remainingWeights = weights ? [...weights] : null;
+
+  for (let i = 0; i < count && remaining.length > 0; i++) {
+    let idx;
+    if (remainingWeights) {
+      const total = remainingWeights.reduce((s, w) => s + w, 0);
+      let r = Math.random() * total;
+      idx = 0;
+      for (let j = 0; j < remainingWeights.length; j++) {
+        r -= remainingWeights[j];
+        if (r <= 0) { idx = j; break; }
+      }
+    } else {
+      idx = Math.floor(Math.random() * remaining.length);
+    }
+    result.push(remaining[idx]);
+    remaining.splice(idx, 1);
+    if (remainingWeights) remainingWeights.splice(idx, 1);
+  }
+
+  return result;
+}
+
+function range(min, max) {
+  const arr = [];
+  for (let i = min; i <= max; i++) arr.push(i);
+  return arr;
+}
+
+function generateNumbers(game, algo) {
+  // For Pick 3/4, allow repeat digits
+  const isDigit = game.id === 'pick3' || game.id === 'pick4';
+
+  let mainNums, bonusNums = [];
+
+  const pool = isDigit ? range(0, game.max) : range(1, game.max);
+  const bonusPool = game.bonusCount > 0 ? range(1, game.bonusMax) : [];
+
+  const freq = state.frequency;
+  const hasHistory = Object.keys(freq).length > 0;
+
+  switch (algo) {
+    case 'random': {
+      if (isDigit) {
+        mainNums = Array.from({length: game.count}, () => Math.floor(Math.random() * (game.max + 1)));
+      } else {
+        mainNums = pickUnique(pool, game.count);
+        bonusNums = pickUnique(bonusPool, game.bonusCount);
+      }
+      break;
+    }
+
+    case 'hot': {
+      if (!hasHistory) return generateNumbers(game, 'random');
+      const weights = pool.map(n => (freq[n] || 0.1));
+      mainNums = isDigit
+        ? Array.from({length: game.count}, () => weightedPick(pool, weights))
+        : pickUnique(pool, game.count, weights);
+
+      const bWeights = bonusPool.map(n => (freq[n] || 0.1));
+      bonusNums = pickUnique(bonusPool, game.bonusCount, bWeights);
+      break;
+    }
+
+    case 'cold': {
+      if (!hasHistory) return generateNumbers(game, 'random');
+      const maxFreq = Math.max(...Object.values(freq), 1);
+      const weights = pool.map(n => Math.max(0.1, maxFreq - (freq[n] || 0) + 0.5));
+      mainNums = isDigit
+        ? Array.from({length: game.count}, () => weightedPick(pool, weights))
+        : pickUnique(pool, game.count, weights);
+
+      const bMaxFreq = Math.max(...bonusPool.map(n => freq[n] || 0), 1);
+      const bWeights = bonusPool.map(n => Math.max(0.1, bMaxFreq - (freq[n] || 0) + 0.5));
+      bonusNums = pickUnique(bonusPool, game.bonusCount, bWeights);
+      break;
+    }
+
+    case 'balanced': {
+      if (!hasHistory) return generateNumbers(game, 'random');
+      // 1/3 hot, 1/3 cold, 1/3 random
+      const hotCount = Math.floor(game.count / 3);
+      const coldCount = Math.floor(game.count / 3);
+      const randCount = game.count - hotCount - coldCount;
+
+      const sorted = pool.slice().sort((a, b) => (freq[b] || 0) - (freq[a] || 0));
+      const hotPool = sorted.slice(0, Math.ceil(pool.length * 0.3));
+      const coldPool = sorted.slice(-Math.ceil(pool.length * 0.3));
+
+      const hotPicks = pickUnique(hotPool, hotCount);
+      const coldPicks = pickUnique(coldPool.filter(n => !hotPicks.includes(n)), coldCount);
+      const randPool = pool.filter(n => !hotPicks.includes(n) && !coldPicks.includes(n));
+      const randPicks = pickUnique(randPool, randCount);
+
+      mainNums = [...hotPicks, ...coldPicks, ...randPicks];
+      bonusNums = pickUnique(bonusPool, game.bonusCount);
+      break;
+    }
+
+    case 'delta': {
+      // Delta: generate small gaps between numbers
+      const deltas = Array.from({length: game.count}, () => Math.ceil(Math.random() * Math.ceil(game.max / game.count)));
+      let nums = [];
+      let cur = Math.floor(Math.random() * Math.ceil(game.max / game.count)) + 1;
+      for (const d of deltas) {
+        cur = Math.min(cur + d, game.max);
+        nums.push(cur);
+      }
+      // Dedupe, fill if needed
+      nums = [...new Set(nums)];
+      while (nums.length < game.count) {
+        const n = Math.floor(Math.random() * game.max) + 1;
+        if (!nums.includes(n)) nums.push(n);
+      }
+      nums = nums.slice(0, game.count);
+
+      mainNums = nums;
+      bonusNums = pickUnique(bonusPool, game.bonusCount);
+      break;
+    }
+
+    case 'wheeling': {
+      // Pick from key pools and shuffle to guarantee coverage
+      const keyNumbers = hasHistory
+        ? Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, Math.ceil(pool.length * 0.5)).map(e => parseInt(e[0]))
+        : pool;
+      const filteredKey = keyNumbers.filter(n => n >= 1 && n <= game.max);
+      mainNums = pickUnique(filteredKey.length >= game.count ? filteredKey : pool, game.count);
+      bonusNums = pickUnique(bonusPool, game.bonusCount);
+      break;
+    }
+
+    default:
+      return generateNumbers(game, 'random');
+  }
+
+  return {
+    main: mainNums.sort((a, b) => a - b),
+    bonus: bonusNums.sort((a, b) => a - b),
+  };
+}
+
+function weightedPick(pool, weights) {
+  const total = weights.reduce((s, w) => s + w, 0);
+  let r = Math.random() * total;
+  for (let i = 0; i < pool.length; i++) {
+    r -= weights[i];
+    if (r <= 0) return pool[i];
+  }
+  return pool[pool.length - 1];
+}
+
+// ===================== CONFIDENCE SCORE =====================
+function calcConfidence(nums, algo) {
+  // Simulated confidence based on algorithm + history availability
+  const base = { random: 30, hot: 55, cold: 50, balanced: 65, delta: 60, wheeling: 70 };
+  const b = base[algo] || 40;
+  const hasHistory = Object.keys(state.frequency).length > 0;
+  const bonus = hasHistory ? 15 : 0;
+  const jitter = Math.floor(Math.random() * 10) - 5;
+  return Math.min(99, Math.max(20, b + bonus + jitter));
+}
+
+// ===================== RENDER TICKET =====================
+function ballHTML(num, colorClass, delay = 0, isSpecial = false) {
+  const cls = `ball ${colorClass}${isSpecial ? ' special' : ''} rolling`;
+  const style = `animation-delay:${delay}ms`;
+  return `<div class="${cls}" style="${style}" title="Number ${num}">${num}</div>`;
+}
+
+function renderTicket(ticketData, gameObj, algoId, index = 0) {
+  const algoObj = ALGOS.find(a => a.id === algoId);
+  const confidence = calcConfidence(ticketData.main, algoId);
+
+  let ballsHtml = ticketData.main.map((n, i) =>
+    ballHTML(n, gameObj.mainColor, i * 80)
+  ).join('');
+
+  if (ticketData.bonus.length > 0) {
+    ballsHtml += `<div class="balls-divider">+</div>`;
+    ballsHtml += ticketData.bonus.map((n, i) =>
+      ballHTML(n, gameObj.bonusColor, (ticketData.main.length + i) * 80, true)
+    ).join('');
+  }
+
+  const allNums = [...ticketData.main, ...ticketData.bonus];
+  const copyText = allNums.join(' - ');
+  const ticketId = `ticket_${Date.now()}_${index}`;
+
+  return `
+    <div class="ticket" id="${ticketId}" style="margin-bottom:${index > 0 ? '12px' : '0'}">
+      <div class="ticket-header">
+        <span class="ticket-game">${gameObj.emoji} ${gameObj.name}</span>
+        <span class="ticket-algo-tag">${algoObj?.name || algoId}</span>
+      </div>
+      <div class="balls-row">${ballsHtml}</div>
+      <div class="ticket-footer">
+        <div class="confidence-bar-wrap">
+          <div class="confidence-label">
+            <span>Confidence Score</span>
+            <span style="color:var(--text);font-weight:700">${confidence}%</span>
+          </div>
+          <div class="confidence-bar">
+            <div class="confidence-fill" style="width:0%" data-target="${confidence}"></div>
+          </div>
+        </div>
+        <button class="copy-btn" onclick="copyNumbers('${copyText}')">📋 Copy</button>
+        <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,0.3)"
+          onclick="saveTicket('${ticketId}', ${JSON.stringify(allNums)}, '${gameObj.name}', '${gameObj.mainColor}', '${gameObj.bonusColor}', ${ticketData.main.length})">
+          💾 Save
+        </button>
+      </div>
+    </div>
+  `;
+}
+
+// ===================== GENERATE =====================
+function generateTickets() {
+  const game = getGame();
+  const btn = document.getElementById('generateBtn');
+  btn.classList.add('spinning');
+  btn.textContent = '🎲 Drawing numbers...';
+
+  setTimeout(() => {
+    const tickets = [];
+    for (let i = 0; i < state.ticketCount; i++) {
+      tickets.push(generateNumbers(game, state.selectedAlgo));
+    }
+
+    const container = document.getElementById('ticketContainer');
+    container.innerHTML = tickets.map((t, i) =>
+      renderTicket(t, game, state.selectedAlgo, i)
+    ).join('');
+
+    document.getElementById('ticketCard').style.display = 'block';
+    document.getElementById('ticketCard').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    // Animate confidence bars
+    requestAnimationFrame(() => {
+      document.querySelectorAll('.confidence-fill').forEach(el => {
+        const target = el.dataset.target;
+        setTimeout(() => { el.style.width = target + '%'; }, 300);
+      });
+    });
+
+    state.totalGenerated += state.ticketCount;
+    updateStats();
+
+    btn.classList.remove('spinning');
+    btn.textContent = '🎰 Generate Lucky Numbers';
+  }, 400);
+}
+
+// ===================== SAVE TICKET =====================
+function saveTicket(ticketId, nums, gameName, mainColor, bonusColor, mainCount) {
+  const ticket = { id: Date.now(), nums, gameName, mainColor, bonusColor, mainCount, time: new Date().toLocaleTimeString() };
+  state.savedTickets.unshift(ticket);
+  renderSavedTickets();
+  updateStats();
+  showToast('✅ Ticket saved!');
+}
+
+function renderSavedTickets() {
+  const container = document.getElementById('savedList');
+  if (state.savedTickets.length === 0) {
+    container.innerHTML = '<div class="empty-state"><span class="empty-icon">🎟️</span>No saved tickets yet.</div>';
+    return;
+  }
+
+  container.innerHTML = state.savedTickets.map(t => {
+    const balls = t.nums.map((n, i) => {
+      const isBonus = i >= t.mainCount;
+      const color = isBonus ? t.bonusColor : t.mainColor;
+      return `<div class="mini-ball ${color}">${n}</div>`;
+    }).join('');
+
+    return `
+      <div class="saved-ticket">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex:1">
+          <div class="saved-balls">${balls}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <div class="saved-meta">${t.gameName}</div>
+          <div class="saved-meta">${t.time}</div>
+          <button class="icon-btn del" onclick="deleteTicket(${t.id})" title="Delete">🗑️</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function deleteTicket(id) {
+  state.savedTickets = state.savedTickets.filter(t => t.id !== id);
+  renderSavedTickets();
+  updateStats();
+  showToast('🗑️ Ticket removed');
+}
+
+// ===================== STATS =====================
+function updateStats() {
+  document.getElementById('statGenerated').textContent = state.totalGenerated;
+  document.getElementById('statSaved').textContent = state.savedTickets.length;
+  document.getElementById('statDraws').textContent = state.pastDraws.length;
+  document.getElementById('statUnique').textContent = Object.keys(state.frequency).length || '—';
+}
+
+function renderFreqChart() {
+  const chart = document.getElementById('freqChart');
+  const freq = state.frequency;
+  if (Object.keys(freq).length === 0) {
+    chart.innerHTML = '<div class="empty-state" style="padding:20px 0"><span class="empty-icon">📊</span>No data yet.</div>';
+    return;
+  }
+
+  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 40);
+  const maxFreq = sorted[0][1];
+
+  const colors = ['#6c63ff','#ff6584','#ffd700','#00e676','#00b4d8','#a29bfe'];
+
+  chart.innerHTML = sorted.map(([num, cnt], i) => {
+    const pct = Math.round((cnt / maxFreq) * 100);
+    const color = colors[i % colors.length];
+    return `
+      <div class="freq-row">
+        <div class="freq-num">${num}</div>
+        <div class="freq-bar-wrap">
+          <div class="freq-bar-fill" style="width:${pct}%;background:${color}"></div>
+        </div>
+        <div class="freq-count">${cnt}</div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderHotCold() {
+  const display = document.getElementById('hotColdDisplay');
+  const freq = state.frequency;
+  if (Object.keys(freq).length === 0) {
+    display.innerHTML = '<div class="empty-state"><span class="empty-icon">🌡️</span>Load draws to see hot & cold numbers.</div>';
+    return;
+  }
+
+  const sorted = Object.entries(freq).sort((a, b) => b[1] - a[1]);
+  const top10 = sorted.slice(0, 10).map(([n]) => parseInt(n));
+  const bot10 = sorted.slice(-10).reverse().map(([n]) => parseInt(n));
+
+  const hotBalls = top10.map(n => `<div class="hc-ball hot">${n}</div>`).join('');
+  const coldBalls = bot10.map(n => `<div class="hc-ball cold">${n}</div>`).join('');
+
+  display.innerHTML = `
+    <div class="hot-cold-grid">
+      <div class="hot-cold-section">
+        <div class="hot-cold-title hot">🔥 Hot Numbers (Most Drawn)</div>
+        <div class="hc-balls">${hotBalls}</div>
+      </div>
+      <div class="hot-cold-section">
+        <div class="hot-cold-title cold">❄️ Cold Numbers (Overdue)</div>
+        <div class="hc-balls">${coldBalls}</div>
+      </div>
+    </div>
+    <div class="section-divider"></div>
+    <div style="font-size:0.78rem;color:var(--muted);line-height:1.6">
+      <strong style="color:var(--text)">Hot numbers</strong> appeared most frequently in your loaded history.<br>
+      <strong style="color:var(--text)">Cold numbers</strong> are overdue — they haven't appeared as often recently.<br>
+      Use <strong style="color:var(--accent2)">Balanced Mix</strong> to combine both for optimized picks.
+    </div>
+  `;
+}
+
+// ===================== TABS =====================
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', ['saved','stats','hotcold'][i] === name);
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === 'tab-' + name);
+  });
+}
+
+// ===================== UTILS =====================
+function copyNumbers(text) {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast('📋 Numbers copied: ' + text);
+  }).catch(() => {
+    showToast('Numbers: ' + text);
+  });
+}
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2800);
+}
+
+// ===================== BOOT =====================
+initGameGrid();
+initAlgoGrid();
+renderSavedTickets();
+updateStats();
+
+// Load some sample draw data for Powerball to demo the stats
+const sampleDraws = `
+7 13 24 36 48 | 12
+2 17 29 41 55 | 8
+5 11 22 38 52 | 3
+1 18 28 45 60 | 17
+9 14 33 40 57 | 22
+3 16 25 42 65 | 11
+6 20 31 47 58 | 15
+8 12 27 39 54 | 7
+4 19 30 43 62 | 19
+10 15 26 37 56 | 14
+2 21 32 46 59 | 6
+7 11 23 41 63 | 18
+5 14 29 44 51 | 9
+3 18 35 48 66 | 20
+1 16 28 40 55 | 13
+`.trim();
+document.getElementById('pastDrawsInput').value = sampleDraws;
+</script>
+</body>
+</html>
