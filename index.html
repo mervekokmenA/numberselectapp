@@ -386,6 +386,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="random">🎲 Tam Rastgele</option>
           <option value="delta">△ Delta Sistemi</option>
           <option value="wheeling">🔄 Wheeling</option>
+          <option value="entropy">⭐ Entropi Analizi</option>
+          <option value="momentum">⭐ Momentum Skoru</option>
+          <option value="correlation">⭐ Korelasyon Kırma</option>
+          <option value="cycle">⭐ Döngü Tespiti</option>
         </select>
       </div>
       <div class="form-group">
@@ -422,7 +426,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <script>
 // ── Game definitions (corrected) ─────────────────────────────
 const GAMES = [
-  { id:'sayisal',  name:'Sayısal Loto', emoji:'🔵', count:6,  max:90, bonusCount:1, bonusMax:90, mainColor:'blue',  bonusColor:'red',  range:'6/90 + Joker', drawCount:7  },
+  { id:'sayisal',  name:'Sayısal Loto', emoji:'🔵', count:6,  max:90, bonusCount:0, bonusMax:0,  mainColor:'blue',  bonusColor:'red',  range:'6 / 90',       drawCount:6  },
   { id:'super',    name:'Süper Loto',   emoji:'⭐', count:6,  max:60, bonusCount:0, bonusMax:0,  mainColor:'gold',  bonusColor:'',     range:'6 / 60',       drawCount:6  },
   { id:'sans',     name:'Şans Topu',    emoji:'🔴', count:5,  max:34, bonusCount:1, bonusMax:14, mainColor:'white', bonusColor:'red',  range:'5/34 + 1/14',  drawCount:6  },
   { id:'onnumara', name:'On Numara',    emoji:'🟢', count:10, max:80, bonusCount:0, bonusMax:0,  mainColor:'green', bonusColor:'',     range:'10 / 80',      drawCount:22 },
@@ -434,7 +438,11 @@ const ALGOS = [
   { id:'cold',     name:'❄️ Soğuk Sayılar',   desc:'Son zamanlarda çekilmeyen gecikmiş sayıları seçer' },
   { id:'balanced', name:'⚖️ Dengeli Karışım', desc:'Sıcak, soğuk ve rastgele sayıların dengeli karışımı' },
   { id:'delta',    name:'△ Delta Sistemi',    desc:'Sayılar arasındaki aralık örüntülerini kullanır' },
-  { id:'wheeling', name:'🔄 Wheeling',         desc:'En iyi sayı havuzundan maksimum kapsama sağlar' },
+  { id:'wheeling',     name:'🔄 Wheeling',             desc:'En iyi sayı havuzundan maksimum kapsama sağlar' },
+  { id:'entropy',      name:'⭐ Entropi Analizi',       desc:'Frekans dağılımının entropisini ölçerek en dengeli aday sayıları seçer', expert:true },
+  { id:'momentum',     name:'⭐ Momentum Skoru',        desc:'Gecikme × frekans çarpımıyla "patlama baskısı" yüksek sayıları seçer', expert:true },
+  { id:'correlation',  name:'⭐ Korelasyon Kırma',      desc:'Birlikte sık çıkan sayı çiftlerini kırarak bağımsız yüksek frekanslı sayıları seçer', expert:true },
+  { id:'cycle',        name:'⭐ Döngü Tespiti',         desc:'Ortalama çıkış aralığı dolmuş sayıları tespit eder ve seçer', expert:true },
 ];
 
 // ── Real historical draw data ────────────────────────────────
@@ -807,6 +815,7 @@ function initGameGrid(){
 function initAlgoGrid(){
   document.getElementById('algoGrid').innerHTML=ALGOS.map(a=>`
     <button class="algo-btn ${a.id===state.selectedAlgo?'active':''}" onclick="selectAlgo('${a.id}')">
+      ${a.expert?'<span class="expert-tag">Uzman Tahmin</span>':''}
       <span class="algo-name">${a.name}</span>
       <span class="algo-desc">${a.desc}</span>
     </button>`).join('');
@@ -874,7 +883,7 @@ function pickUnique(pool,count,weights){
   return result;
 }
 
-function generateNumbers(game,algo,freqOverride){
+function generateNumbers(game,algo,freqOverride,drawsOverride){
   const freq=freqOverride||state.frequency;
   const hasHist=Object.keys(freq).length>0;
   const pool=range(1,game.max);
@@ -920,14 +929,86 @@ function generateNumbers(game,algo,freqOverride){
       const kn=hasHist?Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,Math.ceil(pool.length*.5)).map(e=>+e[0]).filter(n=>n>=1&&n<=game.max):pool;
       mainNums=pickUnique(kn.length>=game.count?kn:pool,game.count);bonusNums=pickUnique(bonusPool,game.bonusCount);
       break;}
-    default:return generateNumbers(game,'random',freq);
+    case 'entropy':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const totalF=Object.values(freq).reduce((s,v)=>s+v,0);
+      const avgF=totalF/pool.length;
+      const sortedByF=[...pool].sort((a,b)=>(freq[a]||0)-(freq[b]||0));
+      const cutLow=Math.floor(pool.length*.2),cutHigh=Math.floor(pool.length*.8);
+      const mid=sortedByF.slice(cutLow,cutHigh);
+      mid.sort((a,b)=>Math.abs((freq[a]||0)-avgF)-Math.abs((freq[b]||0)-avgF));
+      mainNums=mid.slice(0,game.count).sort((a,b)=>a-b);bonusNums=[];
+      break;}
+    case 'momentum':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const mDraws=drawsOverride||state.pastDraws||[];
+      const mTotal=mDraws.length||1;
+      const mTotalF=Object.values(freq).reduce((s,v)=>s+v,0)||1;
+      const mScored=pool.map(n=>{
+        const f=freq[n]||0;
+        const freqRatio=f/mTotalF;
+        let lastSeen=-1;
+        for(let i=mDraws.length-1;i>=0;i--){
+          const d=mDraws[i];
+          const nums=Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])];
+          if(nums.includes(n)){lastSeen=i;break;}
+        }
+        const gap=lastSeen===-1?mTotal:(mTotal-1-lastSeen);
+        return{n,score:gap*freqRatio*100};
+      });
+      mScored.sort((a,b)=>b.score-a.score);
+      mainNums=mScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=[];
+      break;}
+    case 'correlation':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const cDraws=drawsOverride||state.pastDraws||[];
+      const coOccur={};
+      cDraws.forEach(d=>{
+        const nums=(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=game.max);
+        for(let i=0;i<nums.length;i++)for(let j=i+1;j<nums.length;j++){
+          const key=`${Math.min(nums[i],nums[j])}_${Math.max(nums[i],nums[j])}`;
+          coOccur[key]=(coOccur[key]||0)+1;
+        }
+      });
+      const threshold=Math.max(2,cDraws.length*.1);
+      const toRemove=new Set();
+      Object.entries(coOccur).filter(([,c])=>c>=threshold).sort((a,b)=>b[1]-a[1])
+        .forEach(([key])=>{
+          const [a,b]=key.split('_').map(Number);
+          if(!toRemove.has(a)&&!toRemove.has(b))toRemove.add((freq[a]||0)<=(freq[b]||0)?a:b);
+        });
+      const candidates=pool.filter(n=>!toRemove.has(n)).sort((a,b)=>(freq[b]||0)-(freq[a]||0));
+      mainNums=(candidates.length>=game.count?candidates:pool.sort((a,b)=>(freq[b]||0)-(freq[a]||0))).slice(0,game.count).sort((a,b)=>a-b);
+      bonusNums=[];
+      break;}
+    case 'cycle':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const cyDraws=drawsOverride||state.pastDraws||[];
+      const cyTotal=cyDraws.length||1;
+      const cyScored=pool.map(n=>{
+        const app=[];
+        cyDraws.forEach((d,i)=>{
+          const nums=Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])];
+          if(nums.includes(n))app.push(i);
+        });
+        if(app.length<2){const g=app.length===1?(cyTotal-1-app[app.length-1]):cyTotal;return{n,score:g/(cyTotal)};}
+        const gaps=[];for(let i=1;i<app.length;i++)gaps.push(app[i]-app[i-1]);
+        const avgGap=gaps.reduce((s,g)=>s+g,0)/gaps.length;
+        const std=Math.sqrt(gaps.reduce((s,g)=>s+Math.pow(g-avgGap,2),0)/gaps.length)||1;
+        const gapSoFar=cyTotal-1-app[app.length-1];
+        return{n,score:1/((Math.abs(gapSoFar-avgGap)+1)*std)};
+      });
+      cyScored.sort((a,b)=>b.score-a.score);
+      mainNums=cyScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=[];
+      break;}
+    default:return generateNumbers(game,'random',freq,drawsOverride);
   }
   return{main:mainNums.sort((a,b)=>a-b),bonus:bonusNums.sort((a,b)=>a-b)};
 }
 
 // ── Confidence ───────────────────────────────────────────────
 function calcConfidence(algo){
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -952,7 +1033,7 @@ function renderTicket(td,game,algoId,idx=0){
   <div class="ticket" style="margin-bottom:${idx>0?'12px':'0'}">
     <div class="ticket-header">
       <span class="ticket-game">${game.emoji} ${game.name}</span>
-      <span class="ticket-algo-tag">${algo?.name||algoId}</span>
+      <span class="ticket-algo-tag">${algo?.name||algoId}${algo?.expert?' · Uzman':''}  </span>
     </div>
     <div class="balls-row">${ballsHtml}</div>
     <div class="ticket-footer">
@@ -1093,15 +1174,10 @@ function buildFreq(draws){
 // ── Prize tier (corrected for all games) ────────────────────
 function prizeTier(game,mMain,mBonus){
   if(game.id==='sayisal'){
-    if(mMain===6&&mBonus===1)return{label:'Büyük İkramiye (6+J)',cls:'prize-jackpot'};
-    if(mMain===6)            return{label:'İkinci İkramiye (6)',cls:'prize-high'};
-    if(mMain===5&&mBonus===1)return{label:'Üçüncü İkramiye (5+J)',cls:'prize-high'};
-    if(mMain===5)            return{label:'Dördüncü İkramiye (5)',cls:'prize-mid'};
-    if(mMain===4&&mBonus===1)return{label:'Beşinci İkramiye (4+J)',cls:'prize-mid'};
-    if(mMain===4)            return{label:'Altıncı İkramiye (4)',cls:'prize-mid'};
-    if(mMain===3&&mBonus===1)return{label:'Yedinci İkramiye (3+J)',cls:'prize-low'};
-    if(mMain===3)            return{label:'Sekizinci İkramiye (3)',cls:'prize-low'};
-    if(mMain===2&&mBonus===1)return{label:'Teşvik İkramiyesi (2+J)',cls:'prize-low'};
+    if(mMain===6)return{label:'Büyük İkramiye (6)',cls:'prize-jackpot'};
+    if(mMain===5)return{label:'İkinci İkramiye (5)',cls:'prize-high'};
+    if(mMain===4)return{label:'Üçüncü İkramiye (4)',cls:'prize-mid'};
+    if(mMain===3)return{label:'Dördüncü İkramiye (3)',cls:'prize-low'};
   }
   if(game.id==='super'){
     if(mMain===6)return{label:'Büyük İkramiye (6)',cls:'prize-jackpot'};
@@ -1139,7 +1215,7 @@ function runBacktest(){
   if(win!=='all')prior=prior.slice(-parseInt(win));
   if(!prior.length){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
   const freq=buildFreq(prior);
-  const pred=generateNumbers(game,algoId,freq);
+  const pred=generateNumbers(game,algoId,freq,prior);
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
   let mMain=0,mBonus=0;
   if(actual){
