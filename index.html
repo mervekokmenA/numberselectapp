@@ -66,6 +66,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .algo-btn .algo-name{font-size:.82rem;font-weight:700;display:block;margin-bottom:3px}
 .algo-btn .algo-desc{font-size:.67rem;color:var(--muted);display:block;line-height:1.4}
 .expert-tag{display:inline-block;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;background:linear-gradient(135deg,rgba(255,215,0,.25),rgba(255,165,0,.25));border:1px solid rgba(255,215,0,.5);color:#ffd700;margin-bottom:4px;letter-spacing:.03em}
+.algo-score-panel{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
+.algo-score-item{display:flex;align-items:center;gap:4px;padding:3px 7px;border-radius:6px;font-size:.7rem;border:1px solid var(--border);background:var(--surface2);white-space:nowrap}
+.algo-score-item .as-name{color:var(--muted)}.algo-score-item .as-val{font-weight:700;color:var(--text);min-width:22px;text-align:right}
+.algo-score-item.best{border-color:rgba(0,230,118,.5);background:rgba(0,230,118,.12)}.algo-score-item.best .as-val{color:var(--green)}
 
 /* Generate button */
 .generate-btn{width:100%;padding:17px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--accent),#9c59ff);
@@ -376,7 +380,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
       <div class="form-group">
         <label>Test Tarihi</label>
-        <select id="btDate"><option value="">— Önce veri yükleyin —</option></select>
+        <select id="btDate" onchange="updateAlgoScores()"><option value="">— Önce veri yükleyin —</option></select>
       </div>
       <div class="form-group">
         <label>Algoritma</label>
@@ -392,10 +396,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="correlation">⭐ Korelasyon Kırma</option>
           <option value="cycle">⭐ Döngü Tespiti</option>
         </select>
+        <div id="algoScorePanel"></div>
       </div>
       <div class="form-group">
         <label>Eğitim Penceresi</label>
-        <select id="btWindow">
+        <select id="btWindow" onchange="updateAlgoScores()">
           <option value="all">Tüm geçmiş çekilişler</option>
           <option value="50">Son 50 çekiliş</option>
           <option value="20">Son 20 çekiliş</option>
@@ -829,10 +834,11 @@ function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCo
 function loadGenHistory(){
   const id=state.selectedGame;
   if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
-  // Strip dates for the generator (plain numbers only)
+  // Strip dates for the generator (plain numbers only); also strip joker for bonusCount:0 games
+  const g=getGame(id);
   const plain=DRAW_DATA[id].split('\n').map(line=>{
     const noDate=line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'');
-    return noDate;
+    return g.bonusCount===0?noDate.split('|')[0].trim():noDate;
   }).join('\n');
   document.getElementById('pastDrawsInput').value=plain;
   parsePastDraws();
@@ -1164,6 +1170,43 @@ function updateBtDateOptions(){
   if(!valid.length){sel.innerHTML='<option value="">— Yeterli veri yok —</option>';return;}
   sel.innerHTML=valid.map(d=>`<option value="${d}">${d}</option>`).join('');
   sel.value=valid[valid.length-1];
+  updateAlgoScores();
+}
+
+const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü'};
+
+function updateAlgoScores(){
+  const gameId=document.getElementById('btGame').value;
+  const testDate=document.getElementById('btDate').value;
+  const win=document.getElementById('btWindow').value;
+  const panel=document.getElementById('algoScorePanel');
+  if(!panel)return;
+  if(!testDate||!state.datedDraws.length){panel.innerHTML='';return;}
+  const game=getGame(gameId);
+  let prior=state.datedDraws.filter(d=>d.date<testDate);
+  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(!prior.length){panel.innerHTML='';return;}
+  const actual=state.datedDraws.find(d=>d.date===testDate);
+  if(!actual){panel.innerHTML='';return;}
+  const freq=buildFreq(prior);
+  const aSet=new Set(actual.nums);
+  const aBSet=new Set(actual.bonus);
+  const total=game.count+(game.bonusCount||0);
+  const results=ALGOS.map(a=>{
+    let best=0;
+    for(let i=0;i<5;i++){
+      const pred=generateNumbers(game,a.id,freq,prior);
+      const m=pred.main.filter(n=>aSet.has(n)).length+(game.bonusCount>0?pred.bonus.filter(n=>aBSet.has(n)).length:0);
+      if(m>best)best=m;
+    }
+    return{id:a.id,match:best};
+  });
+  const maxMatch=Math.max(...results.map(r=>r.match));
+  panel.innerHTML=`<div class="algo-score-panel">${results.map(r=>`
+    <div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}">
+      <span class="as-name">${ALGO_SHORT[r.id]||r.id}</span>
+      <span class="as-val">${r.match}/${total}</span>
+    </div>`).join('')}</div>`;
 }
 
 function buildFreq(draws){
