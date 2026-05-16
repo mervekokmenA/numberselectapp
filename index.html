@@ -836,7 +836,7 @@ function initAlgoGrid(){
       <span class="algo-desc">${a.desc}</span>
     </button>`).join('');
 }
-function selectGame(id){ state.selectedGame=id; initGameGrid(); }
+function selectGame(id){ state.selectedGame=id; initGameGrid(); loadGenHistory(); }
 function selectAlgo(id){ state.selectedAlgo=id; initAlgoGrid(); }
 function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCount+d)); document.getElementById('countVal').textContent=state.ticketCount; }
 
@@ -1377,7 +1377,10 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId
   return `
   <div class="bt-result">
     <div class="bt-result-header">
-      <div class="bt-result-title">${game.emoji} ${game.name} · ${testDate}</div>
+      <div>
+        <div class="bt-result-title">${game.emoji} ${game.name} · ${testDate}</div>
+        ${actual?`<div style="font-size:.72rem;color:var(--muted);margin-top:3px">Gerçek sonuç: <span style="color:var(--text);font-weight:600">${actual.nums.join(' · ')}${actual.bonus.length?' <span style="color:#f06">+ '+actual.bonus.join(' · ')+'</span>':''}</span></div>`:''}
+      </div>
       <div style="display:flex;align-items:center;gap:6px">
         ${actual
           ?`<div class="bt-score-badge ${scoreCls}">${matched}/${total} eşleşti${nearTotal>0?` · ${nearTotal} yakın`:''}</div>${prize?`<span class="prize-label ${prize.cls}">${prize.label}</span>`:''}`
@@ -1425,7 +1428,7 @@ function showToast(msg){
 }
 
 // ── Boot ──────────────────────────────────────────────────────
-initGameGrid();initAlgoGrid();renderSavedTickets();updateStats();
+initGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();
 </script>
 </body>
 </html>
