@@ -917,19 +917,35 @@ const LOTOBIL_URLS={
 };
 
 async function proxyFetch(url){
+  // Cache-bust so proxies don't serve stale responses
+  const ts=Date.now();
+  const bust=url+(url.includes('?')?'&':'?')+'_t='+ts;
   const proxies=[
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(bust)}`,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
   ];
+
+  // Try sequential with short timeouts
   for(const p of proxies){
     try{
       const ctrl=new AbortController();
-      const tid=setTimeout(()=>ctrl.abort(),7000);
-      const r=await fetch(p,{signal:ctrl.signal});
+      const tid=setTimeout(()=>ctrl.abort(),5000);
+      const r=await fetch(p,{signal:ctrl.signal,credentials:'omit'});
       clearTimeout(tid);
-      if(r.ok)return await r.text();
+      if(r.ok){
+        const text=await r.text();
+        if(text&&text.length>500)return text; // sanity check: real HTML page
+      }
     }catch(e){}
   }
+  // Last resort: allorigins /get (JSON wrapper, slow but sometimes works)
+  try{
+    const ctrl=new AbortController();
+    const tid=setTimeout(()=>ctrl.abort(),8000);
+    const r=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,{signal:ctrl.signal,credentials:'omit'});
+    clearTimeout(tid);
+    if(r.ok){const j=await r.json();if(j.contents&&j.contents.length>500)return j.contents;}
+  }catch(e){}
   throw new Error('proxy_fail');
 }
 
