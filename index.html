@@ -899,6 +899,82 @@ function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCo
 // ── Draw schedule (days-of-week: 0=Sun … 6=Sat) ─────────────
 const DRAW_SCHEDULE={sayisal:[1,3,6],super:[0,2,4],sans:[3,0],onnumara:[1,5]};
 
+// ── Lotobil source URLs per game ─────────────────────────────
+const LOTOBIL_URLS={
+  sayisal: 'https://lotobil.com/cilgin-sayisal-loto/',
+  super:   'https://lotobil.com/super-loto/',
+  sans:    'https://lotobil.com/sans-topu/',
+  onnumara:'https://lotobil.com/on-numara/',
+};
+
+async function proxyFetch(url){
+  const proxies=[
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+  ];
+  for(const p of proxies){
+    try{
+      const ctrl=new AbortController();
+      const tid=setTimeout(()=>ctrl.abort(),7000);
+      const r=await fetch(p,{signal:ctrl.signal});
+      clearTimeout(tid);
+      if(r.ok)return await r.text();
+    }catch(e){}
+  }
+  throw new Error('proxy_fail');
+}
+
+function parseLotobil(html,gameId){
+  // Extract numbered balls by color from img paths e.g. numred/13.png
+  const byC={};
+  const re=/num(\w+?)\/(\d+)\.png/gi;
+  let m;
+  while((m=re.exec(html))!==null){
+    const c=m[1].toLowerCase(),n=parseInt(m[2]);
+    if(n<1||n>90)continue;
+    if(!byC[c])byC[c]=[];
+    if(!byC[c].includes(n))byC[c].push(n);
+  }
+  const red=byC.red||[];
+  const blue=byC.blue||[];
+  const yellow=byC.yellow||[];
+  const green=byC.green||[];
+  // Parse date DD/MM/YYYY → YYYY-MM-DD
+  const dm=html.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+  if(!dm)return null;
+  const date=`${dm[3]}-${dm[2]}-${dm[1]}`;
+  let main=[],bonus=[];
+  if(gameId==='sayisal'){
+    main=[...red.slice(0,6),...blue.slice(0,1)];
+    bonus=yellow.slice(0,1);
+    if(main.length<7)return null;
+  }else if(gameId==='super'){
+    main=red.slice(0,6);
+    if(main.length<6)return null;
+  }else if(gameId==='sans'){
+    main=red.slice(0,5);
+    bonus=(blue.length?blue:yellow).slice(0,1);
+    if(main.length<5)return null;
+  }else if(gameId==='onnumara'){
+    main=(green.length>=10?green:red).slice(0,22);
+    if(main.length<10)return null;
+  }
+  return{date,main,bonus};
+}
+
+async function autoUpdateDraw(gameId){
+  const url=LOTOBIL_URLS[gameId];
+  if(!url)return false;
+  const html=await proxyFetch(url);
+  const result=parseLotobil(html,gameId);
+  if(!result)return false;
+  // Already have this date?
+  if(DRAW_DATA[gameId].includes(result.date))return false;
+  const bonusPart=result.bonus.length?' | '+result.bonus.join(' '):'';
+  DRAW_DATA[gameId]=`${result.date} ${result.main.join(' ')}${bonusPart}\n`+DRAW_DATA[gameId];
+  return result.date;
+}
+
 function dataFreshnessMsg(gameId){
   const raw=DRAW_DATA[gameId];
   if(!raw)return null;
@@ -916,29 +992,39 @@ function dataFreshnessMsg(gameId){
 }
 
 // ── Load real data buttons ───────────────────────────────────
-function loadGenHistory(){
+async function loadGenHistory(){
   const id=state.selectedGame;
   if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
+  showToast('⏳ Güncel çekiliş kontrol ediliyor...');
+  let fetched=false;
+  try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
   const plain=DRAW_DATA[id].split('\n').map(line=>line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'')).join('\n');
   document.getElementById('pastDrawsInput').value=plain;
   parsePastDraws();
   const fr=dataFreshnessMsg(id);
-  if(fr&&fr.missing>0)
-    showToast(`⚠️ Son veri: ${fr.lastDate} — ${fr.missing} yeni çekiliş eksik olabilir`);
+  if(fetched)
+    showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
+  else if(fr&&fr.missing>0)
+    showToast(`⚠️ Son veri: ${fr.lastDate} — ${fr.missing} çekiliş eksik olabilir`);
   else
-    showToast('✅ '+getGame(id).name+' gerçek verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
+    showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
 }
 
-function loadBtHistory(){
+async function loadBtHistory(){
   const id=document.getElementById('btGame').value;
   if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
+  showToast('⏳ Güncel çekiliş kontrol ediliyor...');
+  let fetched=false;
+  try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
   document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
   parseDatedDraws();
   const fr=dataFreshnessMsg(id);
-  if(fr&&fr.missing>0)
-    showToast(`⚠️ Son veri: ${fr.lastDate} — ${fr.missing} yeni çekiliş eksik olabilir`);
+  if(fetched)
+    showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
+  else if(fr&&fr.missing>0)
+    showToast(`⚠️ Son veri: ${fr.lastDate} — ${fr.missing} çekiliş eksik olabilir`);
   else
-    showToast('✅ '+getGame(id).name+' gerçek verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
+    showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
 }
 
 // ── Past-draws parser (generator) ───────────────────────────
