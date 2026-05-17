@@ -493,6 +493,7 @@ const ALGOS = [
   { id:'spread',       name:'📐 Spektral Yayılım',      desc:'Sayı aralığını 7 eşit bölgeye böler, her bölgenin en sıcak sayısını seçer', expert:true },
   { id:'sumtarget',    name:'🎯 Toplam Hedefi',         desc:'Tarihsel ortalama toplama en yakın kombinasyonu seçer', expert:true },
   { id:'ensemble',     name:'👑 Süper Hibrit',          desc:'14 algoritmayı birden çalıştırır; en çok oy alan sayıları seçer — en güçlü mod', expert:true },
+  { id:'sislcg',      name:'🎲 Sisal-LCG Dengesi',     desc:'LCG tabanlı deterministik dağılım simülasyonu — frekans ağırlıklı, toplam dengelenmiş, bölge kapsamalı', expert:true },
 ];
 
 // ── Real historical draw data ────────────────────────────────
@@ -1192,9 +1193,56 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       }
       mainNums=stBest.sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
+    case 'sislcg':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      // ── LCG parameters (Numerical Recipes) ──
+      const LCG_A=1664525,LCG_C=1013904223,LCG_M=2**32;
+      // ── Seed from historical state + entropy ──
+      const sfByF=[...pool].sort((a,b)=>(freq[b]||0)-(freq[a]||0));
+      const sHot=sfByF.slice(0,12);
+      const sTotalF=Object.values(freq).reduce((s,v)=>s+v,0)||1;
+      const sDraws=drawsOverride||state.pastDraws||[];
+      const sLastNums=sDraws.length?(Array.isArray(sDraws[sDraws.length-1])?sDraws[sDraws.length-1]:(sDraws[sDraws.length-1].nums||[])):[];
+      const sLastSum=sLastNums.reduce((s,n)=>s+n,0)||0;
+      // Mix deterministic seed with call-time entropy for unique tickets
+      let sLcg=(((sHot.reduce((s,n)=>s+n*(freq[n]||1),0)*7+sTotalF*13+sLastSum*3)>>>0)+Math.floor(Math.random()*999983))%LCG_M;
+      const sNext=()=>{sLcg=((LCG_A*sLcg+LCG_C)%LCG_M+LCG_M)%LCG_M;return sLcg/LCG_M;};
+      // ── Frequency CDF (power-weighted) ──
+      const sFW=pool.map(n=>Math.pow(freq[n]||.1,1.4));
+      const sFT=sFW.reduce((s,w)=>s+w,0);
+      const sCDF=[];let sAcc=0;sFW.forEach(w=>{sAcc+=w/sFT;sCDF.push(sAcc);});
+      const sSample=()=>{const r=sNext();let lo=0,hi=pool.length-1;while(lo<hi){const m=(lo+hi)>>1;if(sCDF[m]<r)lo=m+1;else hi=m;}return pool[lo];};
+      // ── Target sum range (20th–80th pct of historical sums) ──
+      let sTLo=(game.max+1)*game.count*.28,sTHi=(game.max+1)*game.count*.72;
+      if(sDraws.length>5){
+        const sSums=sDraws.map(d=>(Array.isArray(d)?d:d.nums||[]).slice(0,game.count).reduce((s,n)=>s+n,0)).filter(s=>s>0).sort((a,b)=>a-b);
+        sTLo=sSums[Math.floor(sSums.length*.2)]||sTLo;sTHi=sSums[Math.floor(sSums.length*.8)]||sTHi;
+      }
+      const sTMid=(sTLo+sTHi)/2;
+      // ── Zone coverage: split range into game.count bands ──
+      const sBands=[];const sBSz=game.max/game.count;
+      for(let z=0;z<game.count;z++)sBands.push({lo:Math.floor(z*sBSz)+1,hi:z===game.count-1?game.max:Math.floor((z+1)*sBSz)});
+      // ── Generate best candidate over 150 LCG iterations ──
+      let sBest=null,sBestScore=Infinity;
+      for(let att=0;att<150;att++){
+        const picked=new Set();let tries=0;
+        while(picked.size<game.count&&tries++<game.count*8)picked.add(sSample());
+        if(picked.size<game.count)continue;
+        const arr=[...picked].sort((a,b)=>a-b);
+        const sum=arr.reduce((s,n)=>s+n,0);
+        const sumPen=(sum<sTLo||sum>sTHi)?Math.abs(sum-sTMid)*2:Math.abs(sum-sTMid)*.5;
+        // Zone coverage penalty (fewer bands covered = worse)
+        const covered=new Set(arr.map(n=>sBands.findIndex(b=>n>=b.lo&&n<=b.hi)));
+        const zonePen=(game.count-covered.size)*15;
+        const score=sumPen+zonePen;
+        if(score<sBestScore){sBestScore=score;sBest=arr;}
+      }
+      mainNums=sBest||sfByF.slice(0,game.count);
+      bonusNums=smartBonus();
+      break;}
     case 'ensemble':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
-      const subAlgos=['hot','cold','balanced','entropy','momentum','correlation','cycle','hotzone','regression','oddeven','neighbor','streak','spread','sumtarget'];
+      const subAlgos=['hot','cold','balanced','entropy','momentum','correlation','cycle','hotzone','regression','oddeven','neighbor','streak','spread','sumtarget','sislcg'];
       const votes={},bVotes={};
       pool.forEach(n=>votes[n]=0);
       bonusPool.forEach(n=>bVotes[n]=0);
@@ -1226,7 +1274,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
 
 // ── Confidence ───────────────────────────────────────────────
 function calcConfidence(algo){
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -1384,7 +1432,7 @@ function updateBtDateOptions(){
   updateAlgoScores();
 }
 
-const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit'};
+const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG'};
 
 function updateAlgoScores(){
   const gameId=document.getElementById('btGame').value;
