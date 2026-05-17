@@ -424,6 +424,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </select>
       </div>
     </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="font-size:.8rem;color:var(--muted)">Tahmin Grubu:</span>
+      <div class="counter-ctrl">
+        <button onclick="adjustBtCount(-1)">−</button>
+        <div class="counter-val" id="btCountVal">4</div>
+        <button onclick="adjustBtCount(1)">+</button>
+      </div>
+      <span style="font-size:.72rem;color:var(--muted)">grup üret</span>
+    </div>
     <button class="run-btn" onclick="runBacktest()">🔬 Geçmiş Testi Çalıştır</button>
   </div>
 
@@ -431,6 +440,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="card">
       <div class="card-title">Test Sonucu</div>
       <div id="btResultContent"></div>
+    </div>
+  </div>
+
+  <div id="patternSection" style="display:none">
+    <div class="card">
+      <div class="card-title">🔄 Döngüsel Örüntü Analizi <span style="font-size:.68rem;background:rgba(0,230,118,.15);color:var(--green);padding:2px 7px;border-radius:4px;margin-left:6px;vertical-align:middle">Süper Loto</span></div>
+      <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px">Kaç çekilişte bir benzer sayılar çıktığını analiz eder — baskın periyot tespit edilir ve sonraki çekiliş için örüntü tahmini üretilir.</p>
+      <div id="patternContent"><div style="color:var(--muted);font-size:.8rem;text-align:center;padding:12px">Veri yüklendikten sonra otomatik hesaplanır...</div></div>
     </div>
   </div>
 
@@ -850,8 +867,8 @@ onnumara:`2026-05-15 3 9 10 13 16 18 31 35 37 40 43 44 45 48 52 54 58 63 64 66 7
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:'sayisal', selectedAlgo:'balanced',
-  ticketCount:1, pastDraws:[], frequency:{},
-  savedTickets:[], totalGenerated:0,
+  ticketCount:1, btCount:4, pastDraws:[], frequency:{},
+  savedTickets:[], totalGenerated:0, lastTickets:null,
   datedDraws:[], btHistory:[],
 };
 
@@ -886,6 +903,7 @@ function initAlgoGrid(){
 function selectGame(id){ state.selectedGame=id; initGameGrid(); loadGenHistory(); }
 function selectAlgo(id){ state.selectedAlgo=id; initAlgoGrid(); }
 function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCount+d)); document.getElementById('countVal').textContent=state.ticketCount; }
+function adjustBtCount(d){ state.btCount=Math.max(1,Math.min(10,state.btCount+d)); document.getElementById('btCountVal').textContent=state.btCount; }
 
 // ── Draw schedule (days-of-week: 0=Sun … 6=Sat) ─────────────
 const DRAW_SCHEDULE={sayisal:[1,3,6],super:[0,2,4],sans:[3,0],onnumara:[1,5]};
@@ -1009,6 +1027,7 @@ async function loadBtHistory(){
   try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
   document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
   parseDatedDraws();
+  updatePatternSection();
   const fr=dataFreshnessMsg(id);
   if(fetched)
     showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
@@ -1016,6 +1035,112 @@ async function loadBtHistory(){
     showToast(`⚠️ Son veri: ${fr.lastDate} — ${fr.missing} çekiliş eksik olabilir`);
   else
     showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
+}
+
+function updatePatternSection(){
+  const id=document.getElementById('btGame').value;
+  const sec=document.getElementById('patternSection');
+  if(!sec)return;
+  if(id!=='super'||!state.datedDraws||state.datedDraws.length<15){sec.style.display='none';return;}
+  sec.style.display='';
+  runPatternAnalysis();
+}
+
+function runPatternAnalysis(){
+  const draws=state.datedDraws;
+  const panel=document.getElementById('patternContent');
+  if(!panel)return;
+  const game=getGame('super');
+  const N=game.count,MAX=game.max;
+  const maxP=Math.min(25,Math.floor(draws.length/4));
+  if(maxP<2){panel.innerHTML='<div style="color:var(--muted);font-size:.8rem">Yeterli veri yok</div>';return;}
+  const baseline=N*N/MAX; // expected random exact matches ≈ 0.6
+
+  const periods=[];
+  for(let p=2;p<=maxP;p++){
+    let sE=0,sN=0,cnt=0;
+    for(let i=p;i<draws.length;i++){
+      const a=draws[i].nums.slice(0,N),b=draws[i-p].nums.slice(0,N);
+      const aSet=new Set(a);
+      sE+=b.filter(x=>aSet.has(x)).length;
+      sN+=b.filter(x=>!aSet.has(x)&&a.some(m=>Math.abs(m-x)<=2)).length;
+      cnt++;
+    }
+    periods.push({p,aE:sE/cnt,aN:sN/cnt,score:sE/cnt+0.5*(sN/cnt),cnt});
+  }
+
+  const ranked=[...periods].sort((a,b)=>b.score-a.score);
+  const top5=ranked.slice(0,Math.min(5,ranked.length));
+  const best=ranked[0];
+  const maxScore=Math.max(...periods.map(x=>x.score));
+
+  const lastIdx=draws.length-1;
+  const refDraw=draws[Math.max(0,lastIdx-best.p)];
+  const lastDraw=draws[lastIdx];
+  const lSet=new Set(lastDraw.nums.slice(0,N));
+  const actE=refDraw.nums.slice(0,N).filter(x=>lSet.has(x)).length;
+  const actN=refDraw.nums.slice(0,N).filter(x=>!lSet.has(x)&&lastDraw.nums.slice(0,N).some(m=>Math.abs(m-x)<=2)).length;
+
+  // Prediction for next draw
+  const nextRef=draws[Math.max(0,lastIdx-(best.p-1))];
+  const sec2=top5[1]||best;
+  const nextRef2=draws[Math.max(0,lastIdx-(sec2.p-1))];
+  const w={};
+  const addW=(nums,wt)=>nums.slice(0,N).forEach(n=>{
+    w[n]=(w[n]||0)+wt;
+    if(n>1)w[n-1]=(w[n-1]||0)+wt*0.5;
+    if(n<MAX)w[n+1]=(w[n+1]||0)+wt*0.5;
+    if(n>2)w[n-2]=(w[n-2]||0)+wt*0.22;
+    if(n<MAX-1)w[n+2]=(w[n+2]||0)+wt*0.22;
+  });
+  addW(nextRef.nums,3);addW(nextRef2.nums,1.5);
+  draws.slice(-15).forEach(d=>d.nums.slice(0,N).forEach(n=>w[n]=(w[n]||0)+0.3));
+  const cands=Array.from({length:MAX},(_,i)=>i+1).filter(n=>w[n]>0).sort((a,b)=>w[b]-w[a]).slice(0,N).sort((a,b)=>a-b);
+
+  panel.innerHTML=`
+    <div style="margin-bottom:14px">
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:5px">Periyot gücü (her sütun = P çekiliş arası benzerlik):</div>
+      <div style="display:flex;gap:2px;align-items:flex-end;height:52px">
+        ${periods.map(px=>{
+          const h=Math.max(3,Math.round(px.score/maxScore*48));
+          const iB=px.p===best.p,isT=top5.some(t=>t.p===px.p);
+          return `<div title="Her ${px.p} çekiliş | ⌀${px.aE.toFixed(2)} kesin" style="flex:1;height:${h}px;background:${iB?'var(--green)':isT?'var(--accent)':'var(--border)'};border-radius:2px 2px 0 0;min-width:6px"></div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;gap:2px">
+        ${periods.map(px=>`<div style="flex:1;text-align:center;font-size:.52rem;color:${px.p===best.p?'var(--green)':top5.some(t=>t.p===px.p)?'var(--accent)':'var(--muted)'};min-width:6px">${px.p}</div>`).join('')}
+      </div>
+    </div>
+
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px;margin-bottom:10px">
+      <div style="font-size:.74rem;font-weight:700;margin-bottom:7px">📊 En Güçlü Periyotlar <span style="font-size:.65rem;color:var(--muted);font-weight:400">(rastgele beklenti ⌀${baseline.toFixed(2)})</span></div>
+      ${top5.map((t,i)=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:3px 0${i<top5.length-1?';border-bottom:1px solid var(--border)':''}">
+          <span style="font-size:.7rem;color:${i===0?'var(--green)':'var(--muted)'};min-width:76px;font-weight:${i===0?700:400}">Her ${t.p} çekiliş</span>
+          <div style="flex:1;height:5px;border-radius:3px;background:var(--border)"><div style="height:100%;width:${Math.round(t.score/maxScore*100)}%;background:${i===0?'var(--green)':'var(--accent)'}"></div></div>
+          <span style="font-size:.68rem;font-weight:700;color:${i===0?'var(--green)':'var(--text)'};min-width:70px;text-align:right">⌀${t.aE.toFixed(2)} kesin</span>
+        </div>`).join('')}
+    </div>
+
+    <div style="background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.25);border-radius:10px;padding:11px;margin-bottom:10px">
+      <div style="font-size:.74rem;font-weight:700;color:var(--green);margin-bottom:3px">🎯 Baskın Örüntü: Her ${best.p} Çekiliş</div>
+      <div style="font-size:.7rem;color:var(--muted);margin-bottom:7px">Ref: <strong style="color:var(--text)">${refDraw.date}</strong> — Son çekiliş ile: <strong style="color:var(--text)">${actE} kesin + ${actN} yakın (±2)</strong></div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        ${refDraw.nums.slice(0,N).map(n=>{
+          const m=lSet.has(n),nr=!m&&lastDraw.nums.slice(0,N).some(x=>Math.abs(x-n)<=2);
+          return `<div style="width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.68rem;font-weight:700;background:${m?'var(--green)':nr?'rgba(108,99,255,.25)':'var(--surface2)'};border:2px solid ${m?'var(--green)':nr?'var(--accent)':'var(--border)'};color:${m?'#000':'var(--text)'}">${n}</div>`;
+        }).join('')}
+      </div>
+      <div style="font-size:.62rem;color:var(--muted);margin-top:5px">🟢 Son çekilişte çıktı &nbsp;🟣 ±2 yakın &nbsp;⬜ farklı</div>
+    </div>
+
+    <div style="background:rgba(108,99,255,.07);border:1px solid rgba(108,99,255,.3);border-radius:10px;padding:11px">
+      <div style="font-size:.74rem;font-weight:700;color:var(--accent);margin-bottom:2px">🔮 Sonraki Çekiliş Örüntü Tahmini</div>
+      <div style="font-size:.68rem;color:var(--muted);margin-bottom:7px">P=${best.p} + P=${sec2.p} periyotu baz alındı · ref: ${nextRef.date}</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap">
+        ${cands.map(n=>`<div style="width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:700;background:linear-gradient(135deg,rgba(108,99,255,.3),rgba(108,99,255,.1));border:2px solid var(--accent);color:var(--text)">${n}</div>`).join('')}
+      </div>
+    </div>`;
 }
 
 // ── Past-draws parser (generator) ───────────────────────────
@@ -1384,11 +1509,6 @@ function renderTicket(td,game,algoId,idx=0){
         <div class="confidence-label"><span>Güven Skoru</span><span style="color:var(--text);font-weight:700">${conf}%</span></div>
         <div class="confidence-bar"><div class="confidence-fill" style="width:0%" data-target="${conf}"></div></div>
       </div>
-      <button class="copy-btn" onclick="copyNums('${copy}')">📋 Kopyala</button>
-      <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)"
-        onclick="saveTicket(${JSON.stringify(allNums)},'${game.name}','${game.mainColor}','${game.bonusColor}',${td.main.length})">
-        💾 Kaydet
-      </button>
     </div>
   </div>`;
 }
@@ -1399,8 +1519,15 @@ function generateTickets(){
   btn.classList.add('spinning');btn.textContent='🎲 Sayılar çekiliyor...';
   setTimeout(()=>{
     const tickets=Array.from({length:state.ticketCount},()=>generateNumbers(game,state.selectedAlgo));
+    state.lastTickets={tickets,game};
     const container=document.getElementById('ticketContainer');
-    container.innerHTML=tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i)).join('');
+    const label=state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti';
+    const copyAll=tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+    container.innerHTML=tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i)).join('')+`
+    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap">
+      <button class="copy-btn" onclick="copyNums(${JSON.stringify(copyAll)})">📋 ${label} Kopyala</button>
+      <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
+    </div>`;
     document.getElementById('ticketCard').style.display='block';
     document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
     requestAnimationFrame(()=>{
@@ -1409,6 +1536,15 @@ function generateTickets(){
     state.totalGenerated+=state.ticketCount;updateStats();
     btn.classList.remove('spinning');btn.textContent='🎰 Şanslı Sayıları Üret';
   },400);
+}
+function saveAllTickets(){
+  const {tickets,game}=state.lastTickets||{};
+  if(!tickets)return;
+  tickets.forEach(t=>{
+    const allNums=[...t.main,...t.bonus];
+    state.savedTickets.unshift({id:Date.now()+Math.random(),nums:allNums,gameName:game.name,mainColor:game.mainColor,bonusColor:game.bonusColor,mainCount:t.main.length,time:new Date().toLocaleTimeString()});
+  });
+  renderSavedTickets();updateStats();showToast(`✅ ${tickets.length} bilet kaydedildi!`);
 }
 
 // ── Save/delete ───────────────────────────────────────────────
@@ -1600,24 +1736,29 @@ function runBacktest(){
   if(win!=='all')prior=prior.slice(-parseInt(win));
   if(!prior.length){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
   const freq=buildFreq(prior);
-  const pred=generateNumbers(game,algoId,freq,prior);
+  const n=state.btCount||4;
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
-  let mMain=0,mBonus=0,nearTotal=0;
-  if(actual){
-    const aS=new Set(actual.nums);
-    mMain=pred.main.filter(n=>aS.has(n)).length;
-    nearTotal=pred.main.filter(n=>!aS.has(n)&&(aS.has(n-1)||aS.has(n+1))).length;
-    if(game.bonusCount>0){
-      const aBs=new Set(actual.bonus);
-      mBonus=pred.bonus.filter(n=>aBs.has(n)).length;
-      nearTotal+=pred.bonus.filter(n=>!aBs.has(n)&&(aBs.has(n-1)||aBs.has(n+1))).length;
+  const results=Array.from({length:n},()=>{
+    const pred=generateNumbers(game,algoId,freq,prior);
+    let mMain=0,mBonus=0,nearTotal=0;
+    if(actual){
+      const aS=new Set(actual.nums);
+      mMain=pred.main.filter(x=>aS.has(x)).length;
+      nearTotal=pred.main.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length;
+      if(game.bonusCount>0){
+        const aBs=new Set(actual.bonus);
+        mBonus=pred.bonus.filter(x=>aBs.has(x)).length;
+        nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
+      }
     }
-  }
+    return{pred,mMain,mBonus,nearTotal};
+  });
+  const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
   const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
   rs.style.display='block';
-  rc.innerHTML=buildResultHtml(game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId,prior.length);
-  const total=pred.main.length+pred.bonus.length;
-  state.btHistory.unshift({game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId,prior:prior.length,score:actual?`${mMain+mBonus}/${total}${nearTotal>0?` +${nearTotal}≈`:''}`:'—'});
+  rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length);
+  const total=best.pred.main.length+best.pred.bonus.length;
+  state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
   renderBtHistory();
 }
 
@@ -1681,6 +1822,63 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId
         ${game.id==='sayisal'?`<br>Sayısal Loto'da 1–90 arası 6 sayı + 1 Joker (= 7 sayı) çekilir, ayrıca 1 Süperstar (1–90).`:''}
       </div>`:''}
     </div>
+  </div>`;
+}
+
+function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
+  const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
+  const total=results[0].pred.main.length+results[0].pred.bonus.length;
+  const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
+  const bestScore=best.mMain+best.mBonus;
+  const aSet=actual?new Set(actual.nums):null;
+  const aBSet=actual?new Set(actual.bonus):null;
+
+  // Actual draw HTML
+  let actualHtml='';
+  if(actual){
+    const sz=game.id==='onnumara'?'38px':'';
+    const pMainSet=new Set(results.flatMap(r=>r.pred.main));
+    const pBonSet=new Set(results.flatMap(r=>r.pred.bonus));
+    actualHtml=`<div class="bt-balls-section" style="margin-bottom:10px">
+      <div class="bt-section-label">Gerçek Çekiliş — ${testDate}</div>
+      <div class="balls-row" style="justify-content:flex-start">
+        ${actual.nums.map(n=>staticBall(n,game.mainColor,pMainSet.has(n)?'matched':'unmatched',sz)).join('')}
+        ${actual.bonus.length?`<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special',pBonSet.has(n)?'matched':'unmatched',sz)).join(''):''}
+      </div>
+    </div>`;
+  }
+
+  // Each prediction row
+  const predsHtml=results.map((r,i)=>{
+    const score=r.mMain+r.mBonus;
+    const isBest=score===bestScore&&r===best;
+    const ballsHtml=r.pred.main.map(n=>{
+      const cls=aSet?(aSet.has(n)?'matched':(aSet.has(n-1)||aSet.has(n+1))?'near':'unmatched'):'';
+      return staticBall(n,game.mainColor,cls);
+    }).join('');
+    const bonusHtml=r.pred.bonus.length?`<div class="balls-divider">+</div>`+r.pred.bonus.map(n=>{
+      const cls=aBSet?(aBSet.has(n)?'matched':(aBSet.has(n-1)||aBSet.has(n+1))?'near':'unmatched'):'';
+      return staticBall(n,game.bonusColor+' special',cls);
+    }).join(''):'';
+    const scoreLabel=actual?`${score}/${total}${r.nearTotal>0?` +${r.nearTotal}≈`:''}`:'-';
+    return `<div style="background:${isBest?'rgba(0,230,118,.06)':'var(--surface2)'};border:1px solid ${isBest?'rgba(0,230,118,.3)':'var(--border)'};border-radius:10px;padding:9px 12px;margin-bottom:6px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <span style="font-size:.72rem;color:var(--muted)">Tahmin ${i+1}${isBest?' · <strong style="color:var(--green)">En İyi</strong>':''}</span>
+        <span style="font-size:.75rem;font-weight:700;color:${actual?(score>=3?'var(--green)':score>=1?'var(--accent)':'var(--muted)'):'var(--muted)'}">${scoreLabel}</span>
+      </div>
+      <div class="balls-row" style="justify-content:flex-start">${ballsHtml}${bonusHtml}</div>
+    </div>`;
+  }).join('');
+
+  const scoreCls=actual?(bestScore/total>=0.5?'excellent':bestScore/total>=0.3?'good':bestScore/total>=0.15?'fair':'poor'):'poor';
+  return `<div class="bt-result">
+    <div class="bt-score-header">
+      <div class="bt-score ${scoreCls}">${actual?`${bestScore}/${total}`:'—'}</div>
+      <div><div class="bt-algo-name">${algoName} · ${results.length} Tahmin</div>
+        <div class="bt-meta">${priorCount} çekiliş üzerinde • en iyi eşleşme</div></div>
+    </div>
+    ${actualHtml}
+    <div class="bt-balls-section"><div class="bt-section-label">Tahmin Grupları</div>${predsHtml}</div>
   </div>`;
 }
 
