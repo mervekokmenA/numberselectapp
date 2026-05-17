@@ -895,17 +895,37 @@ function selectGame(id){ state.selectedGame=id; initGameGrid(); loadGenHistory()
 function selectAlgo(id){ state.selectedAlgo=id; initAlgoGrid(); }
 function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCount+d)); document.getElementById('countVal').textContent=state.ticketCount; }
 
+// ── Draw schedule (days-of-week: 0=Sun … 6=Sat) ─────────────
+const DRAW_SCHEDULE={sayisal:[1,3,6],super:[2,5],sans:[3],onnumara:[1,4]};
+
+function dataFreshnessMsg(gameId){
+  const raw=DRAW_DATA[gameId];
+  if(!raw)return null;
+  const dates=raw.trim().split('\n').map(l=>l.match(/^(\d{4}-\d{2}-\d{2})/)?.[1]).filter(Boolean).sort((a,b)=>b.localeCompare(a));
+  if(!dates.length)return null;
+  const lastDate=dates[0];
+  const schedule=DRAW_SCHEDULE[gameId]||[];
+  // count expected draws since lastDate up to today
+  const last=new Date(lastDate+'T12:00:00Z');
+  const today=new Date();today.setUTCHours(12,0,0,0);
+  let missing=0;
+  const cur=new Date(last.getTime()+86400000);
+  while(cur<=today){if(schedule.includes(cur.getUTCDay()))missing++;cur.setUTCDate(cur.getUTCDate()+1);}
+  return{lastDate,missing};
+}
+
 // ── Load real data buttons ───────────────────────────────────
 function loadGenHistory(){
   const id=state.selectedGame;
   if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
-  // Strip dates for the generator (plain numbers only)
-  const plain=DRAW_DATA[id].split('\n').map(line=>{
-    return line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'');
-  }).join('\n');
+  const plain=DRAW_DATA[id].split('\n').map(line=>line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'')).join('\n');
   document.getElementById('pastDrawsInput').value=plain;
   parsePastDraws();
-  showToast('✅ '+getGame(id).name+' gerçek verileri yüklendi');
+  const fr=dataFreshnessMsg(id);
+  if(fr&&fr.missing>0)
+    showToast(`⚠️ Son veri: ${fr.lastDate} — ${fr.missing} yeni çekiliş eksik olabilir`);
+  else
+    showToast('✅ '+getGame(id).name+' gerçek verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
 }
 
 function loadBtHistory(){
@@ -913,7 +933,11 @@ function loadBtHistory(){
   if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
   document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
   parseDatedDraws();
-  showToast('✅ '+getGame(id).name+' gerçek verileri yüklendi');
+  const fr=dataFreshnessMsg(id);
+  if(fr&&fr.missing>0)
+    showToast(`⚠️ Son veri: ${fr.lastDate} — ${fr.missing} yeni çekiliş eksik olabilir`);
+  else
+    showToast('✅ '+getGame(id).name+' gerçek verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
 }
 
 // ── Past-draws parser (generator) ───────────────────────────
