@@ -64,6 +64,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .algo-btn:hover{border-color:var(--accent2);background:rgba(255,101,132,.08)}
 .algo-btn.active{border-color:var(--accent2);background:rgba(255,101,132,.15)}
 .algo-btn .algo-name{font-size:.82rem;font-weight:700;display:block;margin-bottom:3px}
+.algo-pos-row{display:flex;gap:3px;flex-wrap:wrap;margin-top:5px;min-height:18px}
+.algo-pos-tag{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border-radius:4px;font-size:.65rem;font-weight:800;background:rgba(0,230,118,.18);color:var(--green);border:1px solid rgba(0,230,118,.4);line-height:1}
+.algo-pos-tag.strong{background:rgba(0,230,118,.35);border-color:var(--green)}
+.algo-pos-analyzing{font-size:.6rem;color:var(--muted);margin-top:5px;display:block;opacity:.7}
 .algo-btn .algo-desc{font-size:.67rem;color:var(--muted);display:block;line-height:1.4}
 .expert-tag{display:inline-block;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;background:linear-gradient(135deg,rgba(255,215,0,.25),rgba(255,165,0,.25));border:1px solid rgba(255,215,0,.5);color:#ffd700;margin-bottom:4px;letter-spacing:.03em}
 .algo-score-panel{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
@@ -870,6 +874,7 @@ const state = {
   ticketCount:1, btCount:4, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null,
   datedDraws:[], btHistory:[],
+  algoPositionScores:{}, algoAnalysisGame:null,
 };
 
 const getGame = id => GAMES.find(g=>g.id===(id||state.selectedGame));
@@ -893,16 +898,95 @@ function initGameGrid(){
     </button>`).join('');
 }
 function initAlgoGrid(){
-  document.getElementById('algoGrid').innerHTML=ALGOS.map(a=>`
-    <button class="algo-btn ${a.id===state.selectedAlgo?'active':''}" onclick="selectAlgo('${a.id}')">
+  const scores=state.algoPositionScores[state.selectedGame];
+  const analyzing=state.algoAnalysisGame===state.selectedGame;
+  document.getElementById('algoGrid').innerHTML=ALGOS.map(a=>{
+    let posHtml='';
+    if(scores&&scores[a.id]){
+      const s=scores[a.id];
+      // Sort positions by lift descending, keep those with meaningful lift
+      const good=s.filter(x=>x.lift>0.08).sort((x,y)=>y.lift-x.lift);
+      if(good.length){
+        const tags=good.slice(0,4).sort((x,y)=>x.pos-y.pos)
+          .map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet (baz:%${Math.round(x.baseline*100)})">${x.pos}</span>`).join('');
+        posHtml=`<div class="algo-pos-row">${tags}</div>`;
+      } else {
+        posHtml=`<div class="algo-pos-row"></div>`;
+      }
+    } else if(analyzing){
+      posHtml=`<span class="algo-pos-analyzing">⏳ analiz...</span>`;
+    }
+    return `<button class="algo-btn ${a.id===state.selectedAlgo?'active':''}" onclick="selectAlgo('${a.id}')">
       ${a.expert?'<span class="expert-tag">Uzman Tahmin</span>':''}
       <span class="algo-name">${a.name}</span>
       <span class="algo-desc">${a.desc}</span>
-    </button>`).join('');
+      ${posHtml}
+    </button>`;
+  }).join('');
 }
 function selectGame(id){ state.selectedGame=id; initGameGrid(); loadGenHistory(); }
 function selectAlgo(id){ state.selectedAlgo=id; initAlgoGrid(); }
 function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCount+d)); document.getElementById('countVal').textContent=state.ticketCount; }
+
+async function analyzeAlgoPositions(gameId){
+  if(state.algoAnalysisGame===gameId)return; // already done / running
+  const draws=state.pastDraws;
+  if(!draws||draws.length<15)return;
+  state.algoAnalysisGame=gameId;
+  initAlgoGrid(); // show "analiz..." placeholders
+
+  const game=getGame(gameId);
+  const N=game.count, MAX=game.max;
+  const baseline=N/MAX;
+
+  // Use up to last 70 draws; need at least 12 prior draws per test step
+  const limit=Math.min(draws.length,70);
+  const pool=draws.slice(-limit);
+  const MIN_PRIOR=Math.min(12,Math.floor(pool.length/4));
+
+  // Initialize hit/total counters per algo per position
+  const hits={}, totals={};
+  ALGOS.forEach(a=>{ hits[a.id]=new Array(N).fill(0); totals[a.id]=0; });
+
+  for(let i=MIN_PRIOR;i<pool.length;i++){
+    // Normalize prior draws for generateNumbers + buildFreq
+    const prior=pool.slice(0,i).map(d=>Array.isArray(d)?{nums:d.slice(0,N),bonus:d.slice(N)}:{nums:d.nums||d,bonus:d.bonus||[]});
+    // Build simple freq map
+    const freq={};
+    prior.forEach(d=>d.nums.forEach(n=>{ freq[n]=(freq[n]||0)+1; }));
+    // Actual draw — sort main numbers by value to define positions
+    const rawActual=Array.isArray(pool[i])?pool[i]:pool[i].nums||pool[i];
+    const actual=[...rawActual].slice(0,N).sort((a,b)=>a-b);
+    if(actual.length<N)continue;
+
+    for(const algo of ALGOS){
+      try{
+        const pred=generateNumbers(game,algo.id,freq,prior);
+        const pSet=new Set(pred.main);
+        for(let p=0;p<N;p++){ if(pSet.has(actual[p]))hits[algo.id][p]++; }
+        totals[algo.id]++;
+      }catch(e){}
+    }
+    // Yield every 4 iterations to keep UI responsive
+    if((i-MIN_PRIOR)%4===3) await new Promise(r=>setTimeout(r,0));
+    // Abort if game changed while running
+    if(state.algoAnalysisGame!==gameId)return;
+  }
+
+  // Build score objects with lift vs baseline
+  const scores={};
+  ALGOS.forEach(a=>{
+    const tot=totals[a.id]||1;
+    scores[a.id]=Array.from({length:N},(_,p)=>({
+      pos:p+1,
+      rate:hits[a.id][p]/tot,
+      baseline,
+      lift:(hits[a.id][p]/tot-baseline)/Math.max(baseline,0.01)
+    }));
+  });
+  state.algoPositionScores[gameId]=scores;
+  if(state.selectedGame===gameId)initAlgoGrid();
+}
 function adjustBtCount(d){ state.btCount=Math.max(1,Math.min(10,state.btCount+d)); document.getElementById('btCountVal').textContent=state.btCount; }
 
 // ── Draw schedule (days-of-week: 0=Sun … 6=Sat) ─────────────
@@ -1026,6 +1110,7 @@ async function loadGenHistory(){
   const plain=DRAW_DATA[id].split('\n').map(line=>line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'')).join('\n');
   document.getElementById('pastDrawsInput').value=plain;
   parsePastDraws();
+  analyzeAlgoPositions(id);
   const fr=dataFreshnessMsg(id);
   if(fetched)
     showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
