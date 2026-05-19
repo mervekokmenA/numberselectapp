@@ -516,7 +516,8 @@ const ALGOS = [
 // ── Real historical draw data ────────────────────────────────
 // Source: Milli Piyango / lotobil.com archive (Sep 2025 – May 2026). Sayısal Loto: 6 main + Joker merged into 7 main, with Süperstar bonus.
 const DRAW_DATA = {
-sayisal:`2026-05-13 6 39 41 59 70 89 21 | 24
+sayisal:`2026-05-16 2 8 55 73 79 88 47 | 61
+2026-05-13 6 39 41 59 70 89 21 | 24
 2026-05-11 18 36 38 48 53 81 74 | 15
 2026-05-09 17 25 28 53 72 79 61 | 45
 2026-05-06 18 30 50 55 72 82 40 | 84
@@ -618,7 +619,8 @@ sayisal:`2026-05-13 6 39 41 59 70 89 21 | 24
 2025-09-15 7 23 39 41 47 82 40 | 77
 2025-09-13 3 35 39 40 49 90 4 | 83`,
 
-super:`2026-05-14 13 18 35 45 46 50
+super:`2026-05-17 4 9 11 19 24 26
+2026-05-14 13 18 35 45 46 50
 2026-05-12 2 19 28 30 31 37
 2026-05-10 1 8 31 38 40 56
 2026-05-07 1 11 20 33 35 47
@@ -719,7 +721,8 @@ super:`2026-05-14 13 18 35 45 46 50
 2025-09-28 10 14 31 35 55 57
 2025-09-25 1 7 10 26 33 35`,
 
-sans:`2026-05-13 5 7 11 15 21 | 6
+sans:`2026-05-17 11 20 27 31 32 | 8
+2026-05-13 5 7 11 15 21 | 6
 2026-05-10 4 6 20 23 33 | 12
 2026-05-06 3 20 25 32 34 | 13
 2026-05-03 2 8 19 26 29 | 13
@@ -1090,30 +1093,23 @@ async function proxyFetch(url){
   const bust=url+(url.includes('?')?'&':'?')+'_t='+ts;
   const proxies=[
     `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(bust)}`,
-    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+    `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
   ];
 
-  // Try sequential with short timeouts
   for(const p of proxies){
     try{
       const ctrl=new AbortController();
-      const tid=setTimeout(()=>ctrl.abort(),5000);
+      const tid=setTimeout(()=>ctrl.abort(),6000);
       const r=await fetch(p,{signal:ctrl.signal,credentials:'omit'});
       clearTimeout(tid);
-      if(r.ok){
-        const text=await r.text();
-        if(text&&text.length>500)return text; // sanity check: real HTML page
-      }
+      if(!r.ok)continue;
+      let text=await r.text();
+      // allorigins wraps in JSON
+      if(p.includes('allorigins')){try{const j=JSON.parse(text);text=j.contents||'';}catch(e){}}
+      // Validate it's actually a lotobil page (not a proxy's own error/homepage)
+      if(text&&text.length>500&&text.includes('lotobil'))return text;
     }catch(e){}
   }
-  // Last resort: allorigins /get (JSON wrapper, slow but sometimes works)
-  try{
-    const ctrl=new AbortController();
-    const tid=setTimeout(()=>ctrl.abort(),8000);
-    const r=await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,{signal:ctrl.signal,credentials:'omit'});
-    clearTimeout(tid);
-    if(r.ok){const j=await r.json();if(j.contents&&j.contents.length>500)return j.contents;}
-  }catch(e){}
   throw new Error('proxy_fail');
 }
 
@@ -1213,8 +1209,9 @@ async function loadBtHistory(){
   document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
   parseDatedDraws();
   updatePatternSection();
-  state.btAlgoAnalysisGame=null; // reset so new game triggers fresh analysis
-  analyzeBtAlgoPositions(id);
+  // Share analysis with generator tab — populate pastDraws from datedDraws and reuse
+  state.pastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
+  if(state.algoAnalysisGame!==id){ state.algoAnalysisGame=null; analyzeAlgoPositions(id); }
   const fr=dataFreshnessMsg(id);
   if(fetched)
     showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
@@ -1854,8 +1851,9 @@ function updateAlgoScores(){
     return{id:a.id,match:best};
   });
   const maxMatch=Math.max(...results.map(r=>r.match));
-  const posScores=state.btAlgoPositionScores[gameId];
-  const analyzing=state.btAlgoAnalysisGame===gameId&&!posScores;
+  // Use shared analysis data (same source as generator tab — no separate wait needed)
+  const posScores=state.algoPositionScores[gameId];
+  const numScores=state.algoNumberScores[gameId];
   panel.innerHTML=`<div class="algo-score-panel">${results.map(r=>{
     let posHtml='';
     if(posScores&&posScores[r.id]){
@@ -1865,8 +1863,10 @@ function updateAlgoScores(){
           .map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet">${x.pos}</span>`).join('');
         posHtml=`<div class="algo-pos-row" style="margin-top:3px">${tags}</div>`;
       }
-    } else if(analyzing){
-      posHtml=`<span class="algo-pos-analyzing">⏳</span>`;
+      if(numScores&&numScores[r.id]&&numScores[r.id].length){
+        const nbadges=numScores[r.id].slice(0,8).map(x=>`<span class="algo-num-badge${x.lift>0.3?' strong':''}">${x.num}</span>`).join('');
+        posHtml+=`<div style="margin-top:2px">${nbadges}</div>`;
+      }
     }
     const hasPos=!!posHtml;
     return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:flex-start;':''}" onclick="document.getElementById('btAlgo').value='${r.id}';document.querySelectorAll('.algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
