@@ -875,6 +875,7 @@ const state = {
   savedTickets:[], totalGenerated:0, lastTickets:null,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
+  btAlgoPositionScores:{}, btAlgoAnalysisGame:null,
 };
 
 const getGame = id => GAMES.find(g=>g.id===(id||state.selectedGame));
@@ -987,6 +988,52 @@ async function analyzeAlgoPositions(gameId){
   state.algoPositionScores[gameId]=scores;
   if(state.selectedGame===gameId)initAlgoGrid();
 }
+
+async function analyzeBtAlgoPositions(gameId){
+  if(state.btAlgoAnalysisGame===gameId)return;
+  const draws=state.datedDraws;
+  if(!draws||draws.length<15)return;
+  state.btAlgoAnalysisGame=gameId;
+  renderAlgoScorePanel();
+  const game=getGame(gameId);
+  const N=game.count, MAX=game.max;
+  const baseline=N/MAX;
+  const limit=Math.min(draws.length,70);
+  const pool=draws.slice(-limit);
+  const MIN_PRIOR=Math.min(12,Math.floor(pool.length/4));
+  const hits={}, totals={};
+  ALGOS.forEach(a=>{ hits[a.id]=new Array(N).fill(0); totals[a.id]=0; });
+  for(let i=MIN_PRIOR;i<pool.length;i++){
+    const prior=pool.slice(0,i);
+    const freq={};
+    prior.forEach(d=>[...d.nums,...(d.bonus||[])].forEach(n=>{ freq[n]=(freq[n]||0)+1; }));
+    const actual=[...pool[i].nums].slice(0,N).sort((a,b)=>a-b);
+    if(actual.length<N)continue;
+    for(const algo of ALGOS){
+      try{
+        const pred=generateNumbers(game,algo.id,freq,prior);
+        const pSet=new Set(pred.main);
+        for(let p=0;p<N;p++){ if(pSet.has(actual[p]))hits[algo.id][p]++; }
+        totals[algo.id]++;
+      }catch(e){}
+    }
+    if((i-MIN_PRIOR)%4===3) await new Promise(r=>setTimeout(r,0));
+    if(state.btAlgoAnalysisGame!==gameId)return;
+  }
+  const scores={};
+  ALGOS.forEach(a=>{
+    const tot=totals[a.id]||1;
+    scores[a.id]=Array.from({length:N},(_,p)=>({
+      pos:p+1,
+      rate:hits[a.id][p]/tot,
+      baseline,
+      lift:(hits[a.id][p]/tot-baseline)/Math.max(baseline,0.01)
+    }));
+  });
+  state.btAlgoPositionScores[gameId]=scores;
+  renderAlgoScorePanel();
+}
+
 function adjustBtCount(d){ state.btCount=Math.max(1,Math.min(10,state.btCount+d)); document.getElementById('btCountVal').textContent=state.btCount; }
 
 // ── Draw schedule (days-of-week: 0=Sun … 6=Sat) ─────────────
@@ -1129,6 +1176,8 @@ async function loadBtHistory(){
   document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
   parseDatedDraws();
   updatePatternSection();
+  state.btAlgoAnalysisGame=null; // reset so new game triggers fresh analysis
+  analyzeBtAlgoPositions(id);
   const fr=dataFreshnessMsg(id);
   if(fetched)
     showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
@@ -1775,11 +1824,26 @@ function updateAlgoScores(){
     return{id:a.id,match:best};
   });
   const maxMatch=Math.max(...results.map(r=>r.match));
-  panel.innerHTML=`<div class="algo-score-panel">${results.map(r=>`
-    <div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer" onclick="document.getElementById('btAlgo').value='${r.id}';document.querySelectorAll('.algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
-      <span class="as-name">${ALGO_SHORT[r.id]||r.id}</span>
-      <span class="as-val">${r.match}/${total}</span>
-    </div>`).join('')}</div>`;
+  const posScores=state.btAlgoPositionScores[gameId];
+  const analyzing=state.btAlgoAnalysisGame===gameId&&!posScores;
+  panel.innerHTML=`<div class="algo-score-panel">${results.map(r=>{
+    let posHtml='';
+    if(posScores&&posScores[r.id]){
+      const good=posScores[r.id].filter(x=>x.lift>0.08).sort((x,y)=>y.lift-x.lift);
+      if(good.length){
+        const tags=good.slice(0,4).sort((x,y)=>x.pos-y.pos)
+          .map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet">${x.pos}</span>`).join('');
+        posHtml=`<div class="algo-pos-row" style="margin-top:3px">${tags}</div>`;
+      }
+    } else if(analyzing){
+      posHtml=`<span class="algo-pos-analyzing">⏳</span>`;
+    }
+    const hasPos=!!posHtml;
+    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:flex-start;':''}" onclick="document.getElementById('btAlgo').value='${r.id}';document.querySelectorAll('.algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
+      <div style="display:flex;align-items:center;gap:4px"><span class="as-name">${ALGO_SHORT[r.id]||r.id}</span><span class="as-val">${r.match}/${total}</span></div>
+      ${posHtml}
+    </div>`;
+  }).join('')}</div>`;
 }
 
 function buildFreq(draws){
