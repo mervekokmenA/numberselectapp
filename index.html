@@ -300,7 +300,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   </div>
 
   <div class="card">
-    <div class="card-title">Tahmin Algoritması</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <div class="card-title" style="margin:0">Tahmin Algoritması</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <span style="font-size:.7rem;color:var(--muted)">Analiz penceresi:</span>
+        <select id="analysisWindowSel" onchange="changeAnalysisWindow(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 7px">
+          <option value="20">Son 20</option>
+          <option value="50" selected>Son 50</option>
+          <option value="100">Son 100</option>
+          <option value="999">Tümü</option>
+        </select>
+      </div>
+    </div>
     <div class="algo-grid" id="algoGrid"></div>
   </div>
 
@@ -427,7 +438,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <label>Eğitim Penceresi</label>
         <select id="btWindow" onchange="updateAlgoScores()">
           <option value="all">Tüm geçmiş çekilişler</option>
-          <option value="50">Son 50 çekiliş</option>
+          <option value="50" selected>Son 50 çekiliş</option>
           <option value="20">Son 20 çekiliş</option>
           <option value="10">Son 10 çekiliş</option>
         </select>
@@ -881,7 +892,7 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:'sayisal', selectedAlgo:'balanced',
-  ticketCount:4, btCount:4, pastDraws:[], frequency:{},
+  ticketCount:4, btCount:4, analysisWindow:50, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -939,6 +950,14 @@ function initAlgoGrid(){
 function selectGame(id){ state.selectedGame=id; initGameGrid(); loadGenHistory(); }
 function selectAlgo(id){ state.selectedAlgo=id; initAlgoGrid(); }
 function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCount+d)); document.getElementById('countVal').textContent=state.ticketCount; }
+function changeAnalysisWindow(val){
+  state.analysisWindow=+val;
+  state.algoAnalysisGame=null; // force re-analysis with new window
+  state.algoPositionScores={};
+  state.algoNumberScores={};
+  initAlgoGrid();
+  analyzeAlgoPositions(state.selectedGame);
+}
 
 async function analyzeAlgoPositions(gameId){
   if(state.algoAnalysisGame===gameId)return; // already done / running
@@ -951,8 +970,7 @@ async function analyzeAlgoPositions(gameId){
   const N=game.count, MAX=game.max;
   const baseline=N/MAX;
 
-  // Use up to last 70 draws; need at least 12 prior draws per test step
-  const limit=Math.min(draws.length,70);
+  const limit=Math.min(draws.length,state.analysisWindow);
   const pool=draws.slice(-limit);
   const MIN_PRIOR=Math.min(12,Math.floor(pool.length/4));
 
