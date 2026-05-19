@@ -87,14 +87,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 @keyframes btn-pulse{0%,100%{transform:scale(1)}50%{transform:scale(.98)}}
 
 /* Ticket */
-.ticket{background:linear-gradient(135deg,#1e1e45,#12122a);border:1px solid rgba(108,99,255,.3);border-radius:16px;padding:22px;position:relative;overflow:hidden}
-.ticket::before{content:'';position:absolute;top:-40px;right:-40px;width:150px;height:150px;background:radial-gradient(circle,rgba(108,99,255,.15) 0%,transparent 70%);pointer-events:none}
-.ticket-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.ticket{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 10px;display:flex;align-items:center;gap:8px}
+.ticket-idx{font-size:.68rem;color:var(--muted);font-weight:700;min-width:18px;text-align:right}
+.ticket-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .ticket-game{font-size:.86rem;font-weight:700;color:var(--gold);text-transform:uppercase;letter-spacing:1px}
 .ticket-algo-tag{font-size:.67rem;padding:3px 10px;border-radius:10px;background:rgba(255,101,132,.2);border:1px solid rgba(255,101,132,.4);color:var(--accent2)}
 
 /* Balls */
-.balls-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px}
+.balls-row{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;margin-bottom:4px}
 .ball{width:var(--ball-size);height:var(--ball-size);border-radius:50%;display:flex;align-items:center;justify-content:center;
   font-size:.95rem;font-weight:900;flex-shrink:0;transition:transform .15s;cursor:default}
 .ball:hover{transform:scale(1.08)}
@@ -114,11 +114,16 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .mini-ball{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:900;flex-shrink:0}
 
 /* Ticket footer */
-.ticket-footer{margin-top:14px;padding-top:12px;border-top:1px dashed rgba(255,255,255,.08);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
-.confidence-bar-wrap{flex:1;min-width:150px}
-.confidence-label{font-size:.7rem;color:var(--muted);margin-bottom:5px;display:flex;justify-content:space-between}
-.confidence-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
-.confidence-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .8s cubic-bezier(.34,1.56,.64,1)}
+.ticket-footer{margin-top:6px;padding-top:6px;border-top:1px solid var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.confidence-bar-wrap{flex:1;min-width:120px}
+.confidence-label{font-size:.65rem;color:var(--muted);margin-bottom:3px;display:flex;justify-content:space-between}
+.confidence-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
+.confidence-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:width .8s cubic-bezier(.34,1.56,.64,1)}
+.ticket-meta{font-size:.7rem;color:var(--muted)}
+.algo-num-hints{margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+.algo-num-hints-label{font-size:.68rem;color:var(--muted);margin-bottom:5px}
+.algo-num-badge{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 4px;border-radius:5px;font-size:.7rem;font-weight:700;background:rgba(108,99,255,.18);color:var(--accent);border:1px solid rgba(108,99,255,.3);margin:2px}
+.algo-num-badge.strong{background:rgba(0,230,118,.2);color:var(--green);border-color:rgba(0,230,118,.4)}
 .copy-btn{background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:.75rem;padding:6px 11px;cursor:pointer;transition:all .2s}
 .copy-btn:hover{border-color:var(--accent);color:var(--text)}
 
@@ -876,6 +881,7 @@ const state = {
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
   btAlgoPositionScores:{}, btAlgoAnalysisGame:null,
+  algoNumberScores:{}, btAlgoNumberScores:{},
 };
 
 const getGame = id => GAMES.find(g=>g.id===(id||state.selectedGame));
@@ -948,6 +954,8 @@ async function analyzeAlgoPositions(gameId){
   // Initialize hit/total counters per algo per position
   const hits={}, totals={};
   ALGOS.forEach(a=>{ hits[a.id]=new Array(N).fill(0); totals[a.id]=0; });
+  const numHits={}, numApps={};
+  ALGOS.forEach(a=>{ numHits[a.id]={}; });
 
   for(let i=MIN_PRIOR;i<pool.length;i++){
     // Normalize prior draws for generateNumbers + buildFreq
@@ -960,12 +968,15 @@ async function analyzeAlgoPositions(gameId){
     const actual=[...rawActual].slice(0,N).sort((a,b)=>a-b);
     if(actual.length<N)continue;
 
+    actual.forEach(n=>{ numApps[n]=(numApps[n]||0)+1; });
+
     for(const algo of ALGOS){
       try{
         const pred=generateNumbers(game,algo.id,freq,prior);
         const pSet=new Set(pred.main);
         for(let p=0;p<N;p++){ if(pSet.has(actual[p]))hits[algo.id][p]++; }
         totals[algo.id]++;
+        actual.forEach(n=>{ if(!numHits[algo.id][n])numHits[algo.id][n]=0; if(pSet.has(n))numHits[algo.id][n]++; });
       }catch(e){}
     }
     // Yield every 4 iterations to keep UI responsive
@@ -986,7 +997,22 @@ async function analyzeAlgoPositions(gameId){
     }));
   });
   state.algoPositionScores[gameId]=scores;
+  const numScores={};
+  ALGOS.forEach(a=>{
+    numScores[a.id]=Object.entries(numHits[a.id])
+      .map(([n,h])=>({num:+n,rate:numApps[+n]>0?h/numApps[+n]:0,lift:numApps[+n]>0?(h/numApps[+n]-baseline)/Math.max(baseline,0.01):0}))
+      .filter(x=>x.lift>0.12).sort((a,b)=>b.lift-a.lift).slice(0,15);
+  });
+  state.algoNumberScores[gameId]=numScores;
   if(state.selectedGame===gameId)initAlgoGrid();
+}
+
+function getAlgoNumHintsHtml(algoId, gameId){
+  const scores=state.algoNumberScores[gameId];
+  if(!scores||!scores[algoId]||!scores[algoId].length)return '';
+  const nums=scores[algoId].slice(0,12);
+  const badges=nums.map(x=>`<span class="algo-num-badge${x.lift>0.3?' strong':''}" title="%${Math.round(x.rate*100)} isabet oranı">${x.num}</span>`).join('');
+  return `<div class="algo-num-hints"><div class="algo-num-hints-label">Bu algoritmanın güçlü sayıları</div>${badges}</div>`;
 }
 
 async function analyzeBtAlgoPositions(gameId){
@@ -1003,18 +1029,22 @@ async function analyzeBtAlgoPositions(gameId){
   const MIN_PRIOR=Math.min(12,Math.floor(pool.length/4));
   const hits={}, totals={};
   ALGOS.forEach(a=>{ hits[a.id]=new Array(N).fill(0); totals[a.id]=0; });
+  const numHitsBt={}, numAppsBt={};
+  ALGOS.forEach(a=>{ numHitsBt[a.id]={}; });
   for(let i=MIN_PRIOR;i<pool.length;i++){
     const prior=pool.slice(0,i);
     const freq={};
     prior.forEach(d=>[...d.nums,...(d.bonus||[])].forEach(n=>{ freq[n]=(freq[n]||0)+1; }));
     const actual=[...pool[i].nums].slice(0,N).sort((a,b)=>a-b);
     if(actual.length<N)continue;
+    actual.forEach(n=>{ numAppsBt[n]=(numAppsBt[n]||0)+1; });
     for(const algo of ALGOS){
       try{
         const pred=generateNumbers(game,algo.id,freq,prior);
         const pSet=new Set(pred.main);
         for(let p=0;p<N;p++){ if(pSet.has(actual[p]))hits[algo.id][p]++; }
         totals[algo.id]++;
+        actual.forEach(n=>{ if(!numHitsBt[algo.id][n])numHitsBt[algo.id][n]=0; if(pSet.has(n))numHitsBt[algo.id][n]++; });
       }catch(e){}
     }
     if((i-MIN_PRIOR)%4===3) await new Promise(r=>setTimeout(r,0));
@@ -1031,6 +1061,13 @@ async function analyzeBtAlgoPositions(gameId){
     }));
   });
   state.btAlgoPositionScores[gameId]=scores;
+  const numScoresBt={};
+  ALGOS.forEach(a=>{
+    numScoresBt[a.id]=Object.entries(numHitsBt[a.id])
+      .map(([n,h])=>({num:+n,rate:numAppsBt[+n]>0?h/numAppsBt[+n]:0,lift:numAppsBt[+n]>0?(h/numAppsBt[+n]-baseline)/Math.max(baseline,0.01):0}))
+      .filter(x=>x.lift>0.12).sort((a,b)=>b.lift-a.lift).slice(0,15);
+  });
+  state.btAlgoNumberScores[gameId]=numScoresBt;
   renderAlgoScorePanel();
 }
 
@@ -1642,24 +1679,11 @@ function staticBall(num,colorCls,extra='',sz=''){
 
 // ── Render ticket ─────────────────────────────────────────────
 function renderTicket(td,game,algoId,idx=0){
-  const algo=ALGOS.find(a=>a.id===algoId);
-  const conf=calcConfidence(algoId);
   let ballsHtml=td.main.map((n,i)=>ballEl(n,game.mainColor,i*70)).join('');
   if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>ballEl(n,game.bonusColor,(td.main.length+i)*70,true)).join('');
-  const allNums=[...td.main,...td.bonus],copy=allNums.join(' - ');
-  return `
-  <div class="ticket" style="margin-bottom:${idx>0?'12px':'0'}">
-    <div class="ticket-header">
-      <span class="ticket-game">${game.emoji} ${game.name}</span>
-      <span class="ticket-algo-tag">${algo?.name||algoId}${algo?.expert?' · Uzman':''}  </span>
-    </div>
-    <div class="balls-row">${ballsHtml}</div>
-    <div class="ticket-footer">
-      <div class="confidence-bar-wrap">
-        <div class="confidence-label"><span>Güven Skoru</span><span style="color:var(--text);font-weight:700">${conf}%</span></div>
-        <div class="confidence-bar"><div class="confidence-fill" style="width:0%" data-target="${conf}"></div></div>
-      </div>
-    </div>
+  return `<div class="ticket" style="${idx>0?'margin-top:6px;':''}--ball-size:38px">
+    <span class="ticket-idx">#${idx+1}</span>
+    <div class="balls-row" style="margin:0;flex:1">${ballsHtml}</div>
   </div>`;
 }
 
@@ -1673,16 +1697,22 @@ function generateTickets(){
     const container=document.getElementById('ticketContainer');
     const label=state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti';
     const copyAll=tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
-    container.innerHTML=tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i)).join('')+`
-    <div style="display:flex;gap:8px;margin-top:14px;justify-content:flex-end;flex-wrap:wrap">
+    const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
+    const conf=calcConfidence(state.selectedAlgo);
+    const numHints=getAlgoNumHintsHtml(state.selectedAlgo,state.selectedGame);
+    container.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+      <span style="font-size:.78rem;color:var(--muted)">${game.emoji} ${game.name} · <strong style="color:var(--text)">${algo?.name||state.selectedAlgo}</strong></span>
+      <span style="font-size:.72rem;color:var(--accent)">Güven: ${conf}%</span>
+    </div>
+    ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i)).join('')}
+    ${numHints}
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
       <button class="copy-btn" onclick="copyNums(${JSON.stringify(copyAll)})">📋 ${label} Kopyala</button>
       <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
     </div>`;
     document.getElementById('ticketCard').style.display='block';
     document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
-    requestAnimationFrame(()=>{
-      document.querySelectorAll('.confidence-fill').forEach(el=>setTimeout(()=>{el.style.width=el.dataset.target+'%';},300));
-    });
     state.totalGenerated+=state.ticketCount;updateStats();
     btn.classList.remove('spinning');btn.textContent='🎰 Şanslı Sayıları Üret';
   },400);
