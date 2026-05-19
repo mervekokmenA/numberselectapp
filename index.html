@@ -516,7 +516,8 @@ const ALGOS = [
 // ── Real historical draw data ────────────────────────────────
 // Source: Milli Piyango / lotobil.com archive (Sep 2025 – May 2026). Sayısal Loto: 6 main + Joker merged into 7 main, with Süperstar bonus.
 const DRAW_DATA = {
-sayisal:`2026-05-16 2 8 55 73 79 88 47 | 61
+sayisal:`2026-05-18 22 35 71 75 85 89 30 | 40
+2026-05-16 2 8 55 73 79 88 47 | 61
 2026-05-13 6 39 41 59 70 89 21 | 24
 2026-05-11 18 36 38 48 53 81 74 | 15
 2026-05-09 17 25 28 53 72 79 61 | 45
@@ -823,7 +824,8 @@ sans:`2026-05-17 11 20 27 31 32 | 8
 2025-06-04 5 11 23 27 30 | 2
 2025-06-01 12 13 18 21 26 | 6`,
 
-onnumara:`2026-05-15 3 9 10 13 16 18 31 35 37 40 43 44 45 48 52 54 58 63 64 66 70 73
+onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78 79
+2026-05-15 3 9 10 13 16 18 31 35 37 40 43 44 45 48 52 54 58 63 64 66 70 73
 2026-05-11 1 2 6 13 17 21 24 27 33 38 39 43 48 56 60 61 62 66 70 74 76 80
 2026-05-08 6 12 14 15 18 19 24 27 29 31 40 42 50 53 59 61 62 63 71 72 74 77
 2026-05-04 1 10 11 13 14 17 19 20 24 28 32 33 46 48 52 58 59 60 65 69 72 79
@@ -1080,22 +1082,20 @@ function adjustBtCount(d){ state.btCount=Math.max(1,Math.min(10,state.btCount+d)
 const DRAW_SCHEDULE={sayisal:[1,3,6],super:[0,2,4],sans:[3,0],onnumara:[1,5]};
 
 // ── Lotobil source URLs per game ─────────────────────────────
-const LOTOBIL_URLS={
-  sayisal: 'https://lotobil.com/cilgin-sayisal-loto/',
-  super:   'https://lotobil.com/super-loto/',
-  sans:    'https://lotobil.com/sans-topu/',
-  onnumara:'https://lotobil.com/on-numara/',
+const LOTTERYEXTREME_URLS={
+  sayisal: 'https://www.lotteryextreme.com/turkey/sayisal-loto-results',
+  super:   'https://www.lotteryextreme.com/turkey/superloto-results',
+  sans:    'https://www.lotteryextreme.com/turkey/sanstopu-results',
+  onnumara:'https://www.lotteryextreme.com/turkey/onnumara-results',
 };
 
 async function proxyFetch(url){
-  // Cache-bust so proxies don't serve stale responses
   const ts=Date.now();
   const bust=url+(url.includes('?')?'&':'?')+'_t='+ts;
   const proxies=[
     `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(bust)}`,
     `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
   ];
-
   for(const p of proxies){
     try{
       const ctrl=new AbortController();
@@ -1104,64 +1104,57 @@ async function proxyFetch(url){
       clearTimeout(tid);
       if(!r.ok)continue;
       let text=await r.text();
-      // allorigins wraps in JSON
       if(p.includes('allorigins')){try{const j=JSON.parse(text);text=j.contents||'';}catch(e){}}
-      // Validate it's actually a lotobil page (not a proxy's own error/homepage)
-      if(text&&text.length>500&&text.includes('lotobil'))return text;
+      if(text&&text.length>500)return text;
     }catch(e){}
   }
   throw new Error('proxy_fail');
 }
 
-function parseLotobil(html,gameId){
-  // Extract numbered balls by color from img paths e.g. numred/13.png
-  const byC={};
-  const re=/num(\w+?)\/(\d+)\.png/gi;
-  let m;
-  while((m=re.exec(html))!==null){
-    const c=m[1].toLowerCase(),n=parseInt(m[2]);
-    if(n<1||n>90)continue;
-    if(!byC[c])byC[c]=[];
-    if(!byC[c].includes(n))byC[c].push(n);
+function parseLotteryExtreme(html,gameId){
+  const draws=[];
+  const dates=[...html.matchAll(/\((\d{4}-\d{2}-\d{2})\)/g)].map(m=>m[1]);
+  const lists=[...html.matchAll(/<ul[^>]*displayball[^>]*>([\s\S]*?)<\/ul>/g)];
+  const stars=[...html.matchAll(/Superstar:\s*(\d+)/g)].map(m=>+m[1]);
+  const nums=li=>([...li.matchAll(/<li>(\d+)/g)].map(m=>+m[1]));
+  if(gameId==='onnumara'){
+    for(let i=0;i<Math.min(dates.length,Math.floor(lists.length/2));i++){
+      const main=[...nums(lists[i*2][1]),...nums(lists[i*2+1][1])];
+      if(main.length>=22)draws.push({date:dates[i],main:main.slice(0,22),bonus:[]});
+    }
+  }else{
+    for(let i=0;i<Math.min(dates.length,lists.length);i++){
+      const parts=lists[i][1].split(/class="dbx"/);
+      const before=nums(parts[0]), after=parts[1]?nums(parts[1]):[];
+      if(gameId==='sayisal'){
+        const main=[...before,...after].slice(0,7);
+        if(main.length===7)draws.push({date:dates[i],main,bonus:stars[i]?[stars[i]]:[]});
+      }else if(gameId==='super'){
+        const main=before.slice(0,6);
+        if(main.length===6)draws.push({date:dates[i],main,bonus:[]});
+      }else if(gameId==='sans'){
+        const main=before.slice(0,5),bonus=after.slice(0,1);
+        if(main.length===5)draws.push({date:dates[i],main,bonus});
+      }
+    }
   }
-  const red=byC.red||[];
-  const blue=byC.blue||[];
-  const yellow=byC.yellow||[];
-  const green=byC.green||[];
-  // Parse date DD/MM/YYYY → YYYY-MM-DD
-  const dm=html.match(/(\d{2})\/(\d{2})\/(\d{4})/);
-  if(!dm)return null;
-  const date=`${dm[3]}-${dm[2]}-${dm[1]}`;
-  let main=[],bonus=[];
-  if(gameId==='sayisal'){
-    main=[...red.slice(0,6),...blue.slice(0,1)];
-    bonus=yellow.slice(0,1);
-    if(main.length<7)return null;
-  }else if(gameId==='super'){
-    main=red.slice(0,6);
-    if(main.length<6)return null;
-  }else if(gameId==='sans'){
-    main=red.slice(0,5);
-    bonus=(blue.length?blue:yellow).slice(0,1);
-    if(main.length<5)return null;
-  }else if(gameId==='onnumara'){
-    main=(green.length>=10?green:red).slice(0,22);
-    if(main.length<10)return null;
-  }
-  return{date,main,bonus};
+  return draws;
 }
 
 async function autoUpdateDraw(gameId){
-  const url=LOTOBIL_URLS[gameId];
+  const url=LOTTERYEXTREME_URLS[gameId];
   if(!url)return false;
   const html=await proxyFetch(url);
-  const result=parseLotobil(html,gameId);
-  if(!result)return false;
-  // Already have this date?
-  if(DRAW_DATA[gameId].includes(result.date))return false;
-  const bonusPart=result.bonus.length?' | '+result.bonus.join(' '):'';
-  DRAW_DATA[gameId]=`${result.date} ${result.main.join(' ')}${bonusPart}\n`+DRAW_DATA[gameId];
-  return result.date;
+  const draws=parseLotteryExtreme(html,gameId);
+  if(!draws.length)return false;
+  let newest=false;
+  for(const d of draws){
+    if(DRAW_DATA[gameId].includes(d.date))continue;
+    const bonusPart=d.bonus.length?' | '+d.bonus.join(' '):'';
+    DRAW_DATA[gameId]=`${d.date} ${d.main.join(' ')}${bonusPart}\n`+DRAW_DATA[gameId];
+    if(!newest)newest=d.date;
+  }
+  return newest;
 }
 
 function dataFreshnessMsg(gameId){
@@ -1696,14 +1689,25 @@ function generateTickets(){
     const copyAll=tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
     const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
     const conf=calcConfidence(state.selectedAlgo);
-    const numHints='';
+    const posScores=state.algoPositionScores[state.selectedGame];
+    const posRow=(()=>{
+      if(!posScores||!posScores[state.selectedAlgo])return '';
+      const good=posScores[state.selectedAlgo].filter(x=>x.lift>0.08).sort((a,b)=>b.lift-a.lift);
+      if(!good.length)return '';
+      const tags=good.slice(0,6).sort((a,b)=>a.pos-b.pos)
+        .map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet">${x.pos}</span>`).join('');
+      return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-size:.63rem;color:var(--muted)">Güçlü konumlar:</span>
+        <div class="algo-pos-row" style="margin:0">${tags}</div>
+      </div>`;
+    })();
     container.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
       <span style="font-size:.78rem;color:var(--muted)">${game.emoji} ${game.name} · <strong style="color:var(--text)">${algo?.name||state.selectedAlgo}</strong></span>
       <span style="font-size:.72rem;color:var(--accent)">Güven: ${conf}%</span>
     </div>
+    ${posRow}
     ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i)).join('')}
-    ${numHints}
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
       <button class="copy-btn" onclick="copyNums(${JSON.stringify(copyAll)})">📋 ${label} Kopyala</button>
       <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
