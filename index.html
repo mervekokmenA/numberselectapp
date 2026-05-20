@@ -26,17 +26,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .main-nav{position:sticky;top:0;z-index:100;background:rgba(10,10,26,.93);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 16px}
 .nav-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:52px;gap:12px}
 .nav-brand{font-size:.96rem;font-weight:800;white-space:nowrap;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.nav-tabs{display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px}
-.nav-tab{background:none;border:none;border-radius:7px;color:var(--muted);font-size:.8rem;font-weight:600;padding:6px 14px;cursor:pointer;transition:all .2s;white-space:nowrap}
-.nav-tab.active{background:var(--surface);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.3)}
-
 /* Pages */
-.page{display:none}.page.active{display:block}
-.app{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:20px 16px 60px}
+.app{position:relative;z-index:1;max-width:1440px;margin:0 auto;padding:16px 16px 40px;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+.col-left,.col-right{min-width:0}
 
 /* Header */
-.header{text-align:center;margin-bottom:28px}
-.header h1{font-size:clamp(1.7rem,5vw,2.6rem);font-weight:800;letter-spacing:-.5px;margin-bottom:6px;
+.header{margin-bottom:16px}
+.header h1{font-size:1.2rem;font-weight:800;letter-spacing:-.3px;margin-bottom:4px;
   background:linear-gradient(135deg,var(--gold),var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .header p{color:var(--muted);font-size:.92rem}
 .jackpot-badge{display:inline-block;margin-top:10px;padding:4px 16px;border-radius:20px;
@@ -263,12 +259,16 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
 /* Responsive */
+@media(max-width:900px){
+  .app{grid-template-columns:1fr}
+}
 @media(max-width:600px){
   :root{--ball-size:40px}
   .bt-config{grid-template-columns:1fr}
   .bt-hist-row{grid-template-columns:24px 1fr auto}
   .bt-hist-date{display:none}
   .hot-cold-grid{grid-template-columns:1fr}
+  .app{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -277,22 +277,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <nav class="main-nav">
   <div class="nav-inner">
     <span class="nav-brand">🎱 Loto Tahmin Makinesi</span>
-    <div class="nav-tabs">
-      <button class="nav-tab active" onclick="showPage('generator')">🎰 Tahmin</button>
-      <button class="nav-tab"        onclick="showPage('backtest')">📅 Geçmiş Test</button>
-    </div>
   </div>
 </nav>
 
 <div class="app">
 
 <!-- ═══════════ PAGE: GENERATOR ═══════════ -->
-<div id="page-generator" class="page active">
-  <div class="header">
-    <h1>🎱 Loto Tahmin Makinesi</h1>
-    <p>İstatistiksel analize dayalı akıllı tahmin motoru</p>
-    <span class="jackpot-badge">✨ Şanslı Sayılar Üreticisi</span>
-  </div>
+<div class="col-left" id="page-generator">
 
   <div class="card">
     <div class="card-title">Oyun Seçin</div>
@@ -365,19 +356,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 
 <!-- ═══════════ PAGE: BACKTEST ═══════════ -->
-<div id="page-backtest" class="page">
-  <div class="header">
-    <h1>📅 Geçmiş Test</h1>
-    <p>Algoritmanın geçmişteki performansını ölç</p>
-  </div>
-
-  <div class="bt-info-box">
-    <strong>Nasıl çalışır?</strong><br>
-    1. Seçili oyunun gerçek verilerini yükleyin (veya kendiniz girin)<br>
-    2. Test etmek istediğiniz tarihi seçin<br>
-    3. Algoritma yalnızca <strong>seçilen tarihten önceki</strong> verilerle tahmin yapar<br>
-    4. Gerçek sonuçla karşılaştırmalı analiz gösterilir
-  </div>
+<div class="col-right" id="page-backtest">
 
   <div class="card">
     <div class="card-title">Tarihli Çekiliş Verisi</div>
@@ -901,15 +880,6 @@ const state = {
 };
 
 const getGame = id => GAMES.find(g=>g.id===(id||state.selectedGame));
-
-// ── Navigation ───────────────────────────────────────────────
-function showPage(name){
-  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.querySelectorAll('.nav-tab').forEach(b=>b.classList.remove('active'));
-  document.getElementById('page-'+name).classList.add('active');
-  document.querySelectorAll('.nav-tab')[name==='generator'?0:1].classList.add('active');
-  if(name==='backtest')loadBtHistory();
-}
 
 // ── Init grids ───────────────────────────────────────────────
 function initGameGrid(){
