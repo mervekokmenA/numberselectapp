@@ -1042,7 +1042,7 @@ async function analyzeBtAlgoPositions(gameId){
   const game=getGame(gameId);
   const N=game.count, MAX=game.max;
   const baseline=N/MAX;
-  const limit=Math.min(draws.length,70);
+  const limit=Math.min(draws.length,state.analysisWindow);
   const pool=draws.slice(-limit);
   const MIN_PRIOR=Math.min(12,Math.floor(pool.length/4));
   const hits={}, totals={};
@@ -2017,8 +2017,9 @@ function runBacktest(){
   renderBtHistory();
 }
 
-function computePredictionConfidence(algoId,gameId){
-  const posScores=state.algoPositionScores[gameId]?.[algoId];
+function computePredictionConfidence(algoId,gameId,useBt=false){
+  const src=useBt?state.btAlgoPositionScores:state.algoPositionScores;
+  const posScores=(src[gameId]?.[algoId])||state.algoPositionScores[gameId]?.[algoId];
   if(!posScores||!posScores.length)return null;
   const game=getGame(gameId);
   const baseline=game.drawCount/game.max;
@@ -2075,7 +2076,7 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId
       <div class="bt-balls-section">
         <div class="bt-section-label" style="display:flex;align-items:center;justify-content:space-between">
           <span>Tahmin — ${algoName} · ${priorCount} önceki çekiliş kullanıldı</span>
-          ${(()=>{const c=computePredictionConfidence(algoId,game.id);return c?`<span style="font-size:.72rem;font-weight:700;color:${c>=70?'var(--green)':c>=50?'var(--accent)':'var(--muted)'}">Güven: ${c}%</span>`:'';})()}
+          ${(()=>{const c=computePredictionConfidence(algoId,game.id,true);return c?`<span style="font-size:.72rem;font-weight:700;color:${c>=70?'var(--green)':c>=50?'var(--accent)':'var(--muted)'}">Güven: ${c}%</span>`:'';})()}
         </div>
         <div class="balls-row" style="justify-content:flex-start">${predBalls}${predBonus}</div>
       </div>
@@ -2129,7 +2130,7 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
       return staticBall(n,game.bonusColor+' special',cls);
     }).join(''):'';
     const scoreLabel=actual?`${score}/${total}${r.nearTotal>0?` +${r.nearTotal}≈`:''}`:'-';
-    const conf=computePredictionConfidence(algoId,game.id);
+    const conf=computePredictionConfidence(algoId,game.id,true);
     return `<div style="background:${isBest?'rgba(0,230,118,.06)':'var(--surface2)'};border:1px solid ${isBest?'rgba(0,230,118,.3)':'var(--border)'};border-radius:10px;padding:9px 12px;margin-bottom:6px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
         <span style="font-size:.72rem;color:var(--muted)">Tahmin ${i+1}${isBest?' · <strong style="color:var(--green)">En İyi</strong>':''}</span>
