@@ -1850,12 +1850,13 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const sv2T=sv2D.length;if(sv2T<5)return generateNumbers(game,'hot',freq,drawsOverride);
       const sv2MAX=game.max,sv2N=game.count;
       const gN=d=>(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=sv2MAX);
-      const λ=0.93;
-      // EWF
+      // Strong recency: λ=0.80 (empirically best for short-term patterns)
+      const λ=0.80;
+      // EWF with strong decay
       const ewf={};sv2D.forEach((d,i)=>{const w=Math.pow(λ,sv2T-1-i);gN(d).forEach(n=>{ewf[n]=(ewf[n]||0)+w;});});
-      // MOM multi-window
+      // MOM shorter windows [2,5,10] for recency-focused signal
       const mom={};
-      [[3,0.5],[7,0.3],[15,0.2]].forEach(([w,wt])=>{sv2D.slice(-w).forEach(d=>{gN(d).forEach(n=>{mom[n]=(mom[n]||0)+wt/w;});});});
+      [[2,0.5],[5,0.3],[10,0.2]].forEach(([w,wt])=>{sv2D.slice(-w).forEach(d=>{gN(d).forEach(n=>{mom[n]=(mom[n]||0)+wt/w;});});});
       // Full weighted co-occurrence matrix
       const coW={},fW={};
       sv2D.forEach((d,i)=>{
@@ -1866,74 +1867,77 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
           coW[`${x}_${y}`]=(coW[`${x}_${y}`]||0)+w;
         }
       });
-      // Network centrality: mean normalised co-occurrence with top-12 partners
+      // Network centrality: top-10 partners
       const netSc={};
       pool.forEach(n=>{
         const pts=[];
         for(let m=1;m<=sv2MAX;m++){if(m===n)continue;const c=coW[`${Math.min(n,m)}_${Math.max(n,m)}`]||0;if(c>0)pts.push(c/Math.sqrt((fW[n]||0.01)*(fW[m]||0.01)));}
-        pts.sort((a,b)=>b-a);netSc[n]=pts.slice(0,12).reduce((s,v)=>s+v,0)/12;
+        pts.sort((a,b)=>b-a);netSc[n]=pts.slice(0,10).reduce((s,v)=>s+v,0)/10;
       });
-      // KNN pattern: find draws most similar to last draw → boost what followed them
+      // Multi-KNN: use last 3 draws as reference (Jaccard similarity, recency+ref-distance weighted)
       const knn={};
-      if(sv2T>=3){
-        const lastSet=new Set(gN(sv2D[sv2T-1]));
-        sv2D.slice(0,-1).forEach((d,i)=>{
+      for(let k=0;k<3&&k<sv2T-2;k++){
+        const refSet=new Set(gN(sv2D[sv2T-1-k]));
+        sv2D.slice(0,sv2T-1-k).forEach((d,i)=>{
           const dSet=new Set(gN(d));
-          const inter=[...lastSet].filter(n=>dSet.has(n)).length;
-          const sim=inter/Math.max(lastSet.size+dSet.size-inter,1);
-          if(sim>0&&i+1<sv2T-1){
-            const w=Math.pow(λ,sv2T-2-i)*sim;
+          const inter=[...refSet].filter(n=>dSet.has(n)).length;
+          const sim=inter/Math.max(refSet.size+dSet.size-inter,1);
+          if(sim>0&&i+1<sv2T-1-k){
+            const w=Math.pow(λ,sv2T-2-k-i)*sim*Math.pow(0.6,k);
             gN(sv2D[i+1]).forEach(n=>{knn[n]=(knn[n]||0)+w;});
           }
         });
       }
+      // Delta hot: frequency acceleration (short-window rate minus medium-window rate)
+      const sv2Ws=Math.min(4,sv2T),sv2Wm=Math.min(12,sv2T);
+      const sv2Sh={},sv2Med={};
+      sv2D.slice(-sv2Ws).forEach(d=>{gN(d).forEach(n=>{sv2Sh[n]=(sv2Sh[n]||0)+1;});});
+      sv2D.slice(-sv2Wm).forEach(d=>{gN(d).forEach(n=>{sv2Med[n]=(sv2Med[n]||0)+1;});});
+      const sv2Delta={};
+      pool.forEach(n=>{sv2Delta[n]=(sv2Sh[n]||0)/sv2Ws-(sv2Med[n]||0)/sv2Wm;});
       // ZSCORE
       const fv=pool.map(n=>freq[n]||0),fmu=fv.reduce((s,v)=>s+v,0)/pool.length;
       const fsd=Math.sqrt(fv.reduce((s,v)=>s+Math.pow(v-fmu,2),0)/pool.length)||1;
-      // Quartile prior
-      const qh=[0,0,0,0];sv2D.forEach(d=>{gN(d).forEach(n=>{qh[Math.min(3,Math.floor((n-1)*4/sv2MAX))]++;});});
-      const qr=qh.map(h=>h/((sv2T||1)*sv2MAX/4));
       // Cycle
       const ls={};sv2D.forEach((d,i)=>{gN(d).forEach(n=>{ls[n]=i;});});
       const ag=sv2T/(Object.keys(fW).length||1);
-      // Historical sum range (20th–80th pct, like Sisal-LCG)
+      // Historical sum range (20th–80th pct)
       const sv2Sums=sv2D.map(d=>gN(d).reduce((s,n)=>s+n,0)).filter(s=>s>0).sort((a,b)=>a-b);
       const sv2SumLo=sv2Sums[Math.floor(sv2Sums.length*0.2)]||(sv2MAX+1)*sv2N*0.28;
       const sv2SumHi=sv2Sums[Math.floor(sv2Sums.length*0.8)]||(sv2MAX+1)*sv2N*0.72;
       const sv2SumMid=(sv2SumLo+sv2SumHi)/2;
-      // N-band coverage: divide range into sv2N bands (1 per band = perfect spread)
+      // N-band coverage
       const sv2BandSz=Math.ceil(sv2MAX/sv2N);
       const sv2BandFn=n=>Math.min(sv2N-1,Math.floor((n-1)/sv2BandSz));
-      // Score — 7 signals
+      // Score — 8 signals: EWF(35%) KNN(20%) DeltaHot(12%) NET(10%) MOM(10%) Z(8%) CY(5%)
       let sc=pool.map(n=>{
-        const e=ewf[n]||0,m=mom[n]||0,pa=netSc[n]||0,kn=knn[n]||0;
+        const e=ewf[n]||0,m=mom[n]||0,pa=netSc[n]||0,kn=knn[n]||0,dt=sv2Delta[n]||0;
         const z=Math.max(-2,Math.min(2,((freq[n]||0)-fmu)/fsd));
-        const q=Math.min(3,Math.floor((n-1)*4/sv2MAX));
         const gap=sv2T-1-(ls[n]??-1);
-        return{n,e,m,pa,kn,z,pos:qr[q]||0,cy:Math.min(1,gap/Math.max(ag,1)),score:0};
+        return{n,e,m,pa,kn,dt,z,cy:Math.min(1,gap/Math.max(ag,1)),score:0};
       });
       const nrm=k=>{const mx=Math.max(1e-9,...sc.map(s=>s[k]));const mi=Math.min(...sc.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);sc.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
-      ['e','m','pa','kn','z','pos','cy'].forEach(nrm);
-      sc.forEach(s=>{s.score=s.eN*0.28+s.mN*0.15+s.paN*0.18+s.knN*0.18+s.zN*0.08+s.posN*0.08+s.cyN*0.05;});
+      ['e','m','pa','kn','dt','z','cy'].forEach(nrm);
+      sc.forEach(s=>{s.score=s.eN*0.35+s.mN*0.10+s.paN*0.10+s.knN*0.20+s.dtN*0.12+s.zN*0.08+s.cyN*0.05;});
       const maxSc=Math.max(...sc.map(s=>s.score));
       sc.forEach(s=>{s.w=Math.exp((s.score-maxSc)*5);});
       sc.sort((a,b)=>b.score-a.score);
-      const topCands=sc.slice(0,Math.min(45,sc.length)).map(s=>s.n);
-      // Fitness: individual score + pairwise co-occurrence + band coverage + sum targeting
+      const topCands=sc.slice(0,Math.min(55,sc.length)).map(s=>s.n);
+      // Fitness: score + pairwise + band coverage + sum targeting
       const pFit=(a,b)=>{const x=Math.min(a,b),y=Math.max(a,b);return(coW[`${x}_${y}`]||0)/Math.sqrt((fW[a]||0.01)*(fW[b]||0.01));};
       const scMap={};sc.forEach(s=>{scMap[s.n]=s.score;});
       const fitness=S=>{
         let f=S.reduce((s,n)=>s+(scMap[n]||0),0);
         for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++)f+=pFit(S[i],S[j])*0.4;
-        f+=new Set(S.map(sv2BandFn)).size*0.35;
+        f+=new Set(S.map(sv2BandFn)).size*0.45;
         const sv2Sum=S.reduce((s,n)=>s+n,0);
-        if(sv2Sum<sv2SumLo||sv2Sum>sv2SumHi)f-=Math.abs(sv2Sum-sv2SumMid)*0.008;
+        if(sv2Sum<sv2SumLo||sv2Sum>sv2SumHi)f-=Math.abs(sv2Sum-sv2SumMid)*0.010;
         return f;
       };
       // Band-aware stochastic initial selection
       const makeInit=()=>{
         const bandSel=new Set();const sel=[],used=new Set();let att=0;
-        while(sel.length<sv2N&&att++<600){
+        while(sel.length<sv2N&&att++<800){
           const rem=sc.filter(s=>!used.has(s.n));
           const ws=rem.map(s=>s.w*(bandSel.has(sv2BandFn(s.n))?1:3));
           const pk=pickUnique(rem.map(s=>s.n),1,ws);if(!pk.length)break;
@@ -1942,12 +1946,11 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         sc.filter(s=>!used.has(s.n)).slice(0,sv2N-sel.length).forEach(s=>sel.push(s.n));
         return sel;
       };
-      // SA run
+      // SA run: 800 iterations
       const runSA=(init)=>{
         let cur=[...init],curFit=fitness(cur);
-        for(let iter=0;iter<600;iter++){
+        for(let iter=0;iter<800;iter++){
           const oi=Math.floor(Math.random()*cur.length);
-          const out=cur[oi];
           const cands=topCands.filter(n=>!cur.includes(n));if(!cands.length)continue;
           const inn=cands[Math.floor(Math.random()*cands.length)];
           const nS=[...cur];nS[oi]=inn;const nf=fitness(nS);
@@ -1955,9 +1958,9 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         }
         return{s:cur,f:curFit};
       };
-      // Multi-start: 3 SA runs, keep best
+      // Multi-start: 5 SA runs, keep best
       let best=null,bestFit=-Infinity;
-      for(let r=0;r<3;r++){const res=runSA(makeInit());if(res.f>bestFit){best=res.s;bestFit=res.f;}}
+      for(let r=0;r<5;r++){const res=runSA(makeInit());if(res.f>bestFit){best=res.s;bestFit=res.f;}}
       // ±1 neighbour correction
       best.sort((a,b)=>a-b);
       let improved=true;
