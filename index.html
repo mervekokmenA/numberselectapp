@@ -421,6 +421,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="sumtarget">🎯 Toplam Hedefi</option>
           <option value="ensemble">👑 Süper Hibrit</option>
           <option value="star">🌟 Star</option>
+          <option value="starv2">🌟 Star V2</option>
         </select>
       </div>
       <div class="form-group">
@@ -514,6 +515,7 @@ const ALGOS = [
   { id:'ensemble',     name:'👑 Süper Hibrit',          desc:'14 algoritmayı birden çalıştırır; en çok oy alan sayıları seçer — en güçlü mod', expert:true },
   { id:'sislcg',      name:'🎲 Sisal-LCG Dengesi',     desc:'LCG tabanlı deterministik dağılım simülasyonu — frekans ağırlıklı, toplam dengelenmiş, bölge kapsamalı', expert:true },
   { id:'star',        name:'🌟 Star',                  desc:'6 sinyal üst üste: üstel frekans · çift eş-görünüm · çok pencereli momentum · döngü zamanlaması · komşu ısısı · z-skoru — bölge dengeli seçim', expert:true },
+  { id:'starv2',      name:'🌟 Star V2',               desc:'Star temeli + tam ağırlıklı eş-görünüm ağı (network centrality) · toplam hedefi düzeltmesi · artan çeşitlilik — devam eden geliştirme', expert:true },
 ];
 
 // ── Real historical draw data ────────────────────────────────
@@ -1707,39 +1709,23 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const T=stD.length;if(T<5)return generateNumbers(game,'hot',freq,drawsOverride);
       const MAX=game.max,N=game.count;
       const gNums=d=>(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=MAX);
-      // ── EWF: exponentially weighted frequency λ=0.93 ──
       const ewf={};const λ=0.93;
       stD.forEach((d,i)=>{const w=Math.pow(λ,T-1-i);gNums(d).forEach(n=>{ewf[n]=(ewf[n]||0)+w;});});
-      // ── MOM: multi-window momentum (3/7/15 draws) ──
       const mom={};
-      [[3,0.5],[7,0.3],[15,0.2]].forEach(([w,wt])=>{
-        stD.slice(-w).forEach(d=>{gNums(d).forEach(n=>{mom[n]=(mom[n]||0)+wt/w;});});
-      });
-      // ── PAIR: P(n|anchor) for top-5 EWF anchors ──
+      [[3,0.5],[7,0.3],[15,0.2]].forEach(([w,wt])=>{stD.slice(-w).forEach(d=>{gNums(d).forEach(n=>{mom[n]=(mom[n]||0)+wt/w;});});});
       const ewfArr=pool.map(n=>({n,e:ewf[n]||0})).sort((a,b)=>b.e-a.e);
       const anchors=ewfArr.slice(0,5).map(x=>x.n);
       const coAB={},fA={};
-      stD.forEach(d=>{
-        const ns=gNums(d);const ns2=new Set(ns);
-        anchors.forEach(a=>{if(ns2.has(a)){fA[a]=(fA[a]||0)+1;ns.forEach(b=>{if(b!==a){const k=`${a}_${b}`;coAB[k]=(coAB[k]||0)+1;}});}});
-      });
+      stD.forEach(d=>{const ns=gNums(d);const ns2=new Set(ns);anchors.forEach(a=>{if(ns2.has(a)){fA[a]=(fA[a]||0)+1;ns.forEach(b=>{if(b!==a){const k=`${a}_${b}`;coAB[k]=(coAB[k]||0)+1;}});}});});
       const pair={};
-      anchors.forEach(a=>{
-        pool.forEach(n=>{if(n===a)return;const k=`${a}_${n}`;const p=(coAB[k]||0)/Math.max(fA[a]||1,1);pair[n]=(pair[n]||0)+p/anchors.length;});
-      });
-      // ── ZSCORE: global frequency anomaly ──
+      anchors.forEach(a=>{pool.forEach(n=>{if(n===a)return;const k=`${a}_${n}`;const p=(coAB[k]||0)/Math.max(fA[a]||1,1);pair[n]=(pair[n]||0)+p/anchors.length;});});
       const fVals=pool.map(n=>freq[n]||0);
       const fMu=fVals.reduce((s,v)=>s+v,0)/pool.length;
       const fSd=Math.sqrt(fVals.reduce((s,v)=>s+Math.pow(v-fMu,2),0)/pool.length)||1;
-      // ── POS: quartile empirical prior from actual drawn data ──
-      const qHist=[0,0,0,0],qTotal=stD.length||1;
-      stD.forEach(d=>{gNums(d).forEach(n=>{const q=Math.min(3,Math.floor((n-1)*4/MAX));qHist[q]++;});});
-      const qRate=qHist.map(h=>h/(qTotal*MAX/4)); // relative to expected
-      // ── CYCLE: mild overdue correction ──
+      const qHist=[0,0,0,0];stD.forEach(d=>{gNums(d).forEach(n=>{const q=Math.min(3,Math.floor((n-1)*4/MAX));qHist[q]++;});});
+      const qRate=qHist.map(h=>h/((T||1)*MAX/4));
       const lastSeen={};stD.forEach((d,i)=>{gNums(d).forEach(n=>{lastSeen[n]=i;});});
       const avgGapGlobal=T/(Object.keys(freq).length||1);
-      // ── Normalize & combine ──
-      const normalize=(arr,mn,mn2)=>{const mx=Math.max(...arr.map(x=>x[mn2]));const mi=Math.min(...arr.map(x=>x[mn2]));const r=Math.max(mx-mi,1e-9);return arr.map(x=>({...x,[mn]:( x[mn2]-mi)/r}));};
       let scored=pool.map(n=>{
         const e=ewf[n]||0;const m=mom[n]||0;const pa=pair[n]||0;
         const z=Math.max(-2,Math.min(2,((freq[n]||0)-fMu)/fSd));
@@ -1747,36 +1733,112 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         const gap=T-1-(lastSeen[n]??-1);const cy=Math.min(1,gap/Math.max(avgGapGlobal,1));
         return{n,e,m,pa,z,pos,cy};
       });
-      const nrm=(k)=>{const mx=Math.max(1e-9,...scored.map(s=>s[k]));const mi=Math.min(...scored.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);scored.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
-      ['e','m','pa','z','pos','cy'].forEach(nrm);
+      const nrm2=(k)=>{const mx=Math.max(1e-9,...scored.map(s=>s[k]));const mi=Math.min(...scored.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);scored.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
+      ['e','m','pa','z','pos','cy'].forEach(nrm2);
       scored.forEach(s=>{s.score=s.eN*0.40+s.mN*0.20+s.paN*0.15+s.zN*0.10+s.posN*0.10+s.cyN*0.05;});
-      scored.sort((a,b)=>b.score-a.score);
-      // ── Quartile-balanced greedy selection ──
-      const qCnt=[0,0,0,0],sel=[],used2=new Set();
-      for(const s of scored){
-        if(sel.length>=N)break;
-        const q=Math.min(3,Math.floor((s.n-1)*4/MAX));
-        if(qCnt[q]<3){sel.push(s.n);used2.add(s.n);qCnt[q]++;}
+      // Softmax weights → stochastic (different ticket each call)
+      const maxSc=Math.max(...scored.map(s=>s.score));
+      scored.forEach(s=>{s.w=Math.exp((s.score-maxSc)*5);});
+      const qCnt2=[0,0,0,0],sel2=[],used3=new Set();
+      let att=0;
+      while(sel2.length<N&&att++<600){
+        const rem=scored.filter(s=>!used3.has(s.n));
+        const ws=rem.map(s=>{const q=Math.min(3,Math.floor((s.n-1)*4/MAX));return qCnt2[q]>=3?0:s.w*(qCnt2[q]<2?1.8:1);});
+        const pk=pickUnique(rem.map(s=>s.n),1,ws);if(!pk.length)break;
+        sel2.push(pk[0]);used3.add(pk[0]);qCnt2[Math.min(3,Math.floor((pk[0]-1)*4/MAX))]++;
       }
-      // Enforce min 2 per quartile
-      for(let q=0;q<4;q++){
-        if(qCnt[q]<2){
-          const cand=scored.find(s=>!used2.has(s.n)&&Math.min(3,Math.floor((s.n-1)*4/MAX))===q);
-          if(cand){
-            const evict=sel.reduce((worst,n)=>{const sq=Math.min(3,Math.floor((n-1)*4/MAX));return qCnt[sq]>2&&(worst===null||scored.find(s=>s.n===n).score<scored.find(s=>s.n===worst).score)?n:worst;},null);
-            if(evict){sel.splice(sel.indexOf(evict),1);qCnt[Math.min(3,Math.floor((evict-1)*4/MAX))]--;sel.push(cand.n);used2.add(cand.n);qCnt[q]++;}
+      mainNums=sel2.slice(0,N).sort((a,b)=>a-b);bonusNums=smartBonus();
+      break;}
+    case 'starv2':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const sv2D=(drawsOverride||state.pastDraws||[]);
+      const sv2T=sv2D.length;if(sv2T<5)return generateNumbers(game,'hot',freq,drawsOverride);
+      const sv2MAX=game.max,sv2N=game.count;
+      const sv2Nums=d=>(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=sv2MAX);
+      // EWF λ=0.93
+      const sv2ewf={};const sv2λ=0.93;
+      sv2D.forEach((d,i)=>{const w=Math.pow(sv2λ,sv2T-1-i);sv2Nums(d).forEach(n=>{sv2ewf[n]=(sv2ewf[n]||0)+w;});});
+      // MOM multi-window
+      const sv2mom={};
+      [[3,0.5],[7,0.3],[15,0.2]].forEach(([w,wt])=>{sv2D.slice(-w).forEach(d=>{sv2Nums(d).forEach(n=>{sv2mom[n]=(sv2mom[n]||0)+wt/w;});});});
+      // PAIR: full weighted co-occurrence network (network centrality)
+      const sv2co={},sv2fw={};
+      sv2D.forEach((d,i)=>{
+        const w=Math.pow(sv2λ,sv2T-1-i);
+        const ns=sv2Nums(d);
+        ns.forEach(n=>{sv2fw[n]=(sv2fw[n]||0)+w;});
+        for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){
+          const x=Math.min(ns[a],ns[b]),y=Math.max(ns[a],ns[b]);
+          sv2co[`${x}_${y}`]=(sv2co[`${x}_${y}`]||0)+w;
+        }
+      });
+      // Network score: mean P(n|partner) for top-10 partners of n
+      const sv2net={};
+      pool.forEach(n=>{
+        const partners=[];
+        for(let m=1;m<=sv2MAX;m++){if(m===n)continue;const k=`${Math.min(n,m)}_${Math.max(n,m)}`;const c=sv2co[k]||0;if(c>0)partners.push(c/Math.max(sv2fw[m]||0.01,0.01));}
+        partners.sort((a,b)=>b-a);sv2net[n]=partners.slice(0,10).reduce((s,v)=>s+v,0)/Math.max(partners.length,1);
+      });
+      // ZSCORE
+      const sv2fv=pool.map(n=>freq[n]||0);
+      const sv2mu=sv2fv.reduce((s,v)=>s+v,0)/pool.length;
+      const sv2sd=Math.sqrt(sv2fv.reduce((s,v)=>s+Math.pow(v-sv2mu,2),0)/pool.length)||1;
+      // Quartile prior
+      const sv2qh=[0,0,0,0];sv2D.forEach(d=>{sv2Nums(d).forEach(n=>{sv2qh[Math.min(3,Math.floor((n-1)*4/sv2MAX))]++;});});
+      const sv2qr=sv2qh.map(h=>h/((sv2T||1)*sv2MAX/4));
+      // Cycle
+      const sv2ls={};sv2D.forEach((d,i)=>{sv2Nums(d).forEach(n=>{sv2ls[n]=i;});});
+      const sv2ag=sv2T/(Object.keys(sv2fw).length||1);
+      // Sum target
+      let sv2st=0,sv2sc=0;
+      sv2D.forEach(d=>{const ns=sv2Nums(d).slice(0,sv2N);if(ns.length>=sv2N){sv2st+=ns.reduce((s,v)=>s+v,0);sv2sc++;}});
+      const sv2tSum=sv2sc>0?sv2st/sv2sc:(sv2MAX+1)*sv2N/2;
+      // Score array
+      let sv2scored=pool.map(n=>{
+        const e=sv2ewf[n]||0;const m=sv2mom[n]||0;const pa=sv2net[n]||0;
+        const z=Math.max(-2,Math.min(2,((freq[n]||0)-sv2mu)/sv2sd));
+        const q=Math.min(3,Math.floor((n-1)*4/sv2MAX));const pos=sv2qr[q]||0;
+        const gap=sv2T-1-(sv2ls[n]??-1);const cy=Math.min(1,gap/Math.max(sv2ag,1));
+        return{n,e,m,pa,z,pos,cy};
+      });
+      const sv2nrm=(k)=>{const mx=Math.max(1e-9,...sv2scored.map(s=>s[k]));const mi=Math.min(...sv2scored.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);sv2scored.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
+      ['e','m','pa','z','pos','cy'].forEach(sv2nrm);
+      // StarV2 weights: network pair gets more weight (0.20 vs 0.15)
+      sv2scored.forEach(s=>{s.score=s.eN*0.35+s.mN*0.20+s.paN*0.20+s.zN*0.10+s.posN*0.10+s.cyN*0.05;});
+      const sv2maxSc=Math.max(...sv2scored.map(s=>s.score));
+      sv2scored.forEach(s=>{s.w=Math.exp((s.score-sv2maxSc)*5);});
+      // Stochastic quartile-balanced selection
+      const sv2qc=[0,0,0,0],sv2sel=[],sv2used=new Set();
+      let sv2att=0;
+      while(sv2sel.length<sv2N&&sv2att++<600){
+        const rem=sv2scored.filter(s=>!sv2used.has(s.n));
+        const ws=rem.map(s=>{const q=Math.min(3,Math.floor((s.n-1)*4/sv2MAX));return sv2qc[q]>=3?0:s.w*(sv2qc[q]<2?1.8:1);});
+        const pk=pickUnique(rem.map(s=>s.n),1,ws);if(!pk.length)break;
+        sv2sel.push(pk[0]);sv2used.add(pk[0]);sv2qc[Math.min(3,Math.floor((pk[0]-1)*4/sv2MAX))]++;
+      }
+      // Sum nudge: swap one number to approach target sum
+      if(sv2sel.length===sv2N){
+        const curSum=sv2sel.reduce((s,n)=>s+n,0);const diff=Math.round(sv2tSum-curSum);
+        if(Math.abs(diff)>=3){
+          for(let i=0;i<sv2sel.length;i++){
+            const n=sv2sel[i];const need=n+diff;
+            if(need>=1&&need<=sv2MAX&&!sv2sel.includes(need)){
+              const qN=Math.min(3,Math.floor((need-1)*4/sv2MAX)),qO=Math.min(3,Math.floor((n-1)*4/sv2MAX));
+              if(qN===qO){sv2sel[i]=need;break;}
+            }
           }
         }
       }
-      // Anti-cluster: if 3 consecutive integers present, swap middle for next best
-      sel.sort((a,b)=>a-b);
-      for(let i=0;i<sel.length-2;i++){
-        if(sel[i+1]===sel[i]+1&&sel[i+2]===sel[i]+2){
-          const mid=sel[i+1];const nextBest=scored.find(s=>!used2.has(s.n)&&Math.abs(s.n-sel[i])>1&&Math.abs(s.n-sel[i+2])>1);
-          if(nextBest){sel.splice(sel.indexOf(mid),1,nextBest.n);used2.delete(mid);used2.add(nextBest.n);sel.sort((a,b)=>a-b);}
+      sv2sel.sort((a,b)=>a-b);
+      // Anti-cluster
+      for(let i=0;i<sv2sel.length-2;i++){
+        if(sv2sel[i+1]===sv2sel[i]+1&&sv2sel[i+2]===sv2sel[i]+2){
+          const mid=sv2sel[i+1];
+          const cand=sv2scored.filter(s=>!sv2used.has(s.n)&&Math.abs(s.n-sv2sel[i])>1&&Math.abs(s.n-sv2sel[i+2])>1).sort((a,b)=>b.score-a.score)[0];
+          if(cand){sv2sel.splice(sv2sel.indexOf(mid),1,cand.n);sv2sel.sort((a,b)=>a-b);}
         }
       }
-      mainNums=sel.slice(0,N).sort((a,b)=>a-b);bonusNums=smartBonus();
+      mainNums=sv2sel.slice(0,sv2N).sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'ensemble':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
@@ -1812,7 +1874,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
 
 // ── Confidence ───────────────────────────────────────────────
 function calcConfidence(algo){
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -1985,7 +2047,7 @@ function updateBtDateOptions(){
   updateAlgoScores();
 }
 
-const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star'};
+const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2'};
 
 function updateAlgoScores(){
   const gameId=document.getElementById('btGame').value;
