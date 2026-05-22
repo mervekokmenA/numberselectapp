@@ -384,6 +384,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="super">⭐ Süper Loto</option>
           <option value="sans">🔴 Şans Topu</option>
           <option value="onnumara">🟢 On Numara</option>
+          <option value="hizliOn">⚡ Hızlı On Numara</option>
         </select>
       </div>
       <div class="form-group">
@@ -480,6 +481,7 @@ const GAMES = [
   { id:'super',    name:'Süper Loto',   emoji:'⭐', count:6,  max:60, bonusCount:0, bonusMax:0,  mainColor:'gold',  bonusColor:'',     range:'6 / 60',       drawCount:6  },
   { id:'sans',     name:'Şans Topu',    emoji:'🔴', count:5,  max:34, bonusCount:1, bonusMax:14, mainColor:'white', bonusColor:'red',  range:'5/34 + 1/14',  drawCount:6  },
   { id:'onnumara', name:'On Numara',    emoji:'🟢', count:10, max:80, bonusCount:0, bonusMax:0,  mainColor:'green', bonusColor:'',     range:'10 / 80',      drawCount:22 },
+  { id:'hizliOn',  name:'Hızlı On Numara', emoji:'⚡', count:10, max:80, bonusCount:0, bonusMax:0, mainColor:'green', bonusColor:'',     range:'10 / 80',      drawCount:20 },
 ];
 
 const ALGOS = [
@@ -866,7 +868,8 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 2025-12-01 9 11 12 18 20 21 26 28 30 38 39 41 44 48 53 58 61 70 74 76 78 79
 2025-11-28 4 6 7 8 11 18 22 23 25 28 29 34 38 39 47 49 53 58 67 71 74 77
 2025-11-24 6 9 10 16 19 22 25 26 29 34 38 40 41 43 48 50 53 56 63 70 74 78
-2025-11-21 1 2 3 4 9 13 15 17 18 21 24 28 31 41 43 46 53 60 61 63 64 77`
+2025-11-21 1 2 3 4 9 13 15 17 18 21 24 28 31 41 43 46 53 60 61 63 64 77`,
+hizliOn:``,
 };
 
 // ── State ────────────────────────────────────────────────────
@@ -1165,11 +1168,12 @@ function dataFreshnessMsg(gameId){
 // ── Load real data buttons ───────────────────────────────────
 async function loadGenHistory(){
   const id=state.selectedGame;
-  if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
-  showToast('⏳ Güncel çekiliş kontrol ediliyor...');
+  if(DRAW_DATA[id]===undefined){ showToast('Bu oyun için veri bulunamadı'); return; }
+  if(!DRAW_DATA[id]){ showToast('ℹ️ Hızlı On Numara verisi yok — geçmiş testte manuel girin'); }
+  else { showToast('⏳ Güncel çekiliş kontrol ediliyor...'); }
   let fetched=false;
   try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
-  const plain=DRAW_DATA[id].split('\n').map(line=>line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'')).join('\n');
+  const plain=(DRAW_DATA[id]||'').split('\n').map(line=>line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'')).join('\n');
   document.getElementById('pastDrawsInput').value=plain;
   parsePastDraws();
   analyzeAlgoPositions(id);
@@ -1899,7 +1903,7 @@ function prizeTier(game,mMain,mBonus){
     if(mMain===3&&mBonus===1)return{label:'Beşinci İkramiye (3+1)',cls:'prize-mid'};
     if(mMain===3)            return{label:'Altıncı İkramiye (3+0)',cls:'prize-low'};
   }
-  if(game.id==='onnumara'){
+  if(game.id==='onnumara'||game.id==='hizliOn'){
     if(mMain===10)return{label:'Büyük İkramiye (10)',cls:'prize-jackpot'};
     if(mMain===9) return{label:'İkinci İkramiye (9)',cls:'prize-high'};
     if(mMain===8) return{label:'Üçüncü İkramiye (8)',cls:'prize-high'};
@@ -1967,12 +1971,12 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId
   let actualHtml='';
   if(actual){
     const pSet=new Set(pred.main);
-    const sz=game.id==='onnumara'?'38px':'';
+    const sz=(game.id==='onnumara'||game.id==='hizliOn')?'38px':'';
     const aBallsHtml=actual.nums.map(n=>staticBall(n,game.mainColor,pSet.has(n)?'matched':'unmatched',sz)).join('');
     const aBonusHtml=actual.bonus.length?`<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special',new Set(pred.bonus).has(n)?'matched':'unmatched',sz)).join(''):'';
     actualHtml=`
       <div class="bt-balls-section">
-        <div class="bt-section-label">Gerçek Çekiliş — ${testDate}${game.id==='onnumara'?' · 22 sayı çekildi':''}</div>
+        <div class="bt-section-label">Gerçek Çekiliş — ${testDate}${game.id==='onnumara'?' · 22 sayı çekildi':game.id==='hizliOn'?' · 20 sayı çekildi':''}</div>
         <div class="balls-row" style="justify-content:flex-start">${aBallsHtml}${aBonusHtml}</div>
       </div>`;
   }else{
@@ -2003,7 +2007,7 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId
         <span style="color:var(--green)">● Yeşil</span> = tam eşleşme &nbsp;·&nbsp;
         <span style="color:#ffd700">● Sarı</span> = ±1 yakın &nbsp;·&nbsp;
         <span style="opacity:.4">● Soluk</span> = eşleşmeyen sayı
-        ${game.id==='onnumara'?`<br>On Numara'da 22 sayı çekilir; tahmininizin kaçının bu 22 içinde çıktığı gösterilir.`:''}
+        ${game.id==='onnumara'?`<br>On Numara'da 22 sayı çekilir; tahmininizin kaçının bu 22 içinde çıktığı gösterilir.`:game.id==='hizliOn'?`<br>Hızlı On Numara'da 20 sayı çekilir; tahmininizin kaçının bu 20 içinde çıktığı gösterilir.`:''}
         ${game.id==='sayisal'?`<br>Sayısal Loto'da 1–90 arası 6 sayı + 1 Joker (= 7 sayı) çekilir, ayrıca 1 Süperstar (1–90).`:''}
       </div>`:''}
     </div>
@@ -2021,7 +2025,7 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
   // Actual draw HTML
   let actualHtml='';
   if(actual){
-    const sz=game.id==='onnumara'?'38px':'';
+    const sz=(game.id==='onnumara'||game.id==='hizliOn')?'38px':'';
     const pMainSet=new Set(results.flatMap(r=>r.pred.main));
     const pBonSet=new Set(results.flatMap(r=>r.pred.bonus));
     actualHtml=`<div class="bt-balls-section" style="margin-bottom:10px">
