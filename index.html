@@ -385,6 +385,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="parse-status" id="btParseStatus"></div>
   </div>
 
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;align-items:start">
+    <div>
   <div class="card">
     <div class="card-title">Test Yapılandırması</div>
     <div class="bt-config">
@@ -462,6 +464,79 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div id="btResultContent"></div>
     </div>
   </div>
+    </div><!-- /BT1 column -->
+
+    <div>
+  <div class="card">
+    <div class="card-title">🔬 Test 2</div>
+    <div class="bt-config" style="grid-template-columns:1fr">
+      <div class="form-group">
+        <label>Test Tarihi</label>
+        <div style="display:flex;gap:5px;align-items:center">
+          <select id="btDate2" onchange="updateAlgoScores2()" style="flex:1;min-width:0"><option value="">— Önce veri yükleyin —</option></select>
+          <button onclick="stepBtDate2(-1)" title="Önceki tarih" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
+          <button onclick="stepBtDate2(1)"  title="Sonraki tarih"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Algoritma</label>
+        <select id="btAlgo2" onchange="state.btAlgo2=this.value">
+          <option value="balanced">⚖️ Dengeli Karışım</option>
+          <option value="hot">🔥 Sıcak Sayılar</option>
+          <option value="cold">❄️ Soğuk Sayılar</option>
+          <option value="random">🎲 Tam Rastgele</option>
+          <option value="delta">△ Delta Sistemi</option>
+          <option value="wheeling">🔄 Wheeling</option>
+          <option value="entropy">⭐ Entropi Analizi</option>
+          <option value="momentum">⭐ Momentum Skoru</option>
+          <option value="correlation">⭐ Korelasyon Kırma</option>
+          <option value="cycle">⭐ Döngü Tespiti</option>
+          <option value="hotzone">⭐ Sıcak Bölge</option>
+          <option value="regression">⭐ Ortalama Regresyon</option>
+          <option value="oddeven">⭐ Tek-Çift Denge</option>
+          <option value="neighbor">⭐ Komşu Isısı</option>
+          <option value="streak">🚀 Son Form</option>
+          <option value="spread">📐 Spektral Yayılım</option>
+          <option value="sumtarget">🎯 Toplam Hedefi</option>
+          <option value="ensemble">👑 Süper Hibrit</option>
+          <option value="star">🌟 Star</option>
+          <option value="starv2">🌟 Star V2</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Eğitim Penceresi</label>
+        <select id="btWindow2" onchange="updateAlgoScores2()">
+          <option value="all">Tüm geçmiş çekilişler</option>
+          <option value="50" selected>Son 50 çekiliş</option>
+          <option value="20">Son 20 çekiliş</option>
+          <option value="10">Son 10 çekiliş</option>
+        </select>
+      </div>
+    </div>
+    <div id="algoScorePanel2"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="font-size:.8rem;color:var(--muted)">Tahmin Grubu:</span>
+      <div class="counter-ctrl">
+        <button onclick="adjustBtCount2(-1)">−</button>
+        <div class="counter-val" id="btCountVal2">4</div>
+        <button onclick="adjustBtCount2(1)">+</button>
+      </div>
+      <span style="font-size:.72rem;color:var(--muted)">grup üret</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="run-btn" onclick="runBacktest2()" style="flex:1">🔬 Geçmiş Testi Çalıştır</button>
+      <span id="btRunCounter2" style="display:none;font-size:.72rem;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
+    </div>
+  </div>
+
+  <div id="btResultSection2" style="display:none">
+    <div class="card">
+      <div class="card-title">Test 2 Sonucu</div>
+      <div id="btResultContent2"></div>
+    </div>
+  </div>
+    </div><!-- /BT2 column -->
+  </div><!-- /2-column grid -->
 
   <div id="patternSection" style="display:none">
     <div class="card">
@@ -894,7 +969,7 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:'onnumara', selectedAlgo:'balanced',
-  ticketCount:4, btCount:4, analysisWindow:50, pastDraws:[], frequency:{},
+  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, analysisWindow:50, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -1088,6 +1163,7 @@ async function analyzeBtAlgoPositions(gameId){
 }
 
 function adjustBtCount(d){ state.btCount=Math.max(1,Math.min(10,state.btCount+d)); document.getElementById('btCountVal').textContent=state.btCount; }
+function adjustBtCount2(d){state.btCount2=Math.max(1,Math.min(10,state.btCount2+d));document.getElementById('btCountVal2').textContent=state.btCount2;}
 
 // ── Draw schedule (days-of-week: 0=Sun … 6=Sat) ─────────────
 const DRAW_SCHEDULE={sayisal:[1,3,6],super:[0,2,4],sans:[3,0],onnumara:[1,5]};
@@ -1215,6 +1291,7 @@ async function loadBtHistory(){
   updatePatternSection();
   // Share analysis with generator tab — populate pastDraws from datedDraws and reuse
   state._algoScoreCache={};
+  state._algoScoreCache2={};
   state.pastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
   if(state.algoAnalysisGame!==id){ state.algoAnalysisGame=null; analyzeAlgoPositions(id); }
   const fr=dataFreshnessMsg(id);
@@ -1389,27 +1466,64 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       mainNums=pickUnique(pool,game.count);
       bonusNums=pickUnique(bonusPool,game.bonusCount);
       break;
-    case 'hot':
+    case 'hot':{
       if(!hasHist)return generateNumbers(game,'random',freq);
-      mainNums=pickUnique(pool,game.count,pool.map(n=>freq[n]||.1));
-      bonusNums=pickUnique(bonusPool,game.bonusCount,bonusPool.map(n=>freq[n]||.1));
-      break;
+      const hDraws=drawsOverride||state.pastDraws||[];
+      const hewf=hDraws.length?buildEWF(hDraws,game.max,0.80):freq;
+      mainNums=pickUnique(pool,game.count,pool.map(n=>Math.max(0.1,hewf[n]||0.1)));
+      bonusNums=pickUnique(bonusPool,game.bonusCount,bonusPool.map(n=>Math.max(0.1,hewf[n]||0.1)));
+      break;}
     case 'cold':{
       if(!hasHist)return generateNumbers(game,'random',freq);
-      const mx=Math.max(...Object.values(freq),1);
-      mainNums=pickUnique(pool,game.count,pool.map(n=>Math.max(.1,mx-(freq[n]||0)+.5)));
-      if(bonusPool.length){const bmx=Math.max(...bonusPool.map(n=>freq[n]||0),1);bonusNums=pickUnique(bonusPool,game.bonusCount,bonusPool.map(n=>Math.max(.1,bmx-(freq[n]||0)+.5)));}
+      const cDraws=drawsOverride||state.pastDraws||[];
+      const cewf=cDraws.length?buildEWF(cDraws,game.max,0.80):freq;
+      const cmx=Math.max(...pool.map(n=>cewf[n]||0),1);
+      mainNums=pickUnique(pool,game.count,pool.map(n=>Math.max(.1,cmx-(cewf[n]||0)+.5)));
+      if(bonusPool.length){const cbmx=Math.max(...bonusPool.map(n=>cewf[n]||0),1);bonusNums=pickUnique(bonusPool,game.bonusCount,bonusPool.map(n=>Math.max(.1,cbmx-(cewf[n]||0)+.5)));}
       break;}
     case 'balanced':{
       if(!hasHist)return generateNumbers(game,'random',freq);
-      const hc=Math.floor(game.count/3),cc=Math.floor(game.count/3),rc=game.count-hc-cc;
-      const sorted=[...pool].sort((a,b)=>(freq[b]||0)-(freq[a]||0));
-      const hp=sorted.slice(0,Math.ceil(pool.length*.3));
-      const cp=sorted.slice(-Math.ceil(pool.length*.3));
-      const ph=pickUnique(hp,hc);
-      const pc=pickUnique(cp.filter(n=>!ph.includes(n)),cc);
-      const rp=pool.filter(n=>!ph.includes(n)&&!pc.includes(n));
-      mainNums=[...ph,...pc,...pickUnique(rp,rc)];
+      const bDraws=drawsOverride||state.pastDraws||[];
+      const bewf=bDraws.length?buildEWF(bDraws,game.max,0.80):freq;
+      // Zone-aware selection: divide range into game.count bands
+      const bN=game.count;const bSz=game.max/bN;
+      const bOf=n=>Math.min(bN-1,Math.floor((n-1)/bSz));
+      const bScores=pool.map(n=>({n,w:Math.max(0.1,bewf[n]||0.1)}));
+      // Historical sum target (25th-75th percentile)
+      let btLo=0,btHi=Infinity;
+      if(bDraws.length>=5){
+        const ss=bDraws.map(d=>(d.nums||[]).slice(0,game.count).reduce((s,x)=>s+x,0)).filter(s=>s>0).sort((a,b)=>a-b);
+        btLo=ss[Math.floor(ss.length*.25)];btHi=ss[Math.floor(ss.length*.75)];
+      }
+      // Zone-biased weighted sampling
+      const bBSel=new Set();const bSel=[],bUsed=new Set();let bAtt=0;
+      const bRem=[...bScores];
+      while(bSel.length<game.count&&bAtt<300){
+        bAtt++;
+        const bws=bRem.map(s=>s.w*(bBSel.has(bOf(s.n))?1:3));
+        const bwsS=bws.reduce((a,b)=>a+b,0);
+        let br=Math.random()*bwsS,bpk=bRem[bRem.length-1];
+        for(let bi=0;bi<bRem.length;bi++){br-=bws[bi];if(br<=0){bpk=bRem[bi];break;}}
+        if(bUsed.has(bpk.n))continue;
+        bSel.push(bpk.n);bUsed.add(bpk.n);bBSel.add(bOf(bpk.n));
+        bRem.splice(bRem.findIndex(x=>x.n===bpk.n),1);
+      }
+      // Sum nudge: swap one number to reach target range
+      if(btLo>0){
+        let bcs=bSel.reduce((s,n)=>s+n,0);
+        if(bcs<btLo||bcs>btHi){
+          const bdir=bcs>btHi?-1:1;
+          const bss=[...bSel].sort((a,b)=>bdir*(b-a));
+          for(const brn of bss){
+            const bcands=pool.filter(n=>!bSel.includes(n)).sort((a,b)=>bdir*(a-b));
+            for(const bnc of bcands){
+              const bns=bcs-brn+bnc;if(bns>=btLo&&bns<=btHi){bSel[bSel.indexOf(brn)]=bnc;bcs=bns;break;}
+            }
+            if(bcs>=btLo&&bcs<=btHi)break;
+          }
+        }
+      }
+      mainNums=bSel.sort((a,b)=>a-b);
       bonusNums=pickUnique(bonusPool,game.bonusCount);
       break;}
     case 'delta':{
@@ -1437,10 +1551,10 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       const mDraws=drawsOverride||state.pastDraws||[];
       const mTotal=mDraws.length||1;
-      const mTotalF=Object.values(freq).reduce((s,v)=>s+v,0)||1;
+      const mewf=mDraws.length?buildEWF(mDraws,game.max,0.80):freq;
+      const mEWFSum=Math.max(Object.values(mewf).reduce((s,v)=>s+v,0),1);
       const mScored=pool.map(n=>{
-        const f=freq[n]||0;
-        const freqRatio=f/mTotalF;
+        const ewfRatio=(mewf[n]||0)/mEWFSum;
         let lastSeen=-1;
         for(let i=mDraws.length-1;i>=0;i--){
           const d=mDraws[i];
@@ -1448,7 +1562,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
           if(nums.includes(n)){lastSeen=i;break;}
         }
         const gap=lastSeen===-1?mTotal:(mTotal-1-lastSeen);
-        return{n,score:gap*freqRatio*100};
+        return{n,score:gap*ewfRatio*100};
       });
       mScored.sort((a,b)=>b.score-a.score);
       mainNums=mScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=smartBonus();
@@ -1497,13 +1611,15 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       break;}
     case 'hotzone':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const hzDraws=drawsOverride||state.pastDraws||[];
+      const hzewf=hzDraws.length?buildEWF(hzDraws,game.max,0.80):freq;
       const segCnt=5,segSz=Math.ceil(game.max/segCnt);
       const segs=[];
-      for(let s=0;s<segCnt;s++){const lo=s*segSz+1,hi=Math.min((s+1)*segSz,game.max);let sc=0;for(let n=lo;n<=hi;n++)sc+=(freq[n]||0);segs.push({lo,hi,sc});}
+      for(let s=0;s<segCnt;s++){const lo=s*segSz+1,hi=Math.min((s+1)*segSz,game.max);let sc=0;for(let n=lo;n<=hi;n++)sc+=(hzewf[n]||0);segs.push({lo,hi,sc});}
       segs.sort((a,b)=>b.sc-a.sc);
       const hzPool=[];segs.slice(0,2).forEach(seg=>{for(let n=seg.lo;n<=seg.hi;n++)hzPool.push(n);});
-      hzPool.sort((a,b)=>(freq[b]||0)-(freq[a]||0));
-      const hzRem=pool.filter(n=>!hzPool.includes(n)).sort((a,b)=>(freq[b]||0)-(freq[a]||0));
+      hzPool.sort((a,b)=>(hzewf[b]||0)-(hzewf[a]||0));
+      const hzRem=pool.filter(n=>!hzPool.includes(n)).sort((a,b)=>(hzewf[b]||0)-(hzewf[a]||0));
       mainNums=[...hzPool,...hzRem].slice(0,game.count).sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'regression':{
@@ -1537,8 +1653,10 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       break;}
     case 'neighbor':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const nbDraws=drawsOverride||state.pastDraws||[];
+      const nbewf=nbDraws.length?buildEWF(nbDraws,game.max,0.80):freq;
       const heat={};
-      pool.forEach(n=>{heat[n]=(freq[n]||0)*4+(freq[n-1]||0)*2+(freq[n+1]||0)*2+(freq[n-2]||0)+(freq[n+2]||0);});
+      pool.forEach(n=>{heat[n]=(nbewf[n]||0)*4+(nbewf[n-1]||0)*2+(nbewf[n+1]||0)*2+(nbewf[n-2]||0)+(nbewf[n+2]||0);});
       const peaks=pool.filter(n=>heat[n]>=(heat[n-1]||0)&&heat[n]>=(heat[n+1]||0)&&heat[n]>0);
       peaks.sort((a,b)=>heat[b]-heat[a]);
       const allByHeat=[...pool].sort((a,b)=>heat[b]-heat[a]);
@@ -1548,10 +1666,17 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
     case 'streak':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       const skDraws=drawsOverride||state.pastDraws||[];
-      const skRec=skDraws.slice(-Math.min(10,skDraws.length));
-      const skF={};
-      skRec.forEach(d=>{const nums=(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=game.max);nums.forEach(n=>{skF[n]=(skF[n]||0)+1;});});
-      const skScored=pool.map(n=>({n,s:(skF[n]||0)*5+(freq[n]||0)*1.5}));
+      const skEWF=skDraws.length?buildEWF(skDraws,game.max,0.90):freq;
+      // Delta hot: short-window acceleration signal
+      const skShort=skDraws.slice(-4),skMed=skDraws.slice(-12);
+      const skSF={},skMF={};
+      skShort.forEach(d=>[...(d.nums||[]),...(d.bonus||[])].forEach(n=>{skSF[n]=(skSF[n]||0)+1;}));
+      skMed.forEach(d=>[...(d.nums||[]),...(d.bonus||[])].forEach(n=>{skMF[n]=(skMF[n]||0)+1;}));
+      const skSL=Math.max(skShort.length,1),skML=Math.max(skMed.length,1);
+      const skScored=pool.map(n=>{
+        const delta=(skSF[n]||0)/skSL-(skMF[n]||0)/skML;
+        return{n,s:(skEWF[n]||0.1)*3+Math.max(0,delta)*10};
+      });
       skScored.sort((a,b)=>b.s-a.s);
       mainNums=skScored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
@@ -2036,11 +2161,20 @@ function stepBtDate(dir){
   const next=idx+dir;
   if(next>=0&&next<opts.length){sel.value=opts[next];updateAlgoScores();}
 }
+function stepBtDate2(dir){
+  const sel=document.getElementById('btDate2');
+  const opts=[...sel.options].map(o=>o.value).filter(v=>v);
+  const idx=opts.indexOf(sel.value);
+  const next=idx+dir;
+  if(next>=0&&next<opts.length){sel.value=opts[next];updateAlgoScores2();}
+}
 function updateRunCounters(){
   const gc=document.getElementById('genRunCounter');
   const bc=document.getElementById('btRunCounter');
+  const bc2=document.getElementById('btRunCounter2');
   if(gc){gc.style.display=state.genRunCount>0?'inline':'none';gc.textContent=`${state.genRunCount}× üretildi`;}
   if(bc){bc.style.display=state.btRunCount>0?'inline':'none';bc.textContent=`${state.btRunCount}× çalıştırıldı`;}
+  if(bc2){bc2.style.display=state.btRunCount2>0?'inline':'none';bc2.textContent=`${state.btRunCount2}× çalıştırıldı`;}
 }
 function updateStats(){
   document.getElementById('statGenerated').textContent=state.totalGenerated;
@@ -2115,6 +2249,7 @@ function updateBtDateOptions(){
   sel.innerHTML=valid.map(d=>`<option value="${d}">${d}</option>`).join('');
   sel.value=valid[valid.length-1];
   updateAlgoScores();
+  updateBtDateOptions2();
 }
 
 const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2'};
@@ -2174,10 +2309,128 @@ function updateAlgoScores(){
   state._algoScoreCache[cKey]=panel.innerHTML;
 }
 
+function updateBtDateOptions2(){
+  const sel=document.getElementById('btDate2');
+  if(!sel)return;
+  const valid=state.datedDraws.filter((_,i)=>i>=2).map(d=>d.date);
+  if(!valid.length){sel.innerHTML='<option value="">— Yeterli veri yok —</option>';return;}
+  sel.innerHTML=valid.map(d=>`<option value="${d}">${d}</option>`).join('');
+  // Default to second-to-last date (different from BT1 which defaults to last)
+  sel.value=valid.length>=2?valid[valid.length-2]:valid[valid.length-1];
+  updateAlgoScores2();
+}
+
+function updateAlgoScores2(){
+  const gameId=document.getElementById('btGame').value;
+  const testDate=document.getElementById('btDate2').value;
+  const win=document.getElementById('btWindow2').value;
+  const panel=document.getElementById('algoScorePanel2');
+  if(!panel)return;
+  if(!testDate||!state.datedDraws.length){panel.innerHTML='';return;}
+  const drawSig=state.datedDraws.length+'_'+(state.datedDraws[state.datedDraws.length-1]?.date||'');
+  const cKey=`${gameId}|${testDate}|${win}|${drawSig}`;
+  if(!state._algoScoreCache2)state._algoScoreCache2={};
+  if(state._algoScoreCache2[cKey]){panel.innerHTML=state._algoScoreCache2[cKey];return;}
+  const game=getGame(gameId);
+  let prior=state.datedDraws.filter(d=>d.date<testDate);
+  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(!prior.length){panel.innerHTML='';return;}
+  const actual=state.datedDraws.find(d=>d.date===testDate);
+  if(!actual){panel.innerHTML='';return;}
+  const freq=buildFreq(prior);
+  const aSet=new Set(actual.nums);
+  const aBSet=new Set(actual.bonus);
+  const total=game.count+(game.bonusCount||0);
+  const results=ALGOS.map(a=>{
+    let best=0;
+    for(let i=0;i<5;i++){
+      const pred=generateNumbers(game,a.id,freq,prior);
+      const m=pred.main.filter(n=>aSet.has(n)).length+(game.bonusCount>0?pred.bonus.filter(n=>aBSet.has(n)).length:0);
+      if(m>best)best=m;
+    }
+    return{id:a.id,match:best};
+  });
+  const maxMatch=Math.max(...results.map(r=>r.match));
+  const posScores=state.algoPositionScores[gameId];
+  panel.innerHTML=`<div class="algo-score-panel">${results.map(r=>{
+    let posHtml='';
+    if(posScores&&posScores[r.id]){
+      const good=posScores[r.id].filter(x=>x.lift>0.08).sort((x,y)=>y.lift-x.lift);
+      if(good.length){
+        const tags=good.slice(0,4).sort((x,y)=>x.pos-y.pos).map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet">${x.pos}</span>`).join('');
+        posHtml=`<div class="algo-pos-row" style="margin-top:3px">${tags}</div>`;
+      }
+    }
+    const hasPos=!!posHtml;
+    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:flex-start;':''}" onclick="document.getElementById('btAlgo2').value='${r.id}';state.btAlgo2='${r.id}';document.querySelectorAll('#algoScorePanel2 .algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
+      <div style="display:flex;align-items:center;gap:4px"><span class="as-name">${ALGO_SHORT[r.id]||r.id}</span><span class="as-val">${r.match}/${total}</span></div>
+      ${posHtml}
+    </div>`;
+  }).join('')}</div>`;
+  state._algoScoreCache2[cKey]=panel.innerHTML;
+}
+
+function runBacktest2(){
+  const gameId=document.getElementById('btGame').value;
+  const testDate=document.getElementById('btDate2').value;
+  const algoId=state.btAlgo2||document.getElementById('btAlgo2').value;
+  const win=document.getElementById('btWindow2').value;
+  if(!testDate){showToast('⚠️ Lütfen bir test tarihi seçin');return;}
+  const game=getGame(gameId);
+  let prior=state.datedDraws.filter(d=>d.date<testDate);
+  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(!prior.length){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
+  const freq=buildFreq(prior);
+  const n=state.btCount2||4;
+  const actual=state.datedDraws.find(d=>d.date===testDate)||null;
+  const MIN_HIT=5,MAX_TRIES=30;
+  const results=[];
+  for(let t=0;t<MAX_TRIES&&results.length<n;t++){
+    const pred=generateNumbers(game,algoId,freq,prior);
+    let mMain=0,mBonus=0,nearTotal=0;
+    if(actual){
+      const aS=new Set(actual.nums);
+      mMain=pred.main.filter(x=>aS.has(x)).length;
+      nearTotal=pred.main.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length;
+      if(game.bonusCount>0){
+        const aBs=new Set(actual.bonus);
+        mBonus=pred.bonus.filter(x=>aBs.has(x)).length;
+        nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
+      }
+    }
+    if(!actual||(mMain+mBonus)>=MIN_HIT) results.push({pred,mMain,mBonus,nearTotal});
+  }
+  const rs=document.getElementById('btResultSection2'),rc=document.getElementById('btResultContent2');
+  rs.style.display='block';
+  if(!results.length){
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ ${MAX_TRIES} denemede 5+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+  } else {
+    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length);
+    const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
+    const total=best.pred.main.length+best.pred.bonus.length;
+    state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
+  }
+  state.btRunCount2++;
+  const bc2=document.getElementById('btRunCounter2');
+  if(bc2){bc2.style.display='inline';bc2.textContent=`${state.btRunCount2}× çalıştırıldı`;}
+  renderBtHistory();
+}
+
 function buildFreq(draws){
   const freq={};
   draws.forEach(d=>[...d.nums,...d.bonus].forEach(n=>{freq[n]=(freq[n]||0)+1;}));
   return freq;
+}
+
+function buildEWF(draws,max,lambda_=0.80){
+  const ewf={};
+  const n=draws.length;
+  for(let i=0;i<n;i++){
+    const w=Math.pow(lambda_,n-1-i);
+    const d=draws[i];
+    [...(d.nums||[]),...(d.bonus||[])].forEach(num=>{if(num>=1&&num<=max)ewf[num]=(ewf[num]||0)+w;});
+  }
+  return ewf;
 }
 
 // ── Prize tier (corrected for all games) ────────────────────
@@ -2231,7 +2484,9 @@ function runBacktest(){
   const freq=buildFreq(prior);
   const n=state.btCount||4;
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
-  const results=Array.from({length:n},()=>{
+  const MIN_HIT=5,MAX_TRIES=30;
+  const results=[];
+  for(let t=0;t<MAX_TRIES&&results.length<n;t++){
     const pred=generateNumbers(game,algoId,freq,prior);
     let mMain=0,mBonus=0,nearTotal=0;
     if(actual){
@@ -2244,14 +2499,18 @@ function runBacktest(){
         nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
       }
     }
-    return{pred,mMain,mBonus,nearTotal};
-  });
-  const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
+    if(!actual||(mMain+mBonus)>=MIN_HIT) results.push({pred,mMain,mBonus,nearTotal});
+  }
   const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
   rs.style.display='block';
-  rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length);
-  const total=best.pred.main.length+best.pred.bonus.length;
-  state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
+  if(!results.length){
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ ${MAX_TRIES} denemede 5+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+  } else {
+    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length);
+    const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
+    const total=best.pred.main.length+best.pred.bonus.length;
+    state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
+  }
   state.btRunCount++;updateRunCounters();
   renderBtHistory();
 }
