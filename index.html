@@ -328,7 +328,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         <button onclick="adjustCount(1)">+</button>
       </div>
     </div>
-    <button class="generate-btn" id="generateBtn" onclick="generateTickets()">🎰 Şanslı Sayıları Üret</button>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="generate-btn" id="generateBtn" onclick="generateTickets()" style="flex:1">🎰 Şanslı Sayıları Üret</button>
+      <span id="genRunCounter" style="display:none;font-size:.72rem;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
+    </div>
   </div>
 
   <div class="card" id="ticketCard" style="display:none">
@@ -397,7 +400,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
       <div class="form-group">
         <label>Test Tarihi</label>
-        <select id="btDate" onchange="updateAlgoScores()"><option value="">— Önce veri yükleyin —</option></select>
+        <div style="display:flex;gap:5px;align-items:center">
+          <select id="btDate" onchange="updateAlgoScores()" style="flex:1;min-width:0"><option value="">— Önce veri yükleyin —</option></select>
+          <button onclick="stepBtDate(-1)" title="Önceki tarih" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
+          <button onclick="stepBtDate(1)"  title="Sonraki tarih"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
+        </div>
       </div>
       <div class="form-group">
         <label>Algoritma</label>
@@ -444,7 +451,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
       <span style="font-size:.72rem;color:var(--muted)">grup üret</span>
     </div>
-    <button class="run-btn" onclick="runBacktest()">🔬 Geçmiş Testi Çalıştır</button>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="run-btn" onclick="runBacktest()" style="flex:1">🔬 Geçmiş Testi Çalıştır</button>
+      <span id="btRunCounter" style="display:none;font-size:.72rem;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
+    </div>
   </div>
 
   <div id="btResultSection" style="display:none">
@@ -909,7 +919,7 @@ hizliOn:`2026-05-12 2 4 7 9 18 23 26 32 34 35 40 41 48 53 57 68 69 72 74 80
 const state = {
   selectedGame:'sayisal', selectedAlgo:'balanced',
   ticketCount:4, btCount:4, analysisWindow:50, pastDraws:[], frequency:{},
-  savedTickets:[], totalGenerated:0, lastTickets:null,
+  savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
   btAlgoPositionScores:{}, btAlgoAnalysisGame:null,
@@ -954,8 +964,8 @@ function initAlgoGrid(){
     </button>`;
   }).join('');
 }
-function selectGame(id){ state.selectedGame=id; initGameGrid(); loadGenHistory(); }
-function selectAlgo(id){ state.selectedAlgo=id; initAlgoGrid(); }
+function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); loadGenHistory(); }
+function selectAlgo(id){ state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid(); }
 function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCount+d)); document.getElementById('countVal').textContent=state.ticketCount; }
 function changeAnalysisWindow(val){
   state.analysisWindow=+val;
@@ -1736,109 +1746,118 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const nrm2=(k)=>{const mx=Math.max(1e-9,...scored.map(s=>s[k]));const mi=Math.min(...scored.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);scored.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
       ['e','m','pa','z','pos','cy'].forEach(nrm2);
       scored.forEach(s=>{s.score=s.eN*0.40+s.mN*0.20+s.paN*0.15+s.zN*0.10+s.posN*0.10+s.cyN*0.05;});
-      // Softmax weights → stochastic (different ticket each call)
+      // Softmax weights → stochastic initial selection
       const maxSc=Math.max(...scored.map(s=>s.score));
       scored.forEach(s=>{s.w=Math.exp((s.score-maxSc)*5);});
-      const qCnt2=[0,0,0,0],sel2=[],used3=new Set();
-      let att=0;
+      const qCnt2=[0,0,0,0],sel2=[],used3=new Set();let att=0;
       while(sel2.length<N&&att++<600){
         const rem=scored.filter(s=>!used3.has(s.n));
         const ws=rem.map(s=>{const q=Math.min(3,Math.floor((s.n-1)*4/MAX));return qCnt2[q]>=3?0:s.w*(qCnt2[q]<2?1.8:1);});
         const pk=pickUnique(rem.map(s=>s.n),1,ws);if(!pk.length)break;
         sel2.push(pk[0]);used3.add(pk[0]);qCnt2[Math.min(3,Math.floor((pk[0]-1)*4/MAX))]++;
       }
-      mainNums=sel2.slice(0,N).sort((a,b)=>a-b);bonusNums=smartBonus();
+      if(sel2.length<N)scored.filter(s=>!used3.has(s.n)).slice(0,N-sel2.length).forEach(s=>{sel2.push(s.n);});
+      // Build co-occurrence for annealing (anchor-based, lightweight)
+      const stCoW={},stFW={};
+      stD.forEach((d,i)=>{const w=Math.pow(λ,T-1-i);const ns=gNums(d);ns.forEach(n=>{stFW[n]=(stFW[n]||0)+w;});for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){const x=Math.min(ns[a],ns[b]),y=Math.max(ns[a],ns[b]);stCoW[`${x}_${y}`]=(stCoW[`${x}_${y}`]||0)+w;}});
+      const stPFit=(a,b)=>{const x=Math.min(a,b),y=Math.max(a,b);return(stCoW[`${x}_${y}`]||0)/Math.sqrt((stFW[a]||0.01)*(stFW[b]||0.01));};
+      const stScMap={};scored.forEach(s=>{stScMap[s.n]=s.score;});
+      const stFitness=S=>{let f=S.reduce((s,n)=>s+(stScMap[n]||0),0);for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++)f+=stPFit(S[i],S[j])*0.4;return f;};
+      const stTop=scored.slice(0,Math.min(40,scored.length)).map(s=>s.n);
+      let stBest=[...sel2],stBestFit=stFitness(stBest);
+      for(let iter=0;iter<500;iter++){
+        const oi=Math.floor(Math.random()*stBest.length);
+        const out=stBest[oi],qO=Math.min(3,Math.floor((out-1)*4/MAX));
+        const cands=stTop.filter(n=>!stBest.includes(n));if(!cands.length)continue;
+        const inn=cands[Math.floor(Math.random()*cands.length)];
+        const qI=Math.min(3,Math.floor((inn-1)*4/MAX));
+        if(qO!==qI){const qc3=[0,0,0,0];stBest.forEach(n=>qc3[Math.min(3,Math.floor((n-1)*4/MAX))]++);qc3[qO]--;qc3[qI]++;if(qc3[qO]<2||qc3[qI]>3)continue;}
+        const nS=[...stBest];nS[oi]=inn;const nF=stFitness(nS);if(nF>stBestFit){stBest=nS;stBestFit=nF;}
+      }
+      mainNums=stBest.sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'starv2':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       const sv2D=(drawsOverride||state.pastDraws||[]);
       const sv2T=sv2D.length;if(sv2T<5)return generateNumbers(game,'hot',freq,drawsOverride);
       const sv2MAX=game.max,sv2N=game.count;
-      const sv2Nums=d=>(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=sv2MAX);
-      // EWF λ=0.93
-      const sv2ewf={};const sv2λ=0.93;
-      sv2D.forEach((d,i)=>{const w=Math.pow(sv2λ,sv2T-1-i);sv2Nums(d).forEach(n=>{sv2ewf[n]=(sv2ewf[n]||0)+w;});});
+      const gN=d=>(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=sv2MAX);
+      const λ=0.93;
+      // EWF
+      const ewf={};
+      sv2D.forEach((d,i)=>{const w=Math.pow(λ,sv2T-1-i);gN(d).forEach(n=>{ewf[n]=(ewf[n]||0)+w;});});
       // MOM multi-window
-      const sv2mom={};
-      [[3,0.5],[7,0.3],[15,0.2]].forEach(([w,wt])=>{sv2D.slice(-w).forEach(d=>{sv2Nums(d).forEach(n=>{sv2mom[n]=(sv2mom[n]||0)+wt/w;});});});
-      // PAIR: full weighted co-occurrence network (network centrality)
-      const sv2co={},sv2fw={};
+      const mom={};
+      [[3,0.5],[7,0.3],[15,0.2]].forEach(([w,wt])=>{sv2D.slice(-w).forEach(d=>{gN(d).forEach(n=>{mom[n]=(mom[n]||0)+wt/w;});});});
+      // Full weighted co-occurrence matrix
+      const coW={},fW={};
       sv2D.forEach((d,i)=>{
-        const w=Math.pow(sv2λ,sv2T-1-i);
-        const ns=sv2Nums(d);
-        ns.forEach(n=>{sv2fw[n]=(sv2fw[n]||0)+w;});
+        const w=Math.pow(λ,sv2T-1-i);const ns=gN(d);
+        ns.forEach(n=>{fW[n]=(fW[n]||0)+w;});
         for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){
           const x=Math.min(ns[a],ns[b]),y=Math.max(ns[a],ns[b]);
-          sv2co[`${x}_${y}`]=(sv2co[`${x}_${y}`]||0)+w;
+          coW[`${x}_${y}`]=(coW[`${x}_${y}`]||0)+w;
         }
       });
-      // Network score: mean P(n|partner) for top-10 partners of n
-      const sv2net={};
+      // Network centrality: mean normalised co-occurrence with top-12 partners
+      const netSc={};
       pool.forEach(n=>{
-        const partners=[];
-        for(let m=1;m<=sv2MAX;m++){if(m===n)continue;const k=`${Math.min(n,m)}_${Math.max(n,m)}`;const c=sv2co[k]||0;if(c>0)partners.push(c/Math.max(sv2fw[m]||0.01,0.01));}
-        partners.sort((a,b)=>b-a);sv2net[n]=partners.slice(0,10).reduce((s,v)=>s+v,0)/Math.max(partners.length,1);
+        const pts=[];
+        for(let m=1;m<=sv2MAX;m++){if(m===n)continue;const c=coW[`${Math.min(n,m)}_${Math.max(n,m)}`]||0;if(c>0)pts.push(c/Math.sqrt((fW[n]||0.01)*(fW[m]||0.01)));}
+        pts.sort((a,b)=>b-a);netSc[n]=pts.slice(0,12).reduce((s,v)=>s+v,0)/12;
       });
       // ZSCORE
-      const sv2fv=pool.map(n=>freq[n]||0);
-      const sv2mu=sv2fv.reduce((s,v)=>s+v,0)/pool.length;
-      const sv2sd=Math.sqrt(sv2fv.reduce((s,v)=>s+Math.pow(v-sv2mu,2),0)/pool.length)||1;
+      const fv=pool.map(n=>freq[n]||0),fmu=fv.reduce((s,v)=>s+v,0)/pool.length;
+      const fsd=Math.sqrt(fv.reduce((s,v)=>s+Math.pow(v-fmu,2),0)/pool.length)||1;
       // Quartile prior
-      const sv2qh=[0,0,0,0];sv2D.forEach(d=>{sv2Nums(d).forEach(n=>{sv2qh[Math.min(3,Math.floor((n-1)*4/sv2MAX))]++;});});
-      const sv2qr=sv2qh.map(h=>h/((sv2T||1)*sv2MAX/4));
+      const qh=[0,0,0,0];sv2D.forEach(d=>{gN(d).forEach(n=>{qh[Math.min(3,Math.floor((n-1)*4/sv2MAX))]++;});});
+      const qr=qh.map(h=>h/((sv2T||1)*sv2MAX/4));
       // Cycle
-      const sv2ls={};sv2D.forEach((d,i)=>{sv2Nums(d).forEach(n=>{sv2ls[n]=i;});});
-      const sv2ag=sv2T/(Object.keys(sv2fw).length||1);
-      // Sum target
-      let sv2st=0,sv2sc=0;
-      sv2D.forEach(d=>{const ns=sv2Nums(d).slice(0,sv2N);if(ns.length>=sv2N){sv2st+=ns.reduce((s,v)=>s+v,0);sv2sc++;}});
-      const sv2tSum=sv2sc>0?sv2st/sv2sc:(sv2MAX+1)*sv2N/2;
-      // Score array
-      let sv2scored=pool.map(n=>{
-        const e=sv2ewf[n]||0;const m=sv2mom[n]||0;const pa=sv2net[n]||0;
-        const z=Math.max(-2,Math.min(2,((freq[n]||0)-sv2mu)/sv2sd));
-        const q=Math.min(3,Math.floor((n-1)*4/sv2MAX));const pos=sv2qr[q]||0;
-        const gap=sv2T-1-(sv2ls[n]??-1);const cy=Math.min(1,gap/Math.max(sv2ag,1));
-        return{n,e,m,pa,z,pos,cy};
+      const ls={};sv2D.forEach((d,i)=>{gN(d).forEach(n=>{ls[n]=i;});});
+      const ag=sv2T/(Object.keys(fW).length||1);
+      // Score
+      let sc=pool.map(n=>{
+        const e=ewf[n]||0,m=mom[n]||0,pa=netSc[n]||0;
+        const z=Math.max(-2,Math.min(2,((freq[n]||0)-fmu)/fsd));
+        const q=Math.min(3,Math.floor((n-1)*4/sv2MAX));
+        const gap=sv2T-1-(ls[n]??-1);
+        return{n,e,m,pa,z,pos:qr[q]||0,cy:Math.min(1,gap/Math.max(ag,1)),score:0};
       });
-      const sv2nrm=(k)=>{const mx=Math.max(1e-9,...sv2scored.map(s=>s[k]));const mi=Math.min(...sv2scored.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);sv2scored.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
-      ['e','m','pa','z','pos','cy'].forEach(sv2nrm);
-      // StarV2 weights: network pair gets more weight (0.20 vs 0.15)
-      sv2scored.forEach(s=>{s.score=s.eN*0.35+s.mN*0.20+s.paN*0.20+s.zN*0.10+s.posN*0.10+s.cyN*0.05;});
-      const sv2maxSc=Math.max(...sv2scored.map(s=>s.score));
-      sv2scored.forEach(s=>{s.w=Math.exp((s.score-sv2maxSc)*5);});
-      // Stochastic quartile-balanced selection
-      const sv2qc=[0,0,0,0],sv2sel=[],sv2used=new Set();
-      let sv2att=0;
-      while(sv2sel.length<sv2N&&sv2att++<600){
-        const rem=sv2scored.filter(s=>!sv2used.has(s.n));
-        const ws=rem.map(s=>{const q=Math.min(3,Math.floor((s.n-1)*4/sv2MAX));return sv2qc[q]>=3?0:s.w*(sv2qc[q]<2?1.8:1);});
+      const nrm=k=>{const mx=Math.max(1e-9,...sc.map(s=>s[k]));const mi=Math.min(...sc.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);sc.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
+      ['e','m','pa','z','pos','cy'].forEach(nrm);
+      sc.forEach(s=>{s.score=s.eN*0.35+s.mN*0.20+s.paN*0.20+s.zN*0.10+s.posN*0.10+s.cyN*0.05;});
+      const maxSc=Math.max(...sc.map(s=>s.score));
+      sc.forEach(s=>{s.w=Math.exp((s.score-maxSc)*5);});
+      sc.sort((a,b)=>b.score-a.score);
+      // Stochastic quartile-balanced initial selection
+      const qc=[0,0,0,0],sel=[],used=new Set();let att=0;
+      while(sel.length<sv2N&&att++<600){
+        const rem=sc.filter(s=>!used.has(s.n));
+        const ws=rem.map(s=>{const q=Math.min(3,Math.floor((s.n-1)*4/sv2MAX));return qc[q]>=3?0:s.w*(qc[q]<2?1.8:1);});
         const pk=pickUnique(rem.map(s=>s.n),1,ws);if(!pk.length)break;
-        sv2sel.push(pk[0]);sv2used.add(pk[0]);sv2qc[Math.min(3,Math.floor((pk[0]-1)*4/sv2MAX))]++;
+        sel.push(pk[0]);used.add(pk[0]);qc[Math.min(3,Math.floor((pk[0]-1)*4/sv2MAX))]++;
       }
-      // Sum nudge: swap one number to approach target sum
-      if(sv2sel.length===sv2N){
-        const curSum=sv2sel.reduce((s,n)=>s+n,0);const diff=Math.round(sv2tSum-curSum);
-        if(Math.abs(diff)>=3){
-          for(let i=0;i<sv2sel.length;i++){
-            const n=sv2sel[i];const need=n+diff;
-            if(need>=1&&need<=sv2MAX&&!sv2sel.includes(need)){
-              const qN=Math.min(3,Math.floor((need-1)*4/sv2MAX)),qO=Math.min(3,Math.floor((n-1)*4/sv2MAX));
-              if(qN===qO){sv2sel[i]=need;break;}
-            }
-          }
+      if(sel.length<sv2N)sc.filter(s=>!used.has(s.n)).slice(0,sv2N-sel.length).forEach(s=>{sel.push(s.n);used.add(s.n);});
+      // Simulated annealing: maximise individual score + pairwise co-occurrence
+      const pFit=(a,b)=>{const x=Math.min(a,b),y=Math.max(a,b);return(coW[`${x}_${y}`]||0)/Math.sqrt((fW[a]||0.01)*(fW[b]||0.01));};
+      const scMap={};sc.forEach(s=>{scMap[s.n]=s.score;});
+      const fitness=S=>{let f=S.reduce((s,n)=>s+(scMap[n]||0),0);for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++)f+=pFit(S[i],S[j])*0.4;return f;};
+      const topCands=sc.slice(0,Math.min(40,sc.length)).map(s=>s.n);
+      let best=[...sel],bestFit=fitness(best);
+      for(let iter=0;iter<500;iter++){
+        const oi=Math.floor(Math.random()*best.length);
+        const out=best[oi],qOut=Math.min(3,Math.floor((out-1)*4/sv2MAX));
+        const cands=topCands.filter(n=>!best.includes(n));if(!cands.length)continue;
+        const inn=cands[Math.floor(Math.random()*cands.length)];
+        const qIn=Math.min(3,Math.floor((inn-1)*4/sv2MAX));
+        if(qOut!==qIn){
+          const qc2=[0,0,0,0];best.forEach(n=>qc2[Math.min(3,Math.floor((n-1)*4/sv2MAX))]++);
+          qc2[qOut]--;qc2[qIn]++;if(qc2[qOut]<2||qc2[qIn]>3)continue;
         }
+        const newS=[...best];newS[oi]=inn;const nf=fitness(newS);
+        if(nf>bestFit){best=newS;bestFit=nf;}
       }
-      sv2sel.sort((a,b)=>a-b);
-      // Anti-cluster
-      for(let i=0;i<sv2sel.length-2;i++){
-        if(sv2sel[i+1]===sv2sel[i]+1&&sv2sel[i+2]===sv2sel[i]+2){
-          const mid=sv2sel[i+1];
-          const cand=sv2scored.filter(s=>!sv2used.has(s.n)&&Math.abs(s.n-sv2sel[i])>1&&Math.abs(s.n-sv2sel[i+2])>1).sort((a,b)=>b.score-a.score)[0];
-          if(cand){sv2sel.splice(sv2sel.indexOf(mid),1,cand.n);sv2sel.sort((a,b)=>a-b);}
-        }
-      }
-      mainNums=sv2sel.slice(0,sv2N).sort((a,b)=>a-b);bonusNums=smartBonus();
+      mainNums=best.sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'ensemble':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
@@ -1935,7 +1954,7 @@ function generateTickets(){
     </div>`;
     document.getElementById('ticketCard').style.display='block';
     document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
-    state.totalGenerated+=state.ticketCount;updateStats();
+    state.totalGenerated+=state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
     btn.classList.remove('spinning');btn.textContent='🎰 Şanslı Sayıları Üret';
   },400);
 }
@@ -1972,6 +1991,19 @@ function renderSavedTickets(){
 }
 
 // ── Stats ─────────────────────────────────────────────────────
+function stepBtDate(dir){
+  const sel=document.getElementById('btDate');
+  const opts=[...sel.options].map(o=>o.value).filter(v=>v);
+  const idx=opts.indexOf(sel.value);
+  const next=idx+dir;
+  if(next>=0&&next<opts.length){sel.value=opts[next];updateAlgoScores();}
+}
+function updateRunCounters(){
+  const gc=document.getElementById('genRunCounter');
+  const bc=document.getElementById('btRunCounter');
+  if(gc){gc.style.display=state.genRunCount>0?'inline':'none';gc.textContent=`${state.genRunCount}× üretildi`;}
+  if(bc){bc.style.display=state.btRunCount>0?'inline':'none';bc.textContent=`${state.btRunCount}× çalıştırıldı`;}
+}
 function updateStats(){
   document.getElementById('statGenerated').textContent=state.totalGenerated;
   document.getElementById('statSaved').textContent=state.savedTickets.length;
@@ -2176,6 +2208,7 @@ function runBacktest(){
   rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length);
   const total=best.pred.main.length+best.pred.bonus.length;
   state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
+  state.btRunCount++;updateRunCounters();
   renderBtHistory();
 }
 
