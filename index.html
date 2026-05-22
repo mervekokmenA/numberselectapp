@@ -420,6 +420,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="spread">📐 Spektral Yayılım</option>
           <option value="sumtarget">🎯 Toplam Hedefi</option>
           <option value="ensemble">👑 Süper Hibrit</option>
+          <option value="star">🌟 Star</option>
         </select>
       </div>
       <div class="form-group">
@@ -512,6 +513,7 @@ const ALGOS = [
   { id:'sumtarget',    name:'🎯 Toplam Hedefi',         desc:'Tarihsel ortalama toplama en yakın kombinasyonu seçer', expert:true },
   { id:'ensemble',     name:'👑 Süper Hibrit',          desc:'14 algoritmayı birden çalıştırır; en çok oy alan sayıları seçer — en güçlü mod', expert:true },
   { id:'sislcg',      name:'🎲 Sisal-LCG Dengesi',     desc:'LCG tabanlı deterministik dağılım simülasyonu — frekans ağırlıklı, toplam dengelenmiş, bölge kapsamalı', expert:true },
+  { id:'star',        name:'🌟 Star',                  desc:'6 sinyal üst üste: üstel frekans · çift eş-görünüm · çok pencereli momentum · döngü zamanlaması · komşu ısısı · z-skoru — bölge dengeli seçim', expert:true },
 ];
 
 // ── Real historical draw data ────────────────────────────────
@@ -1699,6 +1701,83 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       mainNums=sBest||sfByF.slice(0,game.count);
       bonusNums=smartBonus();
       break;}
+    case 'star':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const stD=(drawsOverride||state.pastDraws||[]);
+      const T=stD.length;if(T<5)return generateNumbers(game,'hot',freq,drawsOverride);
+      const MAX=game.max,N=game.count;
+      const gNums=d=>(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=MAX);
+      // ── EWF: exponentially weighted frequency λ=0.93 ──
+      const ewf={};const λ=0.93;
+      stD.forEach((d,i)=>{const w=Math.pow(λ,T-1-i);gNums(d).forEach(n=>{ewf[n]=(ewf[n]||0)+w;});});
+      // ── MOM: multi-window momentum (3/7/15 draws) ──
+      const mom={};
+      [[3,0.5],[7,0.3],[15,0.2]].forEach(([w,wt])=>{
+        stD.slice(-w).forEach(d=>{gNums(d).forEach(n=>{mom[n]=(mom[n]||0)+wt/w;});});
+      });
+      // ── PAIR: P(n|anchor) for top-5 EWF anchors ──
+      const ewfArr=pool.map(n=>({n,e:ewf[n]||0})).sort((a,b)=>b.e-a.e);
+      const anchors=ewfArr.slice(0,5).map(x=>x.n);
+      const coAB={},fA={};
+      stD.forEach(d=>{
+        const ns=gNums(d);const ns2=new Set(ns);
+        anchors.forEach(a=>{if(ns2.has(a)){fA[a]=(fA[a]||0)+1;ns.forEach(b=>{if(b!==a){const k=`${a}_${b}`;coAB[k]=(coAB[k]||0)+1;}});}});
+      });
+      const pair={};
+      anchors.forEach(a=>{
+        pool.forEach(n=>{if(n===a)return;const k=`${a}_${n}`;const p=(coAB[k]||0)/Math.max(fA[a]||1,1);pair[n]=(pair[n]||0)+p/anchors.length;});
+      });
+      // ── ZSCORE: global frequency anomaly ──
+      const fVals=pool.map(n=>freq[n]||0);
+      const fMu=fVals.reduce((s,v)=>s+v,0)/pool.length;
+      const fSd=Math.sqrt(fVals.reduce((s,v)=>s+Math.pow(v-fMu,2),0)/pool.length)||1;
+      // ── POS: quartile empirical prior from actual drawn data ──
+      const qHist=[0,0,0,0],qTotal=stD.length||1;
+      stD.forEach(d=>{gNums(d).forEach(n=>{const q=Math.min(3,Math.floor((n-1)*4/MAX));qHist[q]++;});});
+      const qRate=qHist.map(h=>h/(qTotal*MAX/4)); // relative to expected
+      // ── CYCLE: mild overdue correction ──
+      const lastSeen={};stD.forEach((d,i)=>{gNums(d).forEach(n=>{lastSeen[n]=i;});});
+      const avgGapGlobal=T/(Object.keys(freq).length||1);
+      // ── Normalize & combine ──
+      const normalize=(arr,mn,mn2)=>{const mx=Math.max(...arr.map(x=>x[mn2]));const mi=Math.min(...arr.map(x=>x[mn2]));const r=Math.max(mx-mi,1e-9);return arr.map(x=>({...x,[mn]:( x[mn2]-mi)/r}));};
+      let scored=pool.map(n=>{
+        const e=ewf[n]||0;const m=mom[n]||0;const pa=pair[n]||0;
+        const z=Math.max(-2,Math.min(2,((freq[n]||0)-fMu)/fSd));
+        const q=Math.min(3,Math.floor((n-1)*4/MAX));const pos=qRate[q]||0;
+        const gap=T-1-(lastSeen[n]??-1);const cy=Math.min(1,gap/Math.max(avgGapGlobal,1));
+        return{n,e,m,pa,z,pos,cy};
+      });
+      const nrm=(k)=>{const mx=Math.max(1e-9,...scored.map(s=>s[k]));const mi=Math.min(...scored.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);scored.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
+      ['e','m','pa','z','pos','cy'].forEach(nrm);
+      scored.forEach(s=>{s.score=s.eN*0.40+s.mN*0.20+s.paN*0.15+s.zN*0.10+s.posN*0.10+s.cyN*0.05;});
+      scored.sort((a,b)=>b.score-a.score);
+      // ── Quartile-balanced greedy selection ──
+      const qCnt=[0,0,0,0],sel=[],used2=new Set();
+      for(const s of scored){
+        if(sel.length>=N)break;
+        const q=Math.min(3,Math.floor((s.n-1)*4/MAX));
+        if(qCnt[q]<3){sel.push(s.n);used2.add(s.n);qCnt[q]++;}
+      }
+      // Enforce min 2 per quartile
+      for(let q=0;q<4;q++){
+        if(qCnt[q]<2){
+          const cand=scored.find(s=>!used2.has(s.n)&&Math.min(3,Math.floor((s.n-1)*4/MAX))===q);
+          if(cand){
+            const evict=sel.reduce((worst,n)=>{const sq=Math.min(3,Math.floor((n-1)*4/MAX));return qCnt[sq]>2&&(worst===null||scored.find(s=>s.n===n).score<scored.find(s=>s.n===worst).score)?n:worst;},null);
+            if(evict){sel.splice(sel.indexOf(evict),1);qCnt[Math.min(3,Math.floor((evict-1)*4/MAX))]--;sel.push(cand.n);used2.add(cand.n);qCnt[q]++;}
+          }
+        }
+      }
+      // Anti-cluster: if 3 consecutive integers present, swap middle for next best
+      sel.sort((a,b)=>a-b);
+      for(let i=0;i<sel.length-2;i++){
+        if(sel[i+1]===sel[i]+1&&sel[i+2]===sel[i]+2){
+          const mid=sel[i+1];const nextBest=scored.find(s=>!used2.has(s.n)&&Math.abs(s.n-sel[i])>1&&Math.abs(s.n-sel[i+2])>1);
+          if(nextBest){sel.splice(sel.indexOf(mid),1,nextBest.n);used2.delete(mid);used2.add(nextBest.n);sel.sort((a,b)=>a-b);}
+        }
+      }
+      mainNums=sel.slice(0,N).sort((a,b)=>a-b);bonusNums=smartBonus();
+      break;}
     case 'ensemble':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       const subAlgos=['hot','cold','balanced','entropy','momentum','correlation','cycle','hotzone','regression','oddeven','neighbor','streak','spread','sumtarget','sislcg'];
@@ -1733,7 +1812,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
 
 // ── Confidence ───────────────────────────────────────────────
 function calcConfidence(algo){
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -1906,7 +1985,7 @@ function updateBtDateOptions(){
   updateAlgoScores();
 }
 
-const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG'};
+const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star'};
 
 function updateAlgoScores(){
   const gameId=document.getElementById('btGame').value;
