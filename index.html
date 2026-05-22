@@ -1946,17 +1946,19 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         sc.filter(s=>!used.has(s.n)).slice(0,sv2N-sel.length).forEach(s=>sel.push(s.n));
         return sel;
       };
-      // SA run: 800 iterations
+      // SA run: proper annealing with temperature decay (allows worse moves early → diverse paths)
       const runSA=(init)=>{
-        let cur=[...init],curFit=fitness(cur);
-        for(let iter=0;iter<800;iter++){
+        let cur=[...init],curFit=fitness(cur),best=[...cur],bestFit=curFit;
+        const T0=0.6,Tf=0.005,alpha=Math.pow(Tf/T0,1/900);let T=T0;
+        for(let iter=0;iter<900;iter++,T*=alpha){
           const oi=Math.floor(Math.random()*cur.length);
           const cands=topCands.filter(n=>!cur.includes(n));if(!cands.length)continue;
           const inn=cands[Math.floor(Math.random()*cands.length)];
           const nS=[...cur];nS[oi]=inn;const nf=fitness(nS);
-          if(nf>curFit){cur=nS;curFit=nf;}
+          if(nf>curFit||Math.random()<Math.exp((nf-curFit)/T)){cur=nS;curFit=nf;}
+          if(curFit>bestFit){best=[...cur];bestFit=curFit;}
         }
-        return{s:cur,f:curFit};
+        return{s:best,f:bestFit};
       };
       // Multi-start: 5 SA runs, keep best
       let best=null,bestFit=-Infinity;
