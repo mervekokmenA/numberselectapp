@@ -1178,10 +1178,23 @@ function parseHabergazetesiDraw(html, articleUrl){
   const numsStr=m[2];
   const nums=[...new Set(numsStr.match(/\d+/g).map(Number).filter(n=>n>=1&&n<=80))].sort((a,b)=>a-b);
   if(nums.length!==20)return null;
+
+  // Extract draw time — try meta tags first, then article text
+  let drawTime=null;
+  const metaM=html.match(/(?:published_time|datePublished|article:published)[^>]*?T(\d{2}:\d{2})/i)||
+               html.match(/<time[^>]*?datetime="[^"]*?T(\d{2}:\d{2})/i);
+  if(metaM){
+    drawTime=metaM[1];
+  } else {
+    const tM=text.match(/\bsaat\s+(\d{1,2})[.:](\d{2})\b/i)||
+              text.match(/\b(\d{1,2})[.:](\d{2})[''’](?:de|da|te|ta)\b/i);
+    if(tM){const h=parseInt(tM[1]);const mn=tM[2];if(h>=0&&h<=23)drawTime=`${String(h).padStart(2,'0')}:${mn}`;}
+  }
+
   const mmap={ocak:'01',subat:'02',mart:'03',nisan:'04',mayis:'05',haziran:'06',temmuz:'07',agustos:'08',eylul:'09',ekim:'10',kasim:'11',aralik:'12'};
   for(const[name,num] of Object.entries(mmap)){
     const dm=articleUrl.match(new RegExp(`(\\d{1,2})-${name}(?:-\\d{4})?`));
-    if(dm)return{date:`2026-${num}-${dm[1].padStart(2,'0')}`,nums};
+    if(dm)return{date:`2026-${num}-${dm[1].padStart(2,'0')}${drawTime?' '+drawTime:''}`,nums};
   }
   return null;
 }
@@ -1861,9 +1874,9 @@ function parseDatedDraws(){
   if(!raw){status.className='parse-status error';status.textContent='⚠️ Lütfen önce tarihli veri girin.';return;}
   const draws=[];
   raw.split('\n').filter(l=>l.trim()).forEach(line=>{
-    const dm=line.match(/^(\d{4}-\d{2}-\d{2})/);
+    const dm=line.match(/^(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)/);
     if(!dm)return;
-    const date=dm[1],rest=line.slice(date.length),parts=rest.split('|');
+    const date=dm[1].trim(),rest=line.slice(dm[1].length),parts=rest.split('|');
     const nums=(parts[0].match(/\d+/g)||[]).map(Number);
     const bonus=parts[1]?(parts[1].match(/\d+/g)||[]).map(Number):[];
     if(nums.length>=1)draws.push({date,nums,bonus});
