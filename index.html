@@ -1297,6 +1297,7 @@ async function loadBtHistory(){
   parseDatedDraws();
   updatePatternSection();
   // Share analysis with generator tab — populate pastDraws from datedDraws and reuse
+  state._algoScoreCache={};
   state.pastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
   if(state.algoAnalysisGame!==id){ state.algoAnalysisGame=null; analyzeAlgoPositions(id); }
   const fr=dataFreshnessMsg(id);
@@ -1780,19 +1781,33 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       stSc.forEach(s=>{s.w=Math.exp((s.score-stMaxSc)*5);});
       stSc.sort((a,b)=>b.score-a.score);
       const stTopCands=stSc.slice(0,Math.min(45,stSc.length)).map(s=>s.n);
-      // Fitness
+      // Historical sum range (20th–80th pct)
+      const stSums=stD.map(d=>stGN(d).reduce((s,n)=>s+n,0)).filter(s=>s>0).sort((a,b)=>a-b);
+      const stSumLo=stSums[Math.floor(stSums.length*0.2)]||(stMAX+1)*stN*0.28;
+      const stSumHi=stSums[Math.floor(stSums.length*0.8)]||(stMAX+1)*stN*0.72;
+      const stSumMid=(stSumLo+stSumHi)/2;
+      // N-band coverage
+      const stBandSz=Math.ceil(stMAX/stN);
+      const stBandFn=n=>Math.min(stN-1,Math.floor((n-1)/stBandSz));
+      // Fitness: score + pairwise + band coverage + sum targeting
       const stPFit=(a,b)=>{const x=Math.min(a,b),y=Math.max(a,b);return(stCoW[`${x}_${y}`]||0)/Math.sqrt((stFW[a]||0.01)*(stFW[b]||0.01));};
       const stScMap={};stSc.forEach(s=>{stScMap[s.n]=s.score;});
-      const stFitness=S=>{let f=S.reduce((s,n)=>s+(stScMap[n]||0),0);for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++)f+=stPFit(S[i],S[j])*0.4;return f;};
-      const stQFn=n=>Math.min(3,Math.floor((n-1)*4/stMAX));
-      const stQOk=(S,out,inn)=>{if(stQFn(out)===stQFn(inn))return true;const qc=[0,0,0,0];S.forEach(n=>qc[stQFn(n)]++);qc[stQFn(out)]--;qc[stQFn(inn)]++;return qc[stQFn(out)]>=2&&qc[stQFn(inn)]<=3;};
+      const stFitness=S=>{
+        let f=S.reduce((s,n)=>s+(stScMap[n]||0),0);
+        for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++)f+=stPFit(S[i],S[j])*0.4;
+        f+=new Set(S.map(stBandFn)).size*0.35;
+        const stSum=S.reduce((s,n)=>s+n,0);
+        if(stSum<stSumLo||stSum>stSumHi)f-=Math.abs(stSum-stSumMid)*0.008;
+        return f;
+      };
+      // Band-aware stochastic initial selection
       const stMakeInit=()=>{
-        const qc=[0,0,0,0],sel=[],used=new Set();let att=0;
+        const bandSel=new Set();const sel=[],used=new Set();let att=0;
         while(sel.length<stN&&att++<600){
           const rem=stSc.filter(s=>!used.has(s.n));
-          const ws=rem.map(s=>{const q=stQFn(s.n);return qc[q]>=3?0:s.w*(qc[q]<2?1.8:1);});
+          const ws=rem.map(s=>s.w*(bandSel.has(stBandFn(s.n))?1:3));
           const pk=pickUnique(rem.map(s=>s.n),1,ws);if(!pk.length)break;
-          sel.push(pk[0]);used.add(pk[0]);qc[stQFn(pk[0])]++;
+          sel.push(pk[0]);used.add(pk[0]);bandSel.add(stBandFn(pk[0]));
         }
         stSc.filter(s=>!used.has(s.n)).slice(0,stN-sel.length).forEach(s=>sel.push(s.n));
         return sel;
@@ -1804,7 +1819,6 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
           const out=cur[oi];
           const cands=stTopCands.filter(n=>!cur.includes(n));if(!cands.length)continue;
           const inn=cands[Math.floor(Math.random()*cands.length)];
-          if(!stQOk(cur,out,inn))continue;
           const nS=[...cur];nS[oi]=inn;const nf=stFitness(nS);
           if(nf>curFit){cur=nS;curFit=nf;}
         }
@@ -1822,7 +1836,6 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
           for(const δ of[-1,1]){
             const cand=stBest[i]+δ;
             if(cand<1||cand>stMAX||stBest.includes(cand))continue;
-            if(!stQOk(stBest,stBest[i],cand))continue;
             const nS=[...stBest];nS[i]=cand;const nf=stFitness(nS);
             if(nf>stBestFit){stBest=nS;stBestFit=nf;stImproved=true;break;}
           }
@@ -1883,6 +1896,14 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       // Cycle
       const ls={};sv2D.forEach((d,i)=>{gN(d).forEach(n=>{ls[n]=i;});});
       const ag=sv2T/(Object.keys(fW).length||1);
+      // Historical sum range (20th–80th pct, like Sisal-LCG)
+      const sv2Sums=sv2D.map(d=>gN(d).reduce((s,n)=>s+n,0)).filter(s=>s>0).sort((a,b)=>a-b);
+      const sv2SumLo=sv2Sums[Math.floor(sv2Sums.length*0.2)]||(sv2MAX+1)*sv2N*0.28;
+      const sv2SumHi=sv2Sums[Math.floor(sv2Sums.length*0.8)]||(sv2MAX+1)*sv2N*0.72;
+      const sv2SumMid=(sv2SumLo+sv2SumHi)/2;
+      // N-band coverage: divide range into sv2N bands (1 per band = perfect spread)
+      const sv2BandSz=Math.ceil(sv2MAX/sv2N);
+      const sv2BandFn=n=>Math.min(sv2N-1,Math.floor((n-1)/sv2BandSz));
       // Score — 7 signals
       let sc=pool.map(n=>{
         const e=ewf[n]||0,m=mom[n]||0,pa=netSc[n]||0,kn=knn[n]||0;
@@ -1898,20 +1919,25 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       sc.forEach(s=>{s.w=Math.exp((s.score-maxSc)*5);});
       sc.sort((a,b)=>b.score-a.score);
       const topCands=sc.slice(0,Math.min(45,sc.length)).map(s=>s.n);
-      // Fitness: individual score + pairwise co-occurrence
+      // Fitness: individual score + pairwise co-occurrence + band coverage + sum targeting
       const pFit=(a,b)=>{const x=Math.min(a,b),y=Math.max(a,b);return(coW[`${x}_${y}`]||0)/Math.sqrt((fW[a]||0.01)*(fW[b]||0.01));};
       const scMap={};sc.forEach(s=>{scMap[s.n]=s.score;});
-      const fitness=S=>{let f=S.reduce((s,n)=>s+(scMap[n]||0),0);for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++)f+=pFit(S[i],S[j])*0.4;return f;};
-      const qFn=n=>Math.min(3,Math.floor((n-1)*4/sv2MAX));
-      const qOk=(S,out,inn)=>{if(qFn(out)===qFn(inn))return true;const qc=[0,0,0,0];S.forEach(n=>qc[qFn(n)]++);qc[qFn(out)]--;qc[qFn(inn)]++;return qc[qFn(out)]>=2&&qc[qFn(inn)]<=3;};
-      // Helper: one stochastic initial selection
+      const fitness=S=>{
+        let f=S.reduce((s,n)=>s+(scMap[n]||0),0);
+        for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++)f+=pFit(S[i],S[j])*0.4;
+        f+=new Set(S.map(sv2BandFn)).size*0.35;
+        const sv2Sum=S.reduce((s,n)=>s+n,0);
+        if(sv2Sum<sv2SumLo||sv2Sum>sv2SumHi)f-=Math.abs(sv2Sum-sv2SumMid)*0.008;
+        return f;
+      };
+      // Band-aware stochastic initial selection
       const makeInit=()=>{
-        const qc=[0,0,0,0],sel=[],used=new Set();let att=0;
+        const bandSel=new Set();const sel=[],used=new Set();let att=0;
         while(sel.length<sv2N&&att++<600){
           const rem=sc.filter(s=>!used.has(s.n));
-          const ws=rem.map(s=>{const q=qFn(s.n);return qc[q]>=3?0:s.w*(qc[q]<2?1.8:1);});
+          const ws=rem.map(s=>s.w*(bandSel.has(sv2BandFn(s.n))?1:3));
           const pk=pickUnique(rem.map(s=>s.n),1,ws);if(!pk.length)break;
-          sel.push(pk[0]);used.add(pk[0]);qc[qFn(pk[0])]++;
+          sel.push(pk[0]);used.add(pk[0]);bandSel.add(sv2BandFn(pk[0]));
         }
         sc.filter(s=>!used.has(s.n)).slice(0,sv2N-sel.length).forEach(s=>sel.push(s.n));
         return sel;
@@ -1924,7 +1950,6 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
           const out=cur[oi];
           const cands=topCands.filter(n=>!cur.includes(n));if(!cands.length)continue;
           const inn=cands[Math.floor(Math.random()*cands.length)];
-          if(!qOk(cur,out,inn))continue;
           const nS=[...cur];nS[oi]=inn;const nf=fitness(nS);
           if(nf>curFit){cur=nS;curFit=nf;}
         }
@@ -1933,7 +1958,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       // Multi-start: 3 SA runs, keep best
       let best=null,bestFit=-Infinity;
       for(let r=0;r<3;r++){const res=runSA(makeInit());if(res.f>bestFit){best=res.s;bestFit=res.f;}}
-      // ±1 neighbour correction: swap n for n±1 if it improves fitness
+      // ±1 neighbour correction
       best.sort((a,b)=>a-b);
       let improved=true;
       while(improved){
@@ -1942,7 +1967,6 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
           for(const δ of[-1,1]){
             const cand=best[i]+δ;
             if(cand<1||cand>sv2MAX||best.includes(cand))continue;
-            if(!qOk(best,best[i],cand))continue;
             const nS=[...best];nS[i]=cand;const nf=fitness(nS);
             if(nf>bestFit){best=nS;bestFit=nf;improved=true;break;}
           }
@@ -2180,6 +2204,11 @@ function updateAlgoScores(){
   const panel=document.getElementById('algoScorePanel');
   if(!panel)return;
   if(!testDate||!state.datedDraws.length){panel.innerHTML='';return;}
+  // Cache keyed by data signature — prevents stochastic re-computation on same data
+  const drawSig=state.datedDraws.length+'_'+(state.datedDraws[state.datedDraws.length-1]?.date||'');
+  const cKey=`${gameId}|${testDate}|${win}|${drawSig}`;
+  if(!state._algoScoreCache)state._algoScoreCache={};
+  if(state._algoScoreCache[cKey]){panel.innerHTML=state._algoScoreCache[cKey];return;}
   const game=getGame(gameId);
   let prior=state.datedDraws.filter(d=>d.date<testDate);
   if(win!=='all')prior=prior.slice(-parseInt(win));
@@ -2220,6 +2249,7 @@ function updateAlgoScores(){
       ${posHtml}
     </div>`;
   }).join('')}</div>`;
+  state._algoScoreCache[cKey]=panel.innerHTML;
 }
 
 function buildFreq(draws){
