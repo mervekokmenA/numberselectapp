@@ -67,8 +67,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .algo-btn .algo-desc{font-size:.67rem;color:var(--muted);display:block;line-height:1.4;max-height:0;overflow:hidden;opacity:0;transition:max-height .2s,opacity .2s}
 .algo-btn:hover .algo-desc{max-height:60px;opacity:1}
 .expert-tag{display:inline-block;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;background:linear-gradient(135deg,rgba(255,215,0,.25),rgba(255,165,0,.25));border:1px solid rgba(255,215,0,.5);color:#ffd700;margin-bottom:4px;letter-spacing:.03em}
-.algo-score-panel{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}
-.algo-score-item{display:flex;align-items:center;gap:4px;padding:3px 7px;border-radius:6px;font-size:.7rem;border:1px solid var(--border);background:var(--surface2);white-space:nowrap}
+.algo-score-panel{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-top:8px;align-items:start}
+.algo-score-item{display:flex;align-items:flex-start;gap:4px;padding:5px 8px;border-radius:6px;font-size:.7rem;border:1px solid var(--border);background:var(--surface2);align-self:start}
 .algo-score-item .as-name{color:var(--muted)}.algo-score-item .as-val{font-weight:700;color:var(--text);min-width:22px;text-align:right}
 .algo-score-item.best{border-color:rgba(0,230,118,.5);background:rgba(0,230,118,.12)}.algo-score-item.best .as-val{color:var(--green)}
 .algo-score-item:active{opacity:.7}.algo-score-item.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
@@ -2115,44 +2115,42 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
   const aSet=actual?new Set(actual.nums):null;
   const aBSet=actual?new Set(actual.bonus):null;
 
+  const BSZ='38px';
   // Actual draw HTML
   let actualHtml='';
   if(actual){
-    const sz=(game.id==='onnumara'||game.id==='hizliOn')?'38px':'';
     const pMainSet=new Set(results.flatMap(r=>r.pred.main));
     const pBonSet=new Set(results.flatMap(r=>r.pred.bonus));
     actualHtml=`<div class="bt-balls-section" style="margin-bottom:10px">
       <div class="bt-section-label">Gerçek Çekiliş — ${testDate}</div>
       <div class="balls-row" style="justify-content:flex-start">
-        ${actual.nums.map(n=>staticBall(n,game.mainColor,pMainSet.has(n)?'matched':'unmatched',sz)).join('')}
-        ${actual.bonus.length?`<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special',pBonSet.has(n)?'matched':'unmatched',sz)).join(''):''}
+        ${actual.nums.map(n=>staticBall(n,game.mainColor,pMainSet.has(n)?'matched':'unmatched',BSZ)).join('')}
+        ${actual.bonus.length?`<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special',pBonSet.has(n)?'matched':'unmatched',BSZ)).join(''):''}
       </div>
     </div>`;
   }
 
-  // Each prediction row
+  // Each prediction row — ticket style
+  const conf=computePredictionConfidence(algoId,game.id,true);
   const predsHtml=results.map((r,i)=>{
     const score=r.mMain+r.mBonus;
     const isBest=score===bestScore&&r===best;
     const ballsHtml=r.pred.main.map(n=>{
       const cls=aSet?(aSet.has(n)?'matched':(aSet.has(n-1)||aSet.has(n+1))?'near':'unmatched'):'';
-      return staticBall(n,game.mainColor,cls);
+      return staticBall(n,game.mainColor,cls,BSZ);
     }).join('');
     const bonusHtml=r.pred.bonus.length?`<div class="balls-divider">+</div>`+r.pred.bonus.map(n=>{
       const cls=aBSet?(aBSet.has(n)?'matched':(aBSet.has(n-1)||aBSet.has(n+1))?'near':'unmatched'):'';
-      return staticBall(n,game.bonusColor+' special',cls);
+      return staticBall(n,game.bonusColor+' special',cls,BSZ);
     }).join(''):'';
     const scoreLabel=actual?`${score}/${total}${r.nearTotal>0?` +${r.nearTotal}≈`:''}`:'-';
-    const conf=computePredictionConfidence(algoId,game.id,true);
-    return `<div style="background:${isBest?'rgba(0,230,118,.06)':'var(--surface2)'};border:1px solid ${isBest?'rgba(0,230,118,.3)':'var(--border)'};border-radius:10px;padding:9px 12px;margin-bottom:6px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-        <span style="font-size:.72rem;color:var(--muted)">Tahmin ${i+1}${isBest?' · <strong style="color:var(--green)">En İyi</strong>':''}</span>
-        <div style="display:flex;align-items:center;gap:8px">
-          ${conf?`<span style="font-size:.72rem;font-weight:700;color:${conf>=70?'var(--green)':conf>=50?'var(--accent)':'var(--muted)'}">Güven: ${conf}%</span>`:''}
-          <span style="font-size:.75rem;font-weight:700;color:${actual?(score>=3?'var(--green)':score>=1?'var(--accent)':'var(--muted)'):'var(--muted)'}">${scoreLabel}</span>
-        </div>
+    return `<div class="ticket" style="${i>0?'margin-top:6px;':''}${isBest?'border-color:rgba(0,230,118,.4);background:rgba(0,230,118,.05);':''}">
+      <span class="ticket-idx">#${i+1}${isBest?'<br><span style="color:var(--green);font-size:.6rem">★</span>':''}</span>
+      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start">${ballsHtml}${bonusHtml}</div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
+        ${conf?`<span style="font-size:.68rem;font-weight:700;color:${conf>=70?'var(--green)':conf>=50?'var(--accent)':'var(--muted)'}">Güven: ${conf}%</span>`:''}
+        <span style="font-size:.72rem;font-weight:700;color:${actual?(score>=3?'var(--green)':score>=1?'var(--accent)':'var(--muted)'):'var(--muted)'}">${scoreLabel}</span>
       </div>
-      <div class="balls-row" style="justify-content:flex-start">${ballsHtml}${bonusHtml}</div>
     </div>`;
   }).join('');
 
@@ -2467,7 +2465,7 @@ async function runAlgoSearch(){
       added.push(s.name);
     }
   });
-  if(added.length){initAlgoGrid();refreshBtAlgoSelect();}
+  if(added.length){initAlgoGrid();refreshBtAlgoSelect();updateAlgoScores();}
 
   resultsEl.innerHTML=`
     <div style="font-size:.75rem;color:var(--muted);margin:12px 0 8px">
