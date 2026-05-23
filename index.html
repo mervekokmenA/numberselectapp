@@ -467,8 +467,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       </div>
       <span style="font-size:.72rem;color:var(--muted)">grup üret</span>
     </div>
-    <div style="display:flex;align-items:center;gap:10px">
+    <div style="display:flex;align-items:center;gap:8px">
       <button class="run-btn" onclick="runBacktest()" style="flex:1">🔬 Geçmiş Testi Çalıştır</button>
+      <button class="run-btn" onclick="runForwardPrediction()" style="flex:1;background:linear-gradient(135deg,#6c5ce7,#a29bfe)">🎯 Yeni Oyun Tahmini</button>
       <span id="btRunCounter" style="display:none;font-size:.72rem;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
     </div>
   </div>
@@ -2118,6 +2119,7 @@ function generateTickets(){
     const container=document.getElementById('ticketContainer');
     const label=state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti';
     const copyAll=tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+    state._copyText=copyAll;
     const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
     const conf=calcConfidence(state.selectedAlgo);
     const posScores=state.algoPositionScores[state.selectedGame];
@@ -2153,7 +2155,7 @@ function generateTickets(){
     ${genPosHeader}
     ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i)).join('')}
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
-      <button class="copy-btn" onclick="copyNums(${JSON.stringify(copyAll)})">📋 ${label} Kopyala</button>
+      <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
       <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
     </div>`;
     document.getElementById('ticketCard').style.display='block';
@@ -2556,6 +2558,55 @@ function runBacktest(){
   }
   state.btRunCount++;updateRunCounters();
   renderBtHistory();
+}
+
+function runForwardPrediction(){
+  if(!state.datedDraws.length){showToast('⚠️ Önce gerçek verileri yükleyin');return;}
+  const gameId=document.getElementById('btGame').value;
+  const algoId=document.getElementById('btAlgo').value;
+  const game=getGame(gameId);
+  const freq=buildFreq(state.datedDraws);
+  const n=state.btCount||4;
+  const BSZ='38px';
+  const tickets=Array.from({length:n},()=>generateNumbers(game,algoId,freq,state.datedDraws));
+  const posNums=Array.from({length:game.count},(_,pi)=>
+    `<span style="display:inline-flex;width:${BSZ};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">${pi+1}</span>`
+  ).join('');
+  const posBonusNums=game.bonusCount>0
+    ?`<span style="display:inline-flex;width:16px"></span>`+Array.from({length:game.bonusCount},(_,pi)=>
+        `<span style="display:inline-flex;width:${BSZ};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">+${pi+1}</span>`
+      ).join('')
+    :'';
+  const posHeader=`<div style="display:flex;align-items:center;gap:8px;padding:2px 10px 0"><span style="min-width:18px;display:inline-block;flex-shrink:0"></span><div style="display:flex;gap:5px;">${posNums}${posBonusNums}</div></div>`;
+  const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
+  const copyAll=tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  state._copyText=copyAll;
+  const ticketsHtml=tickets.map((t,i)=>{
+    const ballsHtml=t.main.map(n=>staticBall(n,game.mainColor,'',BSZ)).join('');
+    const bonusHtml=t.bonus.length?`<div class="balls-divider">+</div>`+t.bonus.map(n=>staticBall(n,game.bonusColor+' special','',BSZ)).join(''):'';
+    return `<div class="ticket" style="${i>0?'margin-top:6px;':''}">
+      <span class="ticket-idx">#${i+1}</span>
+      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start">${ballsHtml}${bonusHtml}</div>
+    </div>`;
+  }).join('');
+  const lastDate=state.datedDraws[0]?.date||'';
+  const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
+  rs.style.display='block';
+  rc.innerHTML=`<div class="bt-result">
+    <div class="bt-score-header">
+      <div class="bt-score" style="background:rgba(108,92,231,.2);color:#a29bfe;font-size:.75rem;line-height:1.2">YENİ</div>
+      <div><div class="bt-algo-name">${algoName} · ${n} Tahmin</div>
+        <div class="bt-meta">Son veri: ${lastDate} · ${state.datedDraws.length} çekiliş</div></div>
+    </div>
+    <div class="bt-balls-section">
+      <div class="bt-section-label">Bir Sonraki Çekiliş Tahmini</div>
+      ${posHeader}${ticketsHtml}
+    </div>
+    <div style="margin-top:10px;text-align:right">
+      <button class="copy-btn" onclick="copyNums(state._copyText)">📋 Tahminleri Kopyala</button>
+    </div>
+  </div>`;
+  state.btRunCount++;updateRunCounters();
 }
 
 function computePredictionConfidence(algoId,gameId,useBt=false){
