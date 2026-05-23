@@ -27,8 +27,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .nav-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:52px;gap:12px}
 .nav-brand{font-size:.96rem;font-weight:800;white-space:nowrap;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 /* Pages */
-.app{position:relative;z-index:1;max-width:1920px;margin:0 auto;padding:20px 100px 40px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:20px;align-items:start}
-.col-left,.col-right,.col-bt2{min-width:0}
+.app{position:relative;z-index:1;max-width:1920px;margin:0 auto;padding:20px 100px 40px;display:grid;grid-template-columns:1fr 2fr;gap:20px;align-items:start}
+.col-bt-right{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;min-width:0}
+.bt-full-row{grid-column:1/3}
+#btResultSection,#btResultSection2{align-self:stretch}
+#btResultSection .card,#btResultSection2 .card{height:100%;box-sizing:border-box}
+.col-left,.col-right{min-width:0}
 
 /* Header */
 .header{margin-bottom:16px}
@@ -199,6 +203,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* Run button */
 .run-btn{width:100%;padding:15px;border:none;border-radius:14px;background:linear-gradient(135deg,#00b894,#00cec9);color:#fff;font-size:.97rem;font-weight:800;cursor:pointer;transition:all .2s;text-transform:uppercase;letter-spacing:.5px}
+.filter-toggle{display:flex;align-items:center;gap:7px;margin-bottom:10px;padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px}
+.filter-toggle input[type=checkbox]{width:15px;height:15px;cursor:pointer;accent-color:var(--green);flex-shrink:0}
+.filter-toggle label{font-size:.76rem;color:var(--muted);cursor:pointer;user-select:none}
 .run-btn:hover{transform:translateY(-1px);box-shadow:0 8px 24px rgba(0,184,148,.35)}
 .run-btn:active{transform:translateY(0)}
 
@@ -269,9 +276,12 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* Responsive */
 @media(max-width:1100px){
-  .app{grid-template-columns:1fr 1fr;padding:16px 40px 40px}}
+  .app{grid-template-columns:1fr;padding:16px 40px 40px}
+  .col-bt-right{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){
-  .app{grid-template-columns:1fr;padding:12px 16px 40px}
+  .app{padding:12px 16px 40px}
+  .col-bt-right{grid-template-columns:1fr}
+  .bt-full-row{grid-column:1}
 }
 @media(max-width:600px){
   :root{--ball-size:40px}
@@ -370,9 +380,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 
 <!-- ═══════════ PAGE: BACKTEST ═══════════ -->
-<div class="col-right" id="page-backtest">
+<div class="col-bt-right" id="page-backtest">
 
-  <div class="card">
+  <!-- ── TOP: shared data input (full width) ── -->
+  <div class="card bt-full-row">
     <div class="card-title">Tarihli Çekiliş Verisi</div>
     <div style="font-size:.76rem;color:var(--muted);margin-bottom:10px">
       Format: <code style="color:var(--accent)">YYYY-AA-GG n1 n2 n3 ...</code> &nbsp;|&nbsp;
@@ -387,7 +398,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="parse-status" id="btParseStatus"></div>
   </div>
 
-  
+  <!-- ── BT1 config (left col) ── -->
   <div class="card">
     <div class="card-title">🔬 Test 1</div>
     <div class="bt-config" style="grid-template-columns:1fr">
@@ -443,6 +454,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </select>
       </div>
     </div>
+    <div class="filter-toggle">
+      <input type="checkbox" id="btFilter5Chk" onchange="state.btFilter5=this.checked">
+      <label for="btFilter5Chk">Sadece 5+ eşleşme göster (maks 30 deneme)</label>
+    </div>
     <div id="algoScorePanel"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <span style="font-size:.8rem;color:var(--muted)">Tahmin Grubu:</span>
@@ -459,15 +474,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
   </div>
 
-  <div id="btResultSection" style="display:none">
-    <div class="card">
-      <div class="card-title">Test Sonucu</div>
-      <div id="btResultContent"></div>
-    </div>
-  </div>
-</div><!-- /page-backtest (BT1) -->
-
-<div class="col-bt2">
+  <!-- ── BT2 config (right col) ── -->
   <div class="card">
     <div class="card-title">🔬 Test 2</div>
     <div class="bt-config" style="grid-template-columns:1fr">
@@ -514,6 +521,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </select>
       </div>
     </div>
+    <div class="filter-toggle">
+      <input type="checkbox" id="btFilter5Chk2" onchange="state.btFilter5_2=this.checked">
+      <label for="btFilter5Chk2">Sadece 5+ eşleşme göster (maks 30 deneme)</label>
+    </div>
     <div id="algoScorePanel2"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <span style="font-size:.8rem;color:var(--muted)">Tahmin Grubu:</span>
@@ -530,13 +541,38 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
   </div>
 
+  <!-- ── Results row: BT1 (left) + BT2 (right), equal height ── -->
+  <div id="btResultSection" style="display:none">
+    <div class="card">
+      <div class="card-title">Test Sonucu</div>
+      <div id="btResultContent"></div>
+    </div>
+  </div>
+
   <div id="btResultSection2" style="display:none">
     <div class="card">
       <div class="card-title">Test 2 Sonucu</div>
       <div id="btResultContent2"></div>
     </div>
   </div>
-  <div id="patternSection" style="display:none">
+
+  <!-- ── History row: BT1 left, BT2 right ── -->
+  <div class="card">
+    <div class="card-title">Test Geçmişi</div>
+    <div class="bt-history" id="btHistory">
+      <div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Test Geçmişi</div>
+    <div class="bt-history" id="btHistory2">
+      <div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>
+    </div>
+  </div>
+
+  <!-- ── Pattern section (full width, Süper Loto only) ── -->
+  <div id="patternSection" class="bt-full-row" style="display:none">
     <div class="card">
       <div class="card-title">🔄 Döngüsel Örüntü Analizi <span style="font-size:.68rem;background:rgba(0,230,118,.15);color:var(--green);padding:2px 7px;border-radius:4px;margin-left:6px;vertical-align:middle">Süper Loto</span></div>
       <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px">Kaç çekilişte bir benzer sayılar çıktığını analiz eder — baskın periyot tespit edilir ve sonraki çekiliş için örüntü tahmini üretilir.</p>
@@ -544,13 +580,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
   </div>
 
-  <div class="card">
-    <div class="card-title">Test Geçmişi</div>
-    <div class="bt-history" id="btHistory">
-      <div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>
-    </div>
-  </div>
-  <div class="card">
+  <!-- ── BOTTOM: shared algo search (full width) ── -->
+  <div class="card bt-full-row">
     <div class="card-title">🔬 Algoritma Keşfi — 50 Yöntem</div>
     <p style="font-size:.78rem;color:var(--muted);margin-bottom:12px">50 farklı algoritma varyantını tüm tarihsel çekilişler üzerinde arka planda test eder; en yüksek skoru alan ilk 5'i tahmin motoruna otomatik ekler.</p>
     <button class="run-btn" id="searchBtn" onclick="runAlgoSearch()">🔍 50 Yöntemi Arka Planda Test Et</button>
@@ -561,7 +592,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div id="searchResults"></div>
   </div>
 
-</div><!-- /col-bt2 -->
+</div><!-- /page-backtest -->
 
 </div><!-- /app -->
 <div id="toast"></div>
@@ -967,7 +998,7 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:'onnumara', selectedAlgo:'balanced',
-  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, analysisWindow:50, pastDraws:[], frequency:{},
+  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, analysisWindow:50, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -2381,9 +2412,10 @@ function runBacktest2(){
   const freq=buildFreq(prior);
   const n=state.btCount2||4;
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
-  const MIN_HIT=5,MAX_TRIES=30;
+  const filterOn2=!!state.btFilter5_2;
+  const maxTries2=filterOn2?30:n;
   const results=[];
-  for(let t=0;t<MAX_TRIES&&results.length<n;t++){
+  for(let t=0;t<maxTries2&&results.length<n;t++){
     const pred=generateNumbers(game,algoId,freq,prior);
     let mMain=0,mBonus=0,nearTotal=0;
     if(actual){
@@ -2396,12 +2428,12 @@ function runBacktest2(){
         nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
       }
     }
-    if(!actual||(mMain+mBonus)>=MIN_HIT) results.push({pred,mMain,mBonus,nearTotal});
+    if(!filterOn2||!actual||(mMain+mBonus)>=5) results.push({pred,mMain,mBonus,nearTotal});
   }
   const rs=document.getElementById('btResultSection2'),rc=document.getElementById('btResultContent2');
   rs.style.display='block';
-  if(!results.length){
-    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ ${MAX_TRIES} denemede 5+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+  if(filterOn2&&!results.length){
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ 30 denemede 5+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
     rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length);
     const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
@@ -2482,9 +2514,10 @@ function runBacktest(){
   const freq=buildFreq(prior);
   const n=state.btCount||4;
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
-  const MIN_HIT=5,MAX_TRIES=30;
+  const filterOn=!!state.btFilter5;
+  const maxTries=filterOn?30:n;
   const results=[];
-  for(let t=0;t<MAX_TRIES&&results.length<n;t++){
+  for(let t=0;t<maxTries&&results.length<n;t++){
     const pred=generateNumbers(game,algoId,freq,prior);
     let mMain=0,mBonus=0,nearTotal=0;
     if(actual){
@@ -2497,12 +2530,12 @@ function runBacktest(){
         nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
       }
     }
-    if(!actual||(mMain+mBonus)>=MIN_HIT) results.push({pred,mMain,mBonus,nearTotal});
+    if(!filterOn||!actual||(mMain+mBonus)>=5) results.push({pred,mMain,mBonus,nearTotal});
   }
   const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
   rs.style.display='block';
-  if(!results.length){
-    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ ${MAX_TRIES} denemede 5+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+  if(filterOn&&!results.length){
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ 30 denemede 5+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
     rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length);
     const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
@@ -2614,6 +2647,20 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
   }
 
   // Each prediction row — ticket style
+  // Position number header row (shown once above all tickets)
+  const posNums=Array.from({length:results[0].pred.main.length},(_,pi)=>
+    `<span style="display:inline-flex;width:${BSZ};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">${pi+1}</span>`
+  ).join('');
+  const posBonusNums=results[0].pred.bonus.length
+    ?`<span style="display:inline-flex;width:16px"></span>`+results[0].pred.bonus.map((_,pi)=>
+        `<span style="display:inline-flex;width:${BSZ};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">+${pi+1}</span>`
+      ).join('')
+    :'';
+  const posHeader=`<div style="display:flex;align-items:center;gap:8px;padding:2px 10px 0">
+    <span style="min-width:18px;display:inline-block"></span>
+    <div style="display:flex;gap:5px;">${posNums}${posBonusNums}</div>
+  </div>`;
+
   const conf=computePredictionConfidence(algoId,game.id,true);
   const predsHtml=results.map((r,i)=>{
     const score=r.mMain+r.mBonus;
@@ -2645,20 +2692,22 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
         <div class="bt-meta">${priorCount} çekiliş üzerinde • en iyi eşleşme</div></div>
     </div>
     ${actualHtml}
-    <div class="bt-balls-section"><div class="bt-section-label">Tahmin Grupları</div>${predsHtml}</div>
+    <div class="bt-balls-section"><div class="bt-section-label">Tahmin Grupları</div>${posHeader}${predsHtml}</div>
   </div>`;
 }
 
 function renderBtHistory(){
-  const c=document.getElementById('btHistory');
-  if(!state.btHistory.length){c.innerHTML='<div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>';return;}
-  c.innerHTML=state.btHistory.map(h=>`
+  const html=state.btHistory.length
+    ?state.btHistory.map(h=>`
     <div class="bt-hist-row">
       <div>${h.game.emoji}</div>
       <div class="bt-hist-nums">${[...h.pred.main,...h.pred.bonus].join(' · ')}</div>
       <div class="bt-hist-date">${h.testDate}</div>
       <div class="bt-hist-score">${h.score}</div>
-    </div>`).join('');
+    </div>`).join('')
+    :'<div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>';
+  const c=document.getElementById('btHistory');if(c)c.innerHTML=html;
+  const c2=document.getElementById('btHistory2');if(c2)c2.innerHTML=html;
 }
 
 // ── Utils ─────────────────────────────────────────────────────
