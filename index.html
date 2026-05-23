@@ -2132,12 +2132,25 @@ function generateTickets(){
         <div class="algo-pos-row" style="margin:0">${tags}</div>
       </div>`;
     })();
+    const BSZ_GEN='38px';
+    const genPosHeader=(()=>{
+      const nums=Array.from({length:game.count},(_,pi)=>
+        `<span style="display:inline-flex;width:${BSZ_GEN};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">${pi+1}</span>`
+      ).join('');
+      const bon=game.bonusCount>0
+        ?`<span style="display:inline-flex;width:16px"></span>`+Array.from({length:game.bonusCount},(_,pi)=>
+            `<span style="display:inline-flex;width:${BSZ_GEN};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">+${pi+1}</span>`
+          ).join('')
+        :'';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:2px 10px 0"><span style="min-width:18px;display:inline-block;flex-shrink:0"></span><div style="display:flex;gap:5px;">${nums}${bon}</div></div>`;
+    })();
     container.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
       <span style="font-size:.78rem;color:var(--muted)">${game.emoji} ${game.name} · <strong style="color:var(--text)">${algo?.name||state.selectedAlgo}</strong></span>
       <span style="font-size:.72rem;color:var(--accent)">Güven: ${conf}%</span>
     </div>
     ${posRow}
+    ${genPosHeader}
     ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i)).join('')}
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
       <button class="copy-btn" onclick="copyNums(${JSON.stringify(copyAll)})">📋 ${label} Kopyala</button>
