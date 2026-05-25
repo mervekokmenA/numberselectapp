@@ -458,7 +458,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div class="filter-toggle">
       <input type="checkbox" id="btFilter5Chk" onchange="state.btFilter5=this.checked">
-      <label for="btFilter5Chk">Sadece 5+ eşleşme göster (maks 30 deneme)</label>
+      <label for="btFilter5Chk">Sadece 3+ eşleşme göster (otomatik tarama)</label>
     </div>
     <div id="algoScorePanel"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -525,7 +525,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div class="filter-toggle">
       <input type="checkbox" id="btFilter5Chk2" onchange="state.btFilter5_2=this.checked">
-      <label for="btFilter5Chk2">Sadece 5+ eşleşme göster (maks 30 deneme)</label>
+      <label for="btFilter5Chk2">Sadece 3+ eşleşme göster (otomatik tarama)</label>
     </div>
     <div id="algoScorePanel2"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -2117,7 +2117,20 @@ function generateTickets(){
   const game=getGame(),btn=document.getElementById('generateBtn');
   btn.classList.add('spinning');btn.textContent='🎲 Sayılar çekiliyor...';
   setTimeout(()=>{
-    const tickets=Array.from({length:state.ticketCount},()=>generateNumbers(game,state.selectedAlgo));
+    const filterOn=!!state.btFilter5&&state.datedDraws.length>0;
+    const recentDraw=filterOn?state.datedDraws[0]:null;
+    function tryGen(){
+      if(!filterOn||!recentDraw) return generateNumbers(game,state.selectedAlgo);
+      const aSet=new Set(recentDraw.nums);
+      const aBSet=new Set(recentDraw.bonus||[]);
+      for(let t=0;t<50;t++){
+        const pred=generateNumbers(game,state.selectedAlgo);
+        const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
+        if(m>=3) return pred;
+      }
+      return generateNumbers(game,state.selectedAlgo);
+    }
+    const tickets=Array.from({length:state.ticketCount},tryGen);
     state.lastTickets={tickets,game};
     const container=document.getElementById('ticketContainer');
     const label=state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti';
@@ -2430,7 +2443,7 @@ function runBacktest2(){
   const n=state.btCount2||4;
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
   const filterOn2=!!state.btFilter5_2;
-  const maxTries2=filterOn2?30:n;
+  const maxTries2=filterOn2?n*50:n;
   const results=[];
   for(let t=0;t<maxTries2&&results.length<n;t++){
     const pred=generateNumbers(game,algoId,freq,prior);
@@ -2445,12 +2458,12 @@ function runBacktest2(){
         nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
       }
     }
-    if(!filterOn2||!actual||(mMain+mBonus)>=5) results.push({pred,mMain,mBonus,nearTotal});
+    if(!filterOn2||!actual||(mMain+mBonus)>=3) results.push({pred,mMain,mBonus,nearTotal});
   }
   const rs=document.getElementById('btResultSection2'),rc=document.getElementById('btResultContent2');
   rs.style.display='block';
   if(filterOn2&&!results.length){
-    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ 30 denemede 5+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada 3+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
     rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length);
     const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
@@ -2532,7 +2545,7 @@ function runBacktest(){
   const n=state.btCount||4;
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
   const filterOn=!!state.btFilter5;
-  const maxTries=filterOn?30:n;
+  const maxTries=filterOn?n*50:n;
   const results=[];
   for(let t=0;t<maxTries&&results.length<n;t++){
     const pred=generateNumbers(game,algoId,freq,prior);
@@ -2547,12 +2560,12 @@ function runBacktest(){
         nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
       }
     }
-    if(!filterOn||!actual||(mMain+mBonus)>=5) results.push({pred,mMain,mBonus,nearTotal});
+    if(!filterOn||!actual||(mMain+mBonus)>=3) results.push({pred,mMain,mBonus,nearTotal});
   }
   const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
   rs.style.display='block';
   if(filterOn&&!results.length){
-    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ 30 denemede 5+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada 3+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
     rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length);
     const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
