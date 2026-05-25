@@ -212,7 +212,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 /* Backtest */
 .bt-info-box{background:rgba(108,99,255,.07);border:1px solid rgba(108,99,255,.22);border-radius:12px;padding:14px 16px;margin-bottom:16px;font-size:.79rem;color:var(--muted);line-height:1.75}
 .bt-info-box strong{color:var(--text)}.bt-info-box code{color:var(--accent);font-family:monospace}
-.bt-score-header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.bt-score-header{display:flex;align-items:center;gap:14px;margin-bottom:16px;padding:12px 10px 0}
 .bt-score{width:62px;height:62px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1rem;font-weight:900;flex-shrink:0;text-align:center;line-height:1.2}
 .bt-score.excellent{background:rgba(0,230,118,.15);color:var(--green);border:2px solid rgba(0,230,118,.45)}
 .bt-score.good{background:rgba(253,203,110,.15);color:#fdcb6e;border:2px solid rgba(253,203,110,.45)}
@@ -2698,22 +2698,8 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
   const aBSet=actual?new Set(actual.bonus):null;
 
   const BSZ=mobileBSZ();
-  // Actual draw HTML
-  let actualHtml='';
-  if(actual){
-    const pMainSet=new Set(results.flatMap(r=>r.pred.main));
-    const pBonSet=new Set(results.flatMap(r=>r.pred.bonus));
-    actualHtml=`<div class="bt-balls-section" style="margin-bottom:10px">
-      <div class="bt-section-label">Gerçek Çekiliş — ${testDate}</div>
-      <div class="balls-row" style="justify-content:flex-start">
-        ${actual.nums.map(n=>staticBall(n,game.mainColor,pMainSet.has(n)?'matched':'unmatched',BSZ)).join('')}
-        ${actual.bonus.length?`<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special',pBonSet.has(n)?'matched':'unmatched',BSZ)).join(''):''}
-      </div>
-    </div>`;
-  }
 
-  // Each prediction row — ticket style
-  // Position number header row (shown once above all tickets)
+  // Position number header — shared above actual draw + prediction rows
   const posNums=Array.from({length:results[0].pred.main.length},(_,pi)=>
     `<span style="display:inline-flex;width:${BSZ};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">${pi+1}</span>`
   ).join('');
@@ -2726,6 +2712,19 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
     <span style="min-width:18px;display:inline-block"></span>
     <div style="display:flex;gap:5px;">${posNums}${posBonusNums}</div>
   </div>`;
+
+  // Actual draw row — ticket structure for alignment with prediction rows
+  let actualRowHtml='';
+  if(actual){
+    const pMainSet=new Set(results.flatMap(r=>r.pred.main));
+    const pBonSet=new Set(results.flatMap(r=>r.pred.bonus));
+    const aBallsHtml=actual.nums.map(n=>staticBall(n,game.mainColor,pMainSet.has(n)?'matched':'unmatched',BSZ)).join('');
+    const aBonusHtml=actual.bonus.length?`<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special',pBonSet.has(n)?'matched':'unmatched',BSZ)).join(''):'';
+    actualRowHtml=`<div class="ticket" style="margin-bottom:6px;border-color:rgba(0,230,118,.25);background:rgba(0,230,118,.04)">
+      <span class="ticket-idx" style="font-size:.52rem;color:var(--green);line-height:1.3;text-align:center">G<br>Ç</span>
+      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${aBallsHtml}${aBonusHtml}</div>
+    </div>`;
+  }
 
   const conf=computePredictionConfidence(algoId,game.id,true);
   const predsHtml=results.map((r,i)=>{
@@ -2757,8 +2756,13 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
       <div><div class="bt-algo-name">${algoName} · ${results.length} Tahmin</div>
         <div class="bt-meta">${priorCount} çekiliş üzerinde • en iyi eşleşme</div></div>
     </div>
-    ${actualHtml}
-    <div class="bt-balls-section"><div class="bt-section-label">Tahmin Grupları</div>${posHeader}${predsHtml}</div>
+    <div class="bt-balls-section">
+      ${actual?`<div class="bt-section-label" style="padding:0 10px">Gerçek Çekiliş — ${testDate}</div>`:''}
+      ${posHeader}
+      ${actualRowHtml}
+      ${actual?`<div class="bt-section-label" style="padding:0 10px;margin-top:8px">Tahmin Grupları</div>`:'<div class="bt-section-label" style="padding:0 10px">Tahmin Grupları</div>'}
+      ${predsHtml}
+    </div>
   </div>`;
 }
 
