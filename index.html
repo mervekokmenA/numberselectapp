@@ -283,7 +283,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 }
 @media(max-width:600px){
-  :root{--ball-size:40px}
+  .card{padding:12px}
+  .ticket{padding:6px 6px;flex-wrap:wrap;align-items:flex-start}
+  .ticket-score{width:100%;display:flex;justify-content:flex-end;gap:8px;padding-top:2px}
+  .balls-row{gap:3px}
   .bt-config{grid-template-columns:1fr}
   .bt-hist-row{grid-template-columns:24px 1fr auto}
   .bt-hist-date{display:none}
@@ -2090,6 +2093,7 @@ function calcConfidence(algo){
 }
 
 // ── Ball HTML ─────────────────────────────────────────────────
+function mobileBSZ(){return window.innerWidth<=600?'24px':'38px';}
 function ballEl(num,colorCls,delay=0,special=false,extra=''){
   return `<div class="ball ${colorCls}${special?' special':''}${extra?' '+extra:''} rolling" style="animation-delay:${delay}ms">${num}</div>`;
 }
@@ -2102,9 +2106,9 @@ function staticBall(num,colorCls,extra='',sz=''){
 function renderTicket(td,game,algoId,idx=0){
   let ballsHtml=td.main.map((n,i)=>ballEl(n,game.mainColor,i*70)).join('');
   if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>ballEl(n,game.bonusColor,(td.main.length+i)*70,true)).join('');
-  return `<div class="ticket" style="${idx>0?'margin-top:6px;':''}--ball-size:38px">
+  return `<div class="ticket" style="${idx>0?'margin-top:6px;':''}--ball-size:${mobileBSZ()}">
     <span class="ticket-idx">#${idx+1}</span>
-    <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start">${ballsHtml}</div>
+    <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${ballsHtml}</div>
   </div>`;
 }
 
@@ -2133,7 +2137,7 @@ function generateTickets(){
         <div class="algo-pos-row" style="margin:0">${tags}</div>
       </div>`;
     })();
-    const BSZ_GEN='38px';
+    const BSZ_GEN=mobileBSZ();
     const genPosHeader=(()=>{
       const nums=Array.from({length:game.count},(_,pi)=>
         `<span style="display:inline-flex;width:${BSZ_GEN};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">${pi+1}</span>`
@@ -2566,7 +2570,7 @@ function runForwardPrediction(){
   const game=getGame(gameId);
   const freq=buildFreq(state.datedDraws);
   const n=state.btCount||4;
-  const BSZ='38px';
+  const BSZ=mobileBSZ();
   const tickets=Array.from({length:n},()=>generateNumbers(game,algoId,freq,state.datedDraws));
   const posNums=Array.from({length:game.count},(_,pi)=>
     `<span style="display:inline-flex;width:${BSZ};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">${pi+1}</span>`
@@ -2583,9 +2587,9 @@ function runForwardPrediction(){
   const ticketsHtml=tickets.map((t,i)=>{
     const ballsHtml=t.main.map(n=>staticBall(n,game.mainColor,'',BSZ)).join('');
     const bonusHtml=t.bonus.length?`<div class="balls-divider">+</div>`+t.bonus.map(n=>staticBall(n,game.bonusColor+' special','',BSZ)).join(''):'';
-    return `<div class="ticket" style="${i>0?'margin-top:6px;':''}">
+    return `<div class="ticket" style="${i>0?'margin-top:6px;':''}--ball-size:${BSZ}">
       <span class="ticket-idx">#${i+1}</span>
-      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start">${ballsHtml}${bonusHtml}</div>
+      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${ballsHtml}${bonusHtml}</div>
     </div>`;
   }).join('');
   const lastDate=state.datedDraws[0]?.date||'';
@@ -2693,7 +2697,7 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
   const aSet=actual?new Set(actual.nums):null;
   const aBSet=actual?new Set(actual.bonus):null;
 
-  const BSZ='38px';
+  const BSZ=mobileBSZ();
   // Actual draw HTML
   let actualHtml='';
   if(actual){
@@ -2738,8 +2742,8 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
     const scoreLabel=actual?`${score}/${total}${r.nearTotal>0?` +${r.nearTotal}≈`:''}`:'-';
     return `<div class="ticket" style="${i>0?'margin-top:6px;':''}${isBest?'border-color:rgba(0,230,118,.4);background:rgba(0,230,118,.05);':''}">
       <span class="ticket-idx">#${i+1}${isBest?'<br><span style="color:var(--green);font-size:.6rem">★</span>':''}</span>
-      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start">${ballsHtml}${bonusHtml}</div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
+      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${ballsHtml}${bonusHtml}</div>
+      <div class="ticket-score" style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
         ${conf?`<span style="font-size:.68rem;font-weight:700;color:${conf>=70?'var(--green)':conf>=50?'var(--accent)':'var(--muted)'}">Güven: ${conf}%</span>`:''}
         <span style="font-size:.72rem;font-weight:700;color:${actual?(score>=3?'var(--green)':score>=1?'var(--accent)':'var(--muted)'):'var(--muted)'}">${scoreLabel}</span>
       </div>
