@@ -342,7 +342,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </select>
       </div>
     </div>
-    <div class="algo-grid" id="algoGrid"></div>
+    <div id="algoGrid"></div>
   </div>
 
   <textarea id="pastDrawsInput" style="display:none"></textarea>
@@ -991,29 +991,24 @@ function initGameGrid(){
 function initAlgoGrid(){
   const scores=state.algoPositionScores[state.selectedGame];
   const analyzing=state.algoAnalysisGame===state.selectedGame;
-  document.getElementById('algoGrid').innerHTML=ALGOS.map(a=>{
+  document.getElementById('algoGrid').innerHTML='<div class="algo-score-panel">'+ALGOS.map(a=>{
     let posHtml='';
     if(scores&&scores[a.id]){
-      const s=scores[a.id];
-      // Sort positions by lift descending, keep those with meaningful lift
-      const good=s.filter(x=>x.lift>0.08).sort((x,y)=>y.lift-x.lift);
+      const good=scores[a.id].filter(x=>x.lift>0.08).sort((x,y)=>y.lift-x.lift);
       if(good.length){
         const tags=good.slice(0,4).sort((x,y)=>x.pos-y.pos)
-          .map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet (baz:%${Math.round(x.baseline*100)})">${x.pos}</span>`).join('');
-        posHtml=`<div class="algo-pos-row">${tags}</div>`;
-      } else {
-        posHtml=`<div class="algo-pos-row"></div>`;
+          .map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet">${x.pos}</span>`).join('');
+        posHtml=`<div class="algo-pos-row" style="margin-top:3px">${tags}</div>`;
       }
     } else if(analyzing){
-      posHtml=`<span class="algo-pos-analyzing">⏳ analiz...</span>`;
+      posHtml=`<span style="font-size:.62rem;color:var(--muted)">⏳</span>`;
     }
-    return `<button class="algo-btn ${a.id===state.selectedAlgo?'active':''}" onclick="selectAlgo('${a.id}')">
-      ${a.expert?'<span class="expert-tag">Uzman Tahmin</span>':''}
-      <span class="algo-name">${a.name}</span>
-      <span class="algo-desc">${a.desc}</span>
+    const hasPos=!!posHtml;
+    return `<div class="algo-score-item${a.id===state.selectedAlgo?' selected':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:flex-start;':''}" onclick="selectAlgo('${a.id}');document.querySelectorAll('#algoGrid .algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
+      <span class="as-name" style="flex:1;font-weight:${a.id===state.selectedAlgo?700:400}">${ALGO_SHORT[a.id]||a.name}</span>
       ${posHtml}
-    </button>`;
-  }).join('');
+    </div>`;
+  }).join('')+'</div>';
 }
 function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); loadGenHistory(); }
 function selectAlgo(id){ state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid(); }
@@ -1973,10 +1968,12 @@ function parseDatedDraws(){
 
 function updateBtDateOptions(){
   const sel=document.getElementById('btDate');
-  const valid=state.datedDraws.filter((_,i)=>i>=2).map(d=>d.date);
-  if(!valid.length){sel.innerHTML='<option value="">— Yeterli veri yok —</option>';return;}
-  sel.innerHTML=valid.map(d=>`<option value="${d}">${d}</option>`).join('');
-  sel.value=valid[valid.length-1];
+  // Skip the 2 oldest draws (insufficient prior data); display oldest→newest; pre-select newest
+  const newest=state.datedDraws.slice(0,Math.max(0,state.datedDraws.length-2));
+  if(!newest.length){sel.innerHTML='<option value="">— Yeterli veri yok —</option>';return;}
+  const asc=[...newest].reverse(); // oldest first for display
+  sel.innerHTML=asc.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
+  sel.value=newest[0].date; // newest pre-selected
   updateAlgoScores();
   updateBtDateOptions2();
 }
@@ -2041,11 +2038,11 @@ function updateAlgoScores(){
 function updateBtDateOptions2(){
   const sel=document.getElementById('btDate2');
   if(!sel)return;
-  const valid=state.datedDraws.filter((_,i)=>i>=2).map(d=>d.date);
-  if(!valid.length){sel.innerHTML='<option value="">— Yeterli veri yok —</option>';return;}
-  sel.innerHTML=valid.map(d=>`<option value="${d}">${d}</option>`).join('');
-  // Default to second-to-last date (different from BT1 which defaults to last)
-  sel.value=valid.length>=2?valid[valid.length-2]:valid[valid.length-1];
+  const newest2=state.datedDraws.slice(0,Math.max(0,state.datedDraws.length-2));
+  if(!newest2.length){sel.innerHTML='<option value="">— Yeterli veri yok —</option>';return;}
+  const asc2=[...newest2].reverse();
+  sel.innerHTML=asc2.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
+  sel.value=newest2[0].date;
   updateAlgoScores2();
 }
 
