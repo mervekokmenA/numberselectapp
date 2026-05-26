@@ -1765,12 +1765,14 @@ function staticBall(num,colorCls,extra='',sz=''){
 }
 
 // ── Render ticket ─────────────────────────────────────────────
-function renderTicket(td,game,algoId,idx=0){
+function renderTicket(td,game,algoId,idx=0,matchCount=null){
   let ballsHtml=td.main.map((n,i)=>ballEl(n,game.mainColor,i*70)).join('');
   if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>ballEl(n,game.bonusColor,(td.main.length+i)*70,true)).join('');
+  const matchBadge=matchCount!==null?`<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:${matchCount>=3?'rgba(0,230,118,.15)':'rgba(255,255,255,.07)'};color:${matchCount>=3?'var(--green)':'var(--muted)'};flex-shrink:0;white-space:nowrap">${matchCount} eş</span>`:'';
   return `<div class="ticket" style="${idx>0?'margin-top:6px;':''}--ball-size:${mobileBSZ()}">
     <span class="ticket-idx">#${idx+1}</span>
     <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${ballsHtml}</div>
+    ${matchBadge}
   </div>`;
 }
 
@@ -1782,17 +1784,21 @@ function generateTickets(){
     const filterOn=!!state.btFilter5&&state.datedDraws.length>0;
     const recentDraw=filterOn?state.datedDraws[0]:null;
     function tryGen(){
-      if(!filterOn||!recentDraw) return generateNumbers(game,state.selectedAlgo);
+      if(!filterOn||!recentDraw) return {pred:generateNumbers(game,state.selectedAlgo),m:null};
       const aSet=new Set(recentDraw.nums);
       const aBSet=new Set(recentDraw.bonus||[]);
       for(let t=0;t<50;t++){
         const pred=generateNumbers(game,state.selectedAlgo);
         const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
-        if(m>=3) return pred;
+        if(m>=3) return {pred,m};
       }
-      return generateNumbers(game,state.selectedAlgo);
+      const pred=generateNumbers(game,state.selectedAlgo);
+      const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
+      return {pred,m};
     }
-    const tickets=Array.from({length:state.ticketCount},tryGen);
+    const ticketResults=Array.from({length:state.ticketCount},tryGen);
+    const tickets=ticketResults.map(r=>r.pred);
+    const matchCounts=ticketResults.map(r=>r.m);
     state.lastTickets={tickets,game};
     const container=document.getElementById('ticketContainer');
     const label=state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti';
@@ -1831,7 +1837,7 @@ function generateTickets(){
     </div>
     ${posRow}
     ${genPosHeader}
-    ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i)).join('')}
+    ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,filterOn?matchCounts[i]:null)).join('')}
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
       <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
       <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
