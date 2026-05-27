@@ -599,6 +599,10 @@ const ALGOS = [
   { id:'sislcg',      name:'🎲 Sisal-LCG Dengesi',     desc:'LCG tabanlı deterministik dağılım simülasyonu — frekans ağırlıklı, toplam dengelenmiş, bölge kapsamalı', expert:true },
   { id:'star',        name:'🌟 Star',                  desc:'6 sinyal üst üste: üstel frekans · çift eş-görünüm · çok pencereli momentum · döngü zamanlaması · komşu ısısı · z-skoru — bölge dengeli seçim', expert:true },
   { id:'starv2',      name:'🌟 Star V2',               desc:'Star temeli + tam ağırlıklı eş-görünüm ağı (network centrality) · toplam hedefi düzeltmesi · artan çeşitlilik — devam eden geliştirme', expert:true },
+  { id:'sumdiff',    name:'∑−7 Toplam Fark',          desc:'Son iki çekilişin aynı konumdaki sayıları toplanır ve 7 çıkarılır — Excel Toplam-7 formülü', expert:true },
+  { id:'dateshift',  name:'📅 Tarih Ofset',            desc:'Ayın günü × 3 + 19 ofseti son çekiliş sayılarına uygulanır — Excel AL-AQ sütun formülü', expert:true },
+  { id:'poswave',    name:'〰 Konum Dalgası',          desc:'Her konuma özel kademeli ofset: konum 1=+13, 2=+32, 3=+53... — Excel AT-AZ güç serisi', expert:true },
+  { id:'skipadd',    name:'↔ Atlayan+14',              desc:'Bir atlamalı iki çekilişin aynı konumdaki sayıları toplanır ve 14 eklenir — Excel BS sütun formülü', expert:true },
 ];
 
 // ── Real historical draw data ────────────────────────────────
@@ -1741,6 +1745,65 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       }
       mainNums=best.sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
+    case 'sumdiff':{
+      // (draws[0][i] + draws[1][i] - 7) mod max — Excel "Toplam-7" formula
+      const sdDraws=drawsOverride||state.datedDraws||[];
+      if(sdDraws.length<2)return generateNumbers(game,'random',freq,drawsOverride);
+      const sd0=sdDraws[0].nums||[],sd1=sdDraws[1].nums||[];
+      const sdSet=new Set();const sdNums=[];
+      for(let i=0;i<Math.min(sd0.length,sd1.length,game.count+2);i++){
+        const r=((sd0[i]+sd1[i]-7)%game.max+game.max)%game.max||game.max;
+        if(!sdSet.has(r)&&r>=1&&r<=game.max){sdSet.add(r);sdNums.push(r);}
+      }
+      while(sdNums.length<game.count){const n=rng(1,game.max);if(!sdSet.has(n)){sdSet.add(n);sdNums.push(n);}}
+      mainNums=sdNums.slice(0,game.count).sort((a,b)=>a-b);
+      bonusNums=smartBonus();
+      break;}
+    case 'dateshift':{
+      // (draws[0][i] + DAY*3 + 19) mod max — Excel "Tarih Ofset" formula (AL-AQ sütunları)
+      const dsDraws=drawsOverride||state.datedDraws||[];
+      if(!dsDraws.length)return generateNumbers(game,'random',freq,drawsOverride);
+      const dsNums0=dsDraws[0].nums||[];
+      const dsDay=new Date().getDate();
+      const dsOffset=dsDay*3+19;
+      const dsSet=new Set();const dsNums=[];
+      for(const n of dsNums0){
+        const r=((n+dsOffset-1)%game.max+game.max)%game.max+1;
+        if(!dsSet.has(r)){dsSet.add(r);dsNums.push(r);}
+      }
+      while(dsNums.length<game.count){const n=rng(1,game.max);if(!dsSet.has(n)){dsSet.add(n);dsNums.push(n);}}
+      mainNums=dsNums.slice(0,game.count).sort((a,b)=>a-b);
+      bonusNums=smartBonus();
+      break;}
+    case 'poswave':{
+      // Position-specific offsets [13,32,53,92,173,213,253] mod max — Excel "Konum Dalgası" (AT-AZ sütunları)
+      const pwDraws=drawsOverride||state.datedDraws||[];
+      if(!pwDraws.length)return generateNumbers(game,'random',freq,drawsOverride);
+      const pwNums0=pwDraws[0].nums||[];
+      const pwOff=[13,32,53,92,173,213,253];
+      const pwSet=new Set();const pwNums=[];
+      for(let i=0;i<Math.min(pwNums0.length,game.count+2);i++){
+        const r=((pwNums0[i]+pwOff[i%pwOff.length]-1)%game.max+game.max)%game.max+1;
+        if(!pwSet.has(r)){pwSet.add(r);pwNums.push(r);}
+      }
+      while(pwNums.length<game.count){const n=rng(1,game.max);if(!pwSet.has(n)){pwSet.add(n);pwNums.push(n);}}
+      mainNums=pwNums.slice(0,game.count).sort((a,b)=>a-b);
+      bonusNums=smartBonus();
+      break;}
+    case 'skipadd':{
+      // (draws[0][i] + draws[2][i] + 14) mod max — Excel "Atlayan+14" (BS sütunu)
+      const saDraws=drawsOverride||state.datedDraws||[];
+      if(saDraws.length<3)return generateNumbers(game,'random',freq,drawsOverride);
+      const sa0=saDraws[0].nums||[],sa2=saDraws[2].nums||[];
+      const saSet=new Set();const saNums=[];
+      for(let i=0;i<Math.min(sa0.length,sa2.length,game.count+2);i++){
+        const r=((sa0[i]+sa2[i]+14-1)%game.max+game.max)%game.max+1;
+        if(!saSet.has(r)){saSet.add(r);saNums.push(r);}
+      }
+      while(saNums.length<game.count){const n=rng(1,game.max);if(!saSet.has(n)){saSet.add(n);saNums.push(n);}}
+      mainNums=saNums.slice(0,game.count).sort((a,b)=>a-b);
+      bonusNums=smartBonus();
+      break;}
     default:
       return generateNumbers(game,'random',freq,drawsOverride);
   }
@@ -1749,7 +1812,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
 
 // ── Confidence ───────────────────────────────────────────────
 function calcConfidence(algo){
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,sumdiff:68,dateshift:65,poswave:67,skipadd:66};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -1984,7 +2047,7 @@ function updateBtDateOptions(){
   updateBtDateOptions2();
 }
 
-const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2'};
+const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2',sumdiff:'∑−7 Fark',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',skipadd:'↔ Atlayan+14'};
 
 function updateAlgoScores(){
   const gameId=document.getElementById('btGame').value;
