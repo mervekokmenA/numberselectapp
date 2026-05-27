@@ -431,19 +431,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="delta">△ Delta Sistemi</option>
           <option value="wheeling">🔄 Wheeling</option>
           <option value="entropy">⭐ Entropi Analizi</option>
-          <option value="momentum">⭐ Momentum Skoru</option>
-          <option value="correlation">⭐ Korelasyon Kırma</option>
-          <option value="cycle">⭐ Döngü Tespiti</option>
-          <option value="hotzone">⭐ Sıcak Bölge</option>
-          <option value="regression">⭐ Ortalama Regresyon</option>
-          <option value="oddeven">⭐ Tek-Çift Denge</option>
-          <option value="neighbor">⭐ Komşu Isısı</option>
-          <option value="streak">🚀 Son Form</option>
-          <option value="spread">📐 Spektral Yayılım</option>
-          <option value="sumtarget">🎯 Toplam Hedefi</option>
-          <option value="ensemble">👑 Süper Hibrit</option>
+          <option value="sislcg">🎲 Sisal-LCG</option>
           <option value="star">🌟 Star</option>
           <option value="starv2">🌟 Star V2</option>
+          <option value="sumdiff">∑−7 Toplam Fark</option>
+          <option value="dateshift">📅 Tarih Ofset</option>
+          <option value="poswave">〰 Konum Dalgası</option>
+          <option value="skipadd">↔ Atlayan+14</option>
+          <option value="excelblend">🔮 Excel Karması</option>
         </select>
       </div>
       <div class="form-group">
@@ -498,19 +493,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="delta">△ Delta Sistemi</option>
           <option value="wheeling">🔄 Wheeling</option>
           <option value="entropy">⭐ Entropi Analizi</option>
-          <option value="momentum">⭐ Momentum Skoru</option>
-          <option value="correlation">⭐ Korelasyon Kırma</option>
-          <option value="cycle">⭐ Döngü Tespiti</option>
-          <option value="hotzone">⭐ Sıcak Bölge</option>
-          <option value="regression">⭐ Ortalama Regresyon</option>
-          <option value="oddeven">⭐ Tek-Çift Denge</option>
-          <option value="neighbor">⭐ Komşu Isısı</option>
-          <option value="streak">🚀 Son Form</option>
-          <option value="spread">📐 Spektral Yayılım</option>
-          <option value="sumtarget">🎯 Toplam Hedefi</option>
-          <option value="ensemble">👑 Süper Hibrit</option>
+          <option value="sislcg">🎲 Sisal-LCG</option>
           <option value="star">🌟 Star</option>
           <option value="starv2">🌟 Star V2</option>
+          <option value="sumdiff">∑−7 Toplam Fark</option>
+          <option value="dateshift">📅 Tarih Ofset</option>
+          <option value="poswave">〰 Konum Dalgası</option>
+          <option value="skipadd">↔ Atlayan+14</option>
+          <option value="excelblend">🔮 Excel Karması</option>
         </select>
       </div>
       <div class="form-group">
@@ -599,6 +589,7 @@ const ALGOS = [
   { id:'sislcg',      name:'🎲 Sisal-LCG Dengesi',     desc:'LCG tabanlı deterministik dağılım simülasyonu — frekans ağırlıklı, toplam dengelenmiş, bölge kapsamalı', expert:true },
   { id:'star',        name:'🌟 Star',                  desc:'6 sinyal üst üste: üstel frekans · çift eş-görünüm · çok pencereli momentum · döngü zamanlaması · komşu ısısı · z-skoru — bölge dengeli seçim', expert:true },
   { id:'starv2',      name:'🌟 Star V2',               desc:'Star temeli + tam ağırlıklı eş-görünüm ağı (network centrality) · toplam hedefi düzeltmesi · artan çeşitlilik — devam eden geliştirme', expert:true },
+  { id:'excelblend', name:'🔮 Excel Karması',           desc:'Dört Excel formülünün oylama sistemi: her formülün tahmin ettiği sayılar puanlanır, en çok oylanan sayılar seçilir — kendi formüllerinden türetilmiş karma', expert:true },
   { id:'sumdiff',    name:'∑−7 Toplam Fark',          desc:'Son iki çekilişin aynı konumdaki sayıları toplanır ve 7 çıkarılır — Excel Toplam-7 formülü', expert:true },
   { id:'dateshift',  name:'📅 Tarih Ofset',            desc:'Ayın günü × 3 + 19 ofseti son çekiliş sayılarına uygulanır — Excel AL-AQ sütun formülü', expert:true },
   { id:'poswave',    name:'〰 Konum Dalgası',          desc:'Her konuma özel kademeli ofset: konum 1=+13, 2=+32, 3=+53... — Excel AT-AZ güç serisi', expert:true },
@@ -1745,6 +1736,33 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       }
       mainNums=best.sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
+    case 'excelblend':{
+      // Runs all 4 Excel-derived formulas + hot signal, scores by agreement
+      const ebDraws=drawsOverride||state.datedDraws||[];
+      if(!ebDraws.length)return generateNumbers(game,'random',freq,drawsOverride);
+      const ebScores={};
+      const ebAdd=(n,w)=>{if(n>=1&&n<=game.max)ebScores[n]=(ebScores[n]||0)+w;};
+      // Sub-algo weights: each formula votes; position bonus (earlier position = higher weight)
+      ['sumdiff','dateshift','poswave','skipadd'].forEach(method=>{
+        try{
+          const r=generateNumbers(game,method,freq,ebDraws);
+          r.main.forEach((n,i)=>ebAdd(n,2+(game.count-i)*0.15));
+        }catch(e){}
+      });
+      // Hot signal: boost numbers that are trending
+      try{
+        const hr=generateNumbers(game,'hot',freq,ebDraws);
+        hr.main.forEach(n=>ebAdd(n,0.5));
+      }catch(e){}
+      // Pick top-scored numbers
+      const ebRanked=Object.entries(ebScores)
+        .map(([n,s])=>({n:+n,s}))
+        .sort((a,b)=>b.s-a.s||a.n-b.n);
+      const ebNums=ebRanked.slice(0,game.count).map(x=>x.n);
+      while(ebNums.length<game.count){const n=rng(1,game.max);if(!ebNums.includes(n))ebNums.push(n);}
+      mainNums=ebNums.sort((a,b)=>a-b);
+      bonusNums=smartBonus();
+      break;}
     case 'sumdiff':{
       // (draws[0][i] + draws[1][i] - 7) mod max — Excel "Toplam-7" formula
       const sdDraws=drawsOverride||state.datedDraws||[];
@@ -1812,7 +1830,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
 
 // ── Confidence ───────────────────────────────────────────────
 function calcConfidence(algo){
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,sumdiff:68,dateshift:65,poswave:67,skipadd:66};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,sumdiff:68,dateshift:65,poswave:67,skipadd:66,excelblend:78};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -2047,7 +2065,7 @@ function updateBtDateOptions(){
   updateBtDateOptions2();
 }
 
-const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2',sumdiff:'∑−7 Fark',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',skipadd:'↔ Atlayan+14'};
+const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2',sumdiff:'∑−7 Fark',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',skipadd:'↔ Atlayan+14',excelblend:'🔮 ExcelKarma'};
 
 function updateAlgoScores(){
   const gameId=document.getElementById('btGame').value;
