@@ -1737,29 +1737,46 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       mainNums=best.sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'excelblend':{
-      // Runs all 4 Excel-derived formulas + hot signal, scores by agreement
+      // Full ensemble: calibrated offsets + neighbor boost + EWF frequency
       const ebDraws=drawsOverride||state.datedDraws||[];
       if(!ebDraws.length)return generateNumbers(game,'random',freq,drawsOverride);
-      const ebScores={};
-      const ebAdd=(n,w)=>{if(n>=1&&n<=game.max)ebScores[n]=(ebScores[n]||0)+w;};
-      // Sub-algo weights: each formula votes; position bonus (earlier position = higher weight)
-      ['sumdiff','dateshift','poswave','skipadd'].forEach(method=>{
-        try{
-          const r=generateNumbers(game,method,freq,ebDraws);
-          r.main.forEach((n,i)=>ebAdd(n,2+(game.count-i)*0.15));
-        }catch(e){}
+      const ebMax=game.max,ebGC=game.count,ebScores={};
+      const ebMod=(n,off)=>((n+off-1)%ebMax+ebMax)%ebMax+1;
+      function ebAdd(n,w){if(n>=1&&n<=ebMax)ebScores[n]=(ebScores[n]||0)+w;}
+      function ebFormula(n,w){ebAdd(n,w);if(n>1)ebAdd(n-1,w*0.4);if(n<ebMax)ebAdd(n+1,w*0.4);}
+      const eb0=ebDraws[0],eb1=ebDraws[1]||null,eb2=ebDraws[2]||null;
+      const ebDay=new Date().getDate();
+      // Single-shift offsets — weights calibrated on historical backtest (+35 best, then +16,+8...)
+      [[35,3.0],[16,2.5],[8,2.0],[33,1.8],[25,1.6],[32,1.5],[7,1.4],[30,1.3],
+       [26,1.2],[22,1.1],[6,1.0],[29,1.0],[40,0.9],[17,0.9],[39,0.9]].forEach(([off,w])=>{
+        (eb0.nums||[]).forEach(n=>ebFormula(ebMod(n,off),w*0.8));
       });
-      // Hot signal: boost numbers that are trending
-      try{
-        const hr=generateNumbers(game,'hot',freq,ebDraws);
-        hr.main.forEach(n=>ebAdd(n,0.5));
-      }catch(e){}
+      // Sum-diff: offset 17 > 7 > 3 from historical analysis
+      if(eb1){[[17,3.0],[7,2.5],[3,1.5]].forEach(([off,w])=>{
+        const len=Math.min((eb0.nums||[]).length,(eb1.nums||[]).length);
+        for(let i=0;i<len;i++){const r=((eb0.nums[i]+eb1.nums[i]-off)%ebMax+ebMax)%ebMax||ebMax;ebFormula(r,w);}
+      });}
+      // Day formula: day×3+19
+      const ebDayOff=ebDay*3+19;
+      (eb0.nums||[]).forEach(n=>ebFormula(ebMod(n,ebDayOff),1.8));
+      // Position-wave series
+      const ebPOffs=[13,32,53,92,173,213,253];
+      (eb0.nums||[]).forEach((n,i)=>ebFormula(ebMod(n,ebPOffs[i%7]),1.0));
+      // Skip-draw sum (d0+d2)
+      if(eb2){[[14,2.0],[30,1.5],[0,1.0]].forEach(([off,w])=>{
+        const len=Math.min((eb0.nums||[]).length,(eb2.nums||[]).length);
+        for(let i=0;i<len;i++){const r=((eb0.nums[i]+eb2.nums[i]+off-1)%ebMax+ebMax)%ebMax+1;ebFormula(r,w);}
+      });}
+      // EWF frequency — recency-weighted historical signal (strongest anchor)
+      const ebRecent=ebDraws.slice(0,Math.min(40,ebDraws.length));const ebNR=ebRecent.length;
+      const ebEWF={};
+      ebRecent.forEach((d,j)=>{const w=Math.pow(0.80,ebNR-1-j);(d.nums||[]).forEach(n=>{ebEWF[n]=(ebEWF[n]||0)+w;});});
+      const ebMxEWF=Math.max(...Object.values(ebEWF),1);
+      Object.entries(ebEWF).forEach(([n,fw])=>ebAdd(+n,(fw/ebMxEWF)*4.0));
       // Pick top-scored numbers
-      const ebRanked=Object.entries(ebScores)
-        .map(([n,s])=>({n:+n,s}))
-        .sort((a,b)=>b.s-a.s||a.n-b.n);
-      const ebNums=ebRanked.slice(0,game.count).map(x=>x.n);
-      while(ebNums.length<game.count){const n=rng(1,game.max);if(!ebNums.includes(n))ebNums.push(n);}
+      const ebRanked=Object.entries(ebScores).map(([n,s])=>({n:+n,s})).sort((a,b)=>b.s-a.s||a.n-b.n);
+      const ebNums=ebRanked.slice(0,ebGC).map(x=>x.n);
+      while(ebNums.length<ebGC){const n=rng(1,ebMax);if(!ebNums.includes(n))ebNums.push(n);}
       mainNums=ebNums.sort((a,b)=>a-b);
       bonusNums=smartBonus();
       break;}
