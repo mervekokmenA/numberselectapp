@@ -1248,13 +1248,15 @@ function dataFreshnessMsg(gameId){
   if(!dates.length)return null;
   const lastDate=dates[0];
   const schedule=DRAW_SCHEDULE[gameId]||[];
-  // count expected draws since lastDate up to today
   const last=new Date(lastDate+'T12:00:00Z');
   const today=new Date();today.setUTCHours(12,0,0,0);
-  let missing=0;
+  let missing=0;const missingDates=[];
   const cur=new Date(last.getTime()+86400000);
-  while(cur<=today){if(schedule.includes(cur.getUTCDay()))missing++;cur.setUTCDate(cur.getUTCDate()+1);}
-  return{lastDate,missing};
+  while(cur<=today){
+    if(schedule.includes(cur.getUTCDay())){missing++;missingDates.push(cur.toISOString().slice(0,10));}
+    cur.setUTCDate(cur.getUTCDate()+1);
+  }
+  return{lastDate,missing,missingDates};
 }
 
 // ── Load real data buttons ───────────────────────────────────
@@ -1267,12 +1269,15 @@ async function loadGenHistory(){
   const plain=(DRAW_DATA[id]||'').split('\n').map(line=>line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'')).join('\n');
   document.getElementById('pastDrawsInput').value=plain;
   parsePastDraws();
+  // Tarihli veriyi de doldur — FB10, dateshift, poswave gibi algoritmalar için
+  document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
+  parseDatedDraws();
   analyzeAlgoPositions(id);
   const fr=dataFreshnessMsg(id);
   if(fetched)
     showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
   else if(fr&&fr.missing>0)
-    showToast(`⚠️ Son veri: ${fr.lastDate} — ${fr.missing} çekiliş eksik olabilir`);
+    showToast(`⚠️ Son çekiliş: ${fr.lastDate} ✓ — Sonraki beklenen: ${fr.missingDates.join(', ')} (sonuç girilmedi)`);
   else
     showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
 }
@@ -1294,7 +1299,7 @@ async function loadBtHistory(){
   if(fetched)
     showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
   else if(fr&&fr.missing>0)
-    showToast(`⚠️ Son veri: ${fr.lastDate} — ${fr.missing} çekiliş eksik olabilir`);
+    showToast(`⚠️ Son çekiliş: ${fr.lastDate} ✓ — Sonraki beklenen: ${fr.missingDates.join(', ')} (sonuç girilmedi)`);
   else
     showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
 }
