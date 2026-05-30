@@ -599,7 +599,10 @@ const ALGOS = [
 // ── Real historical draw data ────────────────────────────────
 // Source: Milli Piyango / lotobil.com archive (Sep 2025 – May 2026). Sayısal Loto: 6 main + Joker merged into 7 main, with Süperstar bonus.
 const DRAW_DATA = {
-sayisal:`2026-05-18 22 35 71 75 85 89 30 | 40
+sayisal:`2026-05-25 15 25 28 40 42 72 81 | 33
+2026-05-23 19 20 28 47 53 68 77 | 57
+2026-05-20 2 24 35 67 74 82 89 | 9
+2026-05-18 22 35 71 75 85 89 30 | 40
 2026-05-16 2 8 55 73 79 88 47 | 61
 2026-05-13 6 39 41 59 70 89 21 | 24
 2026-05-11 18 36 38 48 53 81 74 | 15
@@ -1167,22 +1170,22 @@ const LOTTERYEXTREME_URLS={
 };
 
 async function proxyFetch(url){
-  const ts=Date.now();
-  const bust=url+(url.includes('?')?'&':'?')+'_t='+ts;
   const proxies=[
-    `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(bust)}`,
-    `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+    ()=>fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,{credentials:'omit'}),
+    ()=>fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`,{credentials:'omit'}),
+    ()=>fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,{credentials:'omit'})
+      .then(r=>r.json()).then(j=>new Response(j.contents||'')),
   ];
-  for(const p of proxies){
+  for(const make of proxies){
     try{
       const ctrl=new AbortController();
-      const tid=setTimeout(()=>ctrl.abort(),6000);
-      const r=await fetch(p,{signal:ctrl.signal,credentials:'omit'});
+      const tid=setTimeout(()=>ctrl.abort(),8000);
+      const r=await Promise.race([make(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000))]);
       clearTimeout(tid);
-      if(!r.ok)continue;
-      let text=await r.text();
-      if(p.includes('allorigins')){try{const j=JSON.parse(text);text=j.contents||'';}catch(e){}}
-      if(text&&text.length>500)return text;
+      if(r&&r.ok!==false){
+        const text=typeof r.text==='function'?await r.text():(r+'');
+        if(text&&text.length>500)return text;
+      }
     }catch(e){}
   }
   throw new Error('proxy_fail');
