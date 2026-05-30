@@ -439,6 +439,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="poswave">〰 Konum Dalgası</option>
           <option value="skipadd">↔ Atlayan+14</option>
           <option value="excelblend">🔮 Excel Karması</option>
+          <option value="fb10">🔟 FB10 Grup</option>
         </select>
       </div>
       <div class="form-group">
@@ -501,6 +502,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="poswave">〰 Konum Dalgası</option>
           <option value="skipadd">↔ Atlayan+14</option>
           <option value="excelblend">🔮 Excel Karması</option>
+          <option value="fb10">🔟 FB10 Grup</option>
         </select>
       </div>
       <div class="form-group">
@@ -594,6 +596,7 @@ const ALGOS = [
   { id:'dateshift',  name:'📅 Tarih Ofset',            desc:'Ayın günü × 3 + 19 ofseti son çekiliş sayılarına uygulanır — Excel AL-AQ sütun formülü', expert:true },
   { id:'poswave',    name:'〰 Konum Dalgası',          desc:'Her konuma özel kademeli ofset: konum 1=+13, 2=+32, 3=+53... — Excel AT-AZ güç serisi', expert:true },
   { id:'skipadd',    name:'↔ Atlayan+14',              desc:'Bir atlamalı iki çekilişin aynı konumdaki sayıları toplanır ve 14 eklenir — Excel BS sütun formülü', expert:true },
+  { id:'fb10',       name:'🔟 FB10 Grup',              desc:'1-90 arası sayılar son rakama göre 10 gruba ayrılır. Tekler tekleri, çiftler çiftleri tetikler. Grup baskısı + pozisyon analizi + çapraz tetikleyici zinciri', expert:true },
 ];
 
 // ── Real historical draw data ────────────────────────────────
@@ -1868,6 +1871,91 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       mainNums=saNums.slice(0,game.count).sort((a,b)=>a-b);
       bonusNums=smartBonus();
       break;}
+    case 'fb10':{
+      // FB10: 10-grup son rakam analizi — "Tekler tekleri, çiftler çiftleri tetikler"
+      // Her sayı son rakamına göre gruba girer: G1=1,11,21..81 / G2=2,12,22..82 / G0=10,20..90
+      // Tekler: G1,G3,G5,G7,G9 | Çiftler: G0,G2,G4,G6,G8
+      const fbD=drawsOverride||state.datedDraws||[];
+      if(fbD.length<3)return generateNumbers(game,'random',freq,drawsOverride);
+      const fbMax=game.max,fbGC=game.count;
+      const fbN=Math.min(fbD.length,60);
+      const fbDraws=fbD.slice(0,fbN);
+      const fbG=n=>n%10;                 // son rakam = grup (0-9)
+      const fbP=n=>Math.ceil(n/10);      // onluk pozisyon (1-9)
+      const isTek=g=>(g%2!==0);         // tek grup (G1,G3,G5,G7,G9)
+      // ── Grup baskısı: her grubun son kaç çekilişte görülmediği ──
+      const gLastSeen={};
+      for(let g=0;g<=9;g++)gLastSeen[g]=fbN;
+      for(let i=fbN-1;i>=0;i--){
+        new Set((fbDraws[i].nums||[]).map(fbG)).forEach(g=>{gLastSeen[g]=i;});
+      }
+      // ── Tek/Çift momentum (son 5 çekiliş) ──
+      const rec5=fbDraws.slice(0,5);
+      let mtTek=0,mtCift=0;
+      rec5.forEach(d=>{const ns=d.nums||[];
+        mtTek+=ns.filter(n=>isTek(fbG(n))).length;
+        mtCift+=ns.filter(n=>!isTek(fbG(n))).length;
+      });
+      const tekMom=mtTek/(mtTek+mtCift+0.001); // >0.5 → tekler baskın
+      // ── Çapraz tetikleyici: g sonrası hangi grup çıkıyor? ──
+      const gTrig={};
+      for(let i=0;i<fbN-1;i++){
+        const cur=new Set((fbDraws[i].nums||[]).map(fbG));
+        const nxt=new Set((fbDraws[i+1].nums||[]).map(fbG));
+        cur.forEach(cg=>nxt.forEach(ng=>{const k=cg*10+ng;gTrig[k]=(gTrig[k]||0)+1;}));
+      }
+      // Son çekilişin grupları
+      const lastGSet=new Set((fbDraws[0].nums||[]).map(fbG));
+      // ── Pozisyon frekansı (son 30 çekiliş) ──
+      const pFreq={};
+      fbDraws.slice(0,30).forEach(d=>{
+        (d.nums||[]).forEach(n=>{const k=fbG(n)*10+fbP(n);pFreq[k]=(pFreq[k]||0)+1;});
+      });
+      // ── Sayı yaşı ──
+      const numAge={};
+      for(let n=1;n<=fbMax;n++)numAge[n]=fbN;
+      for(let i=fbN-1;i>=0;i--)(fbDraws[i].nums||[]).forEach(n=>{numAge[n]=i;});
+      // ── Her sayı için skor ──
+      const fbSc={};
+      for(let n=1;n<=fbMax;n++){
+        const g=fbG(n),pos=fbP(n);
+        let sc=0;
+        // Grup baskısı: grup ne kadar süredir yok
+        sc+=gLastSeen[g]*1.8;
+        // Sayı yaşı
+        sc+=numAge[n]*0.9;
+        // Tek/Çift momentum: aynı tipin devam etmesi
+        if(isTek(g)&&tekMom>0.5) sc+=(tekMom-0.5)*10;
+        if(!isTek(g)&&tekMom<0.5) sc+=(0.5-tekMom)*10;
+        // Çapraz tetikleyici (aynı tipten gelen tetikleyiciler daha güçlü)
+        lastGSet.forEach(lg=>{
+          const trig=gTrig[lg*10+g]||0;
+          sc+=trig*(isTek(lg)===isTek(g)?0.7:0.25);
+        });
+        // Pozisyon baskısı: bu pozisyon son 30'da görülmedi mi
+        const pk=g*10+pos;
+        const pf=pFreq[pk]||0;
+        sc+=Math.max(0,5-pf)*1.2;
+        // Son çekilişte aynı grup çıktıysa hafif ceza (yeni grup tercih)
+        if(lastGSet.has(g))sc-=1.5;
+        fbSc[n]=Math.max(0,sc);
+      }
+      // ── Grup çeşitliliği ile seçim (her gruptan max 1, momentum dengesine göre) ──
+      const fbRk=Object.entries(fbSc).map(([n,s])=>({n:+n,s})).sort((a,b)=>b.s-a.s||a.n-b.n);
+      const tgtTek=Math.max(2,Math.min(fbGC-2,Math.round(fbGC*tekMom)));
+      const tgtCift=fbGC-tgtTek;
+      const usedG=new Set();const tekList=[],ciftList=[];
+      for(const {n} of fbRk){
+        const g=fbG(n);if(usedG.has(g))continue;
+        if(isTek(g)&&tekList.length<tgtTek){tekList.push(n);usedG.add(g);}
+        else if(!isTek(g)&&ciftList.length<tgtCift){ciftList.push(n);usedG.add(g);}
+        if(tekList.length+ciftList.length>=fbGC)break;
+      }
+      let fb10Nums=[...tekList,...ciftList];
+      for(const {n} of fbRk){if(fb10Nums.length>=fbGC)break;if(!fb10Nums.includes(n))fb10Nums.push(n);}
+      mainNums=fb10Nums.slice(0,fbGC).sort((a,b)=>a-b);
+      bonusNums=smartBonus();
+      break;}
     default:
       return generateNumbers(game,'random',freq,drawsOverride);
   }
@@ -2111,7 +2199,7 @@ function updateBtDateOptions(){
   updateBtDateOptions2();
 }
 
-const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2',sumdiff:'∑−7 Fark',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',skipadd:'↔ Atlayan+14',excelblend:'🔮 ExcelKarma'};
+const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2',sumdiff:'∑−7 Fark',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',skipadd:'↔ Atlayan+14',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup'};
 
 function updateAlgoScores(){
   const gameId=document.getElementById('btGame').value;
