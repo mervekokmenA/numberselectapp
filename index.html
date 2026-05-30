@@ -1745,103 +1745,124 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       mainNums=best.sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
     case 'excelblend':{
-      // Full ensemble: calibrated offsets + neighbor boost + EWF frequency
-      const ebDraws=drawsOverride||state.datedDraws||[];
-      if(!ebDraws.length)return generateNumbers(game,'random',freq,drawsOverride);
-      const ebMax=game.max,ebGC=game.count,ebScores={};
-      const ebMod=(n,off)=>((n+off-1)%ebMax+ebMax)%ebMax+1;
-      function ebAdd(n,w){if(n>=1&&n<=ebMax)ebScores[n]=(ebScores[n]||0)+w;}
-      function ebFormula(n,w){ebAdd(n,w);if(n>1)ebAdd(n-1,w*0.4);if(n<ebMax)ebAdd(n+1,w*0.4);}
-      const eb0=ebDraws[0],eb1=ebDraws[1]||null,eb2=ebDraws[2]||null;
-      const ebDay=new Date().getDate();
-      // Single-shift offsets — weights calibrated on historical backtest (+35 best, then +16,+8...)
-      [[35,3.0],[16,2.5],[8,2.0],[33,1.8],[25,1.6],[32,1.5],[7,1.4],[30,1.3],
-       [26,1.2],[22,1.1],[6,1.0],[29,1.0],[40,0.9],[17,0.9],[39,0.9]].forEach(([off,w])=>{
-        (eb0.nums||[]).forEach(n=>ebFormula(ebMod(n,off),w*0.8));
+      // Tüm Excel formül grupları: sumdiff + offset6(d1) + offset35(d1) + dateshift + poswave + mixed + EWF
+      const ebD=drawsOverride||state.datedDraws||[];
+      if(!ebD.length)return generateNumbers(game,'random',freq,drawsOverride);
+      const ebMax=game.max,ebGC=game.count,ebSc={};
+      function ebA(n,w){if(n>=1&&n<=ebMax)ebSc[n]=(ebSc[n]||0)+w;}
+      function ebF(n,w){ebA(n,w);if(n>1)ebA(n-1,w*0.4);if(n<ebMax)ebA(n+1,w*0.4);}
+      const ebN=(v,off)=>(v+off)%ebMax||ebMax;
+      const eb0=ebD[0],eb1=ebD[1]||null,eb2=ebD[2]||null;
+      const eb0n=eb0.nums||[],eb1n=(eb1&&eb1.nums)||[],eb2n=(eb2&&eb2.nums)||[];
+      // Sonraki çekiliş günü tahmini
+      const ebLastDay=parseInt((eb0.date||'').split('-')[2])||new Date().getDate();
+      const ebDay=ebLastDay+2;
+      // GRUP M-S: sumdiff — (d0[i]+d1[i]-7)%90 — ağırlık 3.0
+      const sdL=Math.min(eb0n.length,eb1n.length);
+      for(let i=0;i<sdL;i++){const r=(eb0n[i]+eb1n[i]-7+90)%ebMax||ebMax;ebF(r,3.0);}
+      // GRUP U-AB: d1+6 (2. en son çekilişten) — ağırlık 2.0
+      eb1n.forEach(n=>ebF(ebN(n,6),2.0));
+      // GRUP AD-AJ: d1[1:]+35 (2. en son, pos0 atlanır) — ağırlık 2.5
+      eb1n.slice(1).forEach(n=>ebF(ebN(n,35),2.5));
+      // GRUP AL-AQ: dateshift d0, D sütunu(pos1) atlanır — ağırlık 1.8
+      const ebDOff=ebDay*3+19;
+      [0,2,3,4,5,6].forEach(idx=>{const n=eb0n[idx];if(n)ebF(ebN(n,ebDOff),1.8);});
+      // GRUP AT-AZ: poswave d0, G sütunu(pos4) atlanır — ağırlık 1.0
+      [[0,13],[1,32],[2,53],[3,92],[5,173],[6,213]].forEach(([idx,off])=>{
+        const n=eb0n[idx];if(n)ebF(ebN(n,off),1.0);
       });
-      // Sum-diff: offset 17 > 7 > 3 from historical analysis
-      if(eb1){[[17,3.0],[7,2.5],[3,1.5]].forEach(([off,w])=>{
-        const len=Math.min((eb0.nums||[]).length,(eb1.nums||[]).length);
-        for(let i=0;i<len;i++){const r=((eb0.nums[i]+eb1.nums[i]-off)%ebMax+ebMax)%ebMax||ebMax;ebFormula(r,w);}
-      });}
-      // Day formula: day×3+19
-      const ebDayOff=ebDay*3+19;
-      (eb0.nums||[]).forEach(n=>ebFormula(ebMod(n,ebDayOff),1.8));
-      // Position-wave series
-      const ebPOffs=[13,32,53,92,173,213,253];
-      (eb0.nums||[]).forEach((n,i)=>ebFormula(ebMod(n,ebPOffs[i%7]),1.0));
-      // Skip-draw sum (d0+d2)
-      if(eb2){[[14,2.0],[30,1.5],[0,1.0]].forEach(([off,w])=>{
-        const len=Math.min((eb0.nums||[]).length,(eb2.nums||[]).length);
-        for(let i=0;i<len;i++){const r=((eb0.nums[i]+eb2.nums[i]+off-1)%ebMax+ebMax)%ebMax+1;ebFormula(r,w);}
-      });}
-      // EWF frequency — recency-weighted historical signal (strongest anchor)
-      const ebRecent=ebDraws.slice(0,Math.min(40,ebDraws.length));const ebNR=ebRecent.length;
+      // GRUP BS-BY: karışık formüller
+      if(eb2n.length)eb0n.forEach((n,i)=>{if(eb2n[i])ebF(ebN(n+eb2n[i],14),1.5);}); // BS: d0+d2+14
+      if(eb0n[3]&&eb1n[3])ebF(ebN(eb0n[3]+eb1n[3]+30,0),1.2); // BU: F+F+30
+      if(eb0n[3])ebF(ebN(eb0n[3]+39,0),1.0); // BX: F+39
+      if(eb0n[6])ebF(ebN(eb0n[6]+49,0),1.0); // BY: son+49
+      if(eb0n[6]&&eb1n[6])ebF(ebN(eb0n[6]+eb1n[6]+ebDay,0),1.2); // BT: I+I+gün
+      // EWF: ağırlıklı tarihsel frekans — en güçlü sinyal
+      const ebRec=ebD.slice(0,Math.min(40,ebD.length)),ebNR=ebRec.length;
       const ebEWF={};
-      ebRecent.forEach((d,j)=>{const w=Math.pow(0.80,ebNR-1-j);(d.nums||[]).forEach(n=>{ebEWF[n]=(ebEWF[n]||0)+w;});});
-      const ebMxEWF=Math.max(...Object.values(ebEWF),1);
-      Object.entries(ebEWF).forEach(([n,fw])=>ebAdd(+n,(fw/ebMxEWF)*4.0));
-      // Pick top-scored numbers
-      const ebRanked=Object.entries(ebScores).map(([n,s])=>({n:+n,s})).sort((a,b)=>b.s-a.s||a.n-b.n);
-      const ebNums=ebRanked.slice(0,ebGC).map(x=>x.n);
+      ebRec.forEach((d,j)=>{const w=Math.pow(0.80,ebNR-1-j);(d.nums||[]).forEach(n=>{ebEWF[n]=(ebEWF[n]||0)+w;});});
+      const ebMx=Math.max(...Object.values(ebEWF),1);
+      Object.entries(ebEWF).forEach(([n,fw])=>ebA(+n,(fw/ebMx)*4.0));
+      // En yüksek skorlu sayıları seç
+      const ebRk=Object.entries(ebSc).map(([n,s])=>({n:+n,s})).sort((a,b)=>b.s-a.s||a.n-b.n);
+      const ebNums=ebRk.slice(0,ebGC).map(x=>x.n);
       while(ebNums.length<ebGC){const n=rng(1,ebMax);if(!ebNums.includes(n))ebNums.push(n);}
       mainNums=ebNums.sort((a,b)=>a-b);
       bonusNums=smartBonus();
       break;}
     case 'sumdiff':{
-      // (draws[0][i] + draws[1][i] - 7) mod max — Excel "Toplam-7" formula
-      const sdDraws=drawsOverride||state.datedDraws||[];
-      if(sdDraws.length<2)return generateNumbers(game,'random',freq,drawsOverride);
-      const sd0=sdDraws[0].nums||[],sd1=sdDraws[1].nums||[];
+      // Excel M-S: Mod((d1[i]+d0[i])-7, 90) — her pozisyonda son 2 çekilişin toplamı -7
+      const sdD=drawsOverride||state.datedDraws||[];
+      if(sdD.length<2)return generateNumbers(game,'random',freq,drawsOverride);
+      const sd0=sdD[0].nums||[],sd1=sdD[1].nums||[];
       const sdSet=new Set();const sdNums=[];
-      for(let i=0;i<Math.min(sd0.length,sd1.length,game.count+2);i++){
-        const r=((sd0[i]+sd1[i]-7)%game.max+game.max)%game.max||game.max;
-        if(!sdSet.has(r)&&r>=1&&r<=game.max){sdSet.add(r);sdNums.push(r);}
+      for(let i=0;i<Math.min(sd0.length,sd1.length);i++){
+        const r=(sd0[i]+sd1[i]-7+90)%game.max||game.max;
+        if(r>=1&&r<=game.max&&!sdSet.has(r)){sdSet.add(r);sdNums.push(r);}
       }
       while(sdNums.length<game.count){const n=rng(1,game.max);if(!sdSet.has(n)){sdSet.add(n);sdNums.push(n);}}
       mainNums=sdNums.slice(0,game.count).sort((a,b)=>a-b);
       bonusNums=smartBonus();
       break;}
     case 'dateshift':{
-      // (draws[0][i] + DAY*3 + 19) mod max — Excel "Tarih Ofset" formula (AL-AQ sütunları)
-      const dsDraws=drawsOverride||state.datedDraws||[];
-      if(!dsDraws.length)return generateNumbers(game,'random',freq,drawsOverride);
-      const dsNums0=dsDraws[0].nums||[];
-      const dsDay=new Date().getDate();
-      const dsOffset=dsDay*3+19;
+      // Excel AL-AQ: ABS(Mod(d0[pos]+DAY*3+19, 90)) — D sütunu (pos1) atlanır
+      const dsD=drawsOverride||state.datedDraws||[];
+      if(!dsD.length)return generateNumbers(game,'random',freq,drawsOverride);
+      const ds0=dsD[0].nums||[];
+      // Sonraki çekiliş günü tahmini: son çekiliş + 2 gün
+      const dsLastDay=parseInt((dsD[0].date||'').split('-')[2])||new Date().getDate();
+      const dsDay=dsLastDay+2;
+      const dsOff=dsDay*3+19;
       const dsSet=new Set();const dsNums=[];
-      for(const n of dsNums0){
-        const r=((n+dsOffset-1)%game.max+game.max)%game.max+1;
-        if(!dsSet.has(r)){dsSet.add(r);dsNums.push(r);}
+      // AL-AQ: C,E,F,G,H,I pozisyonları = indeks [0,2,3,4,5,6] — D (indeks 1) atlanır
+      for(const idx of [0,2,3,4,5,6]){
+        const n=ds0[idx];if(n===undefined)continue;
+        const r=(n+dsOff)%game.max||game.max;
+        if(r>=1&&r<=game.max&&!dsSet.has(r)){dsSet.add(r);dsNums.push(r);}
       }
       while(dsNums.length<game.count){const n=rng(1,game.max);if(!dsSet.has(n)){dsSet.add(n);dsNums.push(n);}}
       mainNums=dsNums.slice(0,game.count).sort((a,b)=>a-b);
       bonusNums=smartBonus();
       break;}
     case 'poswave':{
-      // Position-specific offsets [13,32,53,92,173,213,253] mod max — Excel "Konum Dalgası" (AT-AZ sütunları)
-      const pwDraws=drawsOverride||state.datedDraws||[];
-      if(!pwDraws.length)return generateNumbers(game,'random',freq,drawsOverride);
-      const pwNums0=pwDraws[0].nums||[];
-      const pwOff=[13,32,53,92,173,213,253];
+      // Excel AT-AZ: ABS(Mod(d0[pos]+offset, 90)) — G sütunu (pos4) atlanır
+      const pwD=drawsOverride||state.datedDraws||[];
+      if(!pwD.length)return generateNumbers(game,'random',freq,drawsOverride);
+      const pw0=pwD[0].nums||[];
+      // AT,AU,AV,AW,[G atla/pos4],AX,AY — ofsetler: 13,32,53,92,173,213
+      const pwIdxs=[0,1,2,3,5,6],pwOff=[13,32,53,92,173,213];
       const pwSet=new Set();const pwNums=[];
-      for(let i=0;i<Math.min(pwNums0.length,game.count+2);i++){
-        const r=((pwNums0[i]+pwOff[i%pwOff.length]-1)%game.max+game.max)%game.max+1;
-        if(!pwSet.has(r)){pwSet.add(r);pwNums.push(r);}
+      for(let k=0;k<pwIdxs.length;k++){
+        const n=pw0[pwIdxs[k]];if(n===undefined)continue;
+        const r=(n+pwOff[k])%game.max||game.max;
+        if(r>=1&&r<=game.max&&!pwSet.has(r)){pwSet.add(r);pwNums.push(r);}
       }
       while(pwNums.length<game.count){const n=rng(1,game.max);if(!pwSet.has(n)){pwSet.add(n);pwNums.push(n);}}
       mainNums=pwNums.slice(0,game.count).sort((a,b)=>a-b);
       bonusNums=smartBonus();
       break;}
     case 'skipadd':{
-      // (draws[0][i] + draws[2][i] + 14) mod max — Excel "Atlayan+14" (BS sütunu)
-      const saDraws=drawsOverride||state.datedDraws||[];
-      if(saDraws.length<3)return generateNumbers(game,'random',freq,drawsOverride);
-      const sa0=saDraws[0].nums||[],sa2=saDraws[2].nums||[];
+      // Excel BS-BY: çoklu formül grupları — d0+d2+14, d0+d1+30, sabit ofsetler
+      const saD=drawsOverride||state.datedDraws||[];
+      if(saD.length<2)return generateNumbers(game,'random',freq,drawsOverride);
+      const sa0=saD[0].nums||[],sa1=(saD[1]||{}).nums||[],sa2=(saD[2]||{}).nums||[];
+      const saLastDay=parseInt((saD[0].date||'').split('-')[2])||new Date().getDate();
+      const saDay=saLastDay+2;
       const saSet=new Set();const saNums=[];
-      for(let i=0;i<Math.min(sa0.length,sa2.length,game.count+2);i++){
-        const r=((sa0[i]+sa2[i]+14-1)%game.max+game.max)%game.max+1;
-        if(!saSet.has(r)){saSet.add(r);saNums.push(r);}
+      const saPush=r=>{if(r>=1&&r<=game.max&&!saSet.has(r)){saSet.add(r);saNums.push(r);}};
+      // BS: E(pos2) d0 + E(pos2) d2 + 14
+      if(sa2.length>2)saPush((sa0[2]+sa2[2]+14)%game.max||game.max);
+      // BU: F(pos3) d0 + F(pos3) d1 + 30
+      if(sa1.length>3)saPush((sa0[3]+sa1[3]+30)%game.max||game.max);
+      // BT: I(pos6) d0 + I(pos6) d1 + sonrakiGün
+      if(sa1.length>6)saPush((sa0[6]+sa1[6]+saDay)%game.max||game.max);
+      // BX: F(pos3) d0 + 39
+      if(sa0.length>3)saPush((sa0[3]+39)%game.max||game.max);
+      // BY: son pos d0 + 49
+      if(sa0.length>6)saPush((sa0[6]+49)%game.max||game.max);
+      // Kalan pozisyonlar için d0+d2+14 formülü
+      for(let i=0;i<Math.min(sa0.length,Math.max(sa2.length,1))&&saNums.length<game.count;i++){
+        saPush((sa0[i]+(sa2[i]||0)+14)%game.max||game.max);
       }
       while(saNums.length<game.count){const n=rng(1,game.max);if(!saSet.has(n)){saSet.add(n);saNums.push(n);}}
       mainNums=saNums.slice(0,game.count).sort((a,b)=>a-b);
