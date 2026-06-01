@@ -336,7 +336,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="card-title">Bilet Üret</div>
     <div class="filter-toggle" style="margin-bottom:8px">
       <input type="checkbox" id="genFilter3Chk" onchange="state.genDisplayFilter3=this.checked">
-      <label for="genFilter3Chk">Sadece 3+ eşleşme göster</label>
+      <label for="genFilter3Chk" id="genFilter3Label">Sadece 3+ eşleşme göster</label>
     </div>
     <div class="counter-row">
       <span class="counter-label">Bilet sayısı:</span>
@@ -1046,7 +1046,11 @@ function initAlgoGrid(){
     </div>`;
   }).join('')+'</div>';
 }
-function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); }
+function updateGenFilterLabel(){
+  const lbl=document.getElementById('genFilter3Label');
+  if(lbl)lbl.textContent=state.selectedGame==='onnumara'?'Sadece 6+ eşleşme göster':'Sadece 3+ eşleşme göster';
+}
+function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); updateGenFilterLabel(); }
 function selectAlgo(id){ state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid(); }
 function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCount+d)); document.getElementById('countVal').textContent=state.ticketCount; }
 function changeAnalysisWindow(val){
@@ -2038,7 +2042,8 @@ function generateTickets(){
     let tickets=ticketResults.map(r=>r.pred);
     let matchCounts=ticketResults.map(r=>r.m);
     if(displayFilterOn){
-      const filtered=tickets.map((t,i)=>({t,m:matchCounts[i]})).filter(x=>x.m===null||x.m>=3);
+      const minMatch=game.id==='onnumara'?6:3;
+      const filtered=tickets.map((t,i)=>({t,m:matchCounts[i]})).filter(x=>x.m===null||x.m>=minMatch);
       tickets=filtered.map(x=>x.t);
       matchCounts=filtered.map(x=>x.m);
     }
