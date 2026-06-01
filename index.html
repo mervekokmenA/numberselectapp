@@ -571,9 +571,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="tab-btn" onclick="switchNaTab('joker')">🎯 Sayısal Son Sayı Tahmini</button>
     </div>
     <div class="tab-panel active" id="naTab-transform">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
         <span style="font-size:.74rem;color:var(--text);font-weight:600">Kaynak çekiliş:</span>
         <select id="naDrawIdx" onchange="runNaTransform()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:.72rem;flex:1;min-width:0"></select>
+        <button onclick="stepNaDraw(-1)" title="Daha yeni" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
+        <button onclick="stepNaDraw(1)"  title="Daha eski"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
       </div>
       <div id="naTransformResult"><div class="empty-state"><span class="empty-icon">🔄</span>Veri yükleyin.</div></div>
     </div>
@@ -2770,12 +2772,21 @@ function _nextPrime(n){const ip=x=>{if(x<2)return false;for(let i=2;i*i<=x;i++)i
 function _factMod90(n){let f=1;for(let i=2;i<=Math.min(n,20);i++)f=(f*i)%90;return f||90;}
 const _FIBS=[1,1,2,3,5,8,13,21,34,55,89];
 
+function stepNaDraw(d){
+  const sel=document.getElementById('naDrawIdx');if(!sel)return;
+  const newIdx=Math.max(0,Math.min(sel.options.length-1,+sel.value+d));
+  sel.value=newIdx;runNaTransform();
+}
+
 function runNaTransform(){
   const draws=state.datedDraws;
   if(!draws.length)return;
   const idx=+(document.getElementById('naDrawIdx')?.value||0);
   const draw=draws[Math.min(idx,draws.length-1)];
   const nums=draw.nums||[];
+  // draws is newest-first, so idx-1 is the chronologically next draw
+  const nextDraw=idx>0?draws[idx-1]:null;
+  const nextSet=nextDraw?new Set([...(nextDraw.nums||[]),...(nextDraw.bonus||[])]):null;
   const game=getGame(state.selectedGame);
   const MAX=game.max;
   const mod=v=>((v%MAX)+MAX)%MAX||MAX;
@@ -2822,15 +2833,29 @@ function runNaTransform(){
   html+=draw.bonus?.length?` | <span style="color:var(--accent2)">${draw.bonus.join(' ')}</span>`:'';
   html+=` · <span style="color:var(--muted)">${TRANS.length} dönüşüm × ${nums.length} sayı</span></div>`;
 
+  // Next draw result banner
+  if(nextDraw){
+    const hitCount=top.filter(r=>nextSet.has(r.n)).length;
+    html+=`<div style="font-size:.71rem;padding:7px 11px;border-radius:7px;margin-bottom:10px;background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.25);display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
+    html+=`<span style="color:var(--green);font-weight:700">Sonraki çekiliş:</span>`;
+    html+=`<span style="color:var(--text)">${nextDraw.date} · `;
+    html+=(nextDraw.nums||[]).map(n=>`<strong style="color:${nextSet.has(n)?'var(--green)':'var(--text)'}">${n}</strong>`).join(' ');
+    if(nextDraw.bonus?.length) html+=` | `+(nextDraw.bonus||[]).map(n=>`<strong style="color:${nextSet.has(n)?'var(--green)':'var(--text)'}">${n}</strong>`).join(' ');
+    html+=`</span><span style="font-size:.65rem;color:var(--muted);margin-left:auto">${hitCount} tahmin tuttu</span></div>`;
+  }
+
   html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-bottom:14px">`;
   top.forEach(r=>{
     const pct=Math.round(r.v/maxVote*100);
-    const clr=r.v>=5?'var(--green)':r.v>=3?'var(--accent)':r.v>=2?'#ffd700':'var(--muted)';
-    const bg=r.v>=5?'rgba(0,230,118,.12)':r.v>=3?'rgba(108,99,255,.12)':r.v>=2?'rgba(255,215,0,.08)':'transparent';
-    const bc=r.v>=5?'rgba(0,230,118,.5)':r.v>=3?'rgba(108,99,255,.4)':r.v>=2?'rgba(255,215,0,.3)':'var(--border)';
-    html+=`<div style="background:${bg};border:1px solid ${bc};border-radius:8px;padding:9px 11px">`;
+    const hit=nextSet&&nextSet.has(r.n);
+    const clr=hit?'var(--green)':r.v>=5?'var(--green)':r.v>=3?'var(--accent)':r.v>=2?'#ffd700':'var(--muted)';
+    const bg=hit?'rgba(0,230,118,.18)':r.v>=5?'rgba(0,230,118,.12)':r.v>=3?'rgba(108,99,255,.12)':r.v>=2?'rgba(255,215,0,.08)':'transparent';
+    const bc=hit?'var(--green)':r.v>=5?'rgba(0,230,118,.5)':r.v>=3?'rgba(108,99,255,.4)':r.v>=2?'rgba(255,215,0,.3)':'var(--border)';
+    const bw=hit?'3px':'1px';
+    html+=`<div style="background:${bg};border:${bw} solid ${bc};border-radius:8px;padding:9px 11px${hit?';box-shadow:0 0 10px rgba(0,230,118,.25)':''}">`;
     html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">`;
     html+=`<span style="font-size:1.15rem;font-weight:800;color:${clr};min-width:28px">${r.n}</span>`;
+    if(hit) html+=`<span style="font-size:.62rem;font-weight:700;color:var(--green);background:rgba(0,230,118,.2);border-radius:4px;padding:1px 5px">✓ Tuttu</span>`;
     html+=`<div style="flex:1;background:var(--surface2);border-radius:3px;height:6px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${clr};border-radius:3px;transition:width .3s"></div></div>`;
     html+=`<span style="font-size:.63rem;font-weight:700;color:${clr};min-width:32px;text-align:right">${r.v} oy</span>`;
     html+=`</div>`;
