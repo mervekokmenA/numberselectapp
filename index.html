@@ -448,7 +448,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div class="filter-toggle">
       <input type="checkbox" id="btFilter5Chk" onchange="state.btFilter5=this.checked">
-      <label for="btFilter5Chk">Sadece 3+ eşleşme göster (otomatik tarama)</label>
+      <label for="btFilter5Chk" id="btFilter5Label">Sadece 3+ eşleşme göster (otomatik tarama)</label>
     </div>
     <div id="algoScorePanel"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -509,7 +509,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div class="filter-toggle">
       <input type="checkbox" id="btFilter5Chk2" onchange="state.btFilter5_2=this.checked">
-      <label for="btFilter5Chk2">Sadece 3+ eşleşme göster (otomatik tarama)</label>
+      <label for="btFilter5Chk2" id="btFilter5Label2">Sadece 3+ eşleşme göster (otomatik tarama)</label>
     </div>
     <div id="algoScorePanel2"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -1047,8 +1047,14 @@ function initAlgoGrid(){
   }).join('')+'</div>';
 }
 function updateGenFilterLabel(){
-  const lbl=document.getElementById('genFilter3Label');
-  if(lbl)lbl.textContent=state.selectedGame==='onnumara'?'Sadece 6+ eşleşme göster':'Sadece 3+ eşleşme göster';
+  const isOn=state.selectedGame==='onnumara';
+  const genLbl=document.getElementById('genFilter3Label');
+  if(genLbl)genLbl.textContent=isOn?'Sadece 6+ eşleşme göster':'Sadece 3+ eşleşme göster';
+  const btTxt=isOn?'Sadece 7+ eşleşme göster (otomatik tarama)':'Sadece 3+ eşleşme göster (otomatik tarama)';
+  const btLbl=document.getElementById('btFilter5Label');
+  if(btLbl)btLbl.textContent=btTxt;
+  const btLbl2=document.getElementById('btFilter5Label2');
+  if(btLbl2)btLbl2.textContent=btTxt;
 }
 function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); updateGenFilterLabel(); }
 function selectAlgo(id){ state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid(); }
@@ -2380,12 +2386,14 @@ function runBacktest2(){
         nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
       }
     }
-    if(!filterOn2||!actual||(mMain+mBonus)>=3) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
+    const minM2=game.id==='onnumara'?7:3;
+    if(!filterOn2||!actual||(mMain+mBonus)>=minM2) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
   }
   const rs=document.getElementById('btResultSection2'),rc=document.getElementById('btResultContent2');
   rs.style.display='block';
   if(filterOn2&&!results.length){
-    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada 3+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+    const minM2=game.id==='onnumara'?7:3;
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${minM2}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
     rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn2);
     const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
@@ -2482,12 +2490,14 @@ function runBacktest(){
         nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
       }
     }
-    if(!filterOn||!actual||(mMain+mBonus)>=3) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
+    const minM=game.id==='onnumara'?7:3;
+    if(!filterOn||!actual||(mMain+mBonus)>=minM) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
   }
   const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
   rs.style.display='block';
   if(filterOn&&!results.length){
-    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada 3+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+    const minM=game.id==='onnumara'?7:3;
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${minM}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
     rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn);
     const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
