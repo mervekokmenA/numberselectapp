@@ -346,6 +346,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="generate-btn" id="generateBtn" onclick="generateTickets()" style="flex:1">🎰 Şanslı Sayıları Üret</button>
       <span id="genRunCounter" style="display:none;font-size:.72rem;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
     </div>
+    <div class="filter-toggle" style="margin-top:8px">
+      <input type="checkbox" id="genFilter3Chk" onchange="state.genDisplayFilter3=this.checked">
+      <label for="genFilter3Chk">Sadece 3+ eşleşme göster</label>
+    </div>
   </div>
 
   <div class="card" id="ticketCard" style="display:none">
@@ -402,17 +406,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
   <!-- ── BT1 config (left col) ── -->
   <div class="card">
-    <div class="card-title">🔬 Test 1</div>
+    <div class="card-title">🔬 Geçmiş Test</div>
+    <div class="game-grid" id="btGameGrid" style="margin-bottom:10px"></div>
     <div class="bt-config" style="grid-template-columns:1fr">
-      <div class="form-group">
-        <label>Oyun</label>
-        <select id="btGame" onchange="state.selectedGame=this.value;initGameGrid();loadBtHistory()">
-          <option value="sayisal" selected>🔵 Sayısal Loto</option>
-          <option value="super">⭐ Süper Loto</option>
-          <option value="sans">🔴 Şans Topu</option>
-          <option value="onnumara">🟢 On Numara</option>
-        </select>
-      </div>
       <div class="form-group">
         <label>Test Tarihi</label>
         <div style="display:flex;gap:5px;align-items:center">
@@ -434,10 +430,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="sislcg">🎲 Sisal-LCG</option>
           <option value="star">🌟 Star</option>
           <option value="starv2">🌟 Star V2</option>
-          <option value="sumdiff">∑−7 Toplam Fark</option>
           <option value="dateshift">📅 Tarih Ofset</option>
           <option value="poswave">〰 Konum Dalgası</option>
-          <option value="skipadd">↔ Atlayan+14</option>
           <option value="excelblend">🔮 Excel Karması</option>
           <option value="fb10">🔟 FB10 Grup</option>
         </select>
@@ -497,10 +491,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
           <option value="sislcg">🎲 Sisal-LCG</option>
           <option value="star">🌟 Star</option>
           <option value="starv2">🌟 Star V2</option>
-          <option value="sumdiff">∑−7 Toplam Fark</option>
           <option value="dateshift">📅 Tarih Ofset</option>
           <option value="poswave">〰 Konum Dalgası</option>
-          <option value="skipadd">↔ Atlayan+14</option>
           <option value="excelblend">🔮 Excel Karması</option>
           <option value="fb10">🔟 FB10 Grup</option>
         </select>
@@ -592,10 +584,8 @@ const ALGOS = [
   { id:'star',        name:'🌟 Star',                  desc:'6 sinyal üst üste: üstel frekans · çift eş-görünüm · çok pencereli momentum · döngü zamanlaması · komşu ısısı · z-skoru — bölge dengeli seçim', expert:true },
   { id:'starv2',      name:'🌟 Star V2',               desc:'Star temeli + tam ağırlıklı eş-görünüm ağı (network centrality) · toplam hedefi düzeltmesi · artan çeşitlilik — devam eden geliştirme', expert:true },
   { id:'excelblend', name:'🔮 Excel Karması',           desc:'Dört Excel formülünün oylama sistemi: her formülün tahmin ettiği sayılar puanlanır, en çok oylanan sayılar seçilir — kendi formüllerinden türetilmiş karma', expert:true },
-  { id:'sumdiff',    name:'∑−7 Toplam Fark',          desc:'Son iki çekilişin aynı konumdaki sayıları toplanır ve 7 çıkarılır — Excel Toplam-7 formülü', expert:true },
   { id:'dateshift',  name:'📅 Tarih Ofset',            desc:'Ayın günü × 3 + 19 ofseti son çekiliş sayılarına uygulanır — Excel AL-AQ sütun formülü', expert:true },
   { id:'poswave',    name:'〰 Konum Dalgası',          desc:'Her konuma özel kademeli ofset: konum 1=+13, 2=+32, 3=+53... — Excel AT-AZ güç serisi', expert:true },
-  { id:'skipadd',    name:'↔ Atlayan+14',              desc:'Bir atlamalı iki çekilişin aynı konumdaki sayıları toplanır ve 14 eklenir — Excel BS sütun formülü', expert:true },
   { id:'fb10',       name:'🔟 FB10 Grup',              desc:'1-90 arası sayılar son rakama göre 10 gruba ayrılır. Tekler tekleri, çiftler çiftleri tetikler. Grup baskısı + pozisyon analizi + çapraz tetikleyici zinciri', expert:true },
 ];
 
@@ -971,7 +961,7 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:'sayisal', selectedAlgo:'balanced',
-  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, analysisWindow:999, pastDraws:[], frequency:{},
+  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, genDisplayFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -990,6 +980,16 @@ function initGameGrid(){
       <span class="game-range">${g.range}</span>
     </button>`).join('');
 }
+function initBtGameGrid(){
+  const el=document.getElementById('btGameGrid');if(!el)return;
+  el.innerHTML=GAMES.map(g=>`
+    <button class="game-btn ${g.id===state.selectedGame?'active':''}" onclick="selectBtGame('${g.id}')">
+      <span class="game-emoji">${g.emoji}</span>
+      <span class="game-name">${g.name}</span>
+      <span class="game-range">${g.range}</span>
+    </button>`).join('');
+}
+function selectBtGame(id){ state.selectedGame=id; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadBtHistory(); }
 function initAlgoGrid(){
   const scores=state.algoPositionScores[state.selectedGame];
   const analyzing=state.algoAnalysisGame===state.selectedGame;
@@ -1012,7 +1012,7 @@ function initAlgoGrid(){
     </div>`;
   }).join('')+'</div>';
 }
-function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); loadGenHistory(); }
+function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); }
 function selectAlgo(id){ state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid(); }
 function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCount+d)); document.getElementById('countVal').textContent=state.ticketCount; }
 function changeAnalysisWindow(val){
@@ -1283,7 +1283,7 @@ async function loadGenHistory(){
 }
 
 async function loadBtHistory(){
-  const id=document.getElementById('btGame').value;
+  const id=state.selectedGame;
   if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
   showToast('⏳ Güncel çekiliş kontrol ediliyor...');
   let fetched=false;
@@ -1798,20 +1798,6 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       mainNums=ebNums.sort((a,b)=>a-b);
       bonusNums=smartBonus();
       break;}
-    case 'sumdiff':{
-      // Excel M-S: Mod((d1[i]+d0[i])-7, 90) — her pozisyonda son 2 çekilişin toplamı -7
-      const sdD=drawsOverride||state.datedDraws||[];
-      if(sdD.length<2)return generateNumbers(game,'random',freq,drawsOverride);
-      const sd0=sdD[0].nums||[],sd1=sdD[1].nums||[];
-      const sdSet=new Set();const sdNums=[];
-      for(let i=0;i<Math.min(sd0.length,sd1.length);i++){
-        const r=(sd0[i]+sd1[i]-7+90)%game.max||game.max;
-        if(r>=1&&r<=game.max&&!sdSet.has(r)){sdSet.add(r);sdNums.push(r);}
-      }
-      while(sdNums.length<game.count){const n=rng(1,game.max);if(!sdSet.has(n)){sdSet.add(n);sdNums.push(n);}}
-      mainNums=sdNums.slice(0,game.count).sort((a,b)=>a-b);
-      bonusNums=smartBonus();
-      break;}
     case 'dateshift':{
       // Excel AL-AQ: ABS(Mod(d0[pos]+DAY*3+19, 90)) — D sütunu (pos1) atlanır
       const dsD=drawsOverride||state.datedDraws||[];
@@ -1847,33 +1833,6 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       }
       while(pwNums.length<game.count){const n=rng(1,game.max);if(!pwSet.has(n)){pwSet.add(n);pwNums.push(n);}}
       mainNums=pwNums.slice(0,game.count).sort((a,b)=>a-b);
-      bonusNums=smartBonus();
-      break;}
-    case 'skipadd':{
-      // Excel BS-BY: çoklu formül grupları — d0+d2+14, d0+d1+30, sabit ofsetler
-      const saD=drawsOverride||state.datedDraws||[];
-      if(saD.length<2)return generateNumbers(game,'random',freq,drawsOverride);
-      const sa0=saD[0].nums||[],sa1=(saD[1]||{}).nums||[],sa2=(saD[2]||{}).nums||[];
-      const saLastDay=parseInt((saD[0].date||'').split('-')[2])||new Date().getDate();
-      const saDay=saLastDay+2;
-      const saSet=new Set();const saNums=[];
-      const saPush=r=>{if(r>=1&&r<=game.max&&!saSet.has(r)){saSet.add(r);saNums.push(r);}};
-      // BS: E(pos2) d0 + E(pos2) d2 + 14
-      if(sa2.length>2)saPush((sa0[2]+sa2[2]+14)%game.max||game.max);
-      // BU: F(pos3) d0 + F(pos3) d1 + 30
-      if(sa1.length>3)saPush((sa0[3]+sa1[3]+30)%game.max||game.max);
-      // BT: I(pos6) d0 + I(pos6) d1 + sonrakiGün
-      if(sa1.length>6)saPush((sa0[6]+sa1[6]+saDay)%game.max||game.max);
-      // BX: F(pos3) d0 + 39
-      if(sa0.length>3)saPush((sa0[3]+39)%game.max||game.max);
-      // BY: son pos d0 + 49
-      if(sa0.length>6)saPush((sa0[6]+49)%game.max||game.max);
-      // Kalan pozisyonlar için d0+d2+14 formülü
-      for(let i=0;i<Math.min(sa0.length,Math.max(sa2.length,1))&&saNums.length<game.count;i++){
-        saPush((sa0[i]+(sa2[i]||0)+14)%game.max||game.max);
-      }
-      while(saNums.length<game.count){const n=rng(1,game.max);if(!saSet.has(n)){saSet.add(n);saNums.push(n);}}
-      mainNums=saNums.slice(0,game.count).sort((a,b)=>a-b);
       bonusNums=smartBonus();
       break;}
     case 'fb10':{
@@ -1969,7 +1928,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
 
 // ── Confidence ───────────────────────────────────────────────
 function calcConfidence(algo){
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,sumdiff:68,dateshift:65,poswave:67,skipadd:66,excelblend:78};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,dateshift:65,poswave:67,excelblend:78,fb10:70};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -1996,6 +1955,11 @@ function lpStart(text){
 function lpEnd(){if(_lpTimer){clearTimeout(_lpTimer);_lpTimer=null;}}
 
 function renderTicket(td,game,algoId,idx=0,matchCount=null){
+  if(matchCount===null&&state.datedDraws&&state.datedDraws.length>0){
+    const rd=state.datedDraws[0];
+    const aSet=new Set(rd.nums||[]);const aBSet=new Set(rd.bonus||[]);
+    matchCount=td.main.filter(x=>aSet.has(x)).length+td.bonus.filter(x=>aBSet.has(x)).length;
+  }
   let ballsHtml=td.main.map((n,i)=>ballEl(n,game.mainColor,i*70)).join('');
   if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>ballEl(n,game.bonusColor,(td.main.length+i)*70,true)).join('');
   const matchBadge=matchCount!==null?`<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:${matchCount>=3?'rgba(0,230,118,.15)':'rgba(255,255,255,.07)'};color:${matchCount>=3?'var(--green)':'var(--muted)'};flex-shrink:0;white-space:nowrap">${matchCount} eş</span>`:'';
@@ -2016,9 +1980,15 @@ function generateTickets(){
   btn.classList.add('spinning');btn.textContent='🎲 Sayılar çekiliyor...';
   setTimeout(()=>{
     const filterOn=!!state.btFilter5&&state.datedDraws.length>0;
-    const recentDraw=filterOn?state.datedDraws[0]:null;
+    const displayFilterOn=!!state.genDisplayFilter3&&state.datedDraws.length>0;
+    const recentDraw=state.datedDraws.length>0?state.datedDraws[0]:null;
     function tryGen(){
-      if(!filterOn||!recentDraw) return {pred:generateNumbers(game,state.selectedAlgo),m:null};
+      if(!filterOn||!recentDraw){
+        const pred=generateNumbers(game,state.selectedAlgo);
+        let m=null;
+        if(recentDraw){const aSet=new Set(recentDraw.nums);const aBSet=new Set(recentDraw.bonus||[]);m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;}
+        return {pred,m};
+      }
       const aSet=new Set(recentDraw.nums);
       const aBSet=new Set(recentDraw.bonus||[]);
       for(let t=0;t<50;t++){
@@ -2031,8 +2001,13 @@ function generateTickets(){
       return {pred,m};
     }
     const ticketResults=Array.from({length:state.ticketCount},tryGen);
-    const tickets=ticketResults.map(r=>r.pred);
-    const matchCounts=ticketResults.map(r=>r.m);
+    let tickets=ticketResults.map(r=>r.pred);
+    let matchCounts=ticketResults.map(r=>r.m);
+    if(displayFilterOn){
+      const filtered=tickets.map((t,i)=>({t,m:matchCounts[i]})).filter(x=>x.m===null||x.m>=3);
+      tickets=filtered.map(x=>x.t);
+      matchCounts=filtered.map(x=>x.m);
+    }
     state.lastTickets={tickets,game};
     const container=document.getElementById('ticketContainer');
     const label=state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti';
@@ -2218,10 +2193,10 @@ function updateBtDateOptions(){
   updateBtDateOptions2();
 }
 
-const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2',sumdiff:'∑−7 Fark',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',skipadd:'↔ Atlayan+14',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup'};
+const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup'};
 
 function updateAlgoScores(){
-  const gameId=document.getElementById('btGame').value;
+  const gameId=state.selectedGame;
   const testDate=document.getElementById('btDate').value;
   const win=document.getElementById('btWindow').value;
   const panel=document.getElementById('algoScorePanel');
@@ -2287,7 +2262,7 @@ function updateBtDateOptions2(){
 }
 
 function updateAlgoScores2(){
-  const gameId=document.getElementById('btGame').value;
+  const gameId=state.selectedGame;
   const testDate=document.getElementById('btDate2').value;
   const win=document.getElementById('btWindow2').value;
   const panel=document.getElementById('algoScorePanel2');
@@ -2337,7 +2312,7 @@ function updateAlgoScores2(){
 }
 
 function runBacktest2(){
-  const gameId=document.getElementById('btGame').value;
+  const gameId=state.selectedGame;
   const testDate=document.getElementById('btDate2').value;
   const algoId=state.btAlgo2||document.getElementById('btAlgo2').value;
   const win=document.getElementById('btWindow2').value;
@@ -2439,7 +2414,7 @@ function prizeTier(game,mMain,mBonus){
 }
 
 function runBacktest(){
-  const gameId=document.getElementById('btGame').value;
+  const gameId=state.selectedGame;
   const testDate=document.getElementById('btDate').value;
   const algoId=document.getElementById('btAlgo').value;
   const win=document.getElementById('btWindow').value;
@@ -2485,7 +2460,7 @@ function runBacktest(){
 
 function runForwardPrediction(){
   if(!state.datedDraws.length){showToast('⚠️ Önce gerçek verileri yükleyin');return;}
-  const gameId=document.getElementById('btGame').value;
+  const gameId=state.selectedGame;
   const algoId=document.getElementById('btAlgo').value;
   const game=getGame(gameId);
   const freq=buildFreq(state.datedDraws);
@@ -2711,7 +2686,7 @@ function showToast(msg){
 }
 
 // ── Boot ──────────────────────────────────────────────────────
-initGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();
 </script>
 </body>
 </html>
