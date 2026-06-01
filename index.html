@@ -580,11 +580,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <div id="naTransformResult"><div class="empty-state"><span class="empty-icon">🔄</span>Veri yükleyin.</div></div>
     </div>
     <div class="tab-panel" id="naTab-date">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
-        <span style="font-size:.74rem;color:var(--text);font-weight:600">Hedef oyun tarihi:</span>
-        <input type="date" id="naDateInput" oninput="runNaDate()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:.72rem">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+        <span style="font-size:.74rem;color:var(--text);font-weight:600">Oyun tarihi:</span>
+        <select id="naDateIdx" onchange="runNaDate()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:.72rem;flex:1;min-width:0"></select>
+        <button onclick="stepNaDate(-1)" title="Daha yeni" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
+        <button onclick="stepNaDate(1)"  title="Daha eski"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
       </div>
-      <div id="naDateResult"><div class="empty-state"><span class="empty-icon">📅</span>Tarih seçin.</div></div>
+      <div id="naDateResult"><div class="empty-state"><span class="empty-icon">📅</span>Veri yükleyin.</div></div>
     </div>
     <div class="tab-panel" id="naTab-joker">
       <div id="naJokerResult"><div class="empty-state"><span class="empty-icon">🎯</span>Veri yükleyin.</div></div>
@@ -2753,11 +2755,12 @@ function initNaSection(){
     ).join('');
   }
 
-  // Pre-fill date input: last draw + 2 days
-  const dateIn=document.getElementById('naDateInput');
-  if(dateIn&&!dateIn.value){
-    const nd=new Date(draws[0].date);nd.setDate(nd.getDate()+2);
-    dateIn.value=nd.toISOString().split('T')[0];
+  // Populate date draw selector
+  const dateSel=document.getElementById('naDateIdx');
+  if(dateSel){
+    dateSel.innerHTML=draws.slice(0,30).map((d,i)=>
+      `<option value="${i}">${d.date}  ${d.nums.join(' ')}${d.bonus?.length?' | '+d.bonus.join(' '):''}</option>`
+    ).join('');
   }
 
   if(_naTab==='transform')runNaTransform();
@@ -2776,6 +2779,11 @@ function stepNaDraw(d){
   const sel=document.getElementById('naDrawIdx');if(!sel)return;
   const newIdx=Math.max(0,Math.min(sel.options.length-1,+sel.value+d));
   sel.value=newIdx;runNaTransform();
+}
+function stepNaDate(d){
+  const sel=document.getElementById('naDateIdx');if(!sel)return;
+  const newIdx=Math.max(0,Math.min(sel.options.length-1,+sel.value+d));
+  sel.value=newIdx;runNaDate();
 }
 let _naHoldTimer=null;
 function naHoldStart(n){
@@ -2888,8 +2896,14 @@ function runNaTransform(){
 }
 
 function runNaDate(){
-  const dateStr=document.getElementById('naDateInput')?.value;
-  if(!dateStr){document.getElementById('naDateResult').innerHTML='<div style="color:var(--muted);font-size:.8rem">Tarih seçin.</div>';return;}
+  const draws=state.datedDraws;
+  const el=document.getElementById('naDateResult');
+  if(!draws.length){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Veri yükleyin.</div>';return;}
+  const idx=+(document.getElementById('naDateIdx')?.value||0);
+  const draw=draws[Math.min(idx,draws.length-1)];
+  const dateStr=draw.date;
+  // Actual result of this draw — used to highlight matched predictions
+  const actualSet=new Set([...(draw.nums||[]),...(draw.bonus||[])]);
   const parts=dateStr.split('-').map(Number);
   const year=parts[0],month=parts[1],day=parts[2];
   const game=getGame(state.selectedGame);
@@ -2954,25 +2968,35 @@ function runNaDate(){
   const maxVote=top[0]?.v||1;
 
   const dowNames=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
-  let html=`<div style="font-size:.72rem;color:var(--muted);margin-bottom:12px;display:flex;flex-wrap:wrap;gap:12px">`;
+  const hitCount=top.filter(r=>actualSet.has(r.n)).length;
+  let html=`<div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px">`;
   html+=`<span>Tarih: <strong style="color:var(--text)">${dateStr}</strong></span>`;
-  html+=`<span>Gün: <strong style="color:var(--text)">${day}</strong></span>`;
-  html+=`<span>Ay: <strong style="color:var(--text)">${month}</strong></span>`;
-  html+=`<span>Yıl: <strong style="color:var(--text)">${year}</strong></span>`;
-  html+=`<span>Hgün: <strong style="color:var(--text)">${dowNames[dow-1]||dow}</strong></span>`;
+  html+=`<span>Gün=<strong style="color:var(--text)">${day}</strong></span>`;
+  html+=`<span>Ay=<strong style="color:var(--text)">${month}</strong></span>`;
+  html+=`<span>Hgün=<strong style="color:var(--text)">${dowNames[dow-1]||dow}</strong></span>`;
   html+=`<span>Yılın ${doy}. günü</span>`;
-  html+=`<span>Tüm basamak toplamı: <strong style="color:var(--text)">${allDigSum}</strong></span>`;
+  html+=`<span>Basamak toplamı=<strong style="color:var(--text)">${allDigSum}</strong></span>`;
   html+=`</div>`;
 
-  html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px;margin-bottom:14px">`;
+  // Actual draw result banner
+  html+=`<div style="font-size:.71rem;padding:7px 11px;border-radius:7px;margin-bottom:10px;background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.25);display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
+  html+=`<span style="color:var(--green);font-weight:700">Gerçek çekiliş:</span>`;
+  html+=`<span style="color:var(--text)">`+(draw.nums||[]).map(n=>`<strong style="color:${actualSet.has(n)?'var(--green)':'var(--text)'}">${n}</strong>`).join(' ');
+  if(draw.bonus?.length) html+=` | `+(draw.bonus||[]).map(n=>`<strong style="color:var(--accent2)">${n}</strong>`).join(' ');
+  html+=`</span><span style="font-size:.65rem;color:var(--muted);margin-left:auto">${hitCount} tahmin tuttu</span></div>`;
+
+  html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px;margin-bottom:14px">`;
   top.forEach(r=>{
     const pct=Math.round(r.v/maxVote*100);
-    const clr=r.v>=4?'var(--green)':r.v>=3?'var(--accent)':r.v>=2?'#ffd700':'var(--muted)';
-    const bg=r.v>=4?'rgba(0,230,118,.12)':r.v>=3?'rgba(108,99,255,.12)':r.v>=2?'rgba(255,215,0,.08)':'transparent';
-    const bc=r.v>=4?'rgba(0,230,118,.5)':r.v>=3?'rgba(108,99,255,.4)':r.v>=2?'rgba(255,215,0,.3)':'var(--border)';
-    html+=`<div style="background:${bg};border:1px solid ${bc};border-radius:8px;padding:9px 11px">`;
+    const hit=actualSet.has(r.n);
+    const clr=hit?'var(--green)':r.v>=4?'var(--green)':r.v>=3?'var(--accent)':r.v>=2?'#ffd700':'var(--muted)';
+    const bg=hit?'rgba(0,230,118,.18)':r.v>=4?'rgba(0,230,118,.12)':r.v>=3?'rgba(108,99,255,.12)':r.v>=2?'rgba(255,215,0,.08)':'transparent';
+    const bc=hit?'var(--green)':r.v>=4?'rgba(0,230,118,.5)':r.v>=3?'rgba(108,99,255,.4)':r.v>=2?'rgba(255,215,0,.3)':'var(--border)';
+    const bw=hit?'3px':'1px';
+    html+=`<div style="background:${bg};border:${bw} solid ${bc};border-radius:8px;padding:9px 11px${hit?';box-shadow:0 0 10px rgba(0,230,118,.25)':''}">`;
     html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">`;
     html+=`<span style="font-size:1.15rem;font-weight:800;color:${clr};min-width:28px">${r.n}</span>`;
+    if(hit) html+=`<span style="font-size:.62rem;font-weight:700;color:var(--green);background:rgba(0,230,118,.2);border-radius:4px;padding:1px 5px">✓ Tuttu</span>`;
     html+=`<div style="flex:1;background:var(--surface2);border-radius:3px;height:5px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${clr};border-radius:3px"></div></div>`;
     html+=`<span style="font-size:.62rem;font-weight:700;color:${clr}">${r.v} oy</span>`;
     html+=`</div><div style="font-size:.6rem;color:var(--muted);line-height:1.5">`;
@@ -2992,7 +3016,7 @@ function runNaDate(){
   });
   html+=`</div></details>`;
 
-  document.getElementById('naDateResult').innerHTML=html;
+  el.innerHTML=html;
 }
 
 function runNaJoker(){
