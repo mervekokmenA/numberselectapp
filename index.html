@@ -3146,6 +3146,77 @@ function runNaJoker(){
   html+=`• <strong style="color:var(--text)">Pratik öneri:</strong> "En Uzun Süredir Çıkmayan" listesindeki ilk 3–5 sayıyı Süperstar tahmini olarak kullanmak istatistiksel açıdan en savunulabilir yaklaşım. Her çekilişin bağımsız olduğu unutulmamalıdır.`;
   html+=`</div></details>`;
 
+  // ── Geçmiş Tahmin Testi ──────────────────────────────────────
+  const btRows=[];
+  const btLimit=Math.min(20,draws.length-5);
+  for(let i=1;i<=btLimit;i++){
+    const priorDraws=draws.slice(i+1);
+    if(priorDraws.length<5)break;
+    const actual=draws[i].bonus?.[0];
+    if(!actual||actual<1||actual>MAX)continue;
+    const pJ=draws[i+1]?.bonus?.[0];
+    const pFreq={},pLastSeen={},pJokers=[];
+    priorDraws.forEach((d,k)=>{
+      const j=d.bonus?.[0];
+      if(!j||j<1||j>MAX)return;
+      pJokers.push(j);
+      pFreq[j]=(pFreq[j]||0)+1;
+      if(pLastSeen[j]===undefined)pLastSeen[j]=k;
+    });
+    for(let n=1;n<=MAX;n++){
+      if(pFreq[n]===undefined)pFreq[n]=0;
+      if(pLastSeen[n]===undefined)pLastSeen[n]=pJokers.length;
+    }
+    const pCold=Object.entries(pLastSeen).map(([n,g])=>({n:+n,g})).sort((a,b)=>b.g-a.g||a.n-b.n).slice(0,3).map(x=>x.n);
+    const pHot=Object.entries(pFreq).map(([n,f])=>({n:+n,f})).filter(x=>x.f>0).sort((a,b)=>b.f-a.f||a.n-b.n).slice(0,2).map(x=>x.n);
+    const pCands=new Set([...pCold,...pHot]);
+    if(pJ&&pJokers.length>2){
+      const deltas=[];
+      for(let k=0;k<pJokers.length-1;k++)deltas.push((pJokers[k]-pJokers[k+1]+MAX)%MAX);
+      const dfreq={};deltas.forEach(d=>{dfreq[d]=(dfreq[d]||0)+1;});
+      const topD=+Object.entries(dfreq).sort((a,b)=>b[1]-a[1])[0][0];
+      pCands.add((pJ+topD-1)%MAX+1);
+    }
+    btRows.push({date:draws[i].date,actual,cands:[...pCands],hit:pCands.has(actual)});
+  }
+  const btHits=btRows.filter(r=>r.hit).length;
+  const candCount=cands.size;
+
+  html+=`<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">`;
+  html+=`<div style="font-size:.67rem;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">📊 Geçmiş Tahmin Testi (Son ${btRows.length} Çekiliş)</div>`;
+  if(btRows.length){
+    const pct=(btHits/btRows.length*100).toFixed(1);
+    const expPct=(candCount/MAX*100).toFixed(1);
+    const isGood=btHits/btRows.length>candCount/MAX*1.1;
+    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
+    html+=`<span style="font-size:.9rem;font-weight:800;color:${isGood?'var(--green)':'var(--text)'}">${btHits}/${btRows.length}</span>`;
+    html+=`<span style="font-size:.71rem;color:var(--muted)">isabet · <strong style="color:var(--text)">${pct}%</strong> · Beklenen: ${expPct}% (${candCount} aday / ${MAX} sayı)</span>`;
+    html+=`<span style="font-size:.68rem;color:${isGood?'var(--green)':'var(--muted)'}">`;
+    html+=isGood?`✓ Beklentinin üzerinde`:`≈ Rassal beklentiye yakın`;
+    html+=`</span></div>`;
+
+    btRows.forEach(r=>{
+      const bg=r.hit?'rgba(0,230,118,.06)':'var(--surface2)';
+      html+=`<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;margin-bottom:4px;background:${bg}">`;
+      html+=`<span style="font-size:.61rem;color:var(--muted);min-width:56px;flex-shrink:0">${r.date}</span>`;
+      html+=`<span style="font-weight:800;font-size:.88rem;min-width:22px;text-align:center;color:${r.hit?'var(--green)':'var(--text)'}">${r.actual}</span>`;
+      html+=`<div style="flex:1;display:flex;gap:3px;flex-wrap:wrap">`;
+      r.cands.slice().sort((a,b)=>a-b).forEach(n=>{
+        const hit2=n===r.actual;
+        html+=`<span style="font-size:.6rem;padding:1px 5px;border-radius:4px;font-weight:${hit2?'800':'400'};`
+            +`background:${hit2?'rgba(0,230,118,.25)':'var(--surface1)'};`
+            +`color:${hit2?'var(--green)':'var(--muted)'};`
+            +`border:1px solid ${hit2?'rgba(0,230,118,.45)':'transparent'}">${n}</span>`;
+      });
+      html+=`</div>`;
+      html+=`<span style="font-size:.78rem;flex-shrink:0;color:${r.hit?'var(--green)':'var(--muted)'}">${r.hit?'✓':'✗'}</span>`;
+      html+=`</div>`;
+    });
+  } else {
+    html+=`<div style="font-size:.72rem;color:var(--muted)">Test için yeterli veri yok.</div>`;
+  }
+  html+=`</div>`;
+
   el.innerHTML=html;
 }
 
