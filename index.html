@@ -50,7 +50,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .card-title::before{content:'';display:inline-block;width:3px;height:14px;background:var(--accent);border-radius:2px}
 
 /* Game grid */
-.game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
+.game-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
 .game-btn{background:var(--surface2);border:2px solid var(--border);border-radius:12px;padding:12px 8px;cursor:pointer;transition:all .2s;text-align:center;color:var(--text)}
 .game-btn:hover{border-color:var(--accent);background:rgba(108,99,255,.1)}
 .game-btn.active{border-color:var(--accent);background:rgba(108,99,255,.2);box-shadow:0 0 20px rgba(108,99,255,.2)}
@@ -71,9 +71,9 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .algo-btn .algo-desc{font-size:.67rem;color:var(--muted);display:block;line-height:1.4;max-height:0;overflow:hidden;opacity:0;transition:max-height .2s,opacity .2s}
 .algo-btn:hover .algo-desc{max-height:60px;opacity:1}
 .expert-tag{display:inline-block;font-size:.65rem;font-weight:700;padding:2px 6px;border-radius:4px;background:linear-gradient(135deg,rgba(255,215,0,.25),rgba(255,165,0,.25));border:1px solid rgba(255,215,0,.5);color:#ffd700;margin-bottom:4px;letter-spacing:.03em}
-.algo-score-panel{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px;align-items:start}
-.algo-score-item{display:flex;align-items:flex-start;gap:4px;padding:5px 8px;border-radius:6px;font-size:.7rem;border:1px solid var(--border);background:var(--surface2);align-self:start}
-.algo-score-item .as-name{color:var(--muted)}.algo-score-item .as-val{font-weight:700;color:var(--text);min-width:22px;text-align:right}
+.algo-score-panel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px;align-items:start}
+.algo-score-item{display:flex;align-items:flex-start;gap:4px;padding:5px 8px;border-radius:6px;font-size:.7rem;border:1px solid var(--border);background:var(--surface2);align-self:start;min-width:0}
+.algo-score-item .as-name{color:var(--muted);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.algo-score-item .as-val{font-weight:700;color:var(--text);min-width:22px;text-align:right;flex-shrink:0}
 .algo-score-item.best{border-color:rgba(0,230,118,.5);background:rgba(0,230,118,.12)}.algo-score-item.best .as-val{color:var(--green)}
 .algo-score-item:active{opacity:.7}.algo-score-item.selected{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
 
@@ -292,6 +292,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   .bt-hist-date{display:none}
   .hot-cold-grid{grid-template-columns:1fr}
   .app{grid-template-columns:1fr}
+  .algo-score-panel{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 </style>
 </head>
@@ -561,7 +562,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 </div><!-- /page-backtest -->
 
 <!-- ═══════════ NEW: Tekli Sayı Bakımı ile Analiz ═══════════ -->
-<div style="grid-column:1/-1;margin-top:0" id="numAnalysisSection">
+<div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="numAnalysisSection">
   <div class="card">
     <div class="card-title">🔢 Tekli Sayı Bakımı ile Analiz</div>
     <div id="naDataInfo" style="font-size:.74rem;color:var(--muted);margin-bottom:12px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">⚠️ Analiz için önce "Gerçek Verileri Yükle" yapın.</div>
@@ -1040,8 +1041,8 @@ function initAlgoGrid(){
       posHtml=`<span style="font-size:.62rem;color:var(--muted)">⏳</span>`;
     }
     const hasPos=!!posHtml;
-    return `<div class="algo-score-item${a.id===state.selectedAlgo?' selected':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:flex-start;':''}" onclick="selectAlgo('${a.id}')">
-      <span class="as-name" style="flex:1;font-weight:${a.id===state.selectedAlgo?700:400}">${ALGO_SHORT[a.id]||a.name}</span>
+    return `<div class="algo-score-item${a.id===state.selectedAlgo?' selected':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:stretch;':''}" onclick="selectAlgo('${a.id}')">
+      <span class="as-name" style="flex:1;font-weight:${a.id===state.selectedAlgo?700:400};width:100%;min-width:0">${ALGO_SHORT[a.id]||a.name}</span>
       ${posHtml}
     </div>`;
   }).join('')+'</div>';
@@ -2013,7 +2014,7 @@ function renderTicket(td,game,algoId,idx=0,matchCount=null){
     ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()"
     onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()" oncontextmenu="return false">
     <span class="ticket-idx">#${idx+1}</span>
-    <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${ballsHtml}</div>
+    <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:wrap">${ballsHtml}</div>
     ${matchBadge}
   </div>`;
 }
@@ -2288,8 +2289,8 @@ function updateAlgoScores(){
 
     }
     const hasPos=!!posHtml;
-    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:flex-start;':''}" onclick="document.getElementById('btAlgo').value='${r.id}';selectAlgo('${r.id}');document.querySelectorAll('.algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
-      <div style="display:flex;align-items:center;gap:4px"><span class="as-name">${ALGO_SHORT[r.id]||r.id}</span><span class="as-val">${r.match}/${total}</span></div>
+    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:stretch;':''}" onclick="document.getElementById('btAlgo').value='${r.id}';selectAlgo('${r.id}');document.querySelectorAll('.algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
+      <div style="display:flex;align-items:center;gap:4px;min-width:0"><span class="as-name" style="min-width:0;width:100%">${ALGO_SHORT[r.id]||r.id}</span><span class="as-val" style="flex-shrink:0">${r.match}/${total}</span></div>
       ${posHtml}
     </div>`;
   }).join('')}</div>`;
@@ -2349,8 +2350,8 @@ function updateAlgoScores2(){
       }
     }
     const hasPos=!!posHtml;
-    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:flex-start;':''}" onclick="document.getElementById('btAlgo2').value='${r.id}';state.btAlgo2='${r.id}';document.querySelectorAll('#algoScorePanel2 .algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
-      <div style="display:flex;align-items:center;gap:4px"><span class="as-name">${ALGO_SHORT[r.id]||r.id}</span><span class="as-val">${r.match}/${total}</span></div>
+    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:stretch;':''}" onclick="document.getElementById('btAlgo2').value='${r.id}';state.btAlgo2='${r.id}';document.querySelectorAll('#algoScorePanel2 .algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
+      <div style="display:flex;align-items:center;gap:4px;min-width:0"><span class="as-name" style="min-width:0;width:100%">${ALGO_SHORT[r.id]||r.id}</span><span class="as-val" style="flex-shrink:0">${r.match}/${total}</span></div>
       ${posHtml}
     </div>`;
   }).join('')}</div>`;
@@ -2762,11 +2763,15 @@ function initNaSection(){
   }
   if(info)info.textContent=`✅ ${draws.length} çekiliş yüklü — son: ${draws[0].date} · ${draws[0].nums.join(' ')}${draws[0].bonus?.length?' | '+draws[0].bonus.join(' '):''}`;
 
+  const fmtOpt=(d)=>{
+    const ns=d.nums.slice(0,7).join(' ')+(d.nums.length>7?' …':'')+(d.bonus?.length?' | '+d.bonus.join(' '):'');
+    return `${d.date}  ${ns}`;
+  };
   // Populate draw selector
   const sel=document.getElementById('naDrawIdx');
   if(sel){
     sel.innerHTML=draws.slice(0,30).map((d,i)=>
-      `<option value="${i}">${d.date}  ${d.nums.join(' ')}${d.bonus?.length?' | '+d.bonus.join(' '):''}</option>`
+      `<option value="${i}">${fmtOpt(d)}</option>`
     ).join('');
   }
 
@@ -2774,7 +2779,7 @@ function initNaSection(){
   const dateSel=document.getElementById('naDateIdx');
   if(dateSel){
     dateSel.innerHTML=draws.slice(0,30).map((d,i)=>
-      `<option value="${i}">${d.date}  ${d.nums.join(' ')}${d.bonus?.length?' | '+d.bonus.join(' '):''}</option>`
+      `<option value="${i}">${fmtOpt(d)}</option>`
     ).join('');
   }
 
