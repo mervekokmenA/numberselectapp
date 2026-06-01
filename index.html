@@ -2777,6 +2777,16 @@ function stepNaDraw(d){
   const newIdx=Math.max(0,Math.min(sel.options.length-1,+sel.value+d));
   sel.value=newIdx;runNaTransform();
 }
+let _naHoldTimer=null;
+function naHoldStart(n){
+  naHoldEnd();
+  _naHoldTimer=setTimeout(()=>{
+    _naHoldTimer=null;
+    const el=document.getElementById('naCardSrcs-'+n);
+    if(el){el.style.display=el.style.display==='none'?'block':'none';}
+  },500);
+}
+function naHoldEnd(){if(_naHoldTimer){clearTimeout(_naHoldTimer);_naHoldTimer=null;}}
 
 function runNaTransform(){
   const draws=state.datedDraws;
@@ -2852,16 +2862,19 @@ function runNaTransform(){
     const bg=hit?'rgba(0,230,118,.18)':r.v>=5?'rgba(0,230,118,.12)':r.v>=3?'rgba(108,99,255,.12)':r.v>=2?'rgba(255,215,0,.08)':'transparent';
     const bc=hit?'var(--green)':r.v>=5?'rgba(0,230,118,.5)':r.v>=3?'rgba(108,99,255,.4)':r.v>=2?'rgba(255,215,0,.3)':'var(--border)';
     const bw=hit?'3px':'1px';
-    html+=`<div style="background:${bg};border:${bw} solid ${bc};border-radius:8px;padding:9px 11px${hit?';box-shadow:0 0 10px rgba(0,230,118,.25)':''}">`;
+    html+=`<div style="background:${bg};border:${bw} solid ${bc};border-radius:8px;padding:9px 11px${hit?';box-shadow:0 0 10px rgba(0,230,118,.25)':''};cursor:pointer;user-select:none;-webkit-user-select:none"
+      onpointerdown="naHoldStart(${r.n},event)" onpointerup="naHoldEnd()" onpointerleave="naHoldEnd()" oncontextmenu="return false">`;
     html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">`;
     html+=`<span style="font-size:1.15rem;font-weight:800;color:${clr};min-width:28px">${r.n}</span>`;
     if(hit) html+=`<span style="font-size:.62rem;font-weight:700;color:var(--green);background:rgba(0,230,118,.2);border-radius:4px;padding:1px 5px">✓ Tuttu</span>`;
     html+=`<div style="flex:1;background:var(--surface2);border-radius:3px;height:6px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${clr};border-radius:3px;transition:width .3s"></div></div>`;
     html+=`<span style="font-size:.63rem;font-weight:700;color:${clr};min-width:32px;text-align:right">${r.v} oy</span>`;
     html+=`</div>`;
-    html+=`<div style="font-size:.6rem;color:var(--muted);line-height:1.5">`;
+    html+=`<div id="naCardSrcs-${r.n}" style="display:none;font-size:.6rem;color:var(--muted);line-height:1.5">`;
     r.srcs.forEach(s=>{ html+=`<span style="display:inline-block;background:var(--surface);border-radius:3px;padding:1px 4px;margin:1px;border:1px solid var(--border);white-space:nowrap">${s.from}→${s.via}</span>`; });
-    html+=`</div></div>`;
+    html+=`</div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);opacity:.4;text-align:right;margin-top:2px">⋯ basılı tut</div>`;
+    html+=`</div>`;
   });
   html+=`</div>`;
 
