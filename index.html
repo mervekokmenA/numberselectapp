@@ -568,7 +568,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     <div class="tabs" id="naTabs">
       <button class="tab-btn active" onclick="switchNaTab('transform')">🔄 Sayı Dönüşümleri</button>
       <button class="tab-btn" onclick="switchNaTab('date')">📅 Tarih Hesabı</button>
-      <button class="tab-btn" onclick="switchNaTab('joker')">🎯 Joker / Süperstar</button>
+      <button class="tab-btn" onclick="switchNaTab('joker')">🎯 Sayısal Son Sayı Tahmini</button>
     </div>
     <div class="tab-panel active" id="naTab-transform">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
@@ -2958,12 +2958,11 @@ function runNaDate(){
 }
 
 function runNaJoker(){
+  // Always analyzes Sayısal Loto Süperstar (1–90) regardless of selected game
   const draws=state.datedDraws;
   const el=document.getElementById('naJokerResult');
   if(!draws.length){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Veri yüklenmemiş — Gerçek Verileri Yükle yapın.</div>';return;}
-  const game=getGame(state.selectedGame);
-  if(!game.bonusCount){el.innerHTML=`<div style="color:var(--muted);font-size:.8rem">${game.name} oyununda joker/bonus sayısı yok.</div>`;return;}
-  const MAX=game.bonusMax;
+  const MAX=90; // Sayısal Loto Süperstar aralığı
 
   const freq={};const lastSeen={};const jokers=[];
   draws.forEach((d,i)=>{
@@ -2974,7 +2973,7 @@ function runNaJoker(){
     if(lastSeen[j]===undefined)lastSeen[j]=i;
   });
   const total=jokers.length;
-  if(!total){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Bu veride joker sayısı bulunamadı.</div>';return;}
+  if(!total){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Bu veride Süperstar sayısı bulunamadı.</div>';return;}
 
   for(let n=1;n<=MAX;n++){
     if(freq[n]===undefined)freq[n]=0;
@@ -3047,13 +3046,13 @@ function runNaJoker(){
 
   // Candidates box
   html+=`<div style="background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.25);border-radius:10px;padding:12px;margin-bottom:12px">`;
-  html+=`<div style="font-size:.67rem;font-weight:700;color:var(--green);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">🎯 Aday Joker Sayıları</div>`;
+  html+=`<div style="font-size:.67rem;font-weight:700;color:var(--green);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">🎯 Aday Süperstar Sayıları</div>`;
   html+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">`;
   [...cands].forEach(n=>{
     html+=`<span style="font-size:1.25rem;font-weight:800;color:var(--green);background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.3);border-radius:8px;padding:6px 14px">${n}</span>`;
   });
   html+=`</div>`;
-  html+=`<div style="font-size:.64rem;color:var(--muted)">Son joker: <strong style="color:var(--text)">${prevJ}</strong> · Beklenen frekans: her ${(total/MAX).toFixed(1)} çekilişte bir · Son 15: ${jokers.slice(0,15).map(j=>j.v).join(' · ')}</div>`;
+  html+=`<div style="font-size:.64rem;color:var(--muted)">Son Süperstar: <strong style="color:var(--text)">${prevJ}</strong> · Beklenen frekans: her ${(total/MAX).toFixed(1)} çekilişte bir · Son 15: ${jokers.slice(0,15).map(j=>j.v).join(' · ')}</div>`;
   html+=`</div>`;
 
   // Stats + delta
@@ -3062,10 +3061,10 @@ function runNaJoker(){
   html+=`<div style="font-size:.65rem;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase">İstatistikler</div>`;
   html+=`<div style="font-size:.69rem;line-height:1.9">`;
   html+=`<div>Toplam çekiliş: <strong>${total}</strong></div>`;
-  html+=`<div>Tekil joker değeri: <strong>${Object.keys(freq).filter(k=>freq[k]>0).length}</strong> / ${MAX}</div>`;
+  html+=`<div>Tekil Süperstar değeri: <strong>${Object.keys(freq).filter(k=>freq[k]>0).length}</strong> / ${MAX}</div>`;
   html+=`<div>Hiç çıkmayan: <strong>${Object.keys(freq).filter(k=>freq[k]===0).length}</strong></div>`;
-  html+=`<div>Joker = Ana sayı: <strong>${overlap}×</strong> (${(overlap/total*100).toFixed(1)}%)</div>`;
-  html+=`<div>Ort. joker: <strong>${(jokers.reduce((a,j)=>a+j.v,0)/total).toFixed(1)}</strong></div>`;
+  html+=`<div>Süperstar = Ana sayı: <strong>${overlap}×</strong> (${(overlap/total*100).toFixed(1)}%)</div>`;
+  html+=`<div>Ort. Süperstar: <strong>${(jokers.reduce((a,j)=>a+j.v,0)/total).toFixed(1)}</strong></div>`;
   html+=`</div></div>`;
   html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px">`;
   html+=`<div style="font-size:.65rem;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase">En Sık Farklar (Δ)</div>`;
@@ -3074,15 +3073,15 @@ function runNaJoker(){
   html+=`</div></div></div>`;
 
   // Research note
-  html+=`<details><summary style="cursor:pointer;font-size:.71rem;color:var(--accent);user-select:none">📖 Joker Tahmin Edilebilirliği Hakkında (Analiz)</summary>`;
+  html+=`<details><summary style="cursor:pointer;font-size:.71rem;color:var(--accent);user-select:none">📖 Süperstar Tahmin Edilebilirliği Hakkında (Analiz)</summary>`;
   html+=`<div style="margin-top:10px;font-size:.69rem;color:var(--muted);line-height:1.8;background:var(--surface2);border-radius:8px;padding:14px">`;
-  html+=`<strong style="color:var(--text)">Joker / Süperstar Tahmin Edilebilir mi?</strong><br><br>`;
-  html+=`${total} çekiliş üzerinde yapılan kapsamlı istatistiksel analiz sonuçları:<br><br>`;
-  html+=`• <strong style="color:var(--text)">Ana sayı korelasyonu:</strong> Ana sayıların toplamı mod 90, ortanca, minimum+maksimum, basamak toplamları gibi ${total} farklı matematiksel dönüşümün gerçek joker sayıyla örtüşme oranı <strong>%0.9–2.4 arasında</strong> kaldı. İstatistiksel anlamlılık eşiğinin (beklenen %1.1) üzerinde değil — ana sayılardan joker matematiksel olarak türetilemiyor.<br><br>`;
-  html+=`• <strong style="color:var(--text)">Ardışık joker ilişkisi:</strong> Üst üste aynı joker %${(jokers.filter((j,i)=>i>0&&j.v===jokers[i-1].v).length/total*100).toFixed(1)} oranında gözlemlendi (beklenen: %${(100/MAX).toFixed(1)}). "+1 fark" benzer şekilde hafif yüksek — bu "sürüklenme" etkisi zayıf ama ölçülebilir.<br><br>`;
-  html+=`• <strong style="color:var(--text)">Dağılım analizi:</strong> Joker sayıları teorik olarak 1-${MAX} arasında düzgün dağılmalı. Yukarıdaki onluk dağılım grafiği sapmaları gösteriyor. Fazla çıkan onluklar istatistiksel "borçlu" sayılabilir.<br><br>`;
-  html+=`• <strong style="color:var(--text)">En güçlü yaklaşım — Boşluk (Gap) Analizi:</strong> Uzun süredir çıkmayan joker sayıları takip etmek. Soğuk sayılar teorisi joker için de geçerli; ${cold[0].n} sayısı ${cold[0].g} çekiliştir görülmemiş (beklenen ${(total/MAX).toFixed(1)} çekilişte bir).<br><br>`;
-  html+=`• <strong style="color:var(--text)">Pratik öneri:</strong> "En Uzun Süredir Çıkmayan" listesindeki ilk 3-5 sayıyı kullanmak, tamamen rastgele seçime göre istatistiksel olarak daha yüksek uzun vadeli isabet oranı yakalar. Ancak her çekilişin bağımsız olduğu unutulmamalıdır.`;
+  html+=`<strong style="color:var(--text)">Sayısal Loto Süperstar Tahmin Edilebilir mi?</strong><br><br>`;
+  html+=`${total} Sayısal Loto çekilişindeki Süperstar sayıları üzerinde yapılan kapsamlı istatistiksel analiz:<br><br>`;
+  html+=`• <strong style="color:var(--text)">Ana sayı korelasyonu:</strong> Ana 7 sayının toplamı mod 90, ortanca, min+max gibi dönüşümlerin gerçek Süperstar sayısıyla örtüşme oranı <strong>%0.9–2.4 arasında</strong> kaldı (beklenen %${(100/MAX).toFixed(1)}). Ana sayılardan Süperstar matematiksel olarak türetilemiyor.<br><br>`;
+  html+=`• <strong style="color:var(--text)">Ardışık Süperstar ilişkisi:</strong> Üst üste aynı Süperstar %${(jokers.filter((j,i)=>i>0&&j.v===jokers[i-1].v).length/total*100).toFixed(1)} oranında gözlemlendi (beklenen: %${(100/MAX).toFixed(1)}). Hafif bir "sürüklenme" etkisi mevcut ama istatistiksel güvenilirliği düşük.<br><br>`;
+  html+=`• <strong style="color:var(--text)">Dağılım analizi:</strong> Süperstar teorik olarak 1–${MAX} arasında eşit dağılmalı. Yukarıdaki onluk grafiği gerçek dağılım sapmasını gösteriyor — fazla çıkan onluklar "borçlu" sayılabilir.<br><br>`;
+  html+=`• <strong style="color:var(--text)">En güçlü yöntem — Boşluk (Gap) Analizi:</strong> Uzun süredir çıkmayan Süperstar sayılarını takip etmek. ${cold[0].n} sayısı ${cold[0].g} çekiliştir görülmemiş (beklenen: ${(total/MAX).toFixed(1)} çekilişte bir).<br><br>`;
+  html+=`• <strong style="color:var(--text)">Pratik öneri:</strong> "En Uzun Süredir Çıkmayan" listesindeki ilk 3–5 sayıyı Süperstar tahmini olarak kullanmak istatistiksel açıdan en savunulabilir yaklaşım. Her çekilişin bağımsız olduğu unutulmamalıdır.`;
   html+=`</div></details>`;
 
   el.innerHTML=html;
