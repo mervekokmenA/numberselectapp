@@ -2634,7 +2634,11 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,fil
       return staticBall(n,game.bonusColor+' special',cls,BSZ);
     }).join(''):'';
     const scoreLabel=actual?`${score}/${total}${r.nearTotal>0?` +${r.nearTotal}≈`:''}`:'-';
-    return `<div class="ticket" style="${i>0?'margin-top:6px;':''}${isBest?'border-color:rgba(0,230,118,.4);background:rgba(0,230,118,.05);':''}">
+    const copyText=r.pred.main.join(' ')+(r.pred.bonus.length?' | '+r.pred.bonus.join(' '):'');
+    const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<div class="ticket" style="${i>0?'margin-top:6px;':''}${isBest?'border-color:rgba(0,230,118,.4);background:rgba(0,230,118,.05);':''}cursor:pointer;user-select:none;-webkit-user-select:none"
+      ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()"
+      onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()" oncontextmenu="return false">
       <span class="ticket-idx">#${i+1}${isBest?'<br><span style="color:var(--green);font-size:.6rem">★</span>':''}</span>
       <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${ballsHtml}${bonusHtml}</div>
       <div class="ticket-score" style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
