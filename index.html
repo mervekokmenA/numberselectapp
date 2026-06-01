@@ -1985,11 +1985,25 @@ function staticBall(num,colorCls,extra='',sz=''){
 }
 
 // ── Render ticket ─────────────────────────────────────────────
+let _lpTimer=null;
+function lpStart(text){
+  lpEnd();
+  _lpTimer=setTimeout(()=>{
+    _lpTimer=null;
+    copyNums(text);
+  },600);
+}
+function lpEnd(){if(_lpTimer){clearTimeout(_lpTimer);_lpTimer=null;}}
+
 function renderTicket(td,game,algoId,idx=0,matchCount=null){
   let ballsHtml=td.main.map((n,i)=>ballEl(n,game.mainColor,i*70)).join('');
   if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>ballEl(n,game.bonusColor,(td.main.length+i)*70,true)).join('');
   const matchBadge=matchCount!==null?`<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:${matchCount>=3?'rgba(0,230,118,.15)':'rgba(255,255,255,.07)'};color:${matchCount>=3?'var(--green)':'var(--muted)'};flex-shrink:0;white-space:nowrap">${matchCount} eş</span>`:'';
-  return `<div class="ticket" style="${idx>0?'margin-top:6px;':''}--ball-size:${mobileBSZ()}">
+  const copyText=td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
+  const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return `<div class="ticket" style="${idx>0?'margin-top:6px;':''}--ball-size:${mobileBSZ()};cursor:pointer;user-select:none;-webkit-user-select:none"
+    ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()"
+    onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()" oncontextmenu="return false">
     <span class="ticket-idx">#${idx+1}</span>
     <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${ballsHtml}</div>
     ${matchBadge}
@@ -2351,14 +2365,14 @@ function runBacktest2(){
         nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
       }
     }
-    if(!filterOn2||!actual||(mMain+mBonus)>=3) results.push({pred,mMain,mBonus,nearTotal});
+    if(!filterOn2||!actual||(mMain+mBonus)>=3) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
   }
   const rs=document.getElementById('btResultSection2'),rc=document.getElementById('btResultContent2');
   rs.style.display='block';
   if(filterOn2&&!results.length){
     rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada 3+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
-    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length);
+    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn2);
     const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
     const total=best.pred.main.length+best.pred.bonus.length;
     state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
@@ -2453,14 +2467,14 @@ function runBacktest(){
         nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
       }
     }
-    if(!filterOn||!actual||(mMain+mBonus)>=3) results.push({pred,mMain,mBonus,nearTotal});
+    if(!filterOn||!actual||(mMain+mBonus)>=3) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
   }
   const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
   rs.style.display='block';
   if(filterOn&&!results.length){
     rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada 3+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
-    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length);
+    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn);
     const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
     const total=best.pred.main.length+best.pred.bonus.length;
     state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
@@ -2595,7 +2609,7 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId
   </div>`;
 }
 
-function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
+function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,filterOn=false){
   const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
   const total=results[0].pred.main.length+results[0].pred.bonus.length;
   const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
@@ -2651,6 +2665,7 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount){
       <div class="ticket-score" style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
         ${conf?`<span style="font-size:.68rem;font-weight:700;color:${conf>=70?'var(--green)':conf>=50?'var(--accent)':'var(--muted)'}">Güven: ${conf}%</span>`:''}
         <span style="font-size:.72rem;font-weight:700;color:${actual?(score>=3?'var(--green)':score>=1?'var(--accent)':'var(--muted)'):'var(--muted)'}">${scoreLabel}</span>
+        ${r.tryNum?`<span style="font-size:.58rem;color:var(--muted);white-space:nowrap" title="Canlı üretimde bu bilet ${r.tryNum}. denemede gelirdi">${filterOn?`🎲 ${r.tryNum}. deneme`:`#${r.tryNum}`}</span>`:''}
       </div>
     </div>`;
   }).join('');
