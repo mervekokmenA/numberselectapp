@@ -1485,21 +1485,25 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
     case 'hot':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       const hDraws=drawsOverride||state.pastDraws||[];
-      const hewf=buildEWF(hDraws,game.max,0.75);
+      const hIsSuper=game.id==='super';
+      const hewf=buildEWF(hDraws,game.max,hIsSuper?0.60:0.75);
       const hN=hDraws.length;
       const hGN=d=>Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])];
       const hR1=new Set(hN>0?hGN(hDraws[hN-1]):[]);
       const hR2=new Set(hN>1?hGN(hDraws[hN-2]):[]);
-      // Base weights: EWF + recent penalty
-      const hW=pool.map(n=>{let w=Math.max(.1,hewf[n]||.1);if(hR1.has(n))w*=.25;else if(hR2.has(n))w*=.55;return w;});
-      // Zone-biased selection
+      // cbrt flattening for super reduces hot-number dominance
+      const hFW=n=>hIsSuper?Math.cbrt(Math.max(.1,hewf[n]||.1)):Math.max(.1,hewf[n]||.1);
+      const hP1=hIsSuper?.30:.25,hP2=hIsSuper?.60:.55;
+      const hW=pool.map(n=>{let w=hFW(n);if(hR1.has(n))w*=hP1;else if(hR2.has(n))w*=hP2;return w;});
+      // Zone-biased selection; weaker for super to allow natural clustering
       const hBN=game.count,hBSz=game.max/hBN;
       const hBOf=n=>Math.min(hBN-1,Math.floor((n-1)/hBSz));
+      const hZM=hIsSuper?1.5:3;
       const hBSel=new Set(),hSel=[],hUsed=new Set();let hAtt=0;
       const hRem=pool.map((n,i)=>({n,w:hW[i]}));
       while(hSel.length<game.count&&hAtt<400){
         hAtt++;
-        const hWs=hRem.map(s=>s.w*(hBSel.has(hBOf(s.n))?1:3));
+        const hWs=hRem.map(s=>s.w*(hBSel.has(hBOf(s.n))?1:hZM));
         const hWsS=hWs.reduce((a,b)=>a+b,0);
         let hr=Math.random()*hWsS,hpk=hRem[hRem.length-1];
         for(let bi=0;bi<hRem.length;bi++){hr-=hWs[bi];if(hr<=0){hpk=hRem[bi];break;}}
@@ -1531,7 +1535,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
     case 'cold':{
       if(!hasHist)return generateNumbers(game,'random',freq);
       const cDraws=drawsOverride||state.pastDraws||[];
-      const cewf=cDraws.length?buildEWF(cDraws,game.max,0.80):freq;
+      const cewf=cDraws.length?buildEWF(cDraws,game.max,game.id==='super'?0.65:0.80):freq;
       const cmx=Math.max(...pool.map(n=>cewf[n]||0),1);
       mainNums=pickUnique(pool,game.count,pool.map(n=>Math.max(.1,cmx-(cewf[n]||0)+.5)));
       if(bonusPool.length){const cbmx=Math.max(...bonusPool.map(n=>cewf[n]||0),1);bonusNums=pickUnique(bonusPool,game.bonusCount,bonusPool.map(n=>Math.max(.1,cbmx-(cewf[n]||0)+.5)));}
@@ -1539,7 +1543,8 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
     case 'balanced':{
       if(!hasHist)return generateNumbers(game,'random',freq);
       const bDraws=drawsOverride||state.pastDraws||[];
-      const bewf=bDraws.length?buildEWF(bDraws,game.max,0.75):freq;
+      const bIsSuper=game.id==='super';
+      const bewf=bDraws.length?buildEWF(bDraws,game.max,bIsSuper?0.60:0.75):freq;
       // Zone-aware selection: divide range into game.count bands
       const bN=game.count;const bSz=game.max/bN;
       const bOf=n=>Math.min(bN-1,Math.floor((n-1)/bSz));
@@ -1548,19 +1553,23 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const bBN=bDraws.length;
       const bR1=new Set(bBN>0?bGN(bDraws[bBN-1]):[]);
       const bR2=new Set(bBN>1?bGN(bDraws[bBN-2]):[]);
-      const bScores=pool.map(n=>({n,w:Math.max(0.1,(bewf[n]||0.1)*(bR1.has(n)?0.25:bR2.has(n)?0.55:1))}));
+      // cbrt flattening for super; lighter penalty for super
+      const bFW=n=>bIsSuper?Math.cbrt(Math.max(.1,bewf[n]||.1)):Math.max(.1,bewf[n]||.1);
+      const bP1=bIsSuper?.30:.25,bP2=bIsSuper?.60:.55;
+      const bScores=pool.map(n=>({n,w:bFW(n)*(bR1.has(n)?bP1:bR2.has(n)?bP2:1)}));
       // Historical sum target (30th-70th percentile)
       let btLo=0,btHi=Infinity;
       if(bDraws.length>=5){
         const ss=bDraws.map(d=>bGN(d).slice(0,game.count).reduce((s,x)=>s+x,0)).filter(s=>s>0).sort((a,b)=>a-b);
         btLo=ss[Math.floor(ss.length*.30)];btHi=ss[Math.floor(ss.length*.70)];
       }
-      // Zone-biased weighted sampling
+      // Zone-biased weighted sampling; weaker for super
+      const bZM=bIsSuper?1.5:3;
       const bBSel=new Set();const bSel=[],bUsed=new Set();let bAtt=0;
       const bRem=[...bScores];
       while(bSel.length<game.count&&bAtt<300){
         bAtt++;
-        const bws=bRem.map(s=>s.w*(bBSel.has(bOf(s.n))?1:3));
+        const bws=bRem.map(s=>s.w*(bBSel.has(bOf(s.n))?1:bZM));
         const bwsS=bws.reduce((a,b)=>a+b,0);
         let br=Math.random()*bwsS,bpk=bRem[bRem.length-1];
         for(let bi=0;bi<bRem.length;bi++){br-=bws[bi];if(br<=0){bpk=bRem[bi];break;}}
@@ -1612,7 +1621,8 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
     case 'entropy':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       const eDraws=drawsOverride||state.pastDraws||[];
-      const eEwf=eDraws.length?buildEWF(eDraws,game.max,0.75):freq;
+      const eIsSuper=game.id==='super';
+      const eEwf=eDraws.length?buildEWF(eDraws,game.max,eIsSuper?0.60:0.75):freq;
       const totalF=Object.values(eEwf).reduce((s,v)=>s+v,0);
       const avgF=totalF/pool.length;
       const sortedByF=[...pool].sort((a,b)=>(eEwf[a]||0)-(eEwf[b]||0));
@@ -1621,11 +1631,11 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const mid=sortedByF.slice(cutLow,cutHigh);
       // Randomized: weight by closeness to average frequency (not deterministic!)
       const midW=mid.map(n=>1/(Math.abs((eEwf[n]||0)-avgF)+0.5));
-      // Recent penalty
+      // Recent penalty; lighter for super
       const eN=eDraws.length;
       const eRecSet=new Set();
       [0,1].forEach(k=>{if(k<eN){const d=eDraws[eN-1-k];(Array.isArray(d)?d:(d.nums||[])).forEach(n=>eRecSet.add(n));}});
-      const eFinalW=mid.map((n,i)=>midW[i]*(eRecSet.has(n)?0.3:1));
+      const eFinalW=mid.map((n,i)=>midW[i]*(eRecSet.has(n)?(eIsSuper?0.45:0.3):1));
       mainNums=pickUnique(mid,game.count,eFinalW).sort((a,b)=>a-b);
       bonusNums=smartBonus();
       break;}
@@ -1667,9 +1677,9 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         const arr=[...picked].sort((a,b)=>a-b);
         const sum=arr.reduce((s,n)=>s+n,0);
         const sumPen=(sum<sTLo||sum>sTHi)?Math.abs(sum-sTMid)*2:Math.abs(sum-sTMid)*.5;
-        // Zone coverage penalty (fewer bands covered = worse)
+        // Zone coverage penalty; reduced for super to allow natural clustering
         const covered=new Set(arr.map(n=>sBands.findIndex(b=>n>=b.lo&&n<=b.hi)));
-        const zonePen=(game.count-covered.size)*15;
+        const zonePen=(game.count-covered.size)*(game.id==='super'?6:15);
         const score=sumPen+zonePen;
         if(score<sBestScore){sBestScore=score;sBest=arr;}
       }
@@ -1819,8 +1829,9 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const sv2T=sv2D.length;if(sv2T<5)return generateNumbers(game,'hot',freq,drawsOverride);
       const sv2MAX=game.max,sv2N=game.count;
       const gN=d=>(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=sv2MAX);
-      // Strong recency: λ=0.80 (empirically best for short-term patterns)
-      const λ=0.80;
+      const sv2IsSuper=game.id==='super';
+      // λ=0.70 for super (flatter), 0.80 for others
+      const λ=sv2IsSuper?0.70:0.80;
       // EWF with strong decay
       const ewf={};sv2D.forEach((d,i)=>{const w=Math.pow(λ,sv2T-1-i);gN(d).forEach(n=>{ewf[n]=(ewf[n]||0)+w;});});
       // MOM shorter windows [2,5,10] for recency-focused signal
@@ -1888,12 +1899,14 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const nrm=k=>{const mx=Math.max(1e-9,...sc.map(s=>s[k]));const mi=Math.min(...sc.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);sc.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
       ['e','m','pa','kn','dt','z'].forEach(nrm);
       sc.forEach(s=>{s.score=s.eN*0.42+s.mN*0.08+s.paN*0.12+s.knN*0.22+s.dtN*0.06+s.zN*0.10;});
-      const sv2RecP=[[gN(sv2D[sv2T-1]||{}),0.35],[sv2T>1?gN(sv2D[sv2T-2]||{}):[],.65],[sv2T>2?gN(sv2D[sv2T-3]||{}):[],0.82]];
+      // Softer recent penalty for super to keep cold numbers accessible
+      const sv2RecP=sv2IsSuper?[[gN(sv2D[sv2T-1]||{}),0.45],[sv2T>1?gN(sv2D[sv2T-2]||{}):[],.72],[sv2T>2?gN(sv2D[sv2T-3]||{}):[],0.88]]:[[gN(sv2D[sv2T-1]||{}),0.35],[sv2T>1?gN(sv2D[sv2T-2]||{}):[],.65],[sv2T>2?gN(sv2D[sv2T-3]||{}):[],0.82]];
       sc.forEach(s=>{for(const[nums,p]of sv2RecP){if(nums.includes(s.n)){s.score*=p;break;}}});
       const maxSc=Math.max(...sc.map(s=>s.score));
       sc.forEach(s=>{s.w=Math.exp((s.score-maxSc)*2.5);});
       sc.sort((a,b)=>b.score-a.score);
-      const topCands=sc.slice(0,Math.min(55,sc.length)).map(s=>s.n);
+      // Wider pool for super to include cold candidates
+      const topCands=sc.slice(0,Math.min(sv2IsSuper?65:55,sc.length)).map(s=>s.n);
       // Fitness: score + pairwise + band coverage + sum targeting
       const pFit=(a,b)=>{const x=Math.min(a,b),y=Math.max(a,b);return(coW[`${x}_${y}`]||0)/Math.sqrt((fW[a]||0.01)*(fW[b]||0.01));};
       const scMap={};sc.forEach(s=>{scMap[s.n]=s.score;});
@@ -1905,12 +1918,13 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         if(sv2Sum>=sv2SumLo&&sv2Sum<=sv2SumHi)f+=0.5;else f-=Math.abs(sv2Sum-sv2SumMid)*0.015;
         return f;
       };
-      // Band-aware stochastic initial selection
+      // Band-aware stochastic initial selection; weaker bias for super
+      const sv2BandMult=sv2IsSuper?1.5:3;
       const makeInit=()=>{
         const bandSel=new Set();const sel=[],used=new Set();let att=0;
         while(sel.length<sv2N&&att++<800){
           const rem=sc.filter(s=>!used.has(s.n));
-          const ws=rem.map(s=>s.w*(bandSel.has(sv2BandFn(s.n))?1:3));
+          const ws=rem.map(s=>s.w*(bandSel.has(sv2BandFn(s.n))?1:sv2BandMult));
           const pk=pickUnique(rem.map(s=>s.n),1,ws);if(!pk.length)break;
           sel.push(pk[0]);used.add(pk[0]);bandSel.add(sv2BandFn(pk[0]));
         }
@@ -2099,8 +2113,8 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         const pk=g*10+pos;
         const pf=pFreq[pk]||0;
         sc+=Math.max(0,5-pf)*1.2;
-        // Son çekilişte aynı grup çıktıysa hafif ceza (yeni grup tercih)
-        if(lastGSet.has(g))sc-=1.5;
+        // Son çekilişte aynı grup çıktıysa hafif ceza; super için daha hafif
+        if(lastGSet.has(g))sc-=(game.id==='super'?0.8:1.5);
         fbSc[n]=Math.max(0,sc);
       }
       // ── Grup çeşitliliği ile seçim (her gruptan max 1, momentum dengesine göre) ──
