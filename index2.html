@@ -336,9 +336,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
   <div class="card">
     <div class="card-title">Bilet Üret</div>
-    <div class="filter-toggle" style="margin-bottom:8px">
+    <div class="filter-toggle" style="margin-bottom:6px">
       <input type="checkbox" id="genFilter3Chk" onchange="state.genDisplayFilter3=this.checked">
       <label for="genFilter3Chk" id="genFilter3Label">Sadece 3+ eşleşme göster</label>
+    </div>
+    <div class="filter-toggle" style="margin-bottom:8px">
+      <input type="checkbox" id="genFilter5Chk" onchange="state.genDisplayFilter5=this.checked">
+      <label for="genFilter5Chk" id="genFilter5Label">Sadece 5+ eşleşme göster</label>
     </div>
     <div class="counter-row">
       <span class="counter-label">Bilet sayısı:</span>
@@ -1006,7 +1010,7 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:'sayisal', selectedAlgo:'balanced',
-  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, genDisplayFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
+  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, genDisplayFilter3:false, genDisplayFilter5:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -2034,18 +2038,22 @@ function renderTicket(td,game,algoId,idx=0,matchCount=null){
 // ── Generate ──────────────────────────────────────────────────
 function generateTickets(){
   const game=getGame(),btn=document.getElementById('generateBtn');
-  const _dispFilter=!!state.genDisplayFilter3&&state.datedDraws&&state.datedDraws.length>0;
+  const _disp3=!!state.genDisplayFilter3&&state.datedDraws&&state.datedDraws.length>0;
+  const _disp5=!!state.genDisplayFilter5&&state.datedDraws&&state.datedDraws.length>0;
+  const _dispFilter=_disp3||_disp5;
   btn.classList.add('spinning');
   btn.textContent=_dispFilter?'🔍 600 bilet taranıyor...':'🎲 Sayılar çekiliyor...';
   setTimeout(()=>{
     const filterOn=!!state.btFilter5&&state.datedDraws.length>0;
-    const displayFilterOn=!!state.genDisplayFilter3&&state.datedDraws.length>0;
+    const disp5On=!!state.genDisplayFilter5&&state.datedDraws.length>0;
+    const disp3On=!!state.genDisplayFilter3&&state.datedDraws.length>0;
+    const displayFilterOn=disp5On||disp3On;
     const recentDraw=state.datedDraws.length>0?state.datedDraws[0]:null;
     let tickets=[];
     let matchCounts=[];
     let scanHeader='';
     if(displayFilterOn&&recentDraw){
-      const minMatch=game.id==='onnumara'?7:3;
+      const minMatch=disp5On?5:(game.id==='onnumara'?7:3);
       const aSet=new Set(recentDraw.nums);
       const aBSet=new Set(recentDraw.bonus||[]);
       const qualifying=[];
@@ -2057,7 +2065,7 @@ function generateTickets(){
       qualifying.sort((a,b)=>b.m-a.m);
       tickets=qualifying.map(x=>x.pred);
       matchCounts=qualifying.map(x=>x.m);
-      scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 600 bilet tarandı · <strong>${qualifying.length} eşleşen bulundu</strong></div>`;
+      scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 600 bilet tarandı · <strong>${qualifying.length} eşleşen bulundu</strong> (${minMatch}+ eşleşme)</div>`;
     } else {
       function tryGen(){
         if(!filterOn||!recentDraw){
