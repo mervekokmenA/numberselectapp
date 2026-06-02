@@ -1451,7 +1451,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
     case 'hot':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       const hDraws=drawsOverride||state.pastDraws||[];
-      const hewf=buildEWF(hDraws,game.max,0.85);
+      const hewf=buildEWF(hDraws,game.max,0.75);
       const hN=hDraws.length;
       const hGN=d=>Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])];
       const hR1=new Set(hN>0?hGN(hDraws[hN-1]):[]);
@@ -1505,7 +1505,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
     case 'balanced':{
       if(!hasHist)return generateNumbers(game,'random',freq);
       const bDraws=drawsOverride||state.pastDraws||[];
-      const bewf=bDraws.length?buildEWF(bDraws,game.max,0.85):freq;
+      const bewf=bDraws.length?buildEWF(bDraws,game.max,0.75):freq;
       // Zone-aware selection: divide range into game.count bands
       const bN=game.count;const bSz=game.max/bN;
       const bOf=n=>Math.min(bN-1,Math.floor((n-1)/bSz));
@@ -1578,7 +1578,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
     case 'entropy':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       const eDraws=drawsOverride||state.pastDraws||[];
-      const eEwf=eDraws.length?buildEWF(eDraws,game.max,0.85):freq;
+      const eEwf=eDraws.length?buildEWF(eDraws,game.max,0.75):freq;
       const totalF=Object.values(eEwf).reduce((s,v)=>s+v,0);
       const avgF=totalF/pool.length;
       const sortedByF=[...pool].sort((a,b)=>(eEwf[a]||0)-(eEwf[b]||0));
@@ -2090,7 +2090,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const smGN=d=>Array.isArray(d)?d.filter(n=>n>=1&&n<=smMAX):[...(d.nums||[]),...(d.bonus||[])].filter(n=>n>=1&&n<=smMAX);
       // EWF
       const smEwf={};
-      smD.forEach((d,i)=>{const w=Math.pow(0.85,smN-1-i);smGN(d).forEach(n=>{smEwf[n]=(smEwf[n]||0)+w;});});
+      smD.forEach((d,i)=>{const w=Math.pow(0.75,smN-1-i);smGN(d).forEach(n=>{smEwf[n]=(smEwf[n]||0)+w;});});
       // Recent penalty
       const smR1=new Set(smGN(smD[smN-1]||{}));
       const smR2=new Set(smN>1?smGN(smD[smN-2]):[]);
