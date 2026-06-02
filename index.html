@@ -2027,22 +2027,31 @@ function generateTickets(){
     const filterOn=!!state.btFilter5&&state.datedDraws.length>0;
     const displayFilterOn=!!state.genDisplayFilter3&&state.datedDraws.length>0;
     const recentDraw=state.datedDraws.length>0?state.datedDraws[0]:null;
+    // Build forward-looking predicted pool from 300 algorithm runs
+    const hotFreq=new Map(),hotBFreq=new Map();
+    if(state.datedDraws.length>0){
+      for(let p=0;p<300;p++){
+        const pp=generateNumbers(game,state.selectedAlgo);
+        pp.main.forEach(n=>hotFreq.set(n,(hotFreq.get(n)||0)+1));
+        pp.bonus.forEach(n=>hotBFreq.set(n,(hotBFreq.get(n)||0)+1));
+      }
+    }
+    const predASet=new Set([...hotFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.count).map(e=>e[0]));
+    const predABSet=game.bonusCount>0?new Set([...hotBFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.bonusCount).map(e=>e[0])):new Set();
     function tryGen(){
       if(!filterOn||!recentDraw){
         const pred=generateNumbers(game,state.selectedAlgo);
         let m=null;
-        if(recentDraw){const aSet=new Set(recentDraw.nums);const aBSet=new Set(recentDraw.bonus||[]);m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;}
+        if(predASet.size>0){m=pred.main.filter(x=>predASet.has(x)).length+pred.bonus.filter(x=>predABSet.has(x)).length;}
         return {pred,m};
       }
-      const aSet=new Set(recentDraw.nums);
-      const aBSet=new Set(recentDraw.bonus||[]);
       for(let t=0;t<50;t++){
         const pred=generateNumbers(game,state.selectedAlgo);
-        const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
+        const m=pred.main.filter(x=>predASet.has(x)).length+pred.bonus.filter(x=>predABSet.has(x)).length;
         if(m>=3) return {pred,m};
       }
       const pred=generateNumbers(game,state.selectedAlgo);
-      const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
+      const m=pred.main.filter(x=>predASet.has(x)).length+pred.bonus.filter(x=>predABSet.has(x)).length;
       return {pred,m};
     }
     const ticketResults=Array.from({length:state.ticketCount},tryGen);
