@@ -400,6 +400,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
     <button class="parse-btn" onclick="parseDatedDraws()">📅 Verileri Yükle</button>
     <button class="parse-btn green-btn" onclick="loadBtHistory()">📥 Gerçek Verileri Yükle</button>
+    <button class="parse-btn" id="loadHistBtn" onclick="loadHistoricalDraws()" style="background:var(--surface2);border-color:var(--accent)">📚 Eski Yılları Yükle</button>
   </div>
   <div class="parse-status" id="btParseStatus"></div>
 </div>
@@ -1286,6 +1287,52 @@ async function autoUpdateDraw(gameId){
     if(!newest)newest=d.date;
   }
   return newest;
+}
+
+async function loadHistoricalDraws(){
+  const id=state.selectedGame;
+  const baseUrl=LOTTERYEXTREME_URLS[id];
+  if(!baseUrl){showToast('Bu oyun için geçmiş veri kaynağı yok');return;}
+  const btn=document.getElementById('loadHistBtn');
+  if(btn){btn.disabled=true;btn.textContent='⏳ Yükleniyor...';}
+  let added=0,pages=0;
+  const statusEl=document.getElementById('btParseStatus');
+  try{
+    for(let p=2;p<=20;p++){
+      const pageUrl=`${baseUrl}/${p}`;
+      let html=null;
+      for(let attempt=0;attempt<2;attempt++){
+        try{html=await proxyFetch(pageUrl);break;}catch(e){
+          if(attempt<1)await new Promise(r=>setTimeout(r,1000));
+        }
+      }
+      if(!html)break;
+      const draws=parseLotteryExtreme(html,id);
+      if(!draws.length)break;
+      pages++;
+      let pageAdded=0;
+      for(const d of draws){
+        if(DRAW_DATA[id].includes(d.date))continue;
+        const bonusPart=d.bonus.length?' | '+d.bonus.join(' '):'';
+        DRAW_DATA[id]+=`\n${d.date} ${d.main.join(' ')}${bonusPart}`;
+        added++;pageAdded++;
+      }
+      if(statusEl)statusEl.textContent=`Sayfa ${p-1}/${19} yüklendi — ${added} yeni çekiliş eklendi`;
+      if(pageAdded===0)break;
+      await new Promise(r=>setTimeout(r,300));
+    }
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent='📚 Eski Yılları Yükle';}
+  }
+  if(added>0){
+    document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
+    parseDatedDraws();
+    state.pastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
+    analyzeAlgoPositions(id);
+    showToast(`✅ ${added} geçmiş çekiliş eklendi (${pages} sayfa)`);
+  }else{
+    showToast(pages>0?'ℹ️ Tüm geçmiş veriler zaten mevcut':'⚠️ Geçmiş veri alınamadı — lütfen tekrar deneyin');
+  }
 }
 
 function dataFreshnessMsg(gameId){
