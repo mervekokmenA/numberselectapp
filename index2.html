@@ -311,6 +311,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <!-- ═══════════ PAGE: GENERATOR ═══════════ -->
 <div class="col-left" id="page-generator">
 
+  <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);margin-bottom:8px">
+    <input type="checkbox" id="excludeLastChk" onchange="toggleExcludeLast(this.checked)" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer">
+    <label for="excludeLastChk" style="font-size:.78rem;color:var(--text);cursor:pointer;user-select:none">Son oyunu hariç bırak</label>
+  </div>
+
   <div class="card">
     <div class="card-title">Oyun Seçin</div>
     <div class="game-grid" id="gameGrid"></div>
@@ -1046,6 +1051,7 @@ const state = {
   algoPositionScores:{}, algoAnalysisGame:null,
   btAlgoPositionScores:{}, btAlgoAnalysisGame:null,
   algoNumberScores:{}, btAlgoNumberScores:{},
+  allDatedDraws:[], allPastDraws:[], excludeLastDraw:false,
 };
 
 const getGame = id => GAMES.find(g=>g.id===(id||state.selectedGame));
@@ -1370,8 +1376,11 @@ async function loadHistoricalDraws(){
   if(added>0){
     document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
     parseDatedDraws();
-    state.pastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
+    state.allPastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
+    state.allDatedDraws=[...state.datedDraws];
+    applyExcludeFilter();
     showToast(`✅ ${added} geçmiş çekiliş eklendi (${pages} sayfa)`);
+    saveDrawCache(id);
   }else{
     showToast(pages>0?'ℹ️ Tüm geçmiş veriler zaten mevcut':'⚠️ Geçmiş veri alınamadı — lütfen tekrar deneyin');
   }
@@ -1399,45 +1408,61 @@ function dataFreshnessMsg(gameId){
 async function loadGenHistory(){
   const id=state.selectedGame;
   if(DRAW_DATA[id]===undefined){ showToast('Bu oyun için veri bulunamadı'); return; }
-  showToast('⏳ Güncel çekiliş kontrol ediliyor...');
-  let fetched=false;
-  try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
+  const hasCached=!!localStorage.getItem('drawCache_'+id);
+  if(hasCached){
+    showToast('✅ Önbellekten yüklendi');
+  }else{
+    showToast('⏳ Güncel çekiliş kontrol ediliyor...');
+    let fetched=false;
+    try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
+    const fr=dataFreshnessMsg(id);
+    if(fetched)
+      showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
+    else if(fr&&fr.missing>0)
+      showToast(`⚠️ Kaynak henüz güncellemedi. Son bilinen: ${fr.lastDate}. Eksik: ${fr.missingDates.join(', ')}`);
+    else
+      showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
+  }
   const plain=(DRAW_DATA[id]||'').split('\n').map(line=>line.replace(/^\d{4}-\d{2}-\d{2}\s+/,'')).join('\n');
   document.getElementById('pastDrawsInput').value=plain;
   parsePastDraws();
+  state.allPastDraws=[...state.pastDraws];
   // Tarihli veriyi de doldur — FB10, dateshift, poswave gibi algoritmalar için
   document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
   parseDatedDraws();
+  applyExcludeFilter();
   analyzeAlgoPositions(id);
-  const fr=dataFreshnessMsg(id);
-  if(fetched)
-    showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
-  else if(fr&&fr.missing>0)
-    showToast(`⚠️ Kaynak henüz güncellemedi. Son bilinen: ${fr.lastDate}. Eksik: ${fr.missingDates.join(', ')}`);
-  else
-    showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
+  saveDrawCache(id);
 }
 
 async function loadBtHistory(){
   const id=state.selectedGame;
   if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
-  showToast('⏳ Güncel çekiliş kontrol ediliyor...');
-  let fetched=false;
-  try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
+  const hasCached=!!localStorage.getItem('drawCache_'+id);
+  if(hasCached){
+    showToast('✅ Önbellekten yüklendi');
+  }else{
+    showToast('⏳ Güncel çekiliş kontrol ediliyor...');
+    let fetched=false;
+    try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
+    const fr=dataFreshnessMsg(id);
+    if(fetched)
+      showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
+    else if(fr&&fr.missing>0)
+      showToast(`⚠️ Kaynak henüz güncellemedi. Son bilinen: ${fr.lastDate}. Eksik: ${fr.missingDates.join(', ')}`);
+    else
+      showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
+  }
   document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
   parseDatedDraws();
   // Share analysis with generator tab — populate pastDraws from datedDraws and reuse
   state._algoScoreCache={};
   state._algoScoreCache2={};
-  state.pastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
+  state.allPastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
+  state.allDatedDraws=[...state.datedDraws];
+  applyExcludeFilter();
   if(state.algoAnalysisGame!==id){ state.algoAnalysisGame=null; analyzeAlgoPositions(id); }
-  const fr=dataFreshnessMsg(id);
-  if(fetched)
-    showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
-  else if(fr&&fr.missing>0)
-    showToast(`⚠️ Kaynak henüz güncellemedi. Son bilinen: ${fr.lastDate}. Eksik: ${fr.missingDates.join(', ')}`);
-  else
-    showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
+  saveDrawCache(id);
 }
 
 // ── Past-draws parser (generator) ───────────────────────────
@@ -1451,9 +1476,11 @@ function parsePastDraws(){
     if(nums&&nums.length>=2) draws.push(nums.map(Number));
   });
   if(!draws.length){status.className='parse-status error';status.textContent='❌ Çekiliş ayrıştırılamadı.';return;}
+  state.allPastDraws=draws;
   state.pastDraws=draws;
+  applyExcludeFilter();
   const freq={};
-  draws.forEach(d=>d.forEach(n=>{freq[n]=(freq[n]||0)+1;}));
+  state.pastDraws.forEach(d=>d.forEach(n=>{freq[n]=(freq[n]||0)+1;}));
   state.frequency=freq;
   status.className='parse-status success';
   status.textContent=`✅ ${draws.length} çekiliş yüklendi. ${Object.keys(freq).length} tekil sayı bulundu.`;
@@ -2599,7 +2626,9 @@ function parseDatedDraws(){
   });
   if(!draws.length){status.className='parse-status error';status.textContent='❌ Çekiliş ayrıştırılamadı.';return;}
   draws.sort((a,b)=>b.date.localeCompare(a.date));
+  state.allDatedDraws=draws;
   state.datedDraws=draws;
+  applyExcludeFilter();
   document.getElementById('datedDrawsInput').value=draws.map(d=>
     d.date+' '+d.nums.join(' ')+(d.bonus.length?' | '+d.bonus.join(' '):'')
   ).join('\n');
@@ -3662,7 +3691,46 @@ function renderSavedBottom(){
     </div>`).join('');
 }
 
+// ── Exclude-last filter ───────────────────────────────────────
+function applyExcludeFilter(){
+  const skip=state.excludeLastDraw?1:0;
+  state.pastDraws=(state.allPastDraws||[]).slice(skip);
+  state.datedDraws=(state.allDatedDraws||[]).slice(skip);
+  updateBtDateOptions();
+}
+function toggleExcludeLast(val){
+  state.excludeLastDraw=val;
+  try{localStorage.setItem('excludeLastDraw',val?'1':'0');}catch(e){}
+  applyExcludeFilter();
+  if(state.datedDraws.length||state.pastDraws.length) analyzeAlgoPositions(state.selectedGame);
+}
+
+// ── Draw cache helpers ────────────────────────────────────────
+function saveDrawCache(gameId){
+  try{ if(DRAW_DATA[gameId]) localStorage.setItem('drawCache_'+gameId, DRAW_DATA[gameId]); }catch(e){}
+}
+function loadDrawCaches(){
+  Object.keys(DRAW_DATA).forEach(gameId=>{
+    try{
+      const cached=localStorage.getItem('drawCache_'+gameId);
+      if(!cached) return;
+      const existing=new Set(DRAW_DATA[gameId].split('\n').map(l=>{const m=l.match(/^(\d{4}-\d{2}-\d{2})/);return m?m[1]:null;}).filter(Boolean));
+      const extra=[];
+      cached.split('\n').filter(l=>l.trim()).forEach(line=>{
+        const m=line.match(/^(\d{4}-\d{2}-\d{2})/);
+        if(m && !existing.has(m[1])){extra.push(line.trim());existing.add(m[1]);}
+      });
+      if(extra.length) DRAW_DATA[gameId]+='\n'+extra.join('\n');
+    }catch(e){}
+  });
+}
+
 // ── Boot ──────────────────────────────────────────────────────
+(function(){
+  try{const v=localStorage.getItem('excludeLastDraw');if(v!==null){state.excludeLastDraw=v==='1';}}catch(e){}
+  const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
+})();
+loadDrawCaches();
 initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();updateGenFilterLabel();
 </script>
 </body>
