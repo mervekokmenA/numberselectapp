@@ -784,7 +784,8 @@ sayisal:`2026-06-01 19 36 46 63 75 85 80 | 39
 2025-09-15 7 23 39 41 47 82 40 | 77
 2025-09-13 3 35 39 40 49 90 4 | 83`,
 
-super:`2026-05-17 4 9 11 19 24 26
+super:`2026-06-01 15 18 20 31 43 56
+2026-05-17 4 9 11 19 24 26
 2026-05-14 13 18 35 45 46 50
 2026-05-12 2 19 28 30 31 37
 2026-05-10 1 8 31 38 40 56
@@ -1716,7 +1717,8 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const stT=stD.length;if(stT<5)return generateNumbers(game,'hot',freq,drawsOverride);
       const stMAX=game.max,stN=game.count;
       const stGN=d=>(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=stMAX);
-      const stLam=0.93;
+      const stIsSuper=game.id==='super';
+      const stLam=stIsSuper?0.75:0.93;
       // EWF
       const stEwf={};stD.forEach((d,i)=>{const w=Math.pow(stLam,stT-1-i);stGN(d).forEach(n=>{stEwf[n]=(stEwf[n]||0)+w;});});
       // MOM multi-window
@@ -1773,12 +1775,14 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const stNrm=k=>{const mx=Math.max(1e-9,...stSc.map(s=>s[k]));const mi=Math.min(...stSc.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);stSc.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
       ['e','m','pa','kn','z','pos'].forEach(stNrm);
       stSc.forEach(s=>{s.score=s.eN*0.35+s.mN*0.12+s.paN*0.18+s.knN*0.22+s.zN*0.08+s.posN*0.05;});
-      const stRecP=[[stGN(stD[stT-1]||{}),0.35],[stT>1?stGN(stD[stT-2]||{}):[],.65],[stT>2?stGN(stD[stT-3]||{}):[],0.82]];
+      // Softer recent penalty for super to keep cold numbers accessible
+      const stRecP=stIsSuper?[[stGN(stD[stT-1]||{}),0.45],[stT>1?stGN(stD[stT-2]||{}):[],.72],[stT>2?stGN(stD[stT-3]||{}):[],0.88]]:[[stGN(stD[stT-1]||{}),0.35],[stT>1?stGN(stD[stT-2]||{}):[],.65],[stT>2?stGN(stD[stT-3]||{}):[],0.82]];
       stSc.forEach(s=>{for(const[nums,p]of stRecP){if(nums.includes(s.n)){s.score*=p;break;}}});
       const stMaxSc=Math.max(...stSc.map(s=>s.score));
       stSc.forEach(s=>{s.w=Math.exp((s.score-stMaxSc)*5);});
       stSc.sort((a,b)=>b.score-a.score);
-      const stTopCands=stSc.slice(0,Math.min(45,stSc.length)).map(s=>s.n);
+      // Wider candidate pool for super to include more cold numbers
+      const stTopCands=stSc.slice(0,Math.min(stIsSuper?55:45,stSc.length)).map(s=>s.n);
       // Historical sum range (20th–80th pct)
       const stSums=stD.map(d=>stGN(d).reduce((s,n)=>s+n,0)).filter(s=>s>0).sort((a,b)=>a-b);
       const stSumLo=stSums[Math.floor(stSums.length*0.2)]||(stMAX+1)*stN*0.28;
@@ -1798,21 +1802,23 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         if(stSum>=stSumLo&&stSum<=stSumHi)f+=0.4;else f-=Math.abs(stSum-stSumMid)*0.012;
         return f;
       };
-      // Band-aware stochastic initial selection
+      // Band-aware stochastic initial selection — weaker bias for super to allow clustering
       const stMakeInit=()=>{
         const bandSel=new Set();const sel=[],used=new Set();let att=0;
+        const stBandMult=stIsSuper?1.5:3;
         while(sel.length<stN&&att++<600){
           const rem=stSc.filter(s=>!used.has(s.n));
-          const ws=rem.map(s=>s.w*(bandSel.has(stBandFn(s.n))?1:3));
+          const ws=rem.map(s=>s.w*(bandSel.has(stBandFn(s.n))?1:stBandMult));
           const pk=pickUnique(rem.map(s=>s.n),1,ws);if(!pk.length)break;
           sel.push(pk[0]);used.add(pk[0]);bandSel.add(stBandFn(pk[0]));
         }
         stSc.filter(s=>!used.has(s.n)).slice(0,stN-sel.length).forEach(s=>sel.push(s.n));
         return sel;
       };
+      const stSAIter=stIsSuper?800:600;
       const stRunSA=(init)=>{
         let cur=[...init],curFit=stFitness(cur);
-        for(let iter=0;iter<600;iter++){
+        for(let iter=0;iter<stSAIter;iter++){
           const oi=Math.floor(Math.random()*cur.length);
           const out=cur[oi];
           const cands=stTopCands.filter(n=>!cur.includes(n));if(!cands.length)continue;
@@ -1822,9 +1828,9 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         }
         return{s:cur,f:curFit};
       };
-      // Multi-start: 3 SA runs, keep best
+      // Multi-start: 4 SA runs for super, 3 for others
       let stBest=null,stBestFit=-Infinity;
-      for(let r=0;r<3;r++){const res=stRunSA(stMakeInit());if(res.f>stBestFit){stBest=res.s;stBestFit=res.f;}}
+      for(let r=0;r<(stIsSuper?4:3);r++){const res=stRunSA(stMakeInit());if(res.f>stBestFit){stBest=res.s;stBestFit=res.f;}}
       // ±1 neighbour correction
       stBest.sort((a,b)=>a-b);
       let stImproved=true;
@@ -2149,19 +2155,26 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       bonusNums=smartBonus();
       break;}
     case 'smart':{
-      // Smart: EWF λ=0.85 + zone coverage + sum targeting (P30-P70) + odd/even balance + recent penalty
+      // Smart: EWF + zone soft-bias + sum targeting (P30-P70) + odd/even balance + recent penalty
+      // Süper Loto uses flatter weights (cbrt) + weaker zone bias to allow natural clustering
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       const smD=drawsOverride||state.pastDraws||[];
       const smN=smD.length;
       if(smN<5)return generateNumbers(game,'hot',freq,drawsOverride);
       const smMAX=game.max,smC=game.count;
       const smGN=d=>Array.isArray(d)?d.filter(n=>n>=1&&n<=smMAX):[...(d.nums||[]),...(d.bonus||[])].filter(n=>n>=1&&n<=smMAX);
+      // Game-specific tuning: Süper Loto uses lower lambda + cbrt flattening
+      const isSuper=game.id==='super';
+      const smLambda=isSuper?0.60:0.75;
       // EWF
       const smEwf={};
-      smD.forEach((d,i)=>{const w=Math.pow(0.75,smN-1-i);smGN(d).forEach(n=>{smEwf[n]=(smEwf[n]||0)+w;});});
-      // Recent penalty
+      smD.forEach((d,i)=>{const w=Math.pow(smLambda,smN-1-i);smGN(d).forEach(n=>{smEwf[n]=(smEwf[n]||0)+w;});});
+      // Flatten for super: cbrt reduces dominance of hot numbers
+      const smFW=n=>isSuper?Math.cbrt(Math.max(.1,smEwf[n]||.1)):Math.max(.1,smEwf[n]||.1);
+      // Recent penalty (lighter for super so recent cold numbers remain viable)
       const smR1=new Set(smGN(smD[smN-1]||{}));
       const smR2=new Set(smN>1?smGN(smD[smN-2]):[]);
+      const smP1=isSuper?.30:.20,smP2=isSuper?.60:.50;
       // Historical odd/even balance (last 25 draws)
       const smOddAvg=smD.slice(-25).reduce((s,d)=>s+smGN(d).filter(n=>n%2!==0).length,0)/Math.min(25,smN);
       const smTgtOdd=Math.round(smOddAvg);
@@ -2170,17 +2183,19 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const smSumLo=smSums[Math.floor(smSums.length*0.30)]||(smMAX+1)*smC*0.27;
       const smSumHi=smSums[Math.floor(smSums.length*0.70)]||(smMAX+1)*smC*0.73;
       const smSumMid=(smSumLo+smSumHi)/2;
-      // Zone setup
+      // Zone setup — weaker bias for super to allow natural zone clustering
       const smBSz=smMAX/smC,smBOf=n=>Math.min(smC-1,Math.floor((n-1)/smBSz));
+      const smZM=isSuper?1.5:4;
       // Base weights
-      const smW=pool.map(n=>{let w=Math.max(.1,smEwf[n]||.1);if(smR1.has(n))w*=.20;else if(smR2.has(n))w*=.50;return w;});
-      // Run 25 candidates, pick best by sum + zone + odd/even score
+      const smW=pool.map(n=>{let w=smFW(n);if(smR1.has(n))w*=smP1;else if(smR2.has(n))w*=smP2;return w;});
+      // More attempts for super to explore more of the distribution
+      const smAttempts=isSuper?80:25;
       let smBest=null,smBestSc=-Infinity;
-      for(let attempt=0;attempt<25;attempt++){
+      for(let attempt=0;attempt<smAttempts;attempt++){
         const used=new Set(),zu=new Set(),sel=[];let att=0;
         const rem=pool.map((n,i)=>({n,w:smW[i]}));
         while(sel.length<smC&&att++<smC*7){
-          const ws=rem.map(s=>s.w*(zu.has(smBOf(s.n))?1:4));
+          const ws=rem.map(s=>s.w*(zu.has(smBOf(s.n))?1:smZM));
           const tot=ws.reduce((a,b)=>a+b,0);let r=Math.random()*tot,pk=rem[rem.length-1];
           for(let j=0;j<rem.length;j++){r-=ws[j];if(r<=0){pk=rem[j];break;}}
           if(used.has(pk.n))continue;
@@ -2199,12 +2214,14 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
             if(cs>=smSumLo&&cs<=smSumHi)break;
           }
         }
-        // Score candidate
+        // Score candidate — for super also reward wider number spread
         const sm2=sel.reduce((s,n)=>s+n,0);
         const oddN=sel.filter(n=>n%2!==0).length;
         let sc=new Set(sel.map(smBOf)).size*0.4;
         if(sm2>=smSumLo&&sm2<=smSumHi)sc+=3;else sc-=Math.abs(sm2-smSumMid)/60;
         if(Math.abs(oddN-smTgtOdd)<=1)sc+=1;
+        // Reward spread across low/mid/high thirds for super
+        if(isSuper){const lo=sel.filter(n=>n<=20).length,hi=sel.filter(n=>n>=41).length;if(lo>=1&&hi>=1)sc+=0.5;}
         if(sc>smBestSc){smBestSc=sc;smBest=[...sel];}
       }
       mainNums=(smBest||pickUnique(pool,smC,smW)).sort((a,b)=>a-b);
