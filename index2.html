@@ -353,6 +353,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <input type="checkbox" id="genFilter6Chk" onchange="state.genDisplayFilter6=this.checked">
       <label for="genFilter6Chk" id="genFilter6Label">Sadece 6+ eşleşme göster</label>
     </div>
+    <div style="height:1px;background:var(--border);margin:8px 0"></div>
+    <div class="filter-toggle" style="margin-bottom:8px">
+      <input type="checkbox" id="genFilterEskiChk" onchange="state.genEskiFilter3=this.checked">
+      <label for="genFilterEskiChk" id="genFilterEskiLabel">🕐 3+ Eski (son gerçek çekilişe göre)</label>
+    </div>
     <div class="counter-row">
       <span class="counter-label">Bilet sayısı:</span>
       <div class="counter-ctrl">
@@ -1035,7 +1040,7 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:'sayisal', selectedAlgo:'balanced',
-  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, genDisplayFilter4:false, genDisplayFilter5:false, genDisplayFilter6:false, analysisWindow:999, pastDraws:[], frequency:{},
+  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, genDisplayFilter4:false, genDisplayFilter5:false, genDisplayFilter6:false, genEskiFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -2235,7 +2240,8 @@ async function generateTickets(){
   const _disp4=!!state.genDisplayFilter4&&state.datedDraws&&state.datedDraws.length>0;
   const _disp5=!!state.genDisplayFilter5&&state.datedDraws&&state.datedDraws.length>0;
   const _disp6=!!state.genDisplayFilter6&&state.datedDraws&&state.datedDraws.length>0;
-  const _dispFilter=_disp3||_disp4||_disp5||_disp6;
+  const _eskiOn=!!state.genEskiFilter3&&state.datedDraws&&state.datedDraws.length>0;
+  const _dispFilter=_disp3||_disp4||_disp5||_disp6||_eskiOn;
   btn.classList.add('spinning');btn.disabled=true;
   btn.textContent=_dispFilter?'🔍 Taranıyor...':'🎲 Sayılar çekiliyor...';
   await new Promise(r=>setTimeout(r,50));
@@ -2244,10 +2250,39 @@ async function generateTickets(){
   const disp5On=!!state.genDisplayFilter5&&state.datedDraws.length>0;
   const disp4On=!!state.genDisplayFilter4&&state.datedDraws.length>0;
   const disp3On=!!state.genDisplayFilter3&&state.datedDraws.length>0;
+  const eskiOn=_eskiOn&&!(disp6On||disp5On||disp4On||disp3On);
   const displayFilterOn=disp6On||disp5On||disp4On||disp3On;
   const recentDraw=state.datedDraws.length>0?state.datedDraws[0]:null;
   let tickets=[],matchCounts=[],scanHeader='';
-  if(displayFilterOn&&recentDraw){
+  if(eskiOn&&recentDraw){
+    // 3+ Eski: scan against ACTUAL last draw (same UX as main page 3+ but historical)
+    const isOn=game.id==='onnumara';
+    const minMatch=isOn?7:3;
+    const scanCount=10000;const BATCH=1000;
+    const eASet=new Set(recentDraw.nums);const eABSet=new Set(recentDraw.bonus||[]);
+    const qualifying=[];
+    const pc=document.getElementById('genProgressContainer');
+    const pf=document.getElementById('genProgressFill');
+    const pt=document.getElementById('genProgressText');
+    if(pc)pc.style.display='block';
+    for(let i=0;i<scanCount;i+=BATCH){
+      const end=Math.min(i+BATCH,scanCount);
+      for(let j=i;j<end;j++){
+        const pred=generateNumbers(game,state.selectedAlgo);
+        const m=pred.main.filter(x=>eASet.has(x)).length+pred.bonus.filter(x=>eABSet.has(x)).length;
+        if(m>=minMatch) qualifying.push({pred,m});
+      }
+      const pct=Math.round(end/scanCount*100);
+      if(pf)pf.style.width=pct+'%';
+      if(pt)pt.textContent=end.toLocaleString()+' / '+scanCount.toLocaleString();
+      await new Promise(r=>setTimeout(r,0));
+    }
+    if(pc)pc.style.display='none';if(pf)pf.style.width='0%';
+    qualifying.sort((a,b)=>b.m-a.m);
+    tickets=qualifying.map(x=>x.pred);
+    matchCounts=qualifying.map(x=>x.m);
+    scanHeader=`<div style="font-size:.74rem;color:var(--gold);margin-bottom:8px;padding:6px 10px;background:rgba(255,200,80,.08);border:1px solid rgba(255,200,80,.3);border-radius:8px">🕐 ${scanCount.toLocaleString()} bilet tarandı · <strong>${qualifying.length} eşleşen</strong> (${minMatch}+) — ${recentDraw.date} gerçek çekilişi · ${recentDraw.nums.join(' ')}${recentDraw.bonus.length?' | '+recentDraw.bonus.join(' '):''}</div>`;
+  } else if(displayFilterOn&&recentDraw){
     const isOn=game.id==='onnumara';
     const minMatch=disp6On?(isOn?10:6):disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
     const scanCount=disp6On?400000:disp5On?100000:disp4On?10000:1000;
