@@ -1035,7 +1035,7 @@ function initBtGameGrid(){
       <span class="game-range">${g.range}</span>
     </button>`).join('');
 }
-function selectBtGame(id){ state.selectedGame=id; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadBtHistory(); }
+function selectBtGame(id){ state.selectedGame=id; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadBtHistory(); setTimeout(initAlgoGrid,200); }
 function initAlgoGrid(){
   const scores=state.algoPositionScores[state.selectedGame];
   const analyzing=state.algoAnalysisGame===state.selectedGame;
@@ -1068,8 +1068,12 @@ function updateGenFilterLabel(){
   const btLbl2=document.getElementById('btFilter5Label2');
   if(btLbl2)btLbl2.textContent=btTxt;
 }
-function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); updateGenFilterLabel(); }
-function selectAlgo(id){ state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid(); }
+function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); updateGenFilterLabel(); setTimeout(initAlgoGrid,200); }
+function selectAlgo(id){
+  state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid();
+  const s1=document.getElementById('btAlgo'); if(s1)s1.value=id;
+  const s2=document.getElementById('btAlgo2'); if(s2)s2.value=id;
+}
 function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCount+d)); document.getElementById('countVal').textContent=state.ticketCount; }
 function changeAnalysisWindow(val){
   state.analysisWindow=+val;
@@ -1391,6 +1395,7 @@ async function loadGenHistory(){
   applyExcludeFilter();
   analyzeAlgoPositions(id);
   saveDrawCache(id);
+  setTimeout(initAlgoGrid, 100);
 }
 
 async function loadBtHistory(){
@@ -1421,6 +1426,7 @@ async function loadBtHistory(){
   applyExcludeFilter();
   if(state.algoAnalysisGame!==id){ state.algoAnalysisGame=null; analyzeAlgoPositions(id); }
   saveDrawCache(id);
+  setTimeout(initAlgoGrid, 100);
 }
 
 // ── Past-draws parser (generator) ───────────────────────────
@@ -2225,6 +2231,9 @@ function renderTicket(td,game,algoId,idx=0,matchCount=null){
 
 // ── Generate ──────────────────────────────────────────────────
 function generateTickets(){
+  // Clear accumulated caches to prevent slowdown on repeated presses
+  state._algoScoreCache = {};
+  state._algoScoreCache2 = {};
   const game=getGame(),btn=document.getElementById('generateBtn');
   btn.classList.add('spinning');btn.textContent='🎲 Sayılar çekiliyor...';
   setTimeout(()=>{

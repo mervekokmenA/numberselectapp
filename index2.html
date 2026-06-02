@@ -1074,7 +1074,7 @@ function initBtGameGrid(){
       <span class="game-range">${g.range}</span>
     </button>`).join('');
 }
-function selectBtGame(id){ state.selectedGame=id; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadBtHistory(); updateGenFilterLabel(); }
+function selectBtGame(id){ state.selectedGame=id; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadBtHistory(); updateGenFilterLabel(); setTimeout(initAlgoGrid,200); }
 function initAlgoGrid(){
   const scores=state.algoPositionScores[state.selectedGame];
   const analyzing=state.algoAnalysisGame===state.selectedGame;
@@ -1111,8 +1111,12 @@ function updateGenFilterLabel(){
   const b6=document.getElementById('btFilter6Label');  if(b6)b6.textContent=tb(6,10);
   const b32=document.getElementById('btFilter5Label2'); if(b32)b32.textContent=tb(3,7);
 }
-function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); updateGenFilterLabel(); }
-function selectAlgo(id){ state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid(); }
+function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); updateGenFilterLabel(); setTimeout(initAlgoGrid,200); }
+function selectAlgo(id){
+  state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid();
+  const s1=document.getElementById('btAlgo'); if(s1)s1.value=id;
+  const s2=document.getElementById('btAlgo2'); if(s2)s2.value=id;
+}
 function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10,state.ticketCount+d)); document.getElementById('countVal').textContent=state.ticketCount; }
 function changeAnalysisWindow(val){
   state.analysisWindow=+val;
@@ -1433,6 +1437,7 @@ async function loadGenHistory(){
   applyExcludeFilter();
   analyzeAlgoPositions(id);
   saveDrawCache(id);
+  setTimeout(initAlgoGrid, 100);
 }
 
 async function loadBtHistory(){
@@ -1463,6 +1468,7 @@ async function loadBtHistory(){
   applyExcludeFilter();
   if(state.algoAnalysisGame!==id){ state.algoAnalysisGame=null; analyzeAlgoPositions(id); }
   saveDrawCache(id);
+  setTimeout(initAlgoGrid, 100);
 }
 
 // ── Past-draws parser (generator) ───────────────────────────
@@ -2262,6 +2268,9 @@ function renderTicket(td,game,algoId,idx=0,matchCount=null){
 
 // ── Generate ──────────────────────────────────────────────────
 async function generateTickets(){
+  // Clear accumulated caches to prevent slowdown on repeated presses
+  state._algoScoreCache = {};
+  state._algoScoreCache2 = {};
   const game=getGame(),btn=document.getElementById('generateBtn');
   const _disp3=!!state.genDisplayFilter3&&state.datedDraws&&state.datedDraws.length>0;
   const _disp4=!!state.genDisplayFilter4&&state.datedDraws&&state.datedDraws.length>0;
@@ -2544,9 +2553,19 @@ async function runEskiScan(){
     <span style="font-size:.6rem;color:var(--green);white-space:nowrap">${testDate}</span>
   </div>`;
 
+  const sz=mobileBSZ();
   const ticketsHtml=qualifying.slice(0,50).map((x,i)=>{
-    const m=x.m;
-    return renderTicket(x.pred,game,state.selectedAlgo,i,m);
+    const bHtml=x.pred.main.map(n=>staticBall(n,game.mainColor,aSet.has(n)?'matched':(aSet.has(n-1)||aSet.has(n+1))?'near':'unmatched',sz)).join('');
+    const bonHtml=x.pred.bonus.length?`<div class="balls-divider">+</div>`+x.pred.bonus.map(n=>staticBall(n,game.bonusColor+' special',aBSet.has(n)?'matched':(aBSet.has(n-1)||aBSet.has(n+1))?'near':'unmatched',sz)).join(''):'';
+    const badge=`<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:rgba(0,230,118,.15);color:var(--green);flex-shrink:0;white-space:nowrap">${x.m} eş</span>`;
+    const copyText=x.pred.main.join(' ')+(x.pred.bonus.length?' | '+x.pred.bonus.join(' '):'');
+    const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<div class="ticket" style="${i>0?'margin-top:6px;':''}cursor:pointer;user-select:none;-webkit-user-select:none" onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()" oncontextmenu="return false">
+      <span class="ticket-idx">#${i+1}</span>
+      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${bHtml}${bonHtml}</div>
+      ${badge}
+      <button onclick="saveTicket(this)" style="flex-shrink:0;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:.72rem">📌</button>
+    </div>`;
   }).join('');
 
   resultEl.innerHTML=`
