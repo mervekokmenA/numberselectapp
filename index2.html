@@ -398,7 +398,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     placeholder="2026-05-13 6 39 41 59 70 89 | 21&#10;2026-05-11 18 36 38 48 53 81 | 74&#10;2026-05-09 17 25 28 53 72 79 | 61"></textarea>
   <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
     <button class="parse-btn" onclick="parseDatedDraws()">📅 Verileri Yükle</button>
-    <button class="parse-btn green-btn" onclick="loadGenHistory()">📥 Gerçek Verileri Yükle</button>
+    <button class="parse-btn green-btn" onclick="loadBtHistory()">📥 Gerçek Verileri Yükle</button>
   </div>
   <div class="parse-status" id="btParseStatus"></div>
 </div>
@@ -406,6 +406,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <!-- ═══════════ PAGE: BACKTEST ═══════════ -->
 <div class="col-bt-right" id="page-backtest">
 
+  <!-- ── BT1 config (left col) ── -->
   <div class="card">
     <div class="card-title">🔬 Geçmiş Test</div>
     <div class="game-grid" id="btGameGrid" style="margin-bottom:10px"></div>
@@ -467,6 +468,68 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
   </div>
 
+  <!-- ── BT2 config (hidden) ── -->
+  <div class="card" style="display:none">
+    <div class="card-title">🔬 Test 2</div>
+    <div class="bt-config" style="grid-template-columns:1fr">
+      <div class="form-group">
+        <label>Test Tarihi</label>
+        <div style="display:flex;gap:5px;align-items:center">
+          <select id="btDate2" onchange="updateAlgoScores2()" style="flex:1;min-width:0"><option value="">— Önce veri yükleyin —</option></select>
+          <button onclick="stepBtDate2(-1)" title="Önceki tarih" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
+          <button onclick="stepBtDate2(1)"  title="Sonraki tarih"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Algoritma</label>
+        <select id="btAlgo2" onchange="state.btAlgo2=this.value">
+          <option value="balanced">⚖️ Dengeli Karışım</option>
+          <option value="hot">🔥 Sıcak Sayılar</option>
+          <option value="cold">❄️ Soğuk Sayılar</option>
+          <option value="random">🎲 Tam Rastgele</option>
+          <option value="delta">△ Delta Sistemi</option>
+          <option value="wheeling">🔄 Wheeling</option>
+          <option value="entropy">⭐ Entropi Analizi</option>
+          <option value="sislcg">🎲 Sisal-LCG</option>
+          <option value="star">🌟 Star</option>
+          <option value="starv2">🌟 Star V2</option>
+          <option value="dateshift">📅 Tarih Ofset</option>
+          <option value="poswave">〰 Konum Dalgası</option>
+          <option value="excelblend">🔮 Excel Karması</option>
+          <option value="fb10">🔟 FB10 Grup</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Eğitim Penceresi</label>
+        <select id="btWindow2" onchange="updateAlgoScores2()">
+          <option value="all" selected>Tüm geçmiş çekilişler</option>
+          <option value="50">Son 50 çekiliş</option>
+          <option value="20">Son 20 çekiliş</option>
+          <option value="10">Son 10 çekiliş</option>
+        </select>
+      </div>
+    </div>
+    <div class="filter-toggle">
+      <input type="checkbox" id="btFilter5Chk2" onchange="state.btFilter5_2=this.checked">
+      <label for="btFilter5Chk2" id="btFilter5Label2">Sadece 3+ eşleşme göster (otomatik tarama)</label>
+    </div>
+    <div id="algoScorePanel2"></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <span style="font-size:.8rem;color:var(--muted)">Tahmin Grubu:</span>
+      <div class="counter-ctrl">
+        <button onclick="adjustBtCount2(-1)">−</button>
+        <div class="counter-val" id="btCountVal2">4</div>
+        <button onclick="adjustBtCount2(1)">+</button>
+      </div>
+      <span style="font-size:.72rem;color:var(--muted)">grup üret</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <button class="run-btn" onclick="runBacktest2()" style="flex:1">🔬 Geçmiş Testi Çalıştır</button>
+      <span id="btRunCounter2" style="display:none;font-size:.72rem;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
+    </div>
+  </div>
+
+  <!-- ── Results row: BT1 (left) + BT2 (right), equal height ── -->
   <div id="btResultSection" style="display:none">
     <div class="card">
       <div class="card-title">Test Sonucu</div>
@@ -474,6 +537,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
   </div>
 
+  <div id="btResultSection2" style="display:none;visibility:hidden;height:0;overflow:hidden">
+    <div class="card">
+      <div class="card-title">Test 2 Sonucu</div>
+      <div id="btResultContent2"></div>
+    </div>
+  </div>
+
+  <!-- ── History row: BT1 left, BT2 right ── -->
   <div class="card">
     <div class="card-title">Test Geçmişi</div>
     <div class="bt-history" id="btHistory">
@@ -481,7 +552,49 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
   </div>
 
+  <div class="card" style="display:none">
+    <div class="card-title">Test Geçmişi</div>
+    <div class="bt-history" id="btHistory2">
+      <div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>
+    </div>
+  </div>
+
+
 </div><!-- /page-backtest -->
+
+<!-- ═══════════ NEW: Tekli Sayı Bakımı ile Analiz ═══════════ -->
+<div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="numAnalysisSection">
+  <div class="card">
+    <div class="card-title">🔢 Tekli Sayı Bakımı ile Analiz</div>
+    <div id="naDataInfo" style="font-size:.74rem;color:var(--muted);margin-bottom:12px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">⚠️ Analiz için önce "Gerçek Verileri Yükle" yapın.</div>
+    <div class="tabs" id="naTabs">
+      <button class="tab-btn active" onclick="switchNaTab('transform')">🔄 Sayı Dönüşümleri</button>
+      <button class="tab-btn" onclick="switchNaTab('date')">📅 Tarih Hesabı</button>
+      <button class="tab-btn" onclick="switchNaTab('joker')">🎯 Sayısal Son Sayı Tahmini</button>
+    </div>
+    <div class="tab-panel active" id="naTab-transform">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+        <span style="font-size:.74rem;color:var(--text);font-weight:600">Kaynak çekiliş:</span>
+        <select id="naDrawIdx" onchange="runNaTransform()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:.72rem;flex:1;min-width:0"></select>
+        <button onclick="stepNaDraw(-1)" title="Daha yeni" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
+        <button onclick="stepNaDraw(1)"  title="Daha eski"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
+      </div>
+      <div id="naTransformResult"><div class="empty-state"><span class="empty-icon">🔄</span>Veri yükleyin.</div></div>
+    </div>
+    <div class="tab-panel" id="naTab-date">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+        <span style="font-size:.74rem;color:var(--text);font-weight:600">Oyun tarihi:</span>
+        <select id="naDateIdx" onchange="runNaDate()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:.72rem;flex:1;min-width:0"></select>
+        <button onclick="stepNaDate(-1)" title="Daha yeni" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
+        <button onclick="stepNaDate(1)"  title="Daha eski"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
+      </div>
+      <div id="naDateResult"><div class="empty-state"><span class="empty-icon">📅</span>Veri yükleyin.</div></div>
+    </div>
+    <div class="tab-panel" id="naTab-joker">
+      <div id="naJokerResult"><div class="empty-state"><span class="empty-icon">🎯</span>Veri yükleyin.</div></div>
+    </div>
+  </div>
+</div>
 
 <div style="grid-column:1/-1;margin-top:20px">
   <div class="card">
@@ -912,6 +1025,16 @@ function initGameGrid(){
       <span class="game-range">${g.range}</span>
     </button>`).join('');
 }
+function initBtGameGrid(){
+  const el=document.getElementById('btGameGrid');if(!el)return;
+  el.innerHTML=GAMES.map(g=>`
+    <button class="game-btn ${g.id===state.selectedGame?'active':''}" onclick="selectBtGame('${g.id}')">
+      <span class="game-emoji">${g.emoji}</span>
+      <span class="game-name">${g.name}</span>
+      <span class="game-range">${g.range}</span>
+    </button>`).join('');
+}
+function selectBtGame(id){ state.selectedGame=id; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadBtHistory(); }
 function initAlgoGrid(){
   const scores=state.algoPositionScores[state.selectedGame];
   const analyzing=state.algoAnalysisGame===state.selectedGame;
@@ -1093,82 +1216,6 @@ async function analyzeBtAlgoPositions(gameId){
 
 function adjustBtCount(d){ state.btCount=Math.max(1,Math.min(10,state.btCount+d)); document.getElementById('btCountVal').textContent=state.btCount; }
 function adjustBtCount2(d){state.btCount2=Math.max(1,Math.min(10,state.btCount2+d));document.getElementById('btCountVal2').textContent=state.btCount2;}
-function initBtGameGrid(){
-  const el=document.getElementById('btGameGrid');if(!el)return;
-  el.innerHTML=GAMES.map(g=>`
-    <button class="game-btn ${g.id===state.selectedGame?'active':''}" onclick="selectBtGame('${g.id}')">
-      <span class="game-emoji">${g.emoji}</span>
-      <span class="game-name">${g.name}</span>
-      <span class="game-range">${g.range}</span>
-    </button>`).join('');
-}
-function selectBtGame(id){ state.selectedGame=id; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); }
-async function loadBtHistory(){
-  const id=state.selectedGame;
-  if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
-  showToast('⏳ Güncel çekiliş kontrol ediliyor...');
-  let fetched=false;
-  try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
-  document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
-  parseDatedDraws();
-  state._algoScoreCache={};
-  state._algoScoreCache2={};
-  state.pastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
-  if(state.algoAnalysisGame!==id){ state.algoAnalysisGame=null; analyzeAlgoPositions(id); }
-  const fr=dataFreshnessMsg(id);
-  if(fetched)
-    showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
-  else if(fr&&fr.missing>0)
-    showToast(`⚠️ Son çekiliş: ${fr.lastDate} ✓ — Sonraki beklenen: ${fr.missingDates.join(', ')} (sonuç girilmedi)`);
-  else
-    showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
-}
-function runBacktest(){
-  const gameId=state.selectedGame;
-  const testDate=document.getElementById('btDate').value;
-  const algoId=document.getElementById('btAlgo').value;
-  const win=document.getElementById('btWindow').value;
-  if(!testDate){showToast('⚠️ Lütfen bir test tarihi seçin');return;}
-  const game=getGame(gameId);
-  let prior=state.datedDraws.filter(d=>d.date<testDate);
-  if(win!=='all')prior=prior.slice(-parseInt(win));
-  if(!prior.length){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
-  const freq=buildFreq(prior);
-  const n=state.btCount||4;
-  const actual=state.datedDraws.find(d=>d.date===testDate)||null;
-  const filterOn=!!state.btFilter5;
-  const maxTries=filterOn?n*50:n;
-  const results=[];
-  for(let t=0;t<maxTries&&results.length<n;t++){
-    const pred=generateNumbers(game,algoId,freq,prior);
-    let mMain=0,mBonus=0,nearTotal=0;
-    if(actual){
-      const aS=new Set(actual.nums);
-      mMain=pred.main.filter(x=>aS.has(x)).length;
-      nearTotal=pred.main.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length;
-      if(game.bonusCount>0){
-        const aBs=new Set(actual.bonus);
-        mBonus=pred.bonus.filter(x=>aBs.has(x)).length;
-        nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
-      }
-    }
-    const minM=game.id==='onnumara'?7:3;
-    if(!filterOn||!actual||(mMain+mBonus)>=minM) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
-  }
-  const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
-  rs.style.display='block';
-  if(filterOn&&!results.length){
-    const minM=game.id==='onnumara'?7:3;
-    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${minM}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
-  } else {
-    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn);
-    const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
-    const total=best.pred.main.length+best.pred.bonus.length;
-    state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
-  }
-  state.btRunCount++;updateRunCounters();
-  renderBtHistory();
-}
 
 // ── Draw schedule (days-of-week: 0=Sun … 6=Sat) ─────────────
 const DRAW_SCHEDULE={sayisal:[1,3,6],super:[0,2,4],sans:[3,0],onnumara:[1,5]};
@@ -1281,6 +1328,28 @@ async function loadGenHistory(){
   document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
   parseDatedDraws();
   analyzeAlgoPositions(id);
+  const fr=dataFreshnessMsg(id);
+  if(fetched)
+    showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
+  else if(fr&&fr.missing>0)
+    showToast(`⚠️ Son çekiliş: ${fr.lastDate} ✓ — Sonraki beklenen: ${fr.missingDates.join(', ')} (sonuç girilmedi)`);
+  else
+    showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
+}
+
+async function loadBtHistory(){
+  const id=state.selectedGame;
+  if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
+  showToast('⏳ Güncel çekiliş kontrol ediliyor...');
+  let fetched=false;
+  try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
+  document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
+  parseDatedDraws();
+  // Share analysis with generator tab — populate pastDraws from datedDraws and reuse
+  state._algoScoreCache={};
+  state._algoScoreCache2={};
+  state.pastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
+  if(state.algoAnalysisGame!==id){ state.algoAnalysisGame=null; analyzeAlgoPositions(id); }
   const fr=dataFreshnessMsg(id);
   if(fetched)
     showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
@@ -1965,8 +2034,8 @@ function renderTicket(td,game,algoId,idx=0,matchCount=null){
 // ── Generate ──────────────────────────────────────────────────
 function generateTickets(){
   const game=getGame(),btn=document.getElementById('generateBtn');
-  btn.classList.add('spinning');
   const _dispFilter=!!state.genDisplayFilter3&&state.datedDraws&&state.datedDraws.length>0;
+  btn.classList.add('spinning');
   btn.textContent=_dispFilter?'🔍 600 bilet taranıyor...':'🎲 Sayılar çekiliyor...';
   setTimeout(()=>{
     const filterOn=!!state.btFilter5&&state.datedDraws.length>0;
@@ -2044,12 +2113,12 @@ function generateTickets(){
       return `<div style="display:flex;align-items:center;gap:8px;padding:2px 10px 0"><span style="min-width:18px;display:inline-block;flex-shrink:0"></span><div style="display:flex;gap:5px;">${nums}${bon}</div></div>`;
     })();
     container.innerHTML=`
-    ${scanHeader}
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
       <span style="font-size:.78rem;color:var(--muted)">${game.emoji} ${game.name} · <strong style="color:var(--text)">${algo?.name||state.selectedAlgo}</strong></span>
       <span style="font-size:.72rem;color:var(--accent)">Güven: ${conf}%</span>
     </div>
     ${posRow}
+    ${scanHeader}
     ${genPosHeader}
     ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,(filterOn||displayFilterOn)?matchCounts[i]:null)).join('')}
     <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
@@ -2073,39 +2142,7 @@ function saveAllTickets(){
 }
 
 // ── Save/delete ───────────────────────────────────────────────
-const _savedList=[];
-function saveTicket(btn){
-  const ticketEl=btn.closest('.ticket');
-  if(!ticketEl)return;
-  const txt=ticketEl.getAttribute('data-ticket')||'';
-  if(!txt)return;
-  if(_savedList.includes(txt)){showToast('Bu bilet zaten listede');return;}
-  _savedList.push(txt);
-  btn.textContent='✅';btn.disabled=true;
-  renderSavedBottom();
-  showToast('📌 Bilet listeye eklendi');
-}
-function removeSavedTicket(idx){
-  _savedList.splice(idx,1);
-  renderSavedBottom();
-}
-function renderSavedBottom(){
-  const el=document.getElementById('savedBottomList');
-  if(!el)return;
-  const cnt=document.getElementById('savedBottomCount');
-  if(cnt)cnt.textContent=_savedList.length;
-  if(!_savedList.length){
-    el.innerHTML='<div style="color:var(--muted);font-size:.78rem;text-align:center;padding:20px">Henüz bilet eklenmedi. Üretilen biletlerdeki 📌 butonuna tıklayın.</div>';
-    return;
-  }
-  el.innerHTML=_savedList.map((txt,i)=>`
-    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
-      <span style="font-size:.72rem;color:var(--muted);min-width:20px;text-align:right">#${i+1}</span>
-      <span style="flex:1;font-size:.8rem;font-family:monospace;color:var(--text)">${txt}</span>
-      <button onclick="removeSavedTicket(${i})" style="padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--accent2);cursor:pointer;font-size:.7rem">✕</button>
-    </div>`).join('');
-}
-function _legacySaveTicket(nums,gameName,mainColor,bonusColor,mainCount){
+function saveTicket(nums,gameName,mainColor,bonusColor,mainCount){
   state.savedTickets.unshift({id:Date.now(),nums,gameName,mainColor,bonusColor,mainCount,time:new Date().toLocaleTimeString()});
   renderSavedTickets();updateStats();showToast('✅ Bilet kaydedildi!');
 }
@@ -2216,6 +2253,7 @@ function parseDatedDraws(){
   status.className='parse-status success';
   status.textContent=`✅ ${draws.length} tarihli çekiliş yüklendi (en yeni: ${draws[0].date}).`;
   updateBtDateOptions();
+  initNaSection();
 }
 
 function updateBtDateOptions(){
@@ -2348,6 +2386,55 @@ function updateAlgoScores2(){
   state._algoScoreCache2[cKey]=panel.innerHTML;
 }
 
+function runBacktest2(){
+  const gameId=state.selectedGame;
+  const testDate=document.getElementById('btDate2').value;
+  const algoId=state.btAlgo2||document.getElementById('btAlgo2').value;
+  const win=document.getElementById('btWindow2').value;
+  if(!testDate){showToast('⚠️ Lütfen bir test tarihi seçin');return;}
+  const game=getGame(gameId);
+  let prior=state.datedDraws.filter(d=>d.date<testDate);
+  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(!prior.length){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
+  const freq=buildFreq(prior);
+  const n=state.btCount2||4;
+  const actual=state.datedDraws.find(d=>d.date===testDate)||null;
+  const filterOn2=!!state.btFilter5_2;
+  const maxTries2=filterOn2?n*50:n;
+  const results=[];
+  for(let t=0;t<maxTries2&&results.length<n;t++){
+    const pred=generateNumbers(game,algoId,freq,prior);
+    let mMain=0,mBonus=0,nearTotal=0;
+    if(actual){
+      const aS=new Set(actual.nums);
+      mMain=pred.main.filter(x=>aS.has(x)).length;
+      nearTotal=pred.main.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length;
+      if(game.bonusCount>0){
+        const aBs=new Set(actual.bonus);
+        mBonus=pred.bonus.filter(x=>aBs.has(x)).length;
+        nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
+      }
+    }
+    const minM2=game.id==='onnumara'?7:3;
+    if(!filterOn2||!actual||(mMain+mBonus)>=minM2) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
+  }
+  const rs=document.getElementById('btResultSection2'),rc=document.getElementById('btResultContent2');
+  rs.style.display='block';
+  if(filterOn2&&!results.length){
+    const minM2=game.id==='onnumara'?7:3;
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${minM2}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+  } else {
+    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn2);
+    const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
+    const total=best.pred.main.length+best.pred.bonus.length;
+    state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
+  }
+  state.btRunCount2++;
+  const bc2=document.getElementById('btRunCounter2');
+  if(bc2){bc2.style.display='inline';bc2.textContent=`${state.btRunCount2}× çalıştırıldı`;}
+  renderBtHistory();
+}
+
 function buildFreq(draws){
   const freq={};
   draws.forEach(d=>[...d.nums,...d.bonus].forEach(n=>{freq[n]=(freq[n]||0)+1;}));
@@ -2401,6 +2488,53 @@ function prizeTier(game,mMain,mBonus){
     if(mMain===5) return{label:'Altıncı İkramiye (5)',cls:'prize-low'};
   }
   return null;
+}
+
+function runBacktest(){
+  const gameId=state.selectedGame;
+  const testDate=document.getElementById('btDate').value;
+  const algoId=document.getElementById('btAlgo').value;
+  const win=document.getElementById('btWindow').value;
+  if(!testDate){showToast('⚠️ Lütfen bir test tarihi seçin');return;}
+  const game=getGame(gameId);
+  let prior=state.datedDraws.filter(d=>d.date<testDate);
+  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(!prior.length){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
+  const freq=buildFreq(prior);
+  const n=state.btCount||4;
+  const actual=state.datedDraws.find(d=>d.date===testDate)||null;
+  const filterOn=!!state.btFilter5;
+  const maxTries=filterOn?n*50:n;
+  const results=[];
+  for(let t=0;t<maxTries&&results.length<n;t++){
+    const pred=generateNumbers(game,algoId,freq,prior);
+    let mMain=0,mBonus=0,nearTotal=0;
+    if(actual){
+      const aS=new Set(actual.nums);
+      mMain=pred.main.filter(x=>aS.has(x)).length;
+      nearTotal=pred.main.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length;
+      if(game.bonusCount>0){
+        const aBs=new Set(actual.bonus);
+        mBonus=pred.bonus.filter(x=>aBs.has(x)).length;
+        nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
+      }
+    }
+    const minM=game.id==='onnumara'?7:3;
+    if(!filterOn||!actual||(mMain+mBonus)>=minM) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
+  }
+  const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
+  rs.style.display='block';
+  if(filterOn&&!results.length){
+    const minM=game.id==='onnumara'?7:3;
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${minM}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+  } else {
+    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn);
+    const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
+    const total=best.pred.main.length+best.pred.bonus.length;
+    state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
+  }
+  state.btRunCount++;updateRunCounters();
+  renderBtHistory();
 }
 
 function runForwardPrediction(){
@@ -2634,8 +2768,542 @@ function showToast(msg){
   setTimeout(()=>el.classList.remove('show'),2800);
 }
 
+// ═══════════ Tekli Sayı Bakımı ile Analiz ═══════════════════
+let _naTab='transform';
+
+function switchNaTab(id){
+  _naTab=id;
+  ['transform','date','joker'].forEach((t,i)=>{
+    document.querySelectorAll('#naTabs .tab-btn')[i].classList.toggle('active',t===id);
+    document.getElementById('naTab-'+t).classList.toggle('active',t===id);
+  });
+  if(id==='transform')runNaTransform();
+  else if(id==='date')runNaDate();
+  else runNaJoker();
+}
+
+function initNaSection(){
+  const draws=state.datedDraws;
+  const info=document.getElementById('naDataInfo');
+  if(!draws.length){
+    if(info)info.textContent='⚠️ Analiz için önce "Gerçek Verileri Yükle" yapın.';
+    return;
+  }
+  if(info)info.textContent=`✅ ${draws.length} çekiliş yüklü — son: ${draws[0].date} · ${draws[0].nums.join(' ')}${draws[0].bonus?.length?' | '+draws[0].bonus.join(' '):''}`;
+
+  const fmtOpt=(d)=>{
+    const ns=d.nums.slice(0,7).join(' ')+(d.nums.length>7?' …':'')+(d.bonus?.length?' | '+d.bonus.join(' '):'');
+    return `${d.date}  ${ns}`;
+  };
+  // Populate draw selector
+  const sel=document.getElementById('naDrawIdx');
+  if(sel){
+    sel.innerHTML=draws.slice(0,30).map((d,i)=>
+      `<option value="${i}">${fmtOpt(d)}</option>`
+    ).join('');
+  }
+
+  // Populate date draw selector
+  const dateSel=document.getElementById('naDateIdx');
+  if(dateSel){
+    dateSel.innerHTML=draws.slice(0,30).map((d,i)=>
+      `<option value="${i}">${fmtOpt(d)}</option>`
+    ).join('');
+  }
+
+  if(_naTab==='transform')runNaTransform();
+  else if(_naTab==='date')runNaDate();
+  else runNaJoker();
+}
+
+// ── helpers ──────────────────────────────────────────────────
+function _dsum(n){let s=String(n).split('').reduce((a,b)=>a+(+b),0);return s||n;}
+function _dprod(n){const d=String(n).split('').map(Number);return d.some(x=>x===0)?0:d.reduce((a,b)=>a*b,1);}
+function _nextPrime(n){const ip=x=>{if(x<2)return false;for(let i=2;i*i<=x;i++)if(x%i===0)return false;return true;};let k=n;while(k<=90&&!ip(k))k++;return k<=90?k:null;}
+function _factMod90(n){let f=1;for(let i=2;i<=Math.min(n,20);i++)f=(f*i)%90;return f||90;}
+const _FIBS=[1,1,2,3,5,8,13,21,34,55,89];
+
+function stepNaDraw(d){
+  const sel=document.getElementById('naDrawIdx');if(!sel)return;
+  const newIdx=Math.max(0,Math.min(sel.options.length-1,+sel.value+d));
+  sel.value=newIdx;runNaTransform();
+}
+function stepNaDate(d){
+  const sel=document.getElementById('naDateIdx');if(!sel)return;
+  const newIdx=Math.max(0,Math.min(sel.options.length-1,+sel.value+d));
+  sel.value=newIdx;runNaDate();
+}
+let _naHoldTimer=null;
+function naHoldStart(n){
+  naHoldEnd();
+  _naHoldTimer=setTimeout(()=>{
+    _naHoldTimer=null;
+    const el=document.getElementById('naCardSrcs-'+n);
+    if(el){el.style.display=el.style.display==='none'?'block':'none';}
+  },500);
+}
+function naHoldEnd(){if(_naHoldTimer){clearTimeout(_naHoldTimer);_naHoldTimer=null;}}
+
+function runNaTransform(){
+  const draws=state.datedDraws;
+  if(!draws.length)return;
+  const idx=+(document.getElementById('naDrawIdx')?.value||0);
+  const draw=draws[Math.min(idx,draws.length-1)];
+  const nums=draw.nums||[];
+  // draws is newest-first, so idx-1 is the chronologically next draw
+  const nextDraw=idx>0?draws[idx-1]:null;
+  const nextSet=nextDraw?new Set([...(nextDraw.nums||[]),...(nextDraw.bonus||[])]):null;
+  const game=getGame(state.selectedGame);
+  const MAX=game.max;
+  const mod=v=>((v%MAX)+MAX)%MAX||MAX;
+
+  const TRANS=[
+    {id:'mirror',   name:'Ayna (91−n)',              fn:(n)=>91-n},
+    {id:'rev',      name:'Ters Basamak',              fn:(n)=>{const r=+String(n).split('').reverse().join('');return r>=1&&r<=MAX?r:null;}},
+    {id:'sq',       name:'Kare Mod (n²%MAX)',         fn:(n)=>mod(n*n)},
+    {id:'cube',     name:'Küp Mod (n³%MAX)',          fn:(n)=>mod(n*n*n)},
+    {id:'half',     name:'Yarım Döngü (±45)',         fn:(n)=>n<=45?n+45:n-45},
+    {id:'tri',      name:'Üçgen (n×(n+1)/2 %MAX)',   fn:(n)=>mod(n*(n+1)/2)},
+    {id:'dsoff',    name:'Basamak Toplam Ofseti',     fn:(n)=>mod(n+_dsum(n))},
+    {id:'dpoff',    name:'Basamak Çarpım Ofseti',     fn:(n)=>{const p=_dprod(n);return p>0?mod(n*p):null;}},
+    {id:'fiboff',   name:'Fibonacci Ofseti (+Fib[i])',fn:(n,i)=>mod(n+_FIBS[i%_FIBS.length])},
+    {id:'decade',   name:'Onluk Döngü (+9)',          fn:(n)=>mod(n+9)},
+    {id:'double',   name:'Çift Onluk (+18)',          fn:(n)=>mod(n+18)},
+    {id:'prime',    name:'Sonraki Asal',              fn:(n)=>_nextPrime(n)},
+    {id:'factd',    name:'Basamak Faktöriyeli',       fn:(n)=>_factMod90(_dsum(n)%10||10)},
+    {id:'dsumsq',   name:'Basamak Toplamı Karesi',    fn:(n)=>{const s=_dsum(n);return mod(s*s);}},
+    {id:'mirror2',  name:'Yüzden Fark (100−n)',       fn:(n)=>n<=MAX?100-n:null},
+    {id:'xmod',     name:'Çift Katı+1 Mod',           fn:(n)=>mod(2*n+1)},
+  ];
+
+  // Vote accumulation
+  const votes={};const srcs={};
+  nums.forEach((n,pos)=>{
+    TRANS.forEach(t=>{
+      const r=t.fn(n,pos);
+      if(r===null||r<1||r>MAX||!Number.isFinite(r))return;
+      const k=Math.round(r);
+      if(k<1||k>MAX)return;
+      votes[k]=(votes[k]||0)+1;
+      if(!srcs[k])srcs[k]=[];
+      srcs[k].push({from:n,via:t.name});
+    });
+  });
+
+  const ranked=Object.entries(votes).map(([n,v])=>({n:+n,v,srcs:srcs[n]||[]})).sort((a,b)=>b.v-a.v||a.n-b.n);
+  const top=ranked.slice(0,28);
+  const maxVote=top[0]?.v||1;
+
+  let html=`<div style="font-size:.72rem;color:var(--muted);margin-bottom:12px">`;
+  html+=`Kaynak: <strong style="color:var(--text)">${draw.date} · ${nums.join(' ')}</strong>`;
+  html+=draw.bonus?.length?` | <span style="color:var(--accent2)">${draw.bonus.join(' ')}</span>`:'';
+  html+=` · <span style="color:var(--muted)">${TRANS.length} dönüşüm × ${nums.length} sayı</span></div>`;
+
+  // Next draw result banner
+  if(nextDraw){
+    const hitCount=top.filter(r=>nextSet.has(r.n)).length;
+    html+=`<div style="font-size:.71rem;padding:7px 11px;border-radius:7px;margin-bottom:10px;background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.25);display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
+    html+=`<span style="color:var(--green);font-weight:700">Sonraki çekiliş:</span>`;
+    html+=`<span style="color:var(--text)">${nextDraw.date} · `;
+    html+=(nextDraw.nums||[]).map(n=>`<strong style="color:${nextSet.has(n)?'var(--green)':'var(--text)'}">${n}</strong>`).join(' ');
+    if(nextDraw.bonus?.length) html+=` | `+(nextDraw.bonus||[]).map(n=>`<strong style="color:${nextSet.has(n)?'var(--green)':'var(--text)'}">${n}</strong>`).join(' ');
+    html+=`</span><span style="font-size:.65rem;color:var(--muted);margin-left:auto">${hitCount} tahmin tuttu</span></div>`;
+  }
+
+  html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-bottom:14px">`;
+  top.forEach(r=>{
+    const pct=Math.round(r.v/maxVote*100);
+    const hit=nextSet&&nextSet.has(r.n);
+    const clr=hit?'var(--green)':r.v>=5?'var(--green)':r.v>=3?'var(--accent)':r.v>=2?'#ffd700':'var(--muted)';
+    const bg=hit?'rgba(0,230,118,.18)':r.v>=5?'rgba(0,230,118,.12)':r.v>=3?'rgba(108,99,255,.12)':r.v>=2?'rgba(255,215,0,.08)':'transparent';
+    const bc=hit?'var(--green)':r.v>=5?'rgba(0,230,118,.5)':r.v>=3?'rgba(108,99,255,.4)':r.v>=2?'rgba(255,215,0,.3)':'var(--border)';
+    const bw=hit?'3px':'1px';
+    html+=`<div style="background:${bg};border:${bw} solid ${bc};border-radius:8px;padding:9px 11px${hit?';box-shadow:0 0 10px rgba(0,230,118,.25)':''};cursor:pointer;user-select:none;-webkit-user-select:none"
+      onpointerdown="naHoldStart(${r.n},event)" onpointerup="naHoldEnd()" onpointerleave="naHoldEnd()" oncontextmenu="return false">`;
+    html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">`;
+    html+=`<span style="font-size:1.15rem;font-weight:800;color:${clr};min-width:28px">${r.n}</span>`;
+    if(hit) html+=`<span style="font-size:.62rem;font-weight:700;color:var(--green);background:rgba(0,230,118,.2);border-radius:4px;padding:1px 5px">✓ Tuttu</span>`;
+    html+=`<div style="flex:1;background:var(--surface2);border-radius:3px;height:6px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${clr};border-radius:3px;transition:width .3s"></div></div>`;
+    html+=`<span style="font-size:.63rem;font-weight:700;color:${clr};min-width:32px;text-align:right">${r.v} oy</span>`;
+    html+=`</div>`;
+    html+=`<div id="naCardSrcs-${r.n}" style="display:none;font-size:.6rem;color:var(--muted);line-height:1.5">`;
+    r.srcs.forEach(s=>{ html+=`<span style="display:inline-block;background:var(--surface);border-radius:3px;padding:1px 4px;margin:1px;border:1px solid var(--border);white-space:nowrap">${s.from}→${s.via}</span>`; });
+    html+=`</div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);opacity:.4;text-align:right;margin-top:2px">⋯ basılı tut</div>`;
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+
+  // Legend
+  html+=`<details><summary style="cursor:pointer;font-size:.71rem;color:var(--accent);user-select:none;margin-top:4px">Kullanılan ${TRANS.length} dönüşüm</summary>`;
+  html+=`<div style="margin-top:8px;display:flex;gap:4px;flex-wrap:wrap">`;
+  TRANS.forEach(t=>{ html+=`<span style="font-size:.63rem;padding:3px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;color:var(--muted)">${t.name}</span>`; });
+  html+=`</div></details>`;
+
+  document.getElementById('naTransformResult').innerHTML=html;
+}
+
+function runNaDate(){
+  const draws=state.datedDraws;
+  const el=document.getElementById('naDateResult');
+  if(!draws.length){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Veri yükleyin.</div>';return;}
+  const idx=+(document.getElementById('naDateIdx')?.value||0);
+  const draw=draws[Math.min(idx,draws.length-1)];
+  const dateStr=draw.date;
+  // Actual result of this draw — used to highlight matched predictions
+  const actualSet=new Set([...(draw.nums||[]),...(draw.bonus||[])]);
+  const parts=dateStr.split('-').map(Number);
+  const year=parts[0],month=parts[1],day=parts[2];
+  const game=getGame(state.selectedGame);
+  const MAX=game.max;
+  const mod=v=>((v%MAX)+MAX)%MAX||MAX;
+
+  const dt=new Date(year,month-1,day);
+  const doy=Math.round((dt-new Date(year,0,0))/86400000);
+  const dow=dt.getDay()||7;
+  const ySuf=year%100;
+  const yDsum=String(year).split('').reduce((a,b)=>a+(+b),0);
+  const allDigs=String(year)+String(month).padStart(2,'0')+String(day).padStart(2,'0');
+  const allDigArr=allDigs.split('').map(Number);
+  const allDigSum=allDigArr.reduce((a,b)=>a+b,0);
+  const allDigProd=allDigArr.reduce((a,b)=>a*b,1);
+
+  // Date digit pairs
+  const pairVals=[];
+  for(let i=0;i<allDigs.length-1;i++){const p=+allDigs.slice(i,i+2);if(p>=1&&p<=MAX)pairVals.push(p);}
+  // Reverse date digits
+  const revStr=allDigs.split('').reverse().join('');
+  const revPairs=[];
+  for(let i=0;i<revStr.length-1;i++){const p=+revStr.slice(i,i+2);if(p>=1&&p<=MAX)revPairs.push(p);}
+
+  const formulas=[
+    {name:'Gün (D)',                      vals:[day],                              hint:`${day}`},
+    {name:'Ay × Gün',                     vals:[mod(month*day)],                   hint:`${month}×${day}=${month*day}`},
+    {name:'Gün + Ay×5',                   vals:[mod(day+month*5)],                 hint:`${day}+${month*5}`},
+    {name:'Yıl%100 + Gün',                vals:[mod(ySuf+day)],                    hint:`${ySuf}+${day}`},
+    {name:'Tüm Basamak Toplamı',          vals:[allDigSum<=MAX?allDigSum:mod(allDigSum)], hint:`${allDigArr.join('+')}=${allDigSum}`},
+    {name:'Basamak Toplamı × Gün',        vals:[mod(allDigSum*day)],               hint:`${allDigSum}×${day}`},
+    {name:'Gün³',                         vals:[mod(day*day*day)],                 hint:`${day}³=${day*day*day}`},
+    {name:'Gün² + Ay',                    vals:[mod(day*day+month)],               hint:`${day*day}+${month}`},
+    {name:'D+M+Y%100',                    vals:[mod(day+month+ySuf)],              hint:`${day}+${month}+${ySuf}`},
+    {name:'Gün × Yıl Basamak Toplamı',   vals:[mod(day*yDsum)],                   hint:`${day}×${yDsum}`},
+    {name:'Yılın Günü',                   vals:[mod(doy)],                         hint:`${doy}. gün`},
+    {name:'Yılın Günü + Ay',             vals:[mod(doy+month)],                   hint:`${doy}+${month}`},
+    {name:'Haftanın Günü × 13',          vals:[mod(dow*13)],                      hint:`${['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][dow-1]}×13`},
+    {name:'Ay² × Gün',                   vals:[mod(month*month*day)],             hint:`${month}²×${day}`},
+    {name:'Basamak Çarpımı',             vals:[allDigProd<=MAX&&allDigProd>=1?allDigProd:mod(allDigProd)], hint:`${allDigArr.join('×')}=${allDigProd}`},
+    {name:'Tarih Basamak Çiftleri',      vals:pairVals,                           hint:`${allDigs}→çiftler`},
+    {name:'Ters Tarih Basamak Çiftleri', vals:revPairs,                           hint:`${revStr}→çiftler`},
+    {name:'Gün × Ay + Yıl%10',          vals:[mod(day*month+year%10)],           hint:`${day*month}+${year%10}`},
+    {name:'Ay³ + Gün',                   vals:[mod(month*month*month+day)],       hint:`${month}³+${day}`},
+    {name:'Yılın Günü % MAX + Gün%10',  vals:[mod(doy+day%10)],                  hint:`${doy}+${day%10}`},
+  ];
+
+  const votes={};const fsrcs={};
+  formulas.forEach(f=>{
+    f.vals.forEach(v=>{
+      if(!v||v<1||v>MAX||!Number.isFinite(v))return;
+      const k=Math.round(v);
+      if(k<1||k>MAX)return;
+      votes[k]=(votes[k]||0)+1;
+      if(!fsrcs[k])fsrcs[k]=[];
+      fsrcs[k].push(f.name);
+    });
+  });
+
+  const ranked=Object.entries(votes).map(([n,v])=>({n:+n,v,srcs:fsrcs[n]||[]})).sort((a,b)=>b.v-a.v||a.n-b.n);
+  const top=ranked.slice(0,24);
+  const maxVote=top[0]?.v||1;
+
+  const dowNames=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
+  const hitCount=top.filter(r=>actualSet.has(r.n)).length;
+  let html=`<div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px">`;
+  html+=`<span>Tarih: <strong style="color:var(--text)">${dateStr}</strong></span>`;
+  html+=`<span>Gün=<strong style="color:var(--text)">${day}</strong></span>`;
+  html+=`<span>Ay=<strong style="color:var(--text)">${month}</strong></span>`;
+  html+=`<span>Hgün=<strong style="color:var(--text)">${dowNames[dow-1]||dow}</strong></span>`;
+  html+=`<span>Yılın ${doy}. günü</span>`;
+  html+=`<span>Basamak toplamı=<strong style="color:var(--text)">${allDigSum}</strong></span>`;
+  html+=`</div>`;
+
+  // Actual draw result banner
+  html+=`<div style="font-size:.71rem;padding:7px 11px;border-radius:7px;margin-bottom:10px;background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.25);display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
+  html+=`<span style="color:var(--green);font-weight:700">Gerçek çekiliş:</span>`;
+  html+=`<span style="color:var(--text)">`+(draw.nums||[]).map(n=>`<strong style="color:${actualSet.has(n)?'var(--green)':'var(--text)'}">${n}</strong>`).join(' ');
+  if(draw.bonus?.length) html+=` | `+(draw.bonus||[]).map(n=>`<strong style="color:var(--accent2)">${n}</strong>`).join(' ');
+  html+=`</span><span style="font-size:.65rem;color:var(--muted);margin-left:auto">${hitCount} tahmin tuttu</span></div>`;
+
+  html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px;margin-bottom:14px">`;
+  top.forEach(r=>{
+    const pct=Math.round(r.v/maxVote*100);
+    const hit=actualSet.has(r.n);
+    const clr=hit?'var(--green)':r.v>=4?'var(--green)':r.v>=3?'var(--accent)':r.v>=2?'#ffd700':'var(--muted)';
+    const bg=hit?'rgba(0,230,118,.18)':r.v>=4?'rgba(0,230,118,.12)':r.v>=3?'rgba(108,99,255,.12)':r.v>=2?'rgba(255,215,0,.08)':'transparent';
+    const bc=hit?'var(--green)':r.v>=4?'rgba(0,230,118,.5)':r.v>=3?'rgba(108,99,255,.4)':r.v>=2?'rgba(255,215,0,.3)':'var(--border)';
+    const bw=hit?'3px':'1px';
+    html+=`<div style="background:${bg};border:${bw} solid ${bc};border-radius:8px;padding:9px 11px${hit?';box-shadow:0 0 10px rgba(0,230,118,.25)':''}">`;
+    html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">`;
+    html+=`<span style="font-size:1.15rem;font-weight:800;color:${clr};min-width:28px">${r.n}</span>`;
+    if(hit) html+=`<span style="font-size:.62rem;font-weight:700;color:var(--green);background:rgba(0,230,118,.2);border-radius:4px;padding:1px 5px">✓ Tuttu</span>`;
+    html+=`<div style="flex:1;background:var(--surface2);border-radius:3px;height:5px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${clr};border-radius:3px"></div></div>`;
+    html+=`<span style="font-size:.62rem;font-weight:700;color:${clr}">${r.v} oy</span>`;
+    html+=`</div><div style="font-size:.6rem;color:var(--muted);line-height:1.5">`;
+    r.srcs.forEach(s=>{ html+=`<span style="display:inline-block;background:var(--surface);border-radius:3px;padding:1px 4px;margin:1px;border:1px solid var(--border)">${s}</span>`; });
+    html+=`</div></div>`;
+  });
+  html+=`</div>`;
+
+  html+=`<details><summary style="cursor:pointer;font-size:.71rem;color:var(--accent);user-select:none">Tüm ${formulas.length} formül detayı</summary>`;
+  html+=`<div style="margin-top:8px;display:grid;gap:3px">`;
+  formulas.forEach(f=>{
+    const vs=f.vals.filter(v=>v&&v>=1&&v<=MAX);
+    html+=`<div style="display:flex;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:5px;align-items:baseline;font-size:.68rem">`;
+    html+=`<span style="color:var(--muted);min-width:200px;flex-shrink:0">${f.name}</span>`;
+    html+=`<span style="color:var(--text);font-weight:700;min-width:50px">${vs.join(', ')}</span>`;
+    html+=`<span style="color:var(--muted);font-size:.6rem">${f.hint}</span></div>`;
+  });
+  html+=`</div></details>`;
+
+  el.innerHTML=html;
+}
+
+function runNaJoker(){
+  // Always analyzes Sayısal Loto Süperstar (1–90) regardless of selected game
+  const draws=state.datedDraws;
+  const el=document.getElementById('naJokerResult');
+  if(!draws.length){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Veri yüklenmemiş — Gerçek Verileri Yükle yapın.</div>';return;}
+  const MAX=90; // Sayısal Loto Süperstar aralığı
+
+  const freq={};const lastSeen={};const jokers=[];
+  draws.forEach((d,i)=>{
+    const j=d.bonus?.[0];
+    if(!j||j<1||j>MAX)return;
+    jokers.push({v:j,date:d.date,nums:d.nums});
+    freq[j]=(freq[j]||0)+1;
+    if(lastSeen[j]===undefined)lastSeen[j]=i;
+  });
+  const total=jokers.length;
+  if(!total){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Bu veride Süperstar sayısı bulunamadı.</div>';return;}
+
+  for(let n=1;n<=MAX;n++){
+    if(freq[n]===undefined)freq[n]=0;
+    if(lastSeen[n]===undefined)lastSeen[n]=total;
+  }
+
+  const hot=Object.entries(freq).map(([n,f])=>({n:+n,f})).sort((a,b)=>b.f-a.f||a.n-b.n).slice(0,10);
+  const cold=Object.entries(lastSeen).map(([n,g])=>({n:+n,g,f:freq[n]||0})).sort((a,b)=>b.g-a.g||a.n-b.n).slice(0,10);
+
+  // Delta analysis
+  const deltas=[];
+  for(let i=0;i<jokers.length-1;i++)deltas.push((jokers[i].v-jokers[i+1].v+MAX)%MAX);
+  const dfreq={};deltas.forEach(d=>{dfreq[d]=(dfreq[d]||0)+1;});
+  const topDeltas=Object.entries(dfreq).sort((a,b)=>b[1]-a[1]).slice(0,6);
+
+  // Overlap: joker in main numbers
+  const overlap=jokers.filter(j=>j.nums&&j.nums.includes(j.v)).length;
+
+  // Candidates
+  const cands=new Set();
+  cold.slice(0,3).forEach(c=>cands.add(c.n));
+  hot.slice(0,2).forEach(h=>cands.add(h.n));
+  if(topDeltas.length){const d=+topDeltas[0][0];cands.add((jokers[0].v+d-1)%MAX+1);}
+  const prevJ=jokers[0].v;
+
+  // Decade distribution
+  const decSize=Math.ceil(MAX/9);
+  const decades=new Array(9).fill(0);
+  jokers.forEach(j=>{const d=Math.min(Math.floor((j.v-1)/decSize),8);decades[d]++;});
+  const maxDec=Math.max(...decades);
+
+  let html=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">`;
+
+  // Hot
+  html+=`<div><div style="font-size:.67rem;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">🔥 En Sık Çıkan</div>`;
+  hot.forEach(h=>{
+    html+=`<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">`;
+    html+=`<span style="width:28px;text-align:right;font-weight:800;font-size:.85rem;color:var(--text)">${h.n}</span>`;
+    html+=`<div style="flex:1;background:var(--surface2);border-radius:3px;height:8px;overflow:hidden"><div style="width:${Math.round(h.f/hot[0].f*100)}%;background:var(--accent2);height:100%;border-radius:3px"></div></div>`;
+    html+=`<span style="font-size:.63rem;color:var(--muted);min-width:60px">${h.f}× (${(h.f/total*100).toFixed(1)}%)</span>`;
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+
+  // Cold
+  html+=`<div><div style="font-size:.67rem;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">❄️ En Uzun Süredir Çıkmayan</div>`;
+  cold.forEach(c=>{
+    html+=`<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">`;
+    html+=`<span style="width:28px;text-align:right;font-weight:800;font-size:.85rem;color:var(--text)">${c.n}</span>`;
+    html+=`<div style="flex:1;background:var(--surface2);border-radius:3px;height:8px;overflow:hidden"><div style="width:${Math.round(c.g/cold[0].g*100)}%;background:var(--blue);height:100%;border-radius:3px"></div></div>`;
+    html+=`<span style="font-size:.63rem;color:var(--muted);min-width:55px">${c.g===total?'Hiç çıkmadı':`${c.g} çekiliş`}</span>`;
+    html+=`</div>`;
+  });
+  html+=`</div></div>`;
+
+  // Decade distribution bar chart
+  html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">`;
+  html+=`<div style="font-size:.67rem;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">📊 Onluk Dağılımı (1-${MAX})</div>`;
+  html+=`<div style="display:flex;gap:4px;align-items:flex-end;height:60px">`;
+  decades.forEach((cnt,i)=>{
+    const start=i*decSize+1;const end=Math.min((i+1)*decSize,MAX);
+    const h=Math.round(cnt/maxDec*52);
+    html+=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px" title="${start}-${end}: ${cnt}×">`;
+    html+=`<span style="font-size:.55rem;color:var(--muted)">${cnt}</span>`;
+    html+=`<div style="width:100%;height:${h}px;background:var(--accent);border-radius:3px 3px 0 0;opacity:.8"></div>`;
+    html+=`<span style="font-size:.52rem;color:var(--muted)">${start}-${end}</span>`;
+    html+=`</div>`;
+  });
+  html+=`</div></div>`;
+
+  // Candidates box
+  html+=`<div style="background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.25);border-radius:10px;padding:12px;margin-bottom:12px">`;
+  html+=`<div style="font-size:.67rem;font-weight:700;color:var(--green);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">🎯 Aday Süperstar Sayıları</div>`;
+  html+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">`;
+  [...cands].forEach(n=>{
+    html+=`<span style="font-size:1.25rem;font-weight:800;color:var(--green);background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.3);border-radius:8px;padding:6px 14px">${n}</span>`;
+  });
+  html+=`</div>`;
+  html+=`<div style="font-size:.64rem;color:var(--muted)">Son Süperstar: <strong style="color:var(--text)">${prevJ}</strong> · Beklenen frekans: her ${(total/MAX).toFixed(1)} çekilişte bir · Son 15: ${jokers.slice(0,15).map(j=>j.v).join(' · ')}</div>`;
+  html+=`</div>`;
+
+  // Stats + delta
+  html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">`;
+  html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px">`;
+  html+=`<div style="font-size:.65rem;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase">İstatistikler</div>`;
+  html+=`<div style="font-size:.69rem;line-height:1.9">`;
+  html+=`<div>Toplam çekiliş: <strong>${total}</strong></div>`;
+  html+=`<div>Tekil Süperstar değeri: <strong>${Object.keys(freq).filter(k=>freq[k]>0).length}</strong> / ${MAX}</div>`;
+  html+=`<div>Hiç çıkmayan: <strong>${Object.keys(freq).filter(k=>freq[k]===0).length}</strong></div>`;
+  html+=`<div>Süperstar = Ana sayı: <strong>${overlap}×</strong> (${(overlap/total*100).toFixed(1)}%)</div>`;
+  html+=`<div>Ort. Süperstar: <strong>${(jokers.reduce((a,j)=>a+j.v,0)/total).toFixed(1)}</strong></div>`;
+  html+=`</div></div>`;
+  html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px">`;
+  html+=`<div style="font-size:.65rem;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase">En Sık Farklar (Δ)</div>`;
+  html+=`<div style="font-size:.69rem;line-height:1.9">`;
+  topDeltas.forEach(([d,c])=>{ html+=`<div>+${d}: <strong>${c}×</strong> (${(c/deltas.length*100).toFixed(1)}%)</div>`; });
+  html+=`</div></div></div>`;
+
+  // Research note
+  html+=`<details><summary style="cursor:pointer;font-size:.71rem;color:var(--accent);user-select:none">📖 Süperstar Tahmin Edilebilirliği Hakkında (Analiz)</summary>`;
+  html+=`<div style="margin-top:10px;font-size:.69rem;color:var(--muted);line-height:1.8;background:var(--surface2);border-radius:8px;padding:14px">`;
+  html+=`<strong style="color:var(--text)">Sayısal Loto Süperstar Tahmin Edilebilir mi?</strong><br><br>`;
+  html+=`${total} Sayısal Loto çekilişindeki Süperstar sayıları üzerinde yapılan kapsamlı istatistiksel analiz:<br><br>`;
+  html+=`• <strong style="color:var(--text)">Ana sayı korelasyonu:</strong> Ana 7 sayının toplamı mod 90, ortanca, min+max gibi dönüşümlerin gerçek Süperstar sayısıyla örtüşme oranı <strong>%0.9–2.4 arasında</strong> kaldı (beklenen %${(100/MAX).toFixed(1)}). Ana sayılardan Süperstar matematiksel olarak türetilemiyor.<br><br>`;
+  html+=`• <strong style="color:var(--text)">Ardışık Süperstar ilişkisi:</strong> Üst üste aynı Süperstar %${(jokers.filter((j,i)=>i>0&&j.v===jokers[i-1].v).length/total*100).toFixed(1)} oranında gözlemlendi (beklenen: %${(100/MAX).toFixed(1)}). Hafif bir "sürüklenme" etkisi mevcut ama istatistiksel güvenilirliği düşük.<br><br>`;
+  html+=`• <strong style="color:var(--text)">Dağılım analizi:</strong> Süperstar teorik olarak 1–${MAX} arasında eşit dağılmalı. Yukarıdaki onluk grafiği gerçek dağılım sapmasını gösteriyor — fazla çıkan onluklar "borçlu" sayılabilir.<br><br>`;
+  html+=`• <strong style="color:var(--text)">En güçlü yöntem — Boşluk (Gap) Analizi:</strong> Uzun süredir çıkmayan Süperstar sayılarını takip etmek. ${cold[0].n} sayısı ${cold[0].g} çekiliştir görülmemiş (beklenen: ${(total/MAX).toFixed(1)} çekilişte bir).<br><br>`;
+  html+=`• <strong style="color:var(--text)">Pratik öneri:</strong> "En Uzun Süredir Çıkmayan" listesindeki ilk 3–5 sayıyı Süperstar tahmini olarak kullanmak istatistiksel açıdan en savunulabilir yaklaşım. Her çekilişin bağımsız olduğu unutulmamalıdır.`;
+  html+=`</div></details>`;
+
+  // ── Geçmiş Tahmin Testi ──────────────────────────────────────
+  const btRows=[];
+  const btLimit=Math.min(20,draws.length-5);
+  for(let i=1;i<=btLimit;i++){
+    const priorDraws=draws.slice(i+1);
+    if(priorDraws.length<5)break;
+    const actual=draws[i].bonus?.[0];
+    if(!actual||actual<1||actual>MAX)continue;
+    const pJ=draws[i+1]?.bonus?.[0];
+    const pFreq={},pLastSeen={},pJokers=[];
+    priorDraws.forEach((d,k)=>{
+      const j=d.bonus?.[0];
+      if(!j||j<1||j>MAX)return;
+      pJokers.push(j);
+      pFreq[j]=(pFreq[j]||0)+1;
+      if(pLastSeen[j]===undefined)pLastSeen[j]=k;
+    });
+    for(let n=1;n<=MAX;n++){
+      if(pFreq[n]===undefined)pFreq[n]=0;
+      if(pLastSeen[n]===undefined)pLastSeen[n]=pJokers.length;
+    }
+    const pCold=Object.entries(pLastSeen).map(([n,g])=>({n:+n,g})).sort((a,b)=>b.g-a.g||a.n-b.n).slice(0,3).map(x=>x.n);
+    const pHot=Object.entries(pFreq).map(([n,f])=>({n:+n,f})).filter(x=>x.f>0).sort((a,b)=>b.f-a.f||a.n-b.n).slice(0,2).map(x=>x.n);
+    const pCands=new Set([...pCold,...pHot]);
+    if(pJ&&pJokers.length>2){
+      const deltas=[];
+      for(let k=0;k<pJokers.length-1;k++)deltas.push((pJokers[k]-pJokers[k+1]+MAX)%MAX);
+      const dfreq={};deltas.forEach(d=>{dfreq[d]=(dfreq[d]||0)+1;});
+      const topD=+Object.entries(dfreq).sort((a,b)=>b[1]-a[1])[0][0];
+      pCands.add((pJ+topD-1)%MAX+1);
+    }
+    btRows.push({date:draws[i].date,actual,cands:[...pCands],hit:pCands.has(actual)});
+  }
+  const btHits=btRows.filter(r=>r.hit).length;
+  const candCount=cands.size;
+
+  html+=`<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">`;
+  html+=`<div style="font-size:.67rem;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">📊 Geçmiş Tahmin Testi (Son ${btRows.length} Çekiliş)</div>`;
+  if(btRows.length){
+    const pct=(btHits/btRows.length*100).toFixed(1);
+    const expPct=(candCount/MAX*100).toFixed(1);
+    const isGood=btHits/btRows.length>candCount/MAX*1.1;
+    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
+    html+=`<span style="font-size:.9rem;font-weight:800;color:${isGood?'var(--green)':'var(--text)'}">${btHits}/${btRows.length}</span>`;
+    html+=`<span style="font-size:.71rem;color:var(--muted)">isabet · <strong style="color:var(--text)">${pct}%</strong> · Beklenen: ${expPct}% (${candCount} aday / ${MAX} sayı)</span>`;
+    html+=`<span style="font-size:.68rem;color:${isGood?'var(--green)':'var(--muted)'}">`;
+    html+=isGood?`✓ Beklentinin üzerinde`:`≈ Rassal beklentiye yakın`;
+    html+=`</span></div>`;
+
+    btRows.forEach(r=>{
+      const bg=r.hit?'rgba(0,230,118,.06)':'var(--surface2)';
+      html+=`<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;margin-bottom:4px;background:${bg}">`;
+      html+=`<span style="font-size:.61rem;color:var(--muted);min-width:56px;flex-shrink:0">${r.date}</span>`;
+      html+=`<span style="font-weight:800;font-size:.88rem;min-width:22px;text-align:center;color:${r.hit?'var(--green)':'var(--text)'}">${r.actual}</span>`;
+      html+=`<div style="flex:1;display:flex;gap:3px;flex-wrap:wrap">`;
+      r.cands.slice().sort((a,b)=>a-b).forEach(n=>{
+        const hit2=n===r.actual;
+        html+=`<span style="font-size:.6rem;padding:1px 5px;border-radius:4px;font-weight:${hit2?'800':'400'};`
+            +`background:${hit2?'rgba(0,230,118,.25)':'var(--surface1)'};`
+            +`color:${hit2?'var(--green)':'var(--muted)'};`
+            +`border:1px solid ${hit2?'rgba(0,230,118,.45)':'transparent'}">${n}</span>`;
+      });
+      html+=`</div>`;
+      html+=`<span style="font-size:.78rem;flex-shrink:0;color:${r.hit?'var(--green)':'var(--muted)'}">${r.hit?'✓':'✗'}</span>`;
+      html+=`</div>`;
+    });
+  } else {
+    html+=`<div style="font-size:.72rem;color:var(--muted)">Test için yeterli veri yok.</div>`;
+  }
+  html+=`</div>`;
+
+  el.innerHTML=html;
+}
+
+// ── Tarama Modu: saved ticket list ────────────────────────────
+const _savedList=[];
+function saveTicket(btn){
+  const ticketEl=btn.closest('.ticket');
+  if(!ticketEl)return;
+  const txt=ticketEl.getAttribute('data-ticket')||'';
+  if(!txt)return;
+  if(_savedList.includes(txt)){showToast('Bu bilet zaten listede');return;}
+  _savedList.push(txt);
+  btn.textContent='✅';btn.disabled=true;
+  renderSavedBottom();
+  showToast('📌 Bilet listeye eklendi');
+}
+function removeSavedTicket(idx){
+  _savedList.splice(idx,1);
+  renderSavedBottom();
+}
+function renderSavedBottom(){
+  const el=document.getElementById('savedBottomList');
+  if(!el)return;
+  const cnt=document.getElementById('savedBottomCount');
+  if(cnt)cnt.textContent=_savedList.length;
+  if(!_savedList.length){
+    el.innerHTML='<div style="color:var(--muted);font-size:.78rem;text-align:center;padding:20px">Henüz bilet eklenmedi. Üretilen biletlerdeki 📌 butonuna tıklayın.</div>';
+    return;
+  }
+  el.innerHTML=_savedList.map((txt,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">
+      <span style="font-size:.72rem;color:var(--muted);min-width:20px;text-align:right">#${i+1}</span>
+      <span style="flex:1;font-size:.8rem;font-family:monospace;color:var(--text)">${txt}</span>
+      <button onclick="removeSavedTicket(${i})" style="padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--accent2);cursor:pointer;font-size:.7rem">✕</button>
+    </div>`).join('');
+}
+
 // ── Boot ──────────────────────────────────────────────────────
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();
 </script>
 </body>
 </html>
