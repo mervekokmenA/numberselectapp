@@ -633,6 +633,7 @@ const ALGOS = [
   { id:'dateshift',  name:'📅 Tarih Ofset',            desc:'Ayın günü × 3 + 19 ofseti son çekiliş sayılarına uygulanır — Excel AL-AQ sütun formülü', expert:true },
   { id:'poswave',    name:'〰 Konum Dalgası',          desc:'Her konuma özel kademeli ofset: konum 1=+13, 2=+32, 3=+53... — Excel AT-AZ güç serisi', expert:true },
   { id:'fb10',       name:'🔟 FB10 Grup',              desc:'1-90 arası sayılar son rakama göre 10 gruba ayrılır. Tekler tekleri, çiftler çiftleri tetikler. Grup baskısı + pozisyon analizi + çapraz tetikleyici zinciri', expert:true },
+  { id:'smart',      name:'🧠 Smart Kombinasyon', desc:'Üstel frekans + bölge dengesi + tarihsel toplam hedefi + tek/çift denge + son çekiliş cezası — tüm en iyi tekniklerin dengeli kombinasyonu', expert:true },
 ];
 
 // ── Real historical draw data ────────────────────────────────
@@ -1414,11 +1415,47 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       bonusNums=pickUnique(bonusPool,game.bonusCount);
       break;
     case 'hot':{
-      if(!hasHist)return generateNumbers(game,'random',freq);
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       const hDraws=drawsOverride||state.pastDraws||[];
-      const hewf=hDraws.length?buildEWF(hDraws,game.max,0.80):freq;
-      mainNums=pickUnique(pool,game.count,pool.map(n=>Math.max(0.1,hewf[n]||0.1)));
-      bonusNums=pickUnique(bonusPool,game.bonusCount,bonusPool.map(n=>Math.max(0.1,hewf[n]||0.1)));
+      const hewf=buildEWF(hDraws,game.max,0.85);
+      const hN=hDraws.length;
+      const hGN=d=>Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])];
+      const hR1=new Set(hN>0?hGN(hDraws[hN-1]):[]);
+      const hR2=new Set(hN>1?hGN(hDraws[hN-2]):[]);
+      const hW=pool.map(n=>{let w=Math.max(.1,hewf[n]||.1);if(hR1.has(n))w*=.25;else if(hR2.has(n))w*=.55;return w;});
+      const hBN=game.count,hBSz=game.max/hBN;
+      const hBOf=n=>Math.min(hBN-1,Math.floor((n-1)/hBSz));
+      const hBSel=new Set(),hSel=[],hUsed=new Set();let hAtt=0;
+      const hRem=pool.map((n,i)=>({n,w:hW[i]}));
+      while(hSel.length<game.count&&hAtt<400){
+        hAtt++;
+        const hWs=hRem.map(s=>s.w*(hBSel.has(hBOf(s.n))?1:3));
+        const hWsS=hWs.reduce((a,b)=>a+b,0);
+        let hr=Math.random()*hWsS,hpk=hRem[hRem.length-1];
+        for(let bi=0;bi<hRem.length;bi++){hr-=hWs[bi];if(hr<=0){hpk=hRem[bi];break;}}
+        if(hUsed.has(hpk.n))continue;
+        hSel.push(hpk.n);hUsed.add(hpk.n);hBSel.add(hBOf(hpk.n));
+        hRem.splice(hRem.findIndex(x=>x.n===hpk.n),1);
+      }
+      let hSumLo=0,hSumHi=Infinity;
+      if(hDraws.length>=5){
+        const hSums=hDraws.map(d=>hGN(d).slice(0,game.count).reduce((s,x)=>s+x,0)).filter(s=>s>0).sort((a,b)=>a-b);
+        hSumLo=hSums[Math.floor(hSums.length*.25)];hSumHi=hSums[Math.floor(hSums.length*.75)];
+      }
+      if(hSumLo>0){
+        let hcs=hSel.reduce((s,n)=>s+n,0);
+        if(hcs<hSumLo||hcs>hSumHi){
+          const hdir=hcs<hSumLo?1:-1;
+          const hss=[...hSel].sort((a,b)=>hdir*(b-a));
+          for(const hrn of hss){
+            const hcands=pool.filter(n=>!hSel.includes(n)).sort((a,b)=>hdir*(a-b));
+            for(const hnc of hcands){const hns=hcs-hrn+hnc;if(hns>=hSumLo&&hns<=hSumHi){hSel[hSel.indexOf(hrn)]=hnc;hcs=hns;break;}}
+            if(hcs>=hSumLo&&hcs<=hSumHi)break;
+          }
+        }
+      }
+      mainNums=hSel.sort((a,b)=>a-b);
+      bonusNums=pickUnique(bonusPool,game.bonusCount,bonusPool.map(n=>Math.max(.1,hewf[n]||.1)));
       break;}
     case 'cold':{
       if(!hasHist)return generateNumbers(game,'random',freq);
@@ -1431,16 +1468,20 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
     case 'balanced':{
       if(!hasHist)return generateNumbers(game,'random',freq);
       const bDraws=drawsOverride||state.pastDraws||[];
-      const bewf=bDraws.length?buildEWF(bDraws,game.max,0.80):freq;
+      const bewf=bDraws.length?buildEWF(bDraws,game.max,0.85):freq;
       // Zone-aware selection: divide range into game.count bands
       const bN=game.count;const bSz=game.max/bN;
       const bOf=n=>Math.min(bN-1,Math.floor((n-1)/bSz));
-      const bScores=pool.map(n=>({n,w:Math.max(0.1,bewf[n]||0.1)}));
-      // Historical sum target (25th-75th percentile)
+      const bGN=d=>Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])];
+      const bBN=bDraws.length;
+      const bR1=new Set(bBN>0?bGN(bDraws[bBN-1]):[]);
+      const bR2=new Set(bBN>1?bGN(bDraws[bBN-2]):[]);
+      const bScores=pool.map(n=>({n,w:Math.max(0.1,(bewf[n]||0.1)*(bR1.has(n)?0.25:bR2.has(n)?0.55:1))}));
+      // Historical sum target (30th-70th percentile)
       let btLo=0,btHi=Infinity;
       if(bDraws.length>=5){
-        const ss=bDraws.map(d=>(d.nums||[]).slice(0,game.count).reduce((s,x)=>s+x,0)).filter(s=>s>0).sort((a,b)=>a-b);
-        btLo=ss[Math.floor(ss.length*.25)];btHi=ss[Math.floor(ss.length*.75)];
+        const ss=bDraws.map(d=>bGN(d).slice(0,game.count).reduce((s,x)=>s+x,0)).filter(s=>s>0).sort((a,b)=>a-b);
+        btLo=ss[Math.floor(ss.length*.30)];btHi=ss[Math.floor(ss.length*.70)];
       }
       // Zone-biased weighted sampling
       const bBSel=new Set();const bSel=[],bUsed=new Set();let bAtt=0;
@@ -1474,11 +1515,20 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       bonusNums=pickUnique(bonusPool,game.bonusCount);
       break;}
     case 'delta':{
-      let cur=rng(1,Math.ceil(game.max/game.count)),nums=[];
-      for(let i=0;i<game.count;i++){cur=Math.min(cur+rng(1,Math.ceil(game.max/game.count)),game.max);nums.push(cur);}
+      const dDraws=drawsOverride||state.pastDraws||[];
+      const dGN=d=>Array.isArray(d)?d.filter(n=>n>=1&&n<=game.max):(d.nums||[]).filter(n=>n>=1&&n<=game.max);
+      let meanGap=Math.ceil(game.max/game.count);
+      if(dDraws.length>=5){
+        const allGaps=[];
+        dDraws.slice(-40).forEach(d=>{const ns=dGN(d).slice(0,game.count).sort((a,b)=>a-b);for(let i=1;i<ns.length;i++)allGaps.push(ns[i]-ns[i-1]);});
+        if(allGaps.length)meanGap=allGaps.reduce((s,g)=>s+g,0)/allGaps.length;
+      }
+      const dRng=()=>Math.max(1,Math.round(meanGap*(0.4+Math.random()*1.2)));
+      let cur=rng(1,Math.max(1,Math.ceil(meanGap/2))),nums=[cur];
+      for(let i=1;i<game.count;i++){cur=Math.min(cur+dRng(),game.max);nums.push(cur);}
       nums=[...new Set(nums)];
       while(nums.length<game.count){const n=rng(1,game.max);if(!nums.includes(n))nums.push(n);}
-      mainNums=nums.slice(0,game.count);bonusNums=pickUnique(bonusPool,game.bonusCount);
+      mainNums=nums.slice(0,game.count).sort((a,b)=>a-b);bonusNums=pickUnique(bonusPool,game.bonusCount);
       break;}
     case 'wheeling':{
       const kn=hasHist?Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,Math.ceil(pool.length*.5)).map(e=>+e[0]).filter(n=>n>=1&&n<=game.max):pool;
@@ -1486,13 +1536,23 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       break;}
     case 'entropy':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
-      const totalF=Object.values(freq).reduce((s,v)=>s+v,0);
+      const eDraws=drawsOverride||state.pastDraws||[];
+      const eEwf=eDraws.length?buildEWF(eDraws,game.max,0.85):freq;
+      const totalF=Object.values(eEwf).reduce((s,v)=>s+v,0);
       const avgF=totalF/pool.length;
-      const sortedByF=[...pool].sort((a,b)=>(freq[a]||0)-(freq[b]||0));
-      const cutLow=Math.floor(pool.length*.2),cutHigh=Math.floor(pool.length*.8);
+      const sortedByF=[...pool].sort((a,b)=>(eEwf[a]||0)-(eEwf[b]||0));
+      // Middle 60% frequency band as candidate pool
+      const cutLow=Math.floor(pool.length*.20),cutHigh=Math.floor(pool.length*.80);
       const mid=sortedByF.slice(cutLow,cutHigh);
-      mid.sort((a,b)=>Math.abs((freq[a]||0)-avgF)-Math.abs((freq[b]||0)-avgF));
-      mainNums=mid.slice(0,game.count).sort((a,b)=>a-b);bonusNums=smartBonus();
+      // Randomized: weight by closeness to average frequency (not deterministic!)
+      const midW=mid.map(n=>1/(Math.abs((eEwf[n]||0)-avgF)+0.5));
+      // Recent penalty
+      const eN=eDraws.length;
+      const eRecSet=new Set();
+      [0,1].forEach(k=>{if(k<eN){const d=eDraws[eN-1-k];(Array.isArray(d)?d:(d.nums||[])).forEach(n=>eRecSet.add(n));}});
+      const eFinalW=mid.map((n,i)=>midW[i]*(eRecSet.has(n)?0.3:1));
+      mainNums=pickUnique(mid,game.count,eFinalW).sort((a,b)=>a-b);
+      bonusNums=smartBonus();
       break;}
     case 'sislcg':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
@@ -1602,8 +1662,8 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         return{n,e,m,pa,kn,z,pos:stQr[q]||0,cy:Math.min(1,gap/Math.max(stAg,1)),score:0};
       });
       const stNrm=k=>{const mx=Math.max(1e-9,...stSc.map(s=>s[k]));const mi=Math.min(...stSc.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);stSc.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
-      ['e','m','pa','kn','z','pos','cy'].forEach(stNrm);
-      stSc.forEach(s=>{s.score=s.eN*0.28+s.mN*0.15+s.paN*0.18+s.knN*0.18+s.zN*0.08+s.posN*0.08+s.cyN*0.05;});
+      ['e','m','pa','kn','z','pos'].forEach(stNrm);
+      stSc.forEach(s=>{s.score=s.eN*0.35+s.mN*0.12+s.paN*0.18+s.knN*0.22+s.zN*0.08+s.posN*0.05;});
       const stRecP=[[stGN(stD[stT-1]||{}),0.35],[stT>1?stGN(stD[stT-2]||{}):[],.65],[stT>2?stGN(stD[stT-3]||{}):[],0.82]];
       stSc.forEach(s=>{for(const[nums,p]of stRecP){if(nums.includes(s.n)){s.score*=p;break;}}});
       const stMaxSc=Math.max(...stSc.map(s=>s.score));
@@ -1626,7 +1686,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++)f+=stPFit(S[i],S[j])*0.4;
         f+=new Set(S.map(stBandFn)).size*0.35;
         const stSum=S.reduce((s,n)=>s+n,0);
-        if(stSum<stSumLo||stSum>stSumHi)f-=Math.abs(stSum-stSumMid)*0.008;
+        if(stSum>=stSumLo&&stSum<=stSumHi)f+=0.4;else f-=Math.abs(stSum-stSumMid)*0.012;
         return f;
       };
       // Band-aware stochastic initial selection
@@ -1746,8 +1806,8 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         return{n,e,m,pa,kn,dt,z,cy:Math.min(1,gap/Math.max(ag,1)),score:0};
       });
       const nrm=k=>{const mx=Math.max(1e-9,...sc.map(s=>s[k]));const mi=Math.min(...sc.map(s=>s[k]));const r=Math.max(mx-mi,1e-9);sc.forEach(s=>{s[k+'N']=(s[k]-mi)/r;});};
-      ['e','m','pa','kn','dt','z','cy'].forEach(nrm);
-      sc.forEach(s=>{s.score=s.eN*0.35+s.mN*0.10+s.paN*0.10+s.knN*0.20+s.dtN*0.12+s.zN*0.08+s.cyN*0.05;});
+      ['e','m','pa','kn','dt','z'].forEach(nrm);
+      sc.forEach(s=>{s.score=s.eN*0.42+s.mN*0.08+s.paN*0.12+s.knN*0.22+s.dtN*0.06+s.zN*0.10;});
       const sv2RecP=[[gN(sv2D[sv2T-1]||{}),0.35],[sv2T>1?gN(sv2D[sv2T-2]||{}):[],.65],[sv2T>2?gN(sv2D[sv2T-3]||{}):[],0.82]];
       sc.forEach(s=>{for(const[nums,p]of sv2RecP){if(nums.includes(s.n)){s.score*=p;break;}}});
       const maxSc=Math.max(...sc.map(s=>s.score));
@@ -1762,7 +1822,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++)f+=pFit(S[i],S[j])*0.4;
         f+=new Set(S.map(sv2BandFn)).size*0.45;
         const sv2Sum=S.reduce((s,n)=>s+n,0);
-        if(sv2Sum<sv2SumLo||sv2Sum>sv2SumHi)f-=Math.abs(sv2Sum-sv2SumMid)*0.010;
+        if(sv2Sum>=sv2SumLo&&sv2Sum<=sv2SumHi)f+=0.5;else f-=Math.abs(sv2Sum-sv2SumMid)*0.015;
         return f;
       };
       // Band-aware stochastic initial selection
@@ -1979,6 +2039,68 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       mainNums=fb10Nums.slice(0,fbGC).sort((a,b)=>a-b);
       bonusNums=smartBonus();
       break;}
+    case 'smart':{
+      // Smart: EWF λ=0.85 + zone coverage + sum targeting (P30-P70) + odd/even balance + recent penalty
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      const smD=drawsOverride||state.pastDraws||[];
+      const smN=smD.length;
+      if(smN<5)return generateNumbers(game,'hot',freq,drawsOverride);
+      const smMAX=game.max,smC=game.count;
+      const smGN=d=>Array.isArray(d)?d.filter(n=>n>=1&&n<=smMAX):[...(d.nums||[]),...(d.bonus||[])].filter(n=>n>=1&&n<=smMAX);
+      // EWF
+      const smEwf={};
+      smD.forEach((d,i)=>{const w=Math.pow(0.85,smN-1-i);smGN(d).forEach(n=>{smEwf[n]=(smEwf[n]||0)+w;});});
+      // Recent penalty
+      const smR1=new Set(smGN(smD[smN-1]||{}));
+      const smR2=new Set(smN>1?smGN(smD[smN-2]):[]);
+      // Historical odd/even balance (last 25 draws)
+      const smOddAvg=smD.slice(-25).reduce((s,d)=>s+smGN(d).filter(n=>n%2!==0).length,0)/Math.min(25,smN);
+      const smTgtOdd=Math.round(smOddAvg);
+      // Historical sum range P30-P70
+      const smSums=smD.map(d=>smGN(d).slice(0,smC).reduce((s,n)=>s+n,0)).filter(s=>s>0).sort((a,b)=>a-b);
+      const smSumLo=smSums[Math.floor(smSums.length*0.30)]||(smMAX+1)*smC*0.27;
+      const smSumHi=smSums[Math.floor(smSums.length*0.70)]||(smMAX+1)*smC*0.73;
+      const smSumMid=(smSumLo+smSumHi)/2;
+      // Zone setup
+      const smBSz=smMAX/smC,smBOf=n=>Math.min(smC-1,Math.floor((n-1)/smBSz));
+      // Base weights
+      const smW=pool.map(n=>{let w=Math.max(.1,smEwf[n]||.1);if(smR1.has(n))w*=.20;else if(smR2.has(n))w*=.50;return w;});
+      // Run 25 candidates, pick best by sum + zone + odd/even score
+      let smBest=null,smBestSc=-Infinity;
+      for(let attempt=0;attempt<25;attempt++){
+        const used=new Set(),zu=new Set(),sel=[];let att=0;
+        const rem=pool.map((n,i)=>({n,w:smW[i]}));
+        while(sel.length<smC&&att++<smC*7){
+          const ws=rem.map(s=>s.w*(zu.has(smBOf(s.n))?1:4));
+          const tot=ws.reduce((a,b)=>a+b,0);let r=Math.random()*tot,pk=rem[rem.length-1];
+          for(let j=0;j<rem.length;j++){r-=ws[j];if(r<=0){pk=rem[j];break;}}
+          if(used.has(pk.n))continue;
+          sel.push(pk.n);used.add(pk.n);zu.add(smBOf(pk.n));
+          rem.splice(rem.findIndex(x=>x.n===pk.n),1);
+        }
+        if(sel.length<smC)continue;
+        // Sum nudge to P30-P70
+        let cs=sel.reduce((s,n)=>s+n,0);
+        if(cs<smSumLo||cs>smSumHi){
+          const dir=cs<smSumLo?1:-1;
+          const srt=[...sel].sort((a,b)=>dir*(b-a));
+          for(const rn of srt){
+            const cands=pool.filter(n=>!sel.includes(n)).sort((a,b)=>dir*(a-b));
+            for(const nc of cands){const ns=cs-rn+nc;if(ns>=smSumLo&&ns<=smSumHi){sel[sel.indexOf(rn)]=nc;cs=ns;break;}}
+            if(cs>=smSumLo&&cs<=smSumHi)break;
+          }
+        }
+        // Score candidate
+        const sm2=sel.reduce((s,n)=>s+n,0);
+        const oddN=sel.filter(n=>n%2!==0).length;
+        let sc=new Set(sel.map(smBOf)).size*0.4;
+        if(sm2>=smSumLo&&sm2<=smSumHi)sc+=3;else sc-=Math.abs(sm2-smSumMid)/60;
+        if(Math.abs(oddN-smTgtOdd)<=1)sc+=1;
+        if(sc>smBestSc){smBestSc=sc;smBest=[...sel];}
+      }
+      mainNums=(smBest||pickUnique(pool,smC,smW)).sort((a,b)=>a-b);
+      bonusNums=smartBonus();
+      break;}
     default:
       return generateNumbers(game,'random',freq,drawsOverride);
   }
@@ -1987,7 +2109,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
 
 // ── Confidence ───────────────────────────────────────────────
 function calcConfidence(algo){
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,dateshift:65,poswave:67,excelblend:78,fb10:70};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,dateshift:65,poswave:67,excelblend:78,fb10:70,smart:90};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -2480,7 +2602,8 @@ function buildEWF(draws,max,lambda_=0.80){
   for(let i=0;i<n;i++){
     const w=Math.pow(lambda_,n-1-i);
     const d=draws[i];
-    [...(d.nums||[]),...(d.bonus||[])].forEach(num=>{if(num>=1&&num<=max)ewf[num]=(ewf[num]||0)+w;});
+    const nums=Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])];
+    nums.forEach(num=>{if(num>=1&&num<=max)ewf[num]=(ewf[num]||0)+w;});
   }
   return ewf;
 }
