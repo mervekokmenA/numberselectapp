@@ -360,6 +360,15 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <button class="generate-btn" id="generateBtn" onclick="generateTickets()" style="flex:1">🎰 Şanslı Sayıları Üret</button>
       <span id="genRunCounter" style="display:none;font-size:.72rem;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
     </div>
+    <div id="genProgressContainer" style="display:none;margin-top:10px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:.72rem;color:var(--muted)">🔍 Taranıyor...</span>
+        <span id="genProgressText" style="font-size:.72rem;color:var(--accent)"></span>
+      </div>
+      <div style="background:var(--surface2);border-radius:6px;height:8px;overflow:hidden;border:1px solid var(--border)">
+        <div id="genProgressFill" style="height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--gold));transition:width .1s;border-radius:6px"></div>
+      </div>
+    </div>
   </div>
 
   <div class="card" id="ticketCard" style="display:none">
@@ -456,9 +465,17 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </select>
       </div>
     </div>
-    <div class="filter-toggle">
+    <div class="filter-toggle" style="margin-bottom:4px">
       <input type="checkbox" id="btFilter5Chk" onchange="state.btFilter5=this.checked">
       <label for="btFilter5Chk" id="btFilter5Label">Sadece 3+ eşleşme göster (otomatik tarama)</label>
+    </div>
+    <div class="filter-toggle" style="margin-bottom:4px">
+      <input type="checkbox" id="btFilter4Chk" onchange="state.btFilter4=this.checked">
+      <label for="btFilter4Chk">Sadece 4+ eşleşme göster (otomatik tarama)</label>
+    </div>
+    <div class="filter-toggle" style="margin-bottom:10px">
+      <input type="checkbox" id="btFilter5HighChk" onchange="state.btFilter5high=this.checked">
+      <label for="btFilter5HighChk">Sadece 5+ eşleşme göster (otomatik tarama)</label>
     </div>
     <div id="algoScorePanel"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -981,7 +998,7 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:'sayisal', selectedAlgo:'balanced',
-  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, genDisplayFilter3:false, genDisplayFilter4:false, genDisplayFilter5:false, analysisWindow:999, pastDraws:[], frequency:{},
+  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, genDisplayFilter3:false, genDisplayFilter4:false, genDisplayFilter5:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -2007,111 +2024,123 @@ function renderTicket(td,game,algoId,idx=0,matchCount=null){
 }
 
 // ── Generate ──────────────────────────────────────────────────
-function generateTickets(){
+async function generateTickets(){
   const game=getGame(),btn=document.getElementById('generateBtn');
   const _disp3=!!state.genDisplayFilter3&&state.datedDraws&&state.datedDraws.length>0;
   const _disp4=!!state.genDisplayFilter4&&state.datedDraws&&state.datedDraws.length>0;
   const _disp5=!!state.genDisplayFilter5&&state.datedDraws&&state.datedDraws.length>0;
   const _dispFilter=_disp3||_disp4||_disp5;
-  btn.classList.add('spinning');
+  btn.classList.add('spinning');btn.disabled=true;
   btn.textContent=_dispFilter?'🔍 Taranıyor...':'🎲 Sayılar çekiliyor...';
-  setTimeout(()=>{
-    const filterOn=!!state.btFilter5&&state.datedDraws.length>0;
-    const disp5On=!!state.genDisplayFilter5&&state.datedDraws.length>0;
-    const disp4On=!!state.genDisplayFilter4&&state.datedDraws.length>0;
-    const disp3On=!!state.genDisplayFilter3&&state.datedDraws.length>0;
-    const displayFilterOn=disp5On||disp4On||disp3On;
-    const recentDraw=state.datedDraws.length>0?state.datedDraws[0]:null;
-    let tickets=[];
-    let matchCounts=[];
-    let scanHeader='';
-    if(displayFilterOn&&recentDraw){
-      const minMatch=disp5On?5:disp4On?4:3;
-      const scanCount=disp5On?10000:1000;
-      const aSet=new Set(recentDraw.nums);
-      const aBSet=new Set(recentDraw.bonus||[]);
-      const qualifying=[];
-      for(let i=0;i<scanCount;i++){
+  await new Promise(r=>setTimeout(r,50));
+  const filterOn=!!state.btFilter5&&state.datedDraws.length>0;
+  const disp5On=!!state.genDisplayFilter5&&state.datedDraws.length>0;
+  const disp4On=!!state.genDisplayFilter4&&state.datedDraws.length>0;
+  const disp3On=!!state.genDisplayFilter3&&state.datedDraws.length>0;
+  const displayFilterOn=disp5On||disp4On||disp3On;
+  const recentDraw=state.datedDraws.length>0?state.datedDraws[0]:null;
+  let tickets=[],matchCounts=[],scanHeader='';
+  if(displayFilterOn&&recentDraw){
+    const minMatch=disp5On?5:disp4On?4:3;
+    const scanCount=disp5On?100000:disp4On?10000:1000;
+    const BATCH=disp5On?2000:1000;
+    const aSet=new Set(recentDraw.nums);
+    const aBSet=new Set(recentDraw.bonus||[]);
+    const qualifying=[];
+    const pc=document.getElementById('genProgressContainer');
+    const pf=document.getElementById('genProgressFill');
+    const pt=document.getElementById('genProgressText');
+    if(pc)pc.style.display='block';
+    for(let i=0;i<scanCount;i+=BATCH){
+      const end=Math.min(i+BATCH,scanCount);
+      for(let j=i;j<end;j++){
         const pred=generateNumbers(game,state.selectedAlgo);
         const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
         if(m>=minMatch) qualifying.push({pred,m});
       }
-      qualifying.sort((a,b)=>b.m-a.m);
-      tickets=qualifying.map(x=>x.pred);
-      matchCounts=qualifying.map(x=>x.m);
-      scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 ${scanCount.toLocaleString()} bilet tarandı · <strong>${qualifying.length} eşleşen bulundu</strong> (${minMatch}+ eşleşme)</div>`;
-    } else {
-      function tryGen(){
-        if(!filterOn||!recentDraw){
-          const pred=generateNumbers(game,state.selectedAlgo);
-          let m=null;
-          if(recentDraw){const aSet=new Set(recentDraw.nums);const aBSet=new Set(recentDraw.bonus||[]);m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;}
-          return {pred,m};
-        }
-        const aSet=new Set(recentDraw.nums);
-        const aBSet=new Set(recentDraw.bonus||[]);
-        for(let t=0;t<50;t++){
-          const pred=generateNumbers(game,state.selectedAlgo);
-          const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
-          if(m>=3) return {pred,m};
-        }
+      const pct=Math.round(end/scanCount*100);
+      if(pf)pf.style.width=pct+'%';
+      if(pt)pt.textContent=end.toLocaleString()+' / '+scanCount.toLocaleString();
+      await new Promise(r=>setTimeout(r,0));
+    }
+    if(pc)pc.style.display='none';
+    if(pf)pf.style.width='0%';
+    qualifying.sort((a,b)=>b.m-a.m);
+    tickets=qualifying.map(x=>x.pred);
+    matchCounts=qualifying.map(x=>x.m);
+    scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 ${scanCount.toLocaleString()} bilet tarandı · <strong>${qualifying.length} eşleşen bulundu</strong> (${minMatch}+ eşleşme)</div>`;
+  } else {
+    await new Promise(r=>setTimeout(r,350));
+    const tryGen=()=>{
+      if(!filterOn||!recentDraw){
         const pred=generateNumbers(game,state.selectedAlgo);
-        const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
+        let m=null;
+        if(recentDraw){const aSet=new Set(recentDraw.nums);const aBSet=new Set(recentDraw.bonus||[]);m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;}
         return {pred,m};
       }
-      const ticketResults=Array.from({length:state.ticketCount},tryGen);
-      tickets=ticketResults.map(r=>r.pred);
-      matchCounts=ticketResults.map(r=>r.m);
-    }
-    state.lastTickets={tickets,game};
-    const container=document.getElementById('ticketContainer');
-    const label=displayFilterOn?(tickets.length===1?'1 Bilet':`${tickets.length} Bilet`):(state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti');
-    const copyAll=tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
-    state._copyText=copyAll;
-    const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
-    const conf=calcConfidence(state.selectedAlgo);
-    const posScores=state.algoPositionScores[state.selectedGame];
-    const posRow=(()=>{
-      if(!posScores||!posScores[state.selectedAlgo])return '';
-      const good=posScores[state.selectedAlgo].filter(x=>x.lift>0.08).sort((a,b)=>b.lift-a.lift);
-      if(!good.length)return '';
-      const tags=good.slice(0,6).sort((a,b)=>a.pos-b.pos)
-        .map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet">${x.pos}</span>`).join('');
-      return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;flex-wrap:wrap">
-        <span style="font-size:.63rem;color:var(--muted)">Güçlü konumlar:</span>
-        <div class="algo-pos-row" style="margin:0">${tags}</div>
-      </div>`;
-    })();
-    const BSZ_GEN=mobileBSZ();
-    const genPosHeader=(()=>{
-      const nums=Array.from({length:game.count},(_,pi)=>
-        `<span style="display:inline-flex;width:${BSZ_GEN};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">${pi+1}</span>`
-      ).join('');
-      const bon=game.bonusCount>0
-        ?`<span style="display:inline-flex;width:16px"></span>`+Array.from({length:game.bonusCount},(_,pi)=>
-            `<span style="display:inline-flex;width:${BSZ_GEN};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">+${pi+1}</span>`
-          ).join('')
-        :'';
-      return `<div style="display:flex;align-items:center;gap:8px;padding:2px 10px 0"><span style="min-width:18px;display:inline-block;flex-shrink:0"></span><div style="display:flex;gap:5px;">${nums}${bon}</div></div>`;
-    })();
-    container.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
-      <span style="font-size:.78rem;color:var(--muted)">${game.emoji} ${game.name} · <strong style="color:var(--text)">${algo?.name||state.selectedAlgo}</strong></span>
-      <span style="font-size:.72rem;color:var(--accent)">Güven: ${conf}%</span>
-    </div>
-    ${posRow}
-    ${scanHeader}
-    ${genPosHeader}
-    ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,(filterOn||displayFilterOn)?matchCounts[i]:null)).join('')}
-    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
-      <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
-      <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
+      const aSet=new Set(recentDraw.nums);
+      const aBSet=new Set(recentDraw.bonus||[]);
+      for(let t=0;t<50;t++){
+        const pred=generateNumbers(game,state.selectedAlgo);
+        const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
+        if(m>=3) return {pred,m};
+      }
+      const pred=generateNumbers(game,state.selectedAlgo);
+      const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
+      return {pred,m};
+    };
+    const ticketResults=Array.from({length:state.ticketCount},tryGen);
+    tickets=ticketResults.map(r=>r.pred);
+    matchCounts=ticketResults.map(r=>r.m);
+  }
+  state.lastTickets={tickets,game};
+  const container=document.getElementById('ticketContainer');
+  const label=displayFilterOn?(tickets.length===1?'1 Bilet':`${tickets.length} Bilet`):(state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti');
+  const copyAll=tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  state._copyText=copyAll;
+  const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
+  const conf=calcConfidence(state.selectedAlgo);
+  const posScores=state.algoPositionScores[state.selectedGame];
+  const posRow=(()=>{
+    if(!posScores||!posScores[state.selectedAlgo])return '';
+    const good=posScores[state.selectedAlgo].filter(x=>x.lift>0.08).sort((a,b)=>b.lift-a.lift);
+    if(!good.length)return '';
+    const tags=good.slice(0,6).sort((a,b)=>a.pos-b.pos)
+      .map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet">${x.pos}</span>`).join('');
+    return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;flex-wrap:wrap">
+      <span style="font-size:.63rem;color:var(--muted)">Güçlü konumlar:</span>
+      <div class="algo-pos-row" style="margin:0">${tags}</div>
     </div>`;
-    document.getElementById('ticketCard').style.display='block';
-    document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
-    state.totalGenerated+=displayFilterOn?tickets.length:state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
-    btn.classList.remove('spinning');btn.textContent='🎰 Şanslı Sayıları Üret';
-  },400);
+  })();
+  const BSZ_GEN=mobileBSZ();
+  const genPosHeader=(()=>{
+    const nums=Array.from({length:game.count},(_,pi)=>
+      `<span style="display:inline-flex;width:${BSZ_GEN};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">${pi+1}</span>`
+    ).join('');
+    const bon=game.bonusCount>0
+      ?`<span style="display:inline-flex;width:16px"></span>`+Array.from({length:game.bonusCount},(_,pi)=>
+          `<span style="display:inline-flex;width:${BSZ_GEN};justify-content:center;font-size:.6rem;color:var(--muted);font-weight:700;flex-shrink:0">+${pi+1}</span>`
+        ).join('')
+      :'';
+    return `<div style="display:flex;align-items:center;gap:8px;padding:2px 10px 0"><span style="min-width:18px;display:inline-block;flex-shrink:0"></span><div style="display:flex;gap:5px;">${nums}${bon}</div></div>`;
+  })();
+  container.innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+    <span style="font-size:.78rem;color:var(--muted)">${game.emoji} ${game.name} · <strong style="color:var(--text)">${algo?.name||state.selectedAlgo}</strong></span>
+    <span style="font-size:.72rem;color:var(--accent)">Güven: ${conf}%</span>
+  </div>
+  ${posRow}
+  ${scanHeader}
+  ${genPosHeader}
+  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,(filterOn||displayFilterOn)?matchCounts[i]:null)).join('')}
+  <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
+    <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
+    <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
+  </div>`;
+  document.getElementById('ticketCard').style.display='block';
+  document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
+  state.totalGenerated+=displayFilterOn?tickets.length:state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
+  btn.classList.remove('spinning');btn.disabled=false;btn.textContent='🎰 Şanslı Sayıları Üret';
 }
 function saveAllTickets(){
   const {tickets,game}=state.lastTickets||{};
@@ -2485,8 +2514,9 @@ function runBacktest(){
   const freq=buildFreq(prior);
   const n=state.btCount||4;
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
-  const filterOn=!!state.btFilter5;
-  const maxTries=filterOn?n*50:n;
+  const btMinM=state.btFilter5high?5:state.btFilter4?4:state.btFilter5?3:0;
+  const filterOn=btMinM>0;
+  const maxTries=filterOn?(btMinM>=5?n*2000:btMinM>=4?n*500:n*50):n;
   const results=[];
   for(let t=0;t<maxTries&&results.length<n;t++){
     const pred=generateNumbers(game,algoId,freq,prior);
@@ -2501,14 +2531,12 @@ function runBacktest(){
         nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
       }
     }
-    const minM=game.id==='onnumara'?7:3;
-    if(!filterOn||!actual||(mMain+mBonus)>=minM) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
+    if(!filterOn||!actual||(mMain+mBonus)>=btMinM) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
   }
   const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
   rs.style.display='block';
   if(filterOn&&!results.length){
-    const minM=game.id==='onnumara'?7:3;
-    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${minM}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${btMinM}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
     rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn);
     const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
