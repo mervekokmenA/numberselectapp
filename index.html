@@ -1220,25 +1220,17 @@ const LOTTERYEXTREME_URLS={
 };
 
 async function proxyFetch(url){
-  const proxies=[
-    ()=>fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,{credentials:'omit'}),
-    ()=>fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`,{credentials:'omit'}),
-    ()=>fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,{credentials:'omit'})
-      .then(r=>r.json()).then(j=>new Response(j.contents||'')),
-  ];
-  for(const make of proxies){
-    try{
-      const ctrl=new AbortController();
-      const tid=setTimeout(()=>ctrl.abort(),8000);
-      const r=await Promise.race([make(),new Promise((_,rej)=>setTimeout(()=>rej(new Error('timeout')),8000))]);
-      clearTimeout(tid);
-      if(r&&r.ok!==false){
-        const text=typeof r.text==='function'?await r.text():(r+'');
-        if(text&&text.length>500)return text;
-      }
-    }catch(e){}
-  }
-  throw new Error('proxy_fail');
+  const TO=10000;
+  const ac=()=>{const c=new AbortController();setTimeout(()=>c.abort(),TO);return c.signal;};
+  const ok=async r=>{if(!r||r.ok===false)throw 0;const t=await r.text();if(!t||t.length<500)throw 0;return t;};
+  return Promise.any([
+    fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,{signal:ac(),credentials:'omit'}).then(ok),
+    fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`,{signal:ac(),credentials:'omit'}).then(ok),
+    fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,{signal:ac(),credentials:'omit'}).then(ok),
+    fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,{signal:ac(),credentials:'omit'})
+      .then(r=>r.json()).then(j=>{if(j.contents&&j.contents.length>500)return j.contents;throw 0;}),
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('master_timeout')),TO+2000)),
+  ]).catch(()=>{throw new Error('proxy_fail');});
 }
 
 function parseLotteryExtreme(html,gameId){
@@ -1274,7 +1266,13 @@ function parseLotteryExtreme(html,gameId){
 async function autoUpdateDraw(gameId){
   const url=LOTTERYEXTREME_URLS[gameId];
   if(!url)return false;
-  const html=await proxyFetch(url);
+  let html=null;
+  for(let attempt=0;attempt<3;attempt++){
+    try{html=await proxyFetch(url);break;}catch(e){
+      if(attempt<2)await new Promise(r=>setTimeout(r,1500*(attempt+1)));
+    }
+  }
+  if(!html)return false;
   const draws=parseLotteryExtreme(html,gameId);
   if(!draws.length)return false;
   let newest=false;
@@ -1323,7 +1321,7 @@ async function loadGenHistory(){
   if(fetched)
     showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
   else if(fr&&fr.missing>0)
-    showToast(`⚠️ Son çekiliş: ${fr.lastDate} ✓ — Sonraki beklenen: ${fr.missingDates.join(', ')} (sonuç girilmedi)`);
+    showToast(`⚠️ Kaynak henüz güncellemedi. Son bilinen: ${fr.lastDate}. Eksik: ${fr.missingDates.join(', ')}`);
   else
     showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
 }
@@ -1345,7 +1343,7 @@ async function loadBtHistory(){
   if(fetched)
     showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
   else if(fr&&fr.missing>0)
-    showToast(`⚠️ Son çekiliş: ${fr.lastDate} ✓ — Sonraki beklenen: ${fr.missingDates.join(', ')} (sonuç girilmedi)`);
+    showToast(`⚠️ Kaynak henüz güncellemedi. Son bilinen: ${fr.lastDate}. Eksik: ${fr.missingDates.join(', ')}`);
   else
     showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
 }
