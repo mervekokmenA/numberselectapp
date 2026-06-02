@@ -344,9 +344,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <input type="checkbox" id="genFilter4Chk" onchange="state.genDisplayFilter4=this.checked">
       <label for="genFilter4Chk" id="genFilter4Label">Sadece 4+ eşleşme göster</label>
     </div>
-    <div class="filter-toggle" style="margin-bottom:8px">
+    <div class="filter-toggle" style="margin-bottom:6px">
       <input type="checkbox" id="genFilter5Chk" onchange="state.genDisplayFilter5=this.checked">
       <label for="genFilter5Chk" id="genFilter5Label">Sadece 5+ eşleşme göster</label>
+    </div>
+    <div class="filter-toggle" style="margin-bottom:8px">
+      <input type="checkbox" id="genFilter6Chk" onchange="state.genDisplayFilter6=this.checked">
+      <label for="genFilter6Chk" id="genFilter6Label">Sadece 6+ eşleşme göster</label>
     </div>
     <div class="counter-row">
       <span class="counter-label">Bilet sayısı:</span>
@@ -473,9 +477,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <input type="checkbox" id="btFilter4Chk" onchange="state.btFilter4=this.checked">
       <label for="btFilter4Chk" id="btFilter4Label">Sadece 4+ eşleşme göster (otomatik tarama)</label>
     </div>
-    <div class="filter-toggle" style="margin-bottom:10px">
+    <div class="filter-toggle" style="margin-bottom:4px">
       <input type="checkbox" id="btFilter5HighChk" onchange="state.btFilter5high=this.checked">
       <label for="btFilter5HighChk" id="btFilter5HighLabel">Sadece 5+ eşleşme göster (otomatik tarama)</label>
+    </div>
+    <div class="filter-toggle" style="margin-bottom:10px">
+      <input type="checkbox" id="btFilter6Chk" onchange="state.btFilter6=this.checked">
+      <label for="btFilter6Chk" id="btFilter6Label">Sadece 6+ eşleşme göster (otomatik tarama)</label>
     </div>
     <div id="algoScorePanel"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -998,7 +1006,7 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:'sayisal', selectedAlgo:'balanced',
-  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, genDisplayFilter3:false, genDisplayFilter4:false, genDisplayFilter5:false, analysisWindow:999, pastDraws:[], frequency:{},
+  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, genDisplayFilter4:false, genDisplayFilter5:false, genDisplayFilter6:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -1056,9 +1064,11 @@ function updateGenFilterLabel(){
   const g3=document.getElementById('genFilter3Label'); if(g3)g3.textContent=t(3,7);
   const g4=document.getElementById('genFilter4Label'); if(g4)g4.textContent=t(4,8);
   const g5=document.getElementById('genFilter5Label'); if(g5)g5.textContent=t(5,9);
+  const g6=document.getElementById('genFilter6Label'); if(g6)g6.textContent=t(6,10);
   const b3=document.getElementById('btFilter5Label');  if(b3)b3.textContent=tb(3,7);
   const b4=document.getElementById('btFilter4Label');  if(b4)b4.textContent=tb(4,8);
   const b5=document.getElementById('btFilter5HighLabel'); if(b5)b5.textContent=tb(5,9);
+  const b6=document.getElementById('btFilter6Label');  if(b6)b6.textContent=tb(6,10);
   const b32=document.getElementById('btFilter5Label2'); if(b32)b32.textContent=tb(3,7);
 }
 function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); updateGenFilterLabel(); }
@@ -2031,22 +2041,24 @@ async function generateTickets(){
   const _disp3=!!state.genDisplayFilter3&&state.datedDraws&&state.datedDraws.length>0;
   const _disp4=!!state.genDisplayFilter4&&state.datedDraws&&state.datedDraws.length>0;
   const _disp5=!!state.genDisplayFilter5&&state.datedDraws&&state.datedDraws.length>0;
-  const _dispFilter=_disp3||_disp4||_disp5;
+  const _disp6=!!state.genDisplayFilter6&&state.datedDraws&&state.datedDraws.length>0;
+  const _dispFilter=_disp3||_disp4||_disp5||_disp6;
   btn.classList.add('spinning');btn.disabled=true;
   btn.textContent=_dispFilter?'🔍 Taranıyor...':'🎲 Sayılar çekiliyor...';
   await new Promise(r=>setTimeout(r,50));
   const filterOn=!!state.btFilter5&&state.datedDraws.length>0;
+  const disp6On=!!state.genDisplayFilter6&&state.datedDraws.length>0;
   const disp5On=!!state.genDisplayFilter5&&state.datedDraws.length>0;
   const disp4On=!!state.genDisplayFilter4&&state.datedDraws.length>0;
   const disp3On=!!state.genDisplayFilter3&&state.datedDraws.length>0;
-  const displayFilterOn=disp5On||disp4On||disp3On;
+  const displayFilterOn=disp6On||disp5On||disp4On||disp3On;
   const recentDraw=state.datedDraws.length>0?state.datedDraws[0]:null;
   let tickets=[],matchCounts=[],scanHeader='';
   if(displayFilterOn&&recentDraw){
     const isOn=game.id==='onnumara';
-    const minMatch=disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
-    const scanCount=disp5On?100000:disp4On?10000:1000;
-    const BATCH=disp5On?2000:1000;
+    const minMatch=disp6On?(isOn?10:6):disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
+    const scanCount=disp6On?400000:disp5On?100000:disp4On?10000:1000;
+    const BATCH=disp6On?5000:disp5On?2000:1000;
     const aSet=new Set(recentDraw.nums);
     const aBSet=new Set(recentDraw.bonus||[]);
     const qualifying=[];
@@ -2518,9 +2530,9 @@ function runBacktest(){
   const n=state.btCount||4;
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
   const _isOn=game.id==='onnumara';
-  const btMinM=state.btFilter5high?(_isOn?9:5):state.btFilter4?(_isOn?8:4):state.btFilter5?(_isOn?7:3):0;
+  const btMinM=state.btFilter6?(_isOn?10:6):state.btFilter5high?(_isOn?9:5):state.btFilter4?(_isOn?8:4):state.btFilter5?(_isOn?7:3):0;
   const filterOn=btMinM>0;
-  const maxTries=filterOn?(btMinM>=5?n*2000:btMinM>=4?n*500:n*50):n;
+  const maxTries=filterOn?(btMinM>=6?n*5000:btMinM>=5?n*2000:btMinM>=4?n*500:n*50):n;
   const results=[];
   for(let t=0;t<maxTries&&results.length<n;t++){
     const pred=generateNumbers(game,algoId,freq,prior);
