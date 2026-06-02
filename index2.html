@@ -566,39 +566,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 </div><!-- /page-backtest -->
 
-<!-- ═══════════ NEW: Tekli Sayı Bakımı ile Analiz ═══════════ -->
-<div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="numAnalysisSection">
-  <div class="card">
-    <div class="card-title">🔢 Tekli Sayı Bakımı ile Analiz</div>
-    <div id="naDataInfo" style="font-size:.74rem;color:var(--muted);margin-bottom:12px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">⚠️ Analiz için önce "Gerçek Verileri Yükle" yapın.</div>
-    <div class="tabs" id="naTabs">
-      <button class="tab-btn active" onclick="switchNaTab('transform')">🔄 Sayı Dönüşümleri</button>
-      <button class="tab-btn" onclick="switchNaTab('date')">📅 Tarih Hesabı</button>
-      <button class="tab-btn" onclick="switchNaTab('joker')">🎯 Sayısal Son Sayı Tahmini</button>
-    </div>
-    <div class="tab-panel active" id="naTab-transform">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-        <span style="font-size:.74rem;color:var(--text);font-weight:600">Kaynak çekiliş:</span>
-        <select id="naDrawIdx" onchange="runNaTransform()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:.72rem;flex:1;min-width:0"></select>
-        <button onclick="stepNaDraw(-1)" title="Daha yeni" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
-        <button onclick="stepNaDraw(1)"  title="Daha eski"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
-      </div>
-      <div id="naTransformResult"><div class="empty-state"><span class="empty-icon">🔄</span>Veri yükleyin.</div></div>
-    </div>
-    <div class="tab-panel" id="naTab-date">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-        <span style="font-size:.74rem;color:var(--text);font-weight:600">Oyun tarihi:</span>
-        <select id="naDateIdx" onchange="runNaDate()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:.72rem;flex:1;min-width:0"></select>
-        <button onclick="stepNaDate(-1)" title="Daha yeni" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
-        <button onclick="stepNaDate(1)"  title="Daha eski"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
-      </div>
-      <div id="naDateResult"><div class="empty-state"><span class="empty-icon">📅</span>Veri yükleyin.</div></div>
-    </div>
-    <div class="tab-panel" id="naTab-joker">
-      <div id="naJokerResult"><div class="empty-state"><span class="empty-icon">🎯</span>Veri yükleyin.</div></div>
-    </div>
-  </div>
-</div>
 
 <div style="grid-column:1/-1;margin-top:20px">
   <div class="card">
@@ -2091,7 +2058,7 @@ function generateTickets(){
     }
     state.lastTickets={tickets,game};
     const container=document.getElementById('ticketContainer');
-    const label=state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti';
+    const label=displayFilterOn?(tickets.length===1?'1 Bilet':`${tickets.length} Bilet`):(state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti');
     const copyAll=tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
     state._copyText=copyAll;
     const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
@@ -2135,7 +2102,7 @@ function generateTickets(){
     </div>`;
     document.getElementById('ticketCard').style.display='block';
     document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
-    state.totalGenerated+=state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
+    state.totalGenerated+=displayFilterOn?tickets.length:state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
     btn.classList.remove('spinning');btn.textContent='🎰 Şanslı Sayıları Üret';
   },400);
 }
@@ -3311,7 +3278,7 @@ function renderSavedBottom(){
 }
 
 // ── Boot ──────────────────────────────────────────────────────
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();
 </script>
 </body>
 </html>
