@@ -2058,8 +2058,15 @@ async function generateTickets(){
     const minMatch=disp6On?(isOn?10:6):disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
     const scanCount=disp6On?400000:disp5On?100000:disp4On?10000:1000;
     const BATCH=disp6On?5000:disp5On?2000:1000;
-    const aSet=new Set(recentDraw.nums);
-    const aBSet=new Set(recentDraw.bonus||[]);
+    // Build forward-looking predicted pool: run algorithm 300x, take top numbers by frequency
+    const hotFreq=new Map(),hotBFreq=new Map();
+    for(let p=0;p<300;p++){
+      const pp=generateNumbers(game,state.selectedAlgo);
+      pp.main.forEach(n=>hotFreq.set(n,(hotFreq.get(n)||0)+1));
+      pp.bonus.forEach(n=>hotBFreq.set(n,(hotBFreq.get(n)||0)+1));
+    }
+    const aSet=new Set([...hotFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.count).map(e=>e[0]));
+    const aBSet=game.bonusCount>0?new Set([...hotBFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.bonusCount).map(e=>e[0])):new Set();
     const qualifying=[];
     const pc=document.getElementById('genProgressContainer');
     const pf=document.getElementById('genProgressFill');
@@ -2082,7 +2089,7 @@ async function generateTickets(){
     qualifying.sort((a,b)=>b.m-a.m);
     tickets=qualifying.map(x=>x.pred);
     matchCounts=qualifying.map(x=>x.m);
-    scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 ${scanCount.toLocaleString()} bilet tarandı · <strong>${qualifying.length} eşleşen bulundu</strong> (${minMatch}+ eşleşme)</div>`;
+    scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 ${scanCount.toLocaleString()} bilet tarandı · <strong>${qualifying.length} eşleşen bulundu</strong> (${minMatch}+ tahmin havuzu eşleşmesi)</div>`;
   } else {
     await new Promise(r=>setTimeout(r,350));
     const tryGen=()=>{
