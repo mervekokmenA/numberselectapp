@@ -2261,22 +2261,27 @@ async function generateTickets(){
     scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 ${scanCount.toLocaleString()} bilet tarandı · <strong>${qualifying.length} eşleşen bulundu</strong> (${minMatch}+ tahmin havuzu eşleşmesi)</div>`;
   } else {
     await new Promise(r=>setTimeout(r,350));
+    // Build forward-looking predicted pool for match counting and optional 3+ filter
+    const pFreq2=new Map(),pBFreq2=new Map();
+    if(state.datedDraws.length>0){
+      for(let p=0;p<150;p++){
+        const pp=generateNumbers(game,state.selectedAlgo);
+        pp.main.forEach(n=>pFreq2.set(n,(pFreq2.get(n)||0)+1));
+        pp.bonus.forEach(n=>pBFreq2.set(n,(pBFreq2.get(n)||0)+1));
+      }
+    }
+    const predSet2=new Set([...pFreq2.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.count).map(e=>e[0]));
+    const predBSet2=game.bonusCount>0?new Set([...pBFreq2.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.bonusCount).map(e=>e[0])):new Set();
     const tryGen=()=>{
-      if(!filterOn||!recentDraw){
-        const pred=generateNumbers(game,state.selectedAlgo);
-        let m=null;
-        if(recentDraw){const aSet=new Set(recentDraw.nums);const aBSet=new Set(recentDraw.bonus||[]);m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;}
-        return {pred,m};
-      }
-      const aSet=new Set(recentDraw.nums);
-      const aBSet=new Set(recentDraw.bonus||[]);
-      for(let t=0;t<50;t++){
-        const pred=generateNumbers(game,state.selectedAlgo);
-        const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
-        if(m>=3) return {pred,m};
-      }
       const pred=generateNumbers(game,state.selectedAlgo);
-      const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
+      const m=predSet2.size>0?pred.main.filter(x=>predSet2.has(x)).length+pred.bonus.filter(x=>predBSet2.has(x)).length:null;
+      if(!filterOn) return {pred,m};
+      // 3+ filter against predicted pool
+      for(let t=0;t<50;t++){
+        const p2=generateNumbers(game,state.selectedAlgo);
+        const m2=predSet2.size>0?p2.main.filter(x=>predSet2.has(x)).length+p2.bonus.filter(x=>predBSet2.has(x)).length:0;
+        if(m2>=3) return {pred:p2,m:m2};
+      }
       return {pred,m};
     };
     const ticketResults=Array.from({length:state.ticketCount},tryGen);
