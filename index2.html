@@ -594,6 +594,31 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
   </div>
 
+  <!-- ═══ 3+ ESKİ TARAMASI ═══ -->
+  <div class="card" id="eskiScanCard">
+    <div class="card-title">🕐 3+ Eski Eşleşme Taraması</div>
+    <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px">
+      Seçilen geçmiş çekilişe 3 veya daha fazla sayı eşleşen biletleri tarar ve gösterir.
+    </div>
+    <div class="bt-config" style="grid-template-columns:1fr">
+      <div class="form-group">
+        <label>Karşılaştırılacak geçmiş çekiliş</label>
+        <div style="display:flex;gap:5px;align-items:center">
+          <select id="eskiDate" style="flex:1;min-width:0"><option value="">— Önce veri yükleyin —</option></select>
+          <button onclick="stepEskiDate(-1)" title="Daha yeni" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
+          <button onclick="stepEskiDate(1)"  title="Daha eski"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
+        </div>
+      </div>
+    </div>
+    <div id="eskiProgressContainer" style="display:none;margin:8px 0">
+      <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden">
+        <div id="eskiProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width .1s"></div>
+      </div>
+      <div id="eskiProgressText" style="font-size:.7rem;color:var(--muted);margin-top:4px;text-align:center"></div>
+    </div>
+    <button class="run-btn" id="eskiScanBtn" onclick="runEskiScan()" style="width:100%;margin-bottom:12px">🕐 3+ Eski Tara</button>
+    <div id="eskiResult"></div>
+  </div>
 
 </div><!-- /page-backtest -->
 
@@ -2384,6 +2409,88 @@ function stepBtDate2(dir){
   const next=idx+dir;
   if(next>=0&&next<opts.length){sel.value=opts[next];updateAlgoScores2();}
 }
+function stepEskiDate(dir){
+  const sel=document.getElementById('eskiDate');
+  const opts=[...sel.options].map(o=>o.value).filter(v=>v);
+  const idx=opts.indexOf(sel.value);
+  const next=idx+dir;
+  if(next>=0&&next<opts.length){sel.value=opts[next];}
+}
+async function runEskiScan(){
+  const testDate=document.getElementById('eskiDate').value;
+  if(!testDate){showToast('Önce bir geçmiş çekiliş tarihi seçin');return;}
+  const game=getGame();
+  const actual=state.datedDraws.find(d=>d.date===testDate);
+  if(!actual){showToast('Seçilen tarihe ait çekiliş bulunamadı');return;}
+  const prior=state.datedDraws.filter(d=>d.date<testDate);
+  if(prior.length<3){showToast('Yeterli geçmiş veri yok (en az 3 çekiliş gerekli)');return;}
+
+  const btn=document.getElementById('eskiScanBtn');
+  const pc=document.getElementById('eskiProgressContainer');
+  const pf=document.getElementById('eskiProgressFill');
+  const pt=document.getElementById('eskiProgressText');
+  const resultEl=document.getElementById('eskiResult');
+  btn.disabled=true;btn.textContent='⏳ Taranıyor...';
+  if(pc)pc.style.display='block';
+  resultEl.innerHTML='';
+
+  const priorPast=prior.map(d=>[...d.nums,...(d.bonus||[])]);
+  const priorFreq={};
+  priorPast.forEach(arr=>arr.forEach(n=>{priorFreq[n]=(priorFreq[n]||0)+1;}));
+
+  const isOn=game.id==='onnumara';
+  const minMatch=isOn?7:3;
+  const scanCount=10000;
+  const BATCH=1000;
+  const aSet=new Set(actual.nums);
+  const aBSet=new Set(actual.bonus||[]);
+  const qualifying=[];
+
+  for(let i=0;i<scanCount;i+=BATCH){
+    const end=Math.min(i+BATCH,scanCount);
+    for(let j=i;j<end;j++){
+      const pred=generateNumbers(game,state.selectedAlgo,priorFreq,priorPast);
+      const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
+      if(m>=minMatch) qualifying.push({pred,m});
+    }
+    const pct=Math.round(end/scanCount*100);
+    if(pf)pf.style.width=pct+'%';
+    if(pt)pt.textContent=end.toLocaleString()+' / '+scanCount.toLocaleString();
+    await new Promise(r=>setTimeout(r,0));
+  }
+  if(pc)pc.style.display='none';
+  if(pf)pf.style.width='0%';
+  btn.disabled=false;btn.textContent='🕐 3+ Eski Tara';
+
+  qualifying.sort((a,b)=>b.m-a.m);
+  if(!qualifying.length){
+    resultEl.innerHTML=`<div style="font-size:.78rem;color:var(--muted);padding:10px 0">${scanCount.toLocaleString()} bilet tarandı — ${testDate} çekilişine 3+ eşleşen bilet bulunamadı.</div>`;
+    return;
+  }
+
+  // Show actual draw first
+  const aBallsHtml=actual.nums.map(n=>staticBall(n,game.mainColor,'',mobileBSZ())).join('');
+  const aBonusHtml=actual.bonus.length?`<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special','',mobileBSZ())).join(''):'';
+  const actualRow=`<div class="ticket" style="margin-bottom:10px;border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.05)">
+    <span class="ticket-idx" style="font-size:.52rem;color:var(--green);line-height:1.3;text-align:center">G<br>Ç</span>
+    <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${aBallsHtml}${aBonusHtml}</div>
+    <span style="font-size:.6rem;color:var(--green);white-space:nowrap">${testDate}</span>
+  </div>`;
+
+  const ticketsHtml=qualifying.slice(0,50).map((x,i)=>{
+    const m=x.m;
+    return renderTicket(x.pred,game,state.selectedAlgo,i,m);
+  }).join('');
+
+  resultEl.innerHTML=`
+    <div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">
+      🕐 ${scanCount.toLocaleString()} bilet tarandı · <strong>${qualifying.length} eşleşen</strong> (${minMatch}+) — ${testDate} gerçek çekilişi
+    </div>
+    ${actualRow}
+    ${ticketsHtml}
+    ${qualifying.length>50?`<div style="font-size:.72rem;color:var(--muted);margin-top:8px;text-align:center">... ve ${qualifying.length-50} bilet daha</div>`:''}
+  `;
+}
 function updateRunCounters(){
   const gc=document.getElementById('genRunCounter');
   const bc=document.getElementById('btRunCounter');
@@ -2472,6 +2579,12 @@ function updateBtDateOptions(){
   sel.value=newest[0].date; // newest pre-selected
   updateAlgoScores();
   updateBtDateOptions2();
+  // Populate eskiDate with same options
+  const eskiSel=document.getElementById('eskiDate');
+  if(eskiSel){
+    eskiSel.innerHTML=asc.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
+    eskiSel.value=newest[0].date;
+  }
 }
 
 const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup'};
