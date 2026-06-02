@@ -471,11 +471,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
     <div class="filter-toggle" style="margin-bottom:4px">
       <input type="checkbox" id="btFilter4Chk" onchange="state.btFilter4=this.checked">
-      <label for="btFilter4Chk">Sadece 4+ eşleşme göster (otomatik tarama)</label>
+      <label for="btFilter4Chk" id="btFilter4Label">Sadece 4+ eşleşme göster (otomatik tarama)</label>
     </div>
     <div class="filter-toggle" style="margin-bottom:10px">
       <input type="checkbox" id="btFilter5HighChk" onchange="state.btFilter5high=this.checked">
-      <label for="btFilter5HighChk">Sadece 5+ eşleşme göster (otomatik tarama)</label>
+      <label for="btFilter5HighChk" id="btFilter5HighLabel">Sadece 5+ eşleşme göster (otomatik tarama)</label>
     </div>
     <div id="algoScorePanel"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -1051,13 +1051,15 @@ function initAlgoGrid(){
 }
 function updateGenFilterLabel(){
   const isOn=state.selectedGame==='onnumara';
-  const genLbl=document.getElementById('genFilter3Label');
-  if(genLbl)genLbl.textContent=isOn?'Sadece 7+ eşleşme göster':'Sadece 3+ eşleşme göster';
-  const btTxt=isOn?'Sadece 7+ eşleşme göster (otomatik tarama)':'Sadece 3+ eşleşme göster (otomatik tarama)';
-  const btLbl=document.getElementById('btFilter5Label');
-  if(btLbl)btLbl.textContent=btTxt;
-  const btLbl2=document.getElementById('btFilter5Label2');
-  if(btLbl2)btLbl2.textContent=btTxt;
+  const t=(lo,hi)=>isOn?`Sadece ${hi}+ eşleşme göster`:`Sadece ${lo}+ eşleşme göster`;
+  const tb=(lo,hi)=>isOn?`Sadece ${hi}+ eşleşme göster (otomatik tarama)`:`Sadece ${lo}+ eşleşme göster (otomatik tarama)`;
+  const g3=document.getElementById('genFilter3Label'); if(g3)g3.textContent=t(3,7);
+  const g4=document.getElementById('genFilter4Label'); if(g4)g4.textContent=t(4,8);
+  const g5=document.getElementById('genFilter5Label'); if(g5)g5.textContent=t(5,9);
+  const b3=document.getElementById('btFilter5Label');  if(b3)b3.textContent=tb(3,7);
+  const b4=document.getElementById('btFilter4Label');  if(b4)b4.textContent=tb(4,8);
+  const b5=document.getElementById('btFilter5HighLabel'); if(b5)b5.textContent=tb(5,9);
+  const b32=document.getElementById('btFilter5Label2'); if(b32)b32.textContent=tb(3,7);
 }
 function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); updateGenFilterLabel(); }
 function selectAlgo(id){ state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid(); }
@@ -2041,7 +2043,8 @@ async function generateTickets(){
   const recentDraw=state.datedDraws.length>0?state.datedDraws[0]:null;
   let tickets=[],matchCounts=[],scanHeader='';
   if(displayFilterOn&&recentDraw){
-    const minMatch=disp5On?5:disp4On?4:3;
+    const isOn=game.id==='onnumara';
+    const minMatch=disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
     const scanCount=disp5On?100000:disp4On?10000:1000;
     const BATCH=disp5On?2000:1000;
     const aSet=new Set(recentDraw.nums);
@@ -2514,7 +2517,8 @@ function runBacktest(){
   const freq=buildFreq(prior);
   const n=state.btCount||4;
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
-  const btMinM=state.btFilter5high?5:state.btFilter4?4:state.btFilter5?3:0;
+  const _isOn=game.id==='onnumara';
+  const btMinM=state.btFilter5high?(_isOn?9:5):state.btFilter4?(_isOn?8:4):state.btFilter5?(_isOn?7:3):0;
   const filterOn=btMinM>0;
   const maxTries=filterOn?(btMinM>=5?n*2000:btMinM>=4?n*500:n*50):n;
   const results=[];
