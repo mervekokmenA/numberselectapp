@@ -405,7 +405,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
     <button class="parse-btn" onclick="parseDatedDraws()">📅 Verileri Yükle</button>
     <button class="parse-btn green-btn" onclick="loadBtHistory(true)">📥 Gerçek Verileri Yükle</button>
-    <button class="parse-btn" id="loadHistBtn" onclick="loadHistoricalDraws()" style="background:var(--surface2);border-color:var(--accent)">📚 Eski Yılları Yükle</button>
   </div>
   <div class="parse-status" id="btParseStatus"></div>
 </div>
@@ -1226,14 +1225,6 @@ function adjustBtCount2(d){state.btCount2=Math.max(1,Math.min(10,state.btCount2+
 // ── Draw schedule (days-of-week: 0=Sun … 6=Sat) ─────────────
 const DRAW_SCHEDULE={sayisal:[1,3,6],super:[0,2,4],sans:[3,0],onnumara:[1,5]};
 
-// ── Lotobil source URLs per game ─────────────────────────────
-const LOTTERYEXTREME_URLS={
-  sayisal: 'https://www.lotteryextreme.com/turkey/sayisal-loto-results',
-  super:   'https://www.lotteryextreme.com/turkey/superloto-results',
-  sans:    'https://www.lotteryextreme.com/turkey/sanstopu-results',
-  onnumara:'https://www.lotteryextreme.com/turkey/onnumara-results',
-};
-
 async function proxyFetch(url){
   const TO=10000;
   const ac=()=>{const c=new AbortController();setTimeout(()=>c.abort(),TO);return c.signal;};
@@ -1248,106 +1239,7 @@ async function proxyFetch(url){
   ]).catch(()=>{throw new Error('proxy_fail');});
 }
 
-function parseLotteryExtreme(html,gameId){
-  const draws=[];
-  const dates=[...html.matchAll(/\((\d{4}-\d{2}-\d{2})\)/g)].map(m=>m[1]);
-  const lists=[...html.matchAll(/<ul[^>]*displayball[^>]*>([\s\S]*?)<\/ul>/g)];
-  const stars=[...html.matchAll(/Superstar:\s*(\d+)/g)].map(m=>+m[1]);
-  const nums=li=>([...li.matchAll(/<li>(\d+)/g)].map(m=>+m[1]));
-  if(gameId==='onnumara'){
-    for(let i=0;i<Math.min(dates.length,Math.floor(lists.length/2));i++){
-      const main=[...nums(lists[i*2][1]),...nums(lists[i*2+1][1])];
-      if(main.length>=22)draws.push({date:dates[i],main:main.slice(0,22),bonus:[]});
-    }
-  }else{
-    for(let i=0;i<Math.min(dates.length,lists.length);i++){
-      const parts=lists[i][1].split(/class="dbx"/);
-      const before=nums(parts[0]), after=parts[1]?nums(parts[1]):[];
-      if(gameId==='sayisal'){
-        const main=[...before,...after].slice(0,7);
-        if(main.length===7)draws.push({date:dates[i],main,bonus:stars[i]?[stars[i]]:[]});
-      }else if(gameId==='super'){
-        const main=before.slice(0,6);
-        if(main.length===6)draws.push({date:dates[i],main,bonus:[]});
-      }else if(gameId==='sans'){
-        const main=before.slice(0,5),bonus=after.slice(0,1);
-        if(main.length===5)draws.push({date:dates[i],main,bonus});
-      }
-    }
-  }
-  return draws;
-}
-
-async function autoUpdateDraw(gameId){
-  const url=LOTTERYEXTREME_URLS[gameId];
-  if(!url)return false;
-  let html=null;
-  for(let attempt=0;attempt<3;attempt++){
-    try{html=await proxyFetch(url);break;}catch(e){
-      if(attempt<2)await new Promise(r=>setTimeout(r,1500*(attempt+1)));
-    }
-  }
-  if(!html)return false;
-  const draws=parseLotteryExtreme(html,gameId);
-  if(!draws.length)return false;
-  let newest=false;
-  for(const d of draws){
-    if(DRAW_DATA[gameId].includes(d.date))continue;
-    const bonusPart=d.bonus.length?' | '+d.bonus.join(' '):'';
-    DRAW_DATA[gameId]=`${d.date} ${d.main.join(' ')}${bonusPart}\n`+DRAW_DATA[gameId];
-    if(!newest)newest=d.date;
-  }
-  return newest;
-}
-
-async function loadHistoricalDraws(){
-  const id=state.selectedGame;
-  const baseUrl=LOTTERYEXTREME_URLS[id];
-  if(!baseUrl){showToast('Bu oyun için geçmiş veri kaynağı yok');return;}
-  const btn=document.getElementById('loadHistBtn');
-  if(btn){btn.disabled=true;btn.textContent='⏳ Yükleniyor...';}
-  let added=0,pages=0;
-  const statusEl=document.getElementById('btParseStatus');
-  try{
-    for(let p=2;p<=20;p++){
-      const pageUrl=`${baseUrl}/${p}`;
-      let html=null;
-      for(let attempt=0;attempt<2;attempt++){
-        try{html=await proxyFetch(pageUrl);break;}catch(e){
-          if(attempt<1)await new Promise(r=>setTimeout(r,1000));
-        }
-      }
-      if(!html)break;
-      const draws=parseLotteryExtreme(html,id);
-      if(!draws.length)break;
-      pages++;
-      let pageAdded=0;
-      for(const d of draws){
-        if(DRAW_DATA[id].includes(d.date))continue;
-        const bonusPart=d.bonus.length?' | '+d.bonus.join(' '):'';
-        DRAW_DATA[id]+=`\n${d.date} ${d.main.join(' ')}${bonusPart}`;
-        added++;pageAdded++;
-      }
-      if(statusEl)statusEl.textContent=`Sayfa ${p-1}/${19} yüklendi — ${added} yeni çekiliş eklendi`;
-      if(pageAdded===0)break;
-      await new Promise(r=>setTimeout(r,300));
-    }
-  }finally{
-    if(btn){btn.disabled=false;btn.textContent='📚 Eski Yılları Yükle';}
-  }
-  if(added>0){
-    document.getElementById('datedDrawsInput').value=DRAW_DATA[id];
-    parseDatedDraws();
-    state.allPastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
-    state.allDatedDraws=[...state.datedDraws];
-    applyExcludeFilter();
-    analyzeAlgoPositions(id);
-    showToast(`✅ ${added} geçmiş çekiliş eklendi (${pages} sayfa)`);
-    saveDrawCache(id);
-  }else{
-    showToast(pages>0?'ℹ️ Tüm geçmiş veriler zaten mevcut':'⚠️ Geçmiş veri alınamadı — lütfen tekrar deneyin');
-  }
-}
+async function autoUpdateDraw(gameId){return false;}
 
 function dataFreshnessMsg(gameId){
   const raw=DRAW_DATA[gameId];
