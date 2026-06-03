@@ -1196,7 +1196,13 @@ async function analyzeAlgoPositions(gameId){
       .filter(x=>x.lift>0.12).sort((a,b)=>b.lift-a.lift).slice(0,15);
   });
   state.algoNumberScores[gameId]=numScores;
-  if(state.selectedGame===gameId)initAlgoGrid();
+  if(state.selectedGame===gameId){
+    initAlgoGrid();
+    state._algoScoreCache={};
+    state._algoScoreCache2={};
+    updateAlgoScores();
+    updateAlgoScores2();
+  }
 }
 
 function getAlgoNumHintsHtml(algoId, gameId){
@@ -1261,6 +1267,12 @@ async function analyzeBtAlgoPositions(gameId){
   });
   state.btAlgoNumberScores[gameId]=numScoresBt;
   renderAlgoScorePanel();
+}
+function renderAlgoScorePanel(){
+  state._algoScoreCache={};
+  state._algoScoreCache2={};
+  updateAlgoScores();
+  updateAlgoScores2();
 }
 
 function adjustBtCount(d){ state.btCount=Math.max(1,Math.min(10,state.btCount+d)); document.getElementById('btCountVal').textContent=state.btCount; }
