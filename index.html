@@ -2249,7 +2249,8 @@ function renderTicket(td,game,algoId,idx=0,matchCount=null){
   let ballsHtml=td.main.map((n,i)=>ballEl(n,game.mainColor,i*70)).join('');
   if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>ballEl(n,game.bonusColor,(td.main.length+i)*70,true)).join('');
   const matchBadge=matchCount!==null?`<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:${matchCount>=3?'rgba(0,230,118,.15)':'rgba(255,255,255,.07)'};color:${matchCount>=3?'var(--green)':'var(--muted)'};flex-shrink:0;white-space:nowrap">${matchCount} eş</span>`:'';
-  const copyText=td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
+  const algoLabel=algoId?(ALGOS.find(a=>a.id===algoId)?.name||algoId):'';
+  const copyText=(algoLabel?algoLabel+'\n':'')+td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
   const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   return `<div class="ticket" style="${idx>0?'margin-top:6px;':''}--ball-size:${mobileBSZ()};cursor:pointer;user-select:none;-webkit-user-select:none"
     ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()"
@@ -2310,9 +2311,9 @@ function generateTickets(){
     state.lastTickets={tickets,game};
     const container=document.getElementById('ticketContainer');
     const label=state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti';
-    const copyAll=tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
-    state._copyText=copyAll;
     const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
+    const copyAll=(algo?.name||state.selectedAlgo)+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+    state._copyText=copyAll;
     const conf=calcConfidence(state.selectedAlgo);
     const posScores=state.algoPositionScores[state.selectedGame];
     const posRow=(()=>{
@@ -2784,7 +2785,7 @@ function runForwardPrediction(){
     :'';
   const posHeader=`<div style="display:flex;align-items:center;gap:8px;padding:2px 10px 0"><span style="min-width:18px;display:inline-block;flex-shrink:0"></span><div style="display:flex;gap:5px;">${posNums}${posBonusNums}</div></div>`;
   const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
-  const copyAll=tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  const copyAll=algoName+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
   state._copyText=copyAll;
   const ticketsHtml=tickets.map((t,i)=>{
     const ballsHtml=t.main.map(n=>staticBall(n,game.mainColor,'',BSZ)).join('');
@@ -2941,7 +2942,7 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,fil
       return staticBall(n,game.bonusColor+' special',cls,BSZ);
     }).join(''):'';
     const scoreLabel=actual?`${score}/${total}${r.nearTotal>0?` +${r.nearTotal}≈`:''}`:'-';
-    const copyText=r.pred.main.join(' ')+(r.pred.bonus.length?' | '+r.pred.bonus.join(' '):'');
+    const copyText=algoName+'\n'+r.pred.main.join(' ')+(r.pred.bonus.length?' | '+r.pred.bonus.join(' '):'');
     const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return `<div class="ticket" style="${i>0?'margin-top:6px;':''}${isBest?'border-color:rgba(0,230,118,.4);background:rgba(0,230,118,.05);':''}cursor:pointer;user-select:none;-webkit-user-select:none"
       ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()"
