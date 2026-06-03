@@ -358,11 +358,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <input type="checkbox" id="genFilter6Chk" onchange="state.genDisplayFilter6=this.checked">
       <label for="genFilter6Chk" id="genFilter6Label">Sadece 6+ eşleşme göster</label>
     </div>
-    <div style="height:1px;background:var(--border);margin:8px 0"></div>
-    <div class="filter-toggle" style="margin-bottom:8px">
-      <input type="checkbox" id="genFilterEskiChk" onchange="state.genEskiFilter3=this.checked">
-      <label for="genFilterEskiChk" id="genFilterEskiLabel">🕐 3+ Eski (son gerçek çekilişe göre)</label>
-    </div>
     <div class="counter-row">
       <span class="counter-label">Bilet sayısı:</span>
       <div class="counter-ctrl">
@@ -604,31 +599,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     </div>
   </div>
 
-  <!-- ═══ 3+ ESKİ TARAMASI ═══ -->
-  <div class="card" id="eskiScanCard">
-    <div class="card-title">🕐 3+ Eski Eşleşme Taraması</div>
-    <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px">
-      Seçilen geçmiş çekilişe 3 veya daha fazla sayı eşleşen biletleri tarar ve gösterir.
-    </div>
-    <div class="bt-config" style="grid-template-columns:1fr">
-      <div class="form-group">
-        <label>Karşılaştırılacak geçmiş çekiliş</label>
-        <div style="display:flex;gap:5px;align-items:center">
-          <select id="eskiDate" style="flex:1;min-width:0"><option value="">— Önce veri yükleyin —</option></select>
-          <button onclick="stepEskiDate(-1)" title="Daha yeni" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
-          <button onclick="stepEskiDate(1)"  title="Daha eski"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
-        </div>
-      </div>
-    </div>
-    <div id="eskiProgressContainer" style="display:none;margin:8px 0">
-      <div style="background:var(--surface2);border-radius:4px;height:6px;overflow:hidden">
-        <div id="eskiProgressFill" style="height:100%;background:var(--accent);width:0%;transition:width .1s"></div>
-      </div>
-      <div id="eskiProgressText" style="font-size:.7rem;color:var(--muted);margin-top:4px;text-align:center"></div>
-    </div>
-    <button class="run-btn" id="eskiScanBtn" onclick="runEskiScan()" style="width:100%;margin-bottom:12px">🕐 3+ Eski Tara</button>
-    <div id="eskiResult"></div>
-  </div>
+
 
 </div><!-- /page-backtest -->
 
@@ -1046,7 +1017,7 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:'sayisal', selectedAlgo:'balanced',
-  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, genDisplayFilter4:false, genDisplayFilter5:false, genDisplayFilter6:false, genEskiFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
+  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, genDisplayFilter4:false, genDisplayFilter5:false, genDisplayFilter6:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -2337,8 +2308,7 @@ async function generateTickets(){
   const _disp4=!!state.genDisplayFilter4&&state.datedDraws&&state.datedDraws.length>0;
   const _disp5=!!state.genDisplayFilter5&&state.datedDraws&&state.datedDraws.length>0;
   const _disp6=!!state.genDisplayFilter6&&state.datedDraws&&state.datedDraws.length>0;
-  const _eskiOn=!!state.genEskiFilter3&&state.datedDraws&&state.datedDraws.length>0;
-  const _dispFilter=_disp3||_disp4||_disp5||_disp6||_eskiOn;
+  const _dispFilter=_disp3||_disp4||_disp5||_disp6;
   btn.classList.add('spinning');btn.disabled=true;
   btn.textContent=_dispFilter?'🔍 Taranıyor...':'🎲 Sayılar çekiliyor...';
   await new Promise(r=>setTimeout(r,50));
@@ -2347,7 +2317,6 @@ async function generateTickets(){
   const disp5On=!!state.genDisplayFilter5&&state.datedDraws.length>0;
   const disp4On=!!state.genDisplayFilter4&&state.datedDraws.length>0;
   const disp3On=!!state.genDisplayFilter3&&state.datedDraws.length>0;
-  const eskiOn=_eskiOn&&!(disp6On||disp5On||disp4On||disp3On);
   const displayFilterOn=disp6On||disp5On||disp4On||disp3On;
   const recentDraw=state.datedDraws.length>0?state.datedDraws[0]:null;
   const posScores=state.algoPositionScores[state.selectedGame];
@@ -2356,29 +2325,9 @@ async function generateTickets(){
   const excludeNums=state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0
     ?new Set(state.allDatedDraws[0].nums||[]):null;
   const _useActualDisp=displayFilterOn&&state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0;
-  const filterLabel=eskiOn?'3+ Eski':disp6On?(_useActualDisp?'6+ Gerçek':'6+'):disp5On?(_useActualDisp?'5+ Gerçek':'5+'):disp4On?(_useActualDisp?'4+ Gerçek':'4+'):disp3On?(_useActualDisp?'3+ Gerçek':'3+'):filterOn?'3+ Filtre':'';
+  const filterLabel=disp6On?(_useActualDisp?'6+ Gerçek':'6+'):disp5On?(_useActualDisp?'5+ Gerçek':'5+'):disp4On?(_useActualDisp?'4+ Gerçek':'4+'):disp3On?(_useActualDisp?'3+ Gerçek':'3+'):filterOn?'3+ Filtre':'';
   let tickets=[],matchCounts=[],scanHeader='';
-  if(eskiOn&&state.allDatedDraws&&state.allDatedDraws.length>0){
-    // 3+ Eski: gerçek son çekilişe göre tarama (retroaktif test)
-    const actual=state.allDatedDraws[0];
-    const isOn=game.id==='onnumara';
-    const minMatch=isOn?7:3;
-    const scanCount=5000;
-    const eASet=new Set(actual.nums||[]);
-    const eABSet=new Set(actual.bonus||[]);
-    const pc=document.getElementById('genProgressContainer');
-    const pf=document.getElementById('genProgressFill');
-    const pt=document.getElementById('genProgressText');
-    if(pc)pc.style.display='block';
-    const qualifying=await _doScanWithWorker({game,algo:state.selectedAlgo,freq:state.frequency,pastDraws:state.pastDraws||[],datedDraws:state.datedDraws||[],aArr:[...eASet],aBArr:[...eABSet],scanCount,minMatch,onProgress:(done,total)=>{const pct=Math.round(done/total*100);if(pf)pf.style.width=pct+'%';if(pt)pt.textContent=done.toLocaleString()+' / '+total.toLocaleString();}});
-    if(pc)pc.style.display='none';if(pf)pf.style.width='0%';
-    qualifying.sort((a,b)=>b.m-a.m);
-    const eSeen=new Set();
-    const eUniq=qualifying.filter(x=>{const k=[...x.pred.main,...x.pred.bonus].join(',');if(eSeen.has(k))return false;eSeen.add(k);return true;}).slice(0,30);
-    tickets=eUniq.map(x=>x.pred);
-    matchCounts=eUniq.map(x=>x.m);
-    scanHeader=`<div style="font-size:.74rem;color:var(--green);margin-bottom:8px;padding:6px 10px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);border-radius:8px">✅ ${scanCount.toLocaleString()} bilet tarandı · <strong>${eUniq.length} gerçek eşleşen</strong> (${minMatch}+) — ${actual.date} gerçek çekilişi · ${actual.nums.join(' ')}${actual.bonus?.length?' | '+actual.bonus.join(' '):''}</div>`;
-  } else if(displayFilterOn&&(recentDraw||_useActualDisp)){
+  if(displayFilterOn&&(recentDraw||_useActualDisp)){
     const isOn=game.id==='onnumara';
     const minMatch=disp6On?(isOn?10:6):disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
     let aSet,aBSet;
@@ -2450,7 +2399,7 @@ async function generateTickets(){
   }
   state.lastTickets={tickets,game};
   const container=document.getElementById('ticketContainer');
-  const label=displayFilterOn||eskiOn?(tickets.length===1?'1 Bilet':`${tickets.length} Bilet`):(state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti');
+  const label=displayFilterOn?(tickets.length===1?'1 Bilet':`${tickets.length} Bilet`):(state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti');
   const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
   const copyAll=(algo?.name||state.selectedAlgo)+(filterLabel?'\n'+filterLabel:'')+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
   state._copyText=copyAll;
@@ -2486,7 +2435,7 @@ async function generateTickets(){
   ${posRow}
   ${scanHeader}
   ${genPosHeader}
-  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,(filterOn||displayFilterOn||eskiOn)?matchCounts[i]:null,strongPositions,excludeNums,filterLabel)).join('')}
+  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,(filterOn||displayFilterOn)?matchCounts[i]:null,strongPositions,excludeNums,filterLabel)).join('')}
   <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
     <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
     <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
@@ -2494,7 +2443,7 @@ async function generateTickets(){
   {const titleEl=document.getElementById('ticketCardTitle');if(titleEl){if(state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0){const ld=state.allDatedDraws[0];titleEl.textContent=`${ld.date} · ${ld.nums.join(' ')}${ld.bonus&&ld.bonus.length?' | '+ld.bonus.join(' '):''}`;titleEl.style.fontSize='0.85em';}else{titleEl.textContent='Şanslı Sayılarınız';titleEl.style.fontSize='';}}}
   document.getElementById('ticketCard').style.display='block';
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
-  state.totalGenerated+=displayFilterOn||eskiOn?tickets.length:state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
+  state.totalGenerated+=displayFilterOn?tickets.length:state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
   btn.classList.remove('spinning');btn.disabled=false;btn.textContent='🎰 Şanslı Sayıları Üret';
 }
 function saveAllTickets(){
@@ -2543,85 +2492,6 @@ function stepBtDate2(dir){
   const idx=opts.indexOf(sel.value);
   const next=idx+dir;
   if(next>=0&&next<opts.length){sel.value=opts[next];updateAlgoScores2();}
-}
-function stepEskiDate(dir){
-  const sel=document.getElementById('eskiDate');
-  const opts=[...sel.options].map(o=>o.value).filter(v=>v);
-  const idx=opts.indexOf(sel.value);
-  const next=idx+dir;
-  if(next>=0&&next<opts.length){sel.value=opts[next];}
-}
-async function runEskiScan(){
-  const testDate=document.getElementById('eskiDate').value;
-  if(!testDate){showToast('Önce bir geçmiş çekiliş tarihi seçin');return;}
-  const game=getGame();
-  const actual=state.datedDraws.find(d=>d.date===testDate);
-  if(!actual){showToast('Seçilen tarihe ait çekiliş bulunamadı');return;}
-  const prior=state.datedDraws.filter(d=>d.date<testDate);
-  if(prior.length<3){showToast('Yeterli geçmiş veri yok (en az 3 çekiliş gerekli)');return;}
-
-  const btn=document.getElementById('eskiScanBtn');
-  const pc=document.getElementById('eskiProgressContainer');
-  const pf=document.getElementById('eskiProgressFill');
-  const pt=document.getElementById('eskiProgressText');
-  const resultEl=document.getElementById('eskiResult');
-  btn.disabled=true;btn.textContent='⏳ Taranıyor...';
-  if(pc)pc.style.display='block';
-  resultEl.innerHTML='';
-
-  const priorPast=prior.map(d=>[...d.nums,...(d.bonus||[])]);
-  const priorFreq={};
-  priorPast.forEach(arr=>arr.forEach(n=>{priorFreq[n]=(priorFreq[n]||0)+1;}));
-
-  const isOn=game.id==='onnumara';
-  const minMatch=isOn?7:3;
-  const scanCount=5000;
-  const aSet=new Set(actual.nums);
-  const aBSet=new Set(actual.bonus||[]);
-  const qualifying=await _doScanWithWorker({game,algo:state.selectedAlgo,freq:priorFreq,pastDraws:priorPast,datedDraws:prior,aArr:[...aSet],aBArr:[...aBSet],scanCount,minMatch,onProgress:(done,total)=>{const pct=Math.round(done/total*100);if(pf)pf.style.width=pct+'%';if(pt)pt.textContent=done.toLocaleString()+' / '+total.toLocaleString();}});
-  if(pc)pc.style.display='none';
-  if(pf)pf.style.width='0%';
-  btn.disabled=false;btn.textContent='🕐 3+ Eski Tara';
-
-  qualifying.sort((a,b)=>b.m-a.m);
-  if(!qualifying.length){
-    resultEl.innerHTML=`<div style="font-size:.78rem;color:var(--muted);padding:10px 0">${scanCount.toLocaleString()} bilet tarandı — ${testDate} çekilişine 3+ eşleşen bilet bulunamadı.</div>`;
-    return;
-  }
-
-  // Show actual draw first
-  const aBallsHtml=actual.nums.map(n=>staticBall(n,game.mainColor,'',mobileBSZ())).join('');
-  const aBonusHtml=actual.bonus.length?`<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special','',mobileBSZ())).join(''):'';
-  const actualRow=`<div class="ticket" style="margin-bottom:10px;border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.05)">
-    <span class="ticket-idx" style="font-size:.52rem;color:var(--green);line-height:1.3;text-align:center">G<br>Ç</span>
-    <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${aBallsHtml}${aBonusHtml}</div>
-    <span style="font-size:.6rem;color:var(--green);white-space:nowrap">${testDate}</span>
-  </div>`;
-
-  const sz=mobileBSZ();
-  const ticketsHtml=qualifying.slice(0,50).map((x,i)=>{
-    const bHtml=x.pred.main.map(n=>staticBall(n,game.mainColor,aSet.has(n)?'matched':(aSet.has(n-1)||aSet.has(n+1))?'near':'unmatched',sz)).join('');
-    const bonHtml=x.pred.bonus.length?`<div class="balls-divider">+</div>`+x.pred.bonus.map(n=>staticBall(n,game.bonusColor+' special',aBSet.has(n)?'matched':(aBSet.has(n-1)||aBSet.has(n+1))?'near':'unmatched',sz)).join(''):'';
-    const badge=`<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:rgba(0,230,118,.15);color:var(--green);flex-shrink:0;white-space:nowrap">${x.m} eş</span>`;
-    const eskiAlgoLabel=ALGOS.find(a=>a.id===state.selectedAlgo)?.name||state.selectedAlgo;
-    const copyText=eskiAlgoLabel+'\n3+ Eski\n'+x.pred.main.join(' ')+(x.pred.bonus.length?' | '+x.pred.bonus.join(' '):'');
-    const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'');
-    return `<div class="ticket" style="${i>0?'margin-top:6px;':''}cursor:pointer;user-select:none;-webkit-user-select:none" onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()" oncontextmenu="return false">
-      <span class="ticket-idx">#${i+1}</span>
-      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:nowrap">${bHtml}${bonHtml}</div>
-      ${badge}
-      <button onclick="saveTicket(this)" style="flex-shrink:0;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:.72rem">📌</button>
-    </div>`;
-  }).join('');
-
-  resultEl.innerHTML=`
-    <div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">
-      🕐 ${scanCount.toLocaleString()} bilet tarandı · <strong>${qualifying.length} eşleşen</strong> (${minMatch}+) — ${testDate} gerçek çekilişi
-    </div>
-    ${actualRow}
-    ${ticketsHtml}
-    ${qualifying.length>50?`<div style="font-size:.72rem;color:var(--muted);margin-top:8px;text-align:center">... ve ${qualifying.length-50} bilet daha</div>`:''}
-  `;
 }
 function updateRunCounters(){
   const gc=document.getElementById('genRunCounter');
@@ -2713,12 +2583,6 @@ function updateBtDateOptions(){
   sel.value=newest[0].date; // newest pre-selected
   updateAlgoScores();
   updateBtDateOptions2();
-  // Populate eskiDate with same options
-  const eskiSel=document.getElementById('eskiDate');
-  if(eskiSel){
-    eskiSel.innerHTML=asc.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
-    eskiSel.value=newest[0].date;
-  }
 }
 
 const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG',star:'🌟 Star',starv2:'🌟 StarV2',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup'};
