@@ -2363,26 +2363,14 @@ async function generateTickets(){
     const actual=state.allDatedDraws[0];
     const isOn=game.id==='onnumara';
     const minMatch=isOn?7:3;
-    const scanCount=5000;const BATCH=500;
+    const scanCount=5000;
     const eASet=new Set(actual.nums||[]);
     const eABSet=new Set(actual.bonus||[]);
-    const qualifying=[];
     const pc=document.getElementById('genProgressContainer');
     const pf=document.getElementById('genProgressFill');
     const pt=document.getElementById('genProgressText');
     if(pc)pc.style.display='block';
-    for(let i=0;i<scanCount;i+=BATCH){
-      const end=Math.min(i+BATCH,scanCount);
-      for(let j=i;j<end;j++){
-        const pred=generateNumbers(game,state.selectedAlgo);
-        const m=pred.main.filter(x=>eASet.has(x)).length+pred.bonus.filter(x=>eABSet.has(x)).length;
-        if(m>=minMatch) qualifying.push({pred,m});
-      }
-      const pct=Math.round(end/scanCount*100);
-      if(pf)pf.style.width=pct+'%';
-      if(pt)pt.textContent=end.toLocaleString()+' / '+scanCount.toLocaleString();
-      await new Promise(r=>setTimeout(r,0));
-    }
+    const qualifying=await _doScanWithWorker({game,algo:state.selectedAlgo,freq:state.frequency,pastDraws:state.pastDraws||[],datedDraws:state.datedDraws||[],aArr:[...eASet],aBArr:[...eABSet],scanCount,minMatch,onProgress:(done,total)=>{const pct=Math.round(done/total*100);if(pf)pf.style.width=pct+'%';if(pt)pt.textContent=done.toLocaleString()+' / '+total.toLocaleString();}});
     if(pc)pc.style.display='none';if(pf)pf.style.width='0%';
     qualifying.sort((a,b)=>b.m-a.m);
     const eSeen=new Set();
@@ -2394,14 +2382,13 @@ async function generateTickets(){
     const isOn=game.id==='onnumara';
     const minMatch=disp6On?(isOn?10:6):disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
     let aSet,aBSet;
-    let scanCount,BATCH;
+    let scanCount;
     if(_useActualDisp){
       // Gerçek mod: gerçek son çekilişe karşılaştır
       const actual=state.allDatedDraws[0];
       aSet=new Set(actual.nums||[]);
       aBSet=new Set(actual.bonus||[]);
       scanCount=disp6On?200000:disp5On?100000:disp4On?10000:5000;
-      BATCH=disp6On?2500:disp5On?2000:1000;
     } else {
       // Tahmin modu: tahmin havuzuna karşılaştır
       const hotFreq=new Map(),hotBFreq=new Map();
@@ -2413,25 +2400,12 @@ async function generateTickets(){
       aSet=new Set([...hotFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.count).map(e=>e[0]));
       aBSet=game.bonusCount>0?new Set([...hotBFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.bonusCount).map(e=>e[0])):new Set();
       scanCount=disp6On?200000:disp5On?100000:disp4On?10000:1000;
-      BATCH=disp6On?2500:disp5On?2000:1000;
     }
-    const qualifying=[];
     const pc=document.getElementById('genProgressContainer');
     const pf=document.getElementById('genProgressFill');
     const pt=document.getElementById('genProgressText');
     if(pc)pc.style.display='block';
-    for(let i=0;i<scanCount;i+=BATCH){
-      const end=Math.min(i+BATCH,scanCount);
-      for(let j=i;j<end;j++){
-        const pred=generateNumbers(game,state.selectedAlgo);
-        const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
-        if(m>=minMatch) qualifying.push({pred,m});
-      }
-      const pct=Math.round(end/scanCount*100);
-      if(pf)pf.style.width=pct+'%';
-      if(pt)pt.textContent=end.toLocaleString()+' / '+scanCount.toLocaleString();
-      await new Promise(r=>setTimeout(r,0));
-    }
+    const qualifying=await _doScanWithWorker({game,algo:state.selectedAlgo,freq:state.frequency,pastDraws:state.pastDraws||[],datedDraws:state.datedDraws||[],aArr:[...aSet],aBArr:[...aBSet],scanCount,minMatch,onProgress:(done,total)=>{const pct=Math.round(done/total*100);if(pf)pf.style.width=pct+'%';if(pt)pt.textContent=done.toLocaleString()+' / '+total.toLocaleString();}});
     if(pc)pc.style.display='none';
     if(pf)pf.style.width='0%';
     qualifying.sort((a,b)=>b.m-a.m);
@@ -2602,23 +2576,9 @@ async function runEskiScan(){
   const isOn=game.id==='onnumara';
   const minMatch=isOn?7:3;
   const scanCount=5000;
-  const BATCH=500;
   const aSet=new Set(actual.nums);
   const aBSet=new Set(actual.bonus||[]);
-  const qualifying=[];
-
-  for(let i=0;i<scanCount;i+=BATCH){
-    const end=Math.min(i+BATCH,scanCount);
-    for(let j=i;j<end;j++){
-      const pred=generateNumbers(game,state.selectedAlgo,priorFreq,priorPast);
-      const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;
-      if(m>=minMatch) qualifying.push({pred,m});
-    }
-    const pct=Math.round(end/scanCount*100);
-    if(pf)pf.style.width=pct+'%';
-    if(pt)pt.textContent=end.toLocaleString()+' / '+scanCount.toLocaleString();
-    await new Promise(r=>setTimeout(r,0));
-  }
+  const qualifying=await _doScanWithWorker({game,algo:state.selectedAlgo,freq:priorFreq,pastDraws:priorPast,datedDraws:prior,aArr:[...aSet],aBArr:[...aBSet],scanCount,minMatch,onProgress:(done,total)=>{const pct=Math.round(done/total*100);if(pf)pf.style.width=pct+'%';if(pt)pt.textContent=done.toLocaleString()+' / '+total.toLocaleString();}});
   if(pc)pc.style.display='none';
   if(pf)pf.style.width='0%';
   btn.disabled=false;btn.textContent='🕐 3+ Eski Tara';
@@ -2946,6 +2906,47 @@ function buildEWF(draws,max,lambda_=0.80){
     nums.forEach(num=>{if(num>=1&&num<=max)ewf[num]=(ewf[num]||0)+w;});
   }
   return ewf;
+}
+
+// ── Background scan worker ───────────────────────────────────
+function _doScanWithWorker({game,algo,freq,pastDraws,datedDraws,aArr,aBArr,scanCount,minMatch,onProgress}){
+  return new Promise(resolve=>{
+    const BATCH=scanCount>=100000?8000:scanCount>=50000?4000:scanCount>=10000?2000:1000;
+    const src=[
+      `'use strict';`,
+      `let _f={},_d=[],_dd=[];`,
+      `const state={get frequency(){return _f;},get pastDraws(){return _d;},get datedDraws(){return _dd;}};`,
+      rng.toString(),
+      range.toString(),
+      pickUnique.toString(),
+      buildEWF.toString(),
+      generateNumbers.toString(),
+      `self.onmessage=function(e){`,
+      `  const d=e.data;_f=d.freq;_d=d.pastDraws;_dd=d.datedDraws;`,
+      `  const aSet=new Set(d.aArr),aBSet=new Set(d.aBArr);`,
+      `  const qualifying=[];`,
+      `  for(let i=0;i<d.scanCount;i+=d.BATCH){`,
+      `    const end=Math.min(i+d.BATCH,d.scanCount);`,
+      `    for(let j=i;j<end;j++){`,
+      `      const pred=generateNumbers(d.game,d.algo);`,
+      `      const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;`,
+      `      if(m>=d.minMatch)qualifying.push({pred,m});`,
+      `    }`,
+      `    self.postMessage({type:'progress',done:end,total:d.scanCount});`,
+      `  }`,
+      `  self.postMessage({type:'result',qualifying});`,
+      `};`
+    ].join('\n');
+    const blob=new Blob([src],{type:'application/javascript'});
+    const url=URL.createObjectURL(blob);
+    const worker=new Worker(url);
+    worker.onmessage=function(e){
+      if(e.data.type==='progress')onProgress(e.data.done,e.data.total);
+      else if(e.data.type==='result'){worker.terminate();URL.revokeObjectURL(url);resolve(e.data.qualifying);}
+    };
+    worker.onerror=function(err){worker.terminate();URL.revokeObjectURL(url);console.error('Scan worker error:',err);resolve([]);};
+    worker.postMessage({game:JSON.parse(JSON.stringify(game)),algo,freq:freq||{},pastDraws:pastDraws||[],datedDraws:datedDraws||[],aArr,aBArr,scanCount,minMatch,BATCH});
+  });
 }
 
 // ── Prize tier (corrected for all games) ────────────────────
