@@ -2307,7 +2307,7 @@ async function generateTickets(){
     <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
     <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
   </div>`;
-  {const titleEl=document.getElementById('ticketCardTitle');if(titleEl){if(state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0){const ld=state.allDatedDraws[0];titleEl.textContent=`${ld.date} · ${ld.nums.join(' ')}${ld.bonus&&ld.bonus.length?' | '+ld.bonus.join(' '):''}`;titleEl.style.fontSize='0.85em';}else{titleEl.textContent='Şanslı Sayılarınız';titleEl.style.fontSize='';}}}
+  {const titleEl=document.getElementById('ticketCardTitle');if(titleEl){if(state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0){const ld=state.allDatedDraws[0];titleEl.textContent=`${ld.date} · ${ld.nums.join(' ')}${ld.bonus&&ld.bonus.length?' | '+ld.bonus.join(' '):''}`;titleEl.style.fontSize='0.82em';titleEl.style.letterSpacing='0';titleEl.style.textTransform='none';}else{titleEl.textContent='Şanslı Sayılarınız';titleEl.style.fontSize='';titleEl.style.letterSpacing='';titleEl.style.textTransform='';}}}
   document.getElementById('ticketCard').style.display='block';
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
   state.totalGenerated+=displayFilterOn?tickets.length:state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
@@ -3291,12 +3291,32 @@ function runNaJoker(){
   // Overlap: joker in main numbers
   const overlap=jokers.filter(j=>j.nums&&j.nums.includes(j.v)).length;
 
-  // Candidates
-  const cands=new Set();
-  cold.slice(0,3).forEach(c=>cands.add(c.n));
-  hot.slice(0,2).forEach(h=>cands.add(h.n));
-  if(topDeltas.length){const d=+topDeltas[0][0];cands.add((jokers[0].v+d-1)%MAX+1);}
   const prevJ=jokers[0].v;
+  const expGap=total/MAX;
+  // Multi-signal scoring for all 90 numbers
+  const scored=[];
+  for(let n=1;n<=MAX;n++){
+    const gap=(lastSeen[n]!==undefined)?lastSeen[n]:total;
+    const f=freq[n]||0;
+    const gapSc=Math.min(4,gap/expGap);
+    const freqSc=Math.max(0,1-f/expGap);
+    const dl=((n-prevJ+MAX)%MAX);
+    const deltaSc=(dfreq[dl]||0)/Math.max(deltas.length,1)*5;
+    const rw=jokers.slice(0,10).filter(j=>j.v===n).length;
+    const pw=jokers.slice(10,30).filter(j=>j.v===n).length;
+    const revSc=(pw>0&&rw===0)?pw/20*5:0;
+    const score=gapSc*0.35+freqSc*0.30+deltaSc*0.25+revSc*0.10;
+    const sigs=[
+      {s:gapSc*0.35,t:`${gap} çekilişte yok`},
+      {s:freqSc*0.30,t:`${f}× görüldü (beklenen: ${expGap.toFixed(1)}×)`},
+      {s:deltaSc*0.25,t:`Sıralı Δ${dl} sık (${dfreq[dl]||0}×)`},
+      {s:revSc*0.10,t:'Soğuma sonrası bekleniyor'},
+    ].sort((a,b)=>b.s-a.s);
+    scored.push({n,score,gap,f,gapSc,freqSc,deltaSc,dl,reason:sigs[0].t});
+  }
+  scored.sort((a,b)=>b.score-a.score);
+  const topCands=scored.slice(0,10);
+  const maxCandScore=topCands[0]?.score||1;
 
   // Decade distribution
   const decSize=Math.ceil(MAX/9);
@@ -3343,16 +3363,27 @@ function runNaJoker(){
   });
   html+=`</div></div>`;
 
-  // Candidates box
+  // Candidates box - improved multi-signal
   html+=`<div style="background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.25);border-radius:10px;padding:12px;margin-bottom:12px">`;
-  html+=`<div style="font-size:.67rem;font-weight:700;color:var(--green);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">🎯 Aday Süperstar Sayıları</div>`;
-  html+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">`;
-  [...cands].forEach(n=>{
-    html+=`<span style="font-size:1.25rem;font-weight:800;color:var(--green);background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.3);border-radius:8px;padding:6px 14px">${n}</span>`;
+  html+=`<div style="font-size:.67rem;font-weight:700;color:var(--green);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">🎯 Aday Süperstar Sayıları</div>`;
+  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:10px">Son Süperstar: <strong style="color:var(--text)">${prevJ}</strong> · Beklenen: her ${expGap.toFixed(1)} çekilişte bir · Son 10: ${jokers.slice(0,10).map(j=>j.v).join(' ')}</div>`;
+  html+=`<div style="display:grid;grid-template-columns:repeat(2,1fr);gap:6px">`;
+  topCands.forEach((c,i)=>{
+    const pct=Math.round(c.score/maxCandScore*100);
+    const isTop=i<3;
+    html+=`<div style="background:${isTop?'rgba(0,230,118,.10)':'var(--surface2)'};border:1px solid ${isTop?'rgba(0,230,118,.35)':'var(--border)'};border-radius:8px;padding:8px 10px">`;
+    html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">`;
+    html+=`<span style="font-size:1.1rem;font-weight:800;color:${isTop?'var(--green)':'var(--text)'};min-width:26px">${c.n}</span>`;
+    html+=`<div style="flex:1"><div style="background:var(--border);border-radius:3px;height:5px;overflow:hidden;margin-bottom:3px"><div style="width:${pct}%;height:100%;background:${isTop?'var(--green)':'var(--accent)'};border-radius:3px"></div></div>`;
+    html+=`<div style="font-size:.57rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.reason}</div></div>`;
+    html+=`<span style="font-size:.57rem;color:var(--muted);flex-shrink:0">${pct}%</span></div>`;
+    html+=`<div style="display:flex;gap:4px;flex-wrap:wrap">`;
+    if(c.gapSc>0.5)html+=`<span style="font-size:.53rem;padding:1px 5px;border-radius:3px;background:rgba(0,180,216,.15);color:var(--blue)">Gap ${c.gap}</span>`;
+    if(c.freqSc>0.2)html+=`<span style="font-size:.53rem;padding:1px 5px;border-radius:3px;background:rgba(108,99,255,.15);color:var(--accent)">Frek ${c.f}×</span>`;
+    if(c.deltaSc>0.1)html+=`<span style="font-size:.53rem;padding:1px 5px;border-radius:3px;background:rgba(255,101,132,.15);color:var(--accent2)">Δ${c.dl}</span>`;
+    html+=`</div></div>`;
   });
-  html+=`</div>`;
-  html+=`<div style="font-size:.64rem;color:var(--muted)">Son Süperstar: <strong style="color:var(--text)">${prevJ}</strong> · Beklenen frekans: her ${(total/MAX).toFixed(1)} çekilişte bir · Son 15: ${jokers.slice(0,15).map(j=>j.v).join(' · ')}</div>`;
-  html+=`</div>`;
+  html+=`</div></div>`;
 
   // Stats + delta
   html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">`;
