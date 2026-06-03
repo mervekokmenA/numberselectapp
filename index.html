@@ -2295,19 +2295,27 @@ async function generateTickets(){
     ?new Set(posScores[state.selectedAlgo].filter(x=>x.lift>0.25).map(x=>x.pos)):null;
   const excludeNums=state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0
     ?new Set(state.allDatedDraws[0].nums||[]):null;
-  const filterLabel=displayFilterOn?'3+':filterOn?'3+ Filtre':'';
+  const filterLabel=displayFilterOn?(state.excludeLastDraw&&state.allDatedDraws?.length>0?'3+ Gerçek':'3+'):filterOn?'3+ Filtre':'';
   let tickets=[],matchCounts=[],scanHeader='';
-  if(displayFilterOn&&recentDraw){
+  const useActual=displayFilterOn&&state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0;
+  if(displayFilterOn&&(recentDraw||useActual)){
     const scanCount=5000;const BATCH=500;
-    const hotFreq=new Map(),hotBFreq=new Map();
-    for(let p=0;p<300;p++){
-      const pp=generateNumbers(game,state.selectedAlgo);
-      pp.main.forEach(n=>hotFreq.set(n,(hotFreq.get(n)||0)+1));
-      pp.bonus.forEach(n=>hotBFreq.set(n,(hotBFreq.get(n)||0)+1));
+    const isOn=game.id==='onnumara';const minMatch=isOn?7:3;
+    let aSet,aBSet;
+    if(useActual){
+      const actual=state.allDatedDraws[0];
+      aSet=new Set(actual.nums||[]);
+      aBSet=new Set(actual.bonus||[]);
+    } else {
+      const hotFreq=new Map(),hotBFreq=new Map();
+      for(let p=0;p<300;p++){
+        const pp=generateNumbers(game,state.selectedAlgo);
+        pp.main.forEach(n=>hotFreq.set(n,(hotFreq.get(n)||0)+1));
+        pp.bonus.forEach(n=>hotBFreq.set(n,(hotBFreq.get(n)||0)+1));
+      }
+      aSet=new Set([...hotFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.count).map(e=>e[0]));
+      aBSet=game.bonusCount>0?new Set([...hotBFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.bonusCount).map(e=>e[0])):new Set();
     }
-    const aSet=new Set([...hotFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.count).map(e=>e[0]));
-    const aBSet=game.bonusCount>0?new Set([...hotBFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.bonusCount).map(e=>e[0])):new Set();
-    const minMatch=game.id==='onnumara'?7:3;
     const qualifying=[];
     for(let i=0;i<scanCount;i+=BATCH){
       const end=Math.min(i+BATCH,scanCount);
@@ -2324,7 +2332,12 @@ async function generateTickets(){
     const uniq=qualifying.filter(x=>{const k=[...x.pred.main,...x.pred.bonus].join(',');if(seen.has(k))return false;seen.add(k);return true;});
     tickets=uniq.map(x=>x.pred);
     matchCounts=uniq.map(x=>x.m);
-    scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 ${scanCount.toLocaleString()} bilet tarandı · <strong>${uniq.length} benzersiz eşleşen</strong> (${minMatch}+ tahmin havuzu eşleşmesi)</div>`;
+    if(useActual){
+      const actual=state.allDatedDraws[0];
+      scanHeader=`<div style="font-size:.74rem;color:var(--green);margin-bottom:8px;padding:6px 10px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);border-radius:8px">✅ ${scanCount.toLocaleString()} bilet tarandı · <strong>${uniq.length} gerçek eşleşen</strong> (${minMatch}+) — ${actual.date} gerçek çekilişi · ${actual.nums.join(' ')}${actual.bonus?.length?' | '+actual.bonus.join(' '):''}</div>`;
+    } else {
+      scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 ${scanCount.toLocaleString()} bilet tarandı · <strong>${uniq.length} benzersiz eşleşen</strong> (${minMatch}+ tahmin havuzu eşleşmesi)</div>`;
+    }
   } else {
     await new Promise(r=>setTimeout(r,350));
     const hotFreq=new Map(),hotBFreq=new Map();

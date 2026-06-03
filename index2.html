@@ -2355,21 +2355,17 @@ async function generateTickets(){
     ?new Set(posScores[state.selectedAlgo].filter(x=>x.lift>0.25).map(x=>x.pos)):null;
   const excludeNums=state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0
     ?new Set(state.allDatedDraws[0].nums||[]):null;
-  const filterLabel=eskiOn?'3+ Eski':disp6On?'6+':disp5On?'5+':disp4On?'4+':disp3On?'3+':filterOn?'3+ Filtre':'';
+  const _useActualDisp=displayFilterOn&&state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0;
+  const filterLabel=eskiOn?'3+ Eski':disp6On?(_useActualDisp?'6+ Gerçek':'6+'):disp5On?(_useActualDisp?'5+ Gerçek':'5+'):disp4On?(_useActualDisp?'4+ Gerçek':'4+'):disp3On?(_useActualDisp?'3+ Gerçek':'3+'):filterOn?'3+ Filtre':'';
   let tickets=[],matchCounts=[],scanHeader='';
-  if(eskiOn){
-    // 3+ Eski: same algorithm as main page 3+ (predicted pool, 5000 scans, 30 results)
+  if(eskiOn&&state.allDatedDraws&&state.allDatedDraws.length>0){
+    // 3+ Eski: gerçek son çekilişe göre tarama (retroaktif test)
+    const actual=state.allDatedDraws[0];
     const isOn=game.id==='onnumara';
     const minMatch=isOn?7:3;
     const scanCount=5000;const BATCH=500;
-    const hotFreq=new Map(),hotBFreq=new Map();
-    for(let p=0;p<300;p++){
-      const pp=generateNumbers(game,state.selectedAlgo);
-      pp.main.forEach(n=>hotFreq.set(n,(hotFreq.get(n)||0)+1));
-      pp.bonus.forEach(n=>hotBFreq.set(n,(hotBFreq.get(n)||0)+1));
-    }
-    const eASet=new Set([...hotFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.count).map(e=>e[0]));
-    const eABSet=game.bonusCount>0?new Set([...hotBFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.bonusCount).map(e=>e[0])):new Set();
+    const eASet=new Set(actual.nums||[]);
+    const eABSet=new Set(actual.bonus||[]);
     const qualifying=[];
     const pc=document.getElementById('genProgressContainer');
     const pf=document.getElementById('genProgressFill');
@@ -2393,21 +2389,32 @@ async function generateTickets(){
     const eUniq=qualifying.filter(x=>{const k=[...x.pred.main,...x.pred.bonus].join(',');if(eSeen.has(k))return false;eSeen.add(k);return true;}).slice(0,30);
     tickets=eUniq.map(x=>x.pred);
     matchCounts=eUniq.map(x=>x.m);
-    scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 ${scanCount.toLocaleString()} bilet tarandı · <strong>${eUniq.length} benzersiz eşleşen</strong> (${minMatch}+ tahmin havuzu eşleşmesi)${qualifying.length>eUniq.length?` · ${qualifying.length-eUniq.length} tekrar elendi`:''}</div>`;
-  } else if(displayFilterOn&&recentDraw){
+    scanHeader=`<div style="font-size:.74rem;color:var(--green);margin-bottom:8px;padding:6px 10px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);border-radius:8px">✅ ${scanCount.toLocaleString()} bilet tarandı · <strong>${eUniq.length} gerçek eşleşen</strong> (${minMatch}+) — ${actual.date} gerçek çekilişi · ${actual.nums.join(' ')}${actual.bonus?.length?' | '+actual.bonus.join(' '):''}</div>`;
+  } else if(displayFilterOn&&(recentDraw||_useActualDisp)){
     const isOn=game.id==='onnumara';
     const minMatch=disp6On?(isOn?10:6):disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
-    const scanCount=disp6On?200000:disp5On?100000:disp4On?10000:1000;
-    const BATCH=disp6On?2500:disp5On?2000:1000;
-    // Build forward-looking predicted pool: run algorithm 300x, take top numbers by frequency
-    const hotFreq=new Map(),hotBFreq=new Map();
-    for(let p=0;p<300;p++){
-      const pp=generateNumbers(game,state.selectedAlgo);
-      pp.main.forEach(n=>hotFreq.set(n,(hotFreq.get(n)||0)+1));
-      pp.bonus.forEach(n=>hotBFreq.set(n,(hotBFreq.get(n)||0)+1));
+    let aSet,aBSet;
+    let scanCount,BATCH;
+    if(_useActualDisp){
+      // Gerçek mod: gerçek son çekilişe karşılaştır
+      const actual=state.allDatedDraws[0];
+      aSet=new Set(actual.nums||[]);
+      aBSet=new Set(actual.bonus||[]);
+      scanCount=disp6On?200000:disp5On?100000:disp4On?10000:5000;
+      BATCH=disp6On?2500:disp5On?2000:1000;
+    } else {
+      // Tahmin modu: tahmin havuzuna karşılaştır
+      const hotFreq=new Map(),hotBFreq=new Map();
+      for(let p=0;p<300;p++){
+        const pp=generateNumbers(game,state.selectedAlgo);
+        pp.main.forEach(n=>hotFreq.set(n,(hotFreq.get(n)||0)+1));
+        pp.bonus.forEach(n=>hotBFreq.set(n,(hotBFreq.get(n)||0)+1));
+      }
+      aSet=new Set([...hotFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.count).map(e=>e[0]));
+      aBSet=game.bonusCount>0?new Set([...hotBFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.bonusCount).map(e=>e[0])):new Set();
+      scanCount=disp6On?200000:disp5On?100000:disp4On?10000:1000;
+      BATCH=disp6On?2500:disp5On?2000:1000;
     }
-    const aSet=new Set([...hotFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.count).map(e=>e[0]));
-    const aBSet=game.bonusCount>0?new Set([...hotBFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.bonusCount).map(e=>e[0])):new Set();
     const qualifying=[];
     const pc=document.getElementById('genProgressContainer');
     const pf=document.getElementById('genProgressFill');
@@ -2428,12 +2435,16 @@ async function generateTickets(){
     if(pc)pc.style.display='none';
     if(pf)pf.style.width='0%';
     qualifying.sort((a,b)=>b.m-a.m);
-    // Deduplicate: keep only unique combinations
     const qSeen=new Set();
     const qUniq=qualifying.filter(x=>{const k=[...x.pred.main,...x.pred.bonus].join(',');if(qSeen.has(k))return false;qSeen.add(k);return true;});
     tickets=qUniq.map(x=>x.pred);
     matchCounts=qUniq.map(x=>x.m);
-    scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 ${scanCount.toLocaleString()} bilet tarandı · <strong>${qUniq.length} benzersiz eşleşen</strong> (${minMatch}+ tahmin havuzu eşleşmesi)${qualifying.length>qUniq.length?` · ${qualifying.length-qUniq.length} tekrar elendi`:''}</div>`;
+    if(_useActualDisp){
+      const actual=state.allDatedDraws[0];
+      scanHeader=`<div style="font-size:.74rem;color:var(--green);margin-bottom:8px;padding:6px 10px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);border-radius:8px">✅ ${scanCount.toLocaleString()} bilet tarandı · <strong>${qUniq.length} gerçek eşleşen</strong> (${minMatch}+) — ${actual.date} gerçek çekilişi · ${actual.nums.join(' ')}${actual.bonus?.length?' | '+actual.bonus.join(' '):''}</div>`;
+    } else {
+      scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 ${scanCount.toLocaleString()} bilet tarandı · <strong>${qUniq.length} benzersiz eşleşen</strong> (${minMatch}+ tahmin havuzu eşleşmesi)${qualifying.length>qUniq.length?` · ${qualifying.length-qUniq.length} tekrar elendi`:''}</div>`;
+    }
   } else {
     await new Promise(r=>setTimeout(r,350));
     // Build forward-looking predicted pool for match counting and optional 3+ filter
