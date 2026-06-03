@@ -2357,12 +2357,19 @@ async function generateTickets(){
     ?new Set(state.allDatedDraws[0].nums||[]):null;
   const filterLabel=eskiOn?'3+ Eski':disp6On?'6+':disp5On?'5+':disp4On?'4+':disp3On?'3+':filterOn?'3+ Filtre':'';
   let tickets=[],matchCounts=[],scanHeader='';
-  if(eskiOn&&recentDraw){
-    // 3+ Eski: scan against ACTUAL last draw (same UX as main page 3+ but historical)
+  if(eskiOn){
+    // 3+ Eski: same algorithm as main page 3+ (predicted pool, 5000 scans, 30 results)
     const isOn=game.id==='onnumara';
     const minMatch=isOn?7:3;
-    const scanCount=10000;const BATCH=1000;
-    const eASet=new Set(recentDraw.nums);const eABSet=new Set(recentDraw.bonus||[]);
+    const scanCount=5000;const BATCH=500;
+    const hotFreq=new Map(),hotBFreq=new Map();
+    for(let p=0;p<300;p++){
+      const pp=generateNumbers(game,state.selectedAlgo);
+      pp.main.forEach(n=>hotFreq.set(n,(hotFreq.get(n)||0)+1));
+      pp.bonus.forEach(n=>hotBFreq.set(n,(hotBFreq.get(n)||0)+1));
+    }
+    const eASet=new Set([...hotFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.count).map(e=>e[0]));
+    const eABSet=game.bonusCount>0?new Set([...hotBFreq.entries()].sort((a,b)=>b[1]-a[1]).slice(0,game.bonusCount).map(e=>e[0])):new Set();
     const qualifying=[];
     const pc=document.getElementById('genProgressContainer');
     const pf=document.getElementById('genProgressFill');
@@ -2383,10 +2390,10 @@ async function generateTickets(){
     if(pc)pc.style.display='none';if(pf)pf.style.width='0%';
     qualifying.sort((a,b)=>b.m-a.m);
     const eSeen=new Set();
-    const eUniq=qualifying.filter(x=>{const k=[...x.pred.main,...x.pred.bonus].join(',');if(eSeen.has(k))return false;eSeen.add(k);return true;});
+    const eUniq=qualifying.filter(x=>{const k=[...x.pred.main,...x.pred.bonus].join(',');if(eSeen.has(k))return false;eSeen.add(k);return true;}).slice(0,30);
     tickets=eUniq.map(x=>x.pred);
     matchCounts=eUniq.map(x=>x.m);
-    scanHeader=`<div style="font-size:.74rem;color:var(--gold);margin-bottom:8px;padding:6px 10px;background:rgba(255,200,80,.08);border:1px solid rgba(255,200,80,.3);border-radius:8px">🕐 ${scanCount.toLocaleString()} bilet tarandı · <strong>${eUniq.length} benzersiz eşleşen</strong> (${minMatch}+) — ${recentDraw.date} gerçek çekilişi · ${recentDraw.nums.join(' ')}${recentDraw.bonus.length?' | '+recentDraw.bonus.join(' '):''}</div>`;
+    scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.1);border:1px solid rgba(108,99,255,.3);border-radius:8px">🔍 ${scanCount.toLocaleString()} bilet tarandı · <strong>${eUniq.length} benzersiz eşleşen</strong> (${minMatch}+ tahmin havuzu eşleşmesi)${qualifying.length>eUniq.length?` · ${qualifying.length-eUniq.length} tekrar elendi`:''}</div>`;
   } else if(displayFilterOn&&recentDraw){
     const isOn=game.id==='onnumara';
     const minMatch=disp6On?(isOn?10:6):disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
@@ -2582,8 +2589,8 @@ async function runEskiScan(){
 
   const isOn=game.id==='onnumara';
   const minMatch=isOn?7:3;
-  const scanCount=10000;
-  const BATCH=1000;
+  const scanCount=5000;
+  const BATCH=500;
   const aSet=new Set(actual.nums);
   const aBSet=new Set(actual.bonus||[]);
   const qualifying=[];
