@@ -2255,8 +2255,8 @@ function calcConfidence(algo){
 
 // ── Ball HTML ─────────────────────────────────────────────────
 function mobileBSZ(){return window.innerWidth<=600?'24px':'38px';}
-function ballEl(num,colorCls,delay=0,special=false,extra=''){
-  return `<div class="ball ${colorCls}${special?' special':''}${extra?' '+extra:''} rolling" style="animation-delay:${delay}ms">${num}</div>`;
+function ballEl(num,colorCls,delay=0,special=false,extra='',extraStyle=''){
+  return `<div class="ball ${colorCls}${special?' special':''}${extra?' '+extra:''} rolling" style="animation-delay:${delay}ms${extraStyle?';'+extraStyle:''}">${num}</div>`;
 }
 function staticBall(num,colorCls,extra='',sz=''){
   const s=sz?`--ball-size:${sz};`:'';
@@ -2274,17 +2274,35 @@ function lpStart(text){
 }
 function lpEnd(){if(_lpTimer){clearTimeout(_lpTimer);_lpTimer=null;}}
 
-function renderTicket(td,game,algoId,idx=0,matchCount=null){
+function renderTicket(td,game,algoId,idx=0,matchCount=null,strongPositions=null,excludeNums=null,filterLabel=''){
   if(matchCount===null&&state.datedDraws&&state.datedDraws.length>0){
     const rd=state.datedDraws[0];
     const aSet=new Set(rd.nums||[]);const aBSet=new Set(rd.bonus||[]);
     matchCount=td.main.filter(x=>aSet.has(x)).length+td.bonus.filter(x=>aBSet.has(x)).length;
   }
-  let ballsHtml=td.main.map((n,i)=>ballEl(n,game.mainColor,i*70)).join('');
-  if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>ballEl(n,game.bonusColor,(td.main.length+i)*70,true)).join('');
+  let ballsHtml=td.main.map((n,i)=>{
+    const pos=i+1,isStrong=strongPositions&&strongPositions.has(pos);
+    const isExact=excludeNums&&excludeNums.has(n);
+    const isNear=!isExact&&excludeNums&&(excludeNums.has(n-1)||excludeNums.has(n+1));
+    let boxP=[];let bg='';
+    if(isStrong)boxP.push('0 0 0 3px var(--green)');
+    if(isExact){boxP.push('0 0 0 2px rgba(255,160,0,.9)');bg='background:rgba(255,140,0,.3)';}
+    else if(isNear){boxP.push('0 0 0 2px rgba(255,200,0,.6)');bg='background:rgba(255,200,0,.15)';}
+    const es=(boxP.length?'box-shadow:'+boxP.join(','):'')+(bg?';'+bg:'');
+    return ballEl(n,game.mainColor,i*70,false,'',es);
+  }).join('');
+  if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>{
+    const isExact=excludeNums&&excludeNums.has(n);
+    const isNear=!isExact&&excludeNums&&(excludeNums.has(n-1)||excludeNums.has(n+1));
+    let boxP=[];let bg='';
+    if(isExact){boxP.push('0 0 0 2px rgba(255,160,0,.9)');bg='background:rgba(255,140,0,.3)';}
+    else if(isNear){boxP.push('0 0 0 2px rgba(255,200,0,.6)');bg='background:rgba(255,200,0,.15)';}
+    const es=(boxP.length?'box-shadow:'+boxP.join(','):'')+(bg?';'+bg:'');
+    return ballEl(n,game.bonusColor,(td.main.length+i)*70,true,'',es);
+  }).join('');
   const matchBadge=matchCount!==null?`<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:${matchCount>=3?'rgba(0,230,118,.15)':'rgba(255,255,255,.07)'};color:${matchCount>=3?'var(--green)':'var(--muted)'};flex-shrink:0;white-space:nowrap">${matchCount} eş</span>`:'';
   const algoLabel=algoId?(ALGOS.find(a=>a.id===algoId)?.name||algoId):'';
-  const copyText=(algoLabel?algoLabel+'\n':'')+td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
+  const copyText=(algoLabel?algoLabel+'\n':'')+(filterLabel?filterLabel+'\n':'')+td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
   const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
   const ticketData=td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
   return `<div class="ticket" data-ticket="${ticketData}" style="${idx>0?'margin-top:6px;':''}--ball-size:${mobileBSZ()};cursor:pointer;user-select:none;-webkit-user-select:none"
@@ -2320,6 +2338,12 @@ async function generateTickets(){
   const eskiOn=_eskiOn&&!(disp6On||disp5On||disp4On||disp3On);
   const displayFilterOn=disp6On||disp5On||disp4On||disp3On;
   const recentDraw=state.datedDraws.length>0?state.datedDraws[0]:null;
+  const posScores=state.algoPositionScores[state.selectedGame];
+  const strongPositions=posScores&&posScores[state.selectedAlgo]
+    ?new Set(posScores[state.selectedAlgo].filter(x=>x.lift>0.25).map(x=>x.pos)):null;
+  const excludeNums=state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0
+    ?new Set(state.allDatedDraws[0].nums||[]):null;
+  const filterLabel=eskiOn?'3+ Eski':disp6On?'6+':disp5On?'5+':disp4On?'4+':disp3On?'3+':filterOn?'3+ Filtre':'';
   let tickets=[],matchCounts=[],scanHeader='';
   if(eskiOn&&recentDraw){
     // 3+ Eski: scan against ACTUAL last draw (same UX as main page 3+ but historical)
@@ -2354,8 +2378,8 @@ async function generateTickets(){
   } else if(displayFilterOn&&recentDraw){
     const isOn=game.id==='onnumara';
     const minMatch=disp6On?(isOn?10:6):disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
-    const scanCount=disp6On?400000:disp5On?100000:disp4On?10000:1000;
-    const BATCH=disp6On?5000:disp5On?2000:1000;
+    const scanCount=disp6On?200000:disp5On?100000:disp4On?10000:1000;
+    const BATCH=disp6On?2500:disp5On?2000:1000;
     // Build forward-looking predicted pool: run algorithm 300x, take top numbers by frequency
     const hotFreq=new Map(),hotBFreq=new Map();
     for(let p=0;p<300;p++){
@@ -2422,12 +2446,11 @@ async function generateTickets(){
   }
   state.lastTickets={tickets,game};
   const container=document.getElementById('ticketContainer');
-  const label=displayFilterOn?(tickets.length===1?'1 Bilet':`${tickets.length} Bilet`):(state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti');
+  const label=displayFilterOn||eskiOn?(tickets.length===1?'1 Bilet':`${tickets.length} Bilet`):(state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti');
   const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
-  const copyAll=(algo?.name||state.selectedAlgo)+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  const copyAll=(algo?.name||state.selectedAlgo)+(filterLabel?'\n'+filterLabel:'')+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
   state._copyText=copyAll;
   const conf=calcConfidence(state.selectedAlgo);
-  const posScores=state.algoPositionScores[state.selectedGame];
   const posRow=(()=>{
     if(!posScores||!posScores[state.selectedAlgo])return '';
     const good=posScores[state.selectedAlgo].filter(x=>x.lift>0.08).sort((a,b)=>b.lift-a.lift);
@@ -2459,14 +2482,14 @@ async function generateTickets(){
   ${posRow}
   ${scanHeader}
   ${genPosHeader}
-  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,(filterOn||displayFilterOn)?matchCounts[i]:null)).join('')}
+  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,(filterOn||displayFilterOn||eskiOn)?matchCounts[i]:null,strongPositions,excludeNums,filterLabel)).join('')}
   <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
     <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
     <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
   </div>`;
   document.getElementById('ticketCard').style.display='block';
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
-  state.totalGenerated+=displayFilterOn?tickets.length:state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
+  state.totalGenerated+=displayFilterOn||eskiOn?tickets.length:state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
   btn.classList.remove('spinning');btn.disabled=false;btn.textContent='🎰 Şanslı Sayıları Üret';
 }
 function saveAllTickets(){
@@ -2590,7 +2613,7 @@ async function runEskiScan(){
     const bonHtml=x.pred.bonus.length?`<div class="balls-divider">+</div>`+x.pred.bonus.map(n=>staticBall(n,game.bonusColor+' special',aBSet.has(n)?'matched':(aBSet.has(n-1)||aBSet.has(n+1))?'near':'unmatched',sz)).join(''):'';
     const badge=`<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:rgba(0,230,118,.15);color:var(--green);flex-shrink:0;white-space:nowrap">${x.m} eş</span>`;
     const eskiAlgoLabel=ALGOS.find(a=>a.id===state.selectedAlgo)?.name||state.selectedAlgo;
-    const copyText=eskiAlgoLabel+'\n'+x.pred.main.join(' ')+(x.pred.bonus.length?' | '+x.pred.bonus.join(' '):'');
+    const copyText=eskiAlgoLabel+'\n3+ Eski\n'+x.pred.main.join(' ')+(x.pred.bonus.length?' | '+x.pred.bonus.join(' '):'');
     const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return `<div class="ticket" style="${i>0?'margin-top:6px;':''}cursor:pointer;user-select:none;-webkit-user-select:none" onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()" oncontextmenu="return false">
       <span class="ticket-idx">#${i+1}</span>
@@ -2930,7 +2953,7 @@ function prizeTier(game,mMain,mBonus){
   return null;
 }
 
-function runBacktest(){
+async function runBacktest(){
   const gameId=state.selectedGame;
   const testDate=document.getElementById('btDate').value;
   const algoId=document.getElementById('btAlgo').value;
@@ -2946,7 +2969,13 @@ function runBacktest(){
   const _isOn=game.id==='onnumara';
   const btMinM=state.btFilter6?(_isOn?10:6):state.btFilter5high?(_isOn?9:5):state.btFilter4?(_isOn?8:4):state.btFilter5?(_isOn?7:3):0;
   const filterOn=btMinM>0;
+  const filterLabel=filterOn?(btMinM>=6?'6+':btMinM>=5?'5+':btMinM>=4?'4+':'3+'):'';
   const maxTries=filterOn?(btMinM>=6?n*5000:btMinM>=5?n*2000:btMinM>=4?n*500:n*50):n;
+  const BTBATCH=filterOn?300:n;
+  const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
+  rs.style.display='block';
+  rc.innerHTML=`<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82rem">⏳ Taranıyor...</div>`;
+  await new Promise(r=>setTimeout(r,0));
   const results=[];
   for(let t=0;t<maxTries&&results.length<n;t++){
     const pred=generateNumbers(game,algoId,freq,prior);
@@ -2962,13 +2991,12 @@ function runBacktest(){
       }
     }
     if(!filterOn||!actual||(mMain+mBonus)>=btMinM) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
+    if((t+1)%BTBATCH===0) await new Promise(r=>setTimeout(r,0));
   }
-  const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
-  rs.style.display='block';
   if(filterOn&&!results.length){
     rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${btMinM}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
-    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn);
+    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn,filterLabel);
     const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
     const total=best.pred.main.length+best.pred.bonus.length;
     state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
@@ -3103,7 +3131,7 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId
   </div>`;
 }
 
-function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,filterOn=false){
+function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,filterOn=false,filterLabel=''){
   const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
   const total=results[0].pred.main.length+results[0].pred.bonus.length;
   const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
@@ -3153,7 +3181,7 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,fil
       return staticBall(n,game.bonusColor+' special',cls,BSZ);
     }).join(''):'';
     const scoreLabel=actual?`${score}/${total}${r.nearTotal>0?` +${r.nearTotal}≈`:''}`:'-';
-    const copyText=algoName+'\n'+r.pred.main.join(' ')+(r.pred.bonus.length?' | '+r.pred.bonus.join(' '):'');
+    const copyText=algoName+'\n'+(filterLabel?filterLabel+'\n':'')+r.pred.main.join(' ')+(r.pred.bonus.length?' | '+r.pred.bonus.join(' '):'');
     const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
     return `<div class="ticket" style="${i>0?'margin-top:6px;':''}${isBest?'border-color:rgba(0,230,118,.4);background:rgba(0,230,118,.05);':''}cursor:pointer;user-select:none;-webkit-user-select:none"
       ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()"
