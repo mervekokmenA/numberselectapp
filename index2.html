@@ -2916,87 +2916,55 @@ function prizeTier(game,mMain,mBonus){
 
 async function runBacktest(){
   const gameId=state.selectedGame;
-  const game=getGame(gameId);
-  const algoId=document.getElementById('btAlgo').value;
-  const _isOn=game.id==='onnumara';
-  const btMinM=state.btFilter6?(_isOn?10:6):state.btFilter5high?(_isOn?9:5):state.btFilter4?(_isOn?8:4):state.btFilter5?(_isOn?7:3):0;
-  const filterOn=btMinM>0;
-  const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
-  rs.style.display='block';
-
-  if(filterOn&&!state.excludeLastDraw){
-    // Forward-looking: no past-draw filtering
-    const n=state.btCount||4;
-    rc.innerHTML=`<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82rem">🎯 Tahmin ediliyor...</div>`;
-    await new Promise(r=>setTimeout(r,0));
-    const freq=buildFreq(state.datedDraws);
-    const results=Array.from({length:n},(_,i)=>({pred:generateNumbers(game,algoId,freq,state.datedDraws),mMain:0,mBonus:0,nearTotal:0,tryNum:i+1}));
-    rc.innerHTML=buildMultiResultHtml(game,results,null,'—',algoId,state.datedDraws.length,false,'');
-    state.btRunCount++;updateRunCounters();renderBtHistory();
-    return;
-  }
-
-  if(filterOn&&state.excludeLastDraw&&state.allDatedDraws?.length>0){
-    // Retroactive: scan against excluded last draw
-    const actual=state.allDatedDraws[0];
-    const prior=state.datedDraws;
-    const freq=buildFreq(prior);
-    const n=state.btCount||4;
-    const matchLabel=btMinM>=6?'6+':btMinM>=5?'5+':btMinM>=4?'4+':'3+';
-    const maxTries=btMinM>=6?n*5000:btMinM>=5?n*2000:btMinM>=4?n*500:n*50;
-    rc.innerHTML=`<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82rem">⏳ Taranıyor...</div>`;
-    await new Promise(r=>setTimeout(r,0));
-    const results=[];
-    const aS=new Set(actual.nums),aBs=new Set(actual.bonus||[]);
-    for(let t=0;t<maxTries&&results.length<n;t++){
-      const pred=generateNumbers(game,algoId,freq,prior);
-      const mMain=pred.main.filter(x=>aS.has(x)).length;
-      const nT=pred.main.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length;
-      let mBonus=0,nB=0;
-      if(game.bonusCount>0){mBonus=pred.bonus.filter(x=>aBs.has(x)).length;nB=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;}
-      if((mMain+mBonus)>=btMinM)results.push({pred,mMain,mBonus,nearTotal:nT+nB,tryNum:t+1});
-      if((t+1)%300===0)await new Promise(r=>setTimeout(r,0));
-    }
-    results.sort((a,b)=>(b.mMain+b.mBonus)-(a.mMain+a.mBonus));
-    if(!results.length){
-      rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${btMinM}+ eşleşme bulunamadı. Farklı algoritma deneyin.</div>`;
-    } else {
-      rc.innerHTML=buildMultiResultHtml(game,results,actual,actual.date,algoId,prior.length,true,matchLabel);
-      const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
-      const total=best.pred.main.length+best.pred.bonus.length;
-      state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate:actual.date,algoId,prior:prior.length,score:`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`});
-    }
-    state.btRunCount++;updateRunCounters();renderBtHistory();
-    return;
-  }
-
-  // Original date-picker backtest (no filter checkbox selected)
   const testDate=document.getElementById('btDate').value;
+  const algoId=document.getElementById('btAlgo').value;
   const win=document.getElementById('btWindow').value;
   if(!testDate){showToast('⚠️ Lütfen bir test tarihi seçin');return;}
+  const game=getGame(gameId);
   let prior=state.datedDraws.filter(d=>d.date<testDate);
   if(win!=='all')prior=prior.slice(-parseInt(win));
   if(!prior.length){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
   const freq=buildFreq(prior);
   const n=state.btCount||4;
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
+  const _isOn=game.id==='onnumara';
+  const btMinM=state.btFilter6?(_isOn?10:6):state.btFilter5high?(_isOn?9:5):state.btFilter4?(_isOn?8:4):state.btFilter5?(_isOn?7:3):0;
+  const filterOn=btMinM>0;
+  const filterLabel=filterOn?(btMinM>=6?'6+':btMinM>=5?'5+':btMinM>=4?'4+':'3+'):'';
+  const maxTries=filterOn?(btMinM>=6?n*5000:btMinM>=5?n*2000:btMinM>=4?n*500:n*50):n;
+  const BTBATCH=filterOn?300:n;
+  const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
+  rs.style.display='block';
   rc.innerHTML=`<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82rem">⏳ Taranıyor...</div>`;
   await new Promise(r=>setTimeout(r,0));
   const results=[];
-  for(let t=0;t<n;t++){
+  for(let t=0;t<maxTries&&results.length<n;t++){
     const pred=generateNumbers(game,algoId,freq,prior);
     let mMain=0,mBonus=0,nearTotal=0;
     if(actual){
-      const aS2=new Set(actual.nums);mMain=pred.main.filter(x=>aS2.has(x)).length;nearTotal=pred.main.filter(x=>!aS2.has(x)&&(aS2.has(x-1)||aS2.has(x+1))).length;
-      if(game.bonusCount>0){const aBs2=new Set(actual.bonus);mBonus=pred.bonus.filter(x=>aBs2.has(x)).length;nearTotal+=pred.bonus.filter(x=>!aBs2.has(x)&&(aBs2.has(x-1)||aBs2.has(x+1))).length;}
+      const aS=new Set(actual.nums);
+      mMain=pred.main.filter(x=>aS.has(x)).length;
+      nearTotal=pred.main.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length;
+      if(game.bonusCount>0){
+        const aBs=new Set(actual.bonus);
+        mBonus=pred.bonus.filter(x=>aBs.has(x)).length;
+        nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
+      }
     }
-    results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
+    if(!filterOn||!actual||(mMain+mBonus)>=btMinM) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
+    if((t+1)%BTBATCH===0) await new Promise(r=>setTimeout(r,0));
   }
-  rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,false,'');
-  const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
-  const total=best.pred.main.length+best.pred.bonus.length;
-  state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
-  state.btRunCount++;updateRunCounters();renderBtHistory();
+  results.sort((a,b)=>(b.mMain+b.mBonus)-(a.mMain+a.mBonus));
+  if(filterOn&&!results.length){
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${btMinM}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+  } else {
+    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn,filterLabel);
+    const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
+    const total=best.pred.main.length+best.pred.bonus.length;
+    state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
+  }
+  state.btRunCount++;updateRunCounters();
+  renderBtHistory();
 }
 
 function runForwardPrediction(){
