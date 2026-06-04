@@ -334,7 +334,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </select>
       </div>
     </div>
-    <div id="algoGrid"></div>
+    <div id="algoScorePanel"></div>
   </div>
 
   <textarea id="pastDrawsInput" style="display:none"></textarea>
@@ -425,25 +425,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </div>
       </div>
       <div class="form-group">
-        <label>Algoritma</label>
-        <select id="btAlgo" onchange="selectAlgo(this.value)">
-          <option value="balanced">⚖️ Dengeli Karışım</option>
-          <option value="hot">🔥 Sıcak Sayılar</option>
-          <option value="cold">❄️ Soğuk Sayılar</option>
-          <option value="random">🎲 Tam Rastgele</option>
-          <option value="delta">△ Delta Sistemi</option>
-          <option value="wheeling">🔄 Wheeling</option>
-          <option value="entropy">⭐ Entropi Analizi</option>
-          <option value="sislcg">🎲 Sisal-LCG</option>
-          <option value="star">🌟 Star</option>
-          <option value="starv2">🌟 Star V2</option>
-          <option value="dateshift">📅 Tarih Ofset</option>
-          <option value="poswave">〰 Konum Dalgası</option>
-          <option value="excelblend">🔮 Excel Karması</option>
-          <option value="fb10">🔟 FB10 Grup</option>
-        </select>
-      </div>
-      <div class="form-group">
         <label>Eğitim Penceresi</label>
         <select id="btWindow" onchange="updateAlgoScores()">
           <option value="all" selected>Tüm geçmiş çekilişler</option>
@@ -469,7 +450,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <input type="checkbox" id="btFilter6Chk" onchange="state.btFilter6=this.checked">
       <label for="btFilter6Chk" id="btFilter6Label">Sadece 6+ eşleşme göster (otomatik tarama)</label>
     </div>
-    <div id="algoScorePanel"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
       <span style="font-size:.8rem;color:var(--muted)">Tahmin Grubu:</span>
       <div class="counter-ctrl">
@@ -1191,7 +1171,7 @@ function selectBtGame(id){ state.selectedGame=id; state.btRunCount=0; updateRunC
 function initAlgoGrid(){
   const scores=state.algoPositionScores[state.selectedGame];
   const analyzing=state.algoAnalysisGame===state.selectedGame;
-  document.getElementById('algoGrid').innerHTML='<div class="algo-score-panel">'+ALGOS.map(a=>{
+  document.getElementById('algoScorePanel').innerHTML='<div class="algo-score-panel">'+ALGOS.map(a=>{
     let posHtml='';
     if(scores&&scores[a.id]){
       const good=scores[a.id].filter(x=>x.lift>0.08).sort((x,y)=>y.lift-x.lift);
@@ -1227,7 +1207,6 @@ function updateGenFilterLabel(){
 function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); updateGenFilterLabel(); setTimeout(initAlgoGrid,200); }
 function selectAlgo(id){
   state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid();
-  const s1=document.getElementById('btAlgo'); if(s1)s1.value=id;
   const s2=document.getElementById('btAlgo2'); if(s2)s2.value=id;
 }
 function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(200,state.ticketCount+d)); const el=document.getElementById('countVal'); if(el)el.value=state.ticketCount; }
@@ -2667,7 +2646,7 @@ function updateAlgoScores(){
 
     }
     const hasPos=!!posHtml;
-    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:stretch;':''}" onclick="document.getElementById('btAlgo').value='${r.id}';selectAlgo('${r.id}');document.querySelectorAll('.algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
+    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:stretch;':''}" onclick="selectAlgo('${r.id}');document.querySelectorAll('.algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
       <div style="display:flex;align-items:center;gap:4px;min-width:0"><span class="as-name" style="min-width:0;width:100%">${ALGO_SHORT[r.id]||r.id}</span><span class="as-val" style="flex-shrink:0">${r.match}/${total}</span></div>
       ${posHtml}
     </div>`;
@@ -2887,7 +2866,7 @@ function prizeTier(game,mMain,mBonus){
 async function runBacktest(){
   const gameId=state.selectedGame;
   const testDate=document.getElementById('btDate').value;
-  const algoId=document.getElementById('btAlgo').value;
+  const algoId=state.selectedAlgo;
   const win=document.getElementById('btWindow').value;
   if(!testDate){showToast('⚠️ Lütfen bir test tarihi seçin');return;}
   const game=getGame(gameId);
@@ -2940,7 +2919,7 @@ async function runBacktest(){
 function runForwardPrediction(){
   if(!state.datedDraws.length){showToast('⚠️ Önce gerçek verileri yükleyin');return;}
   const gameId=state.selectedGame;
-  const algoId=document.getElementById('btAlgo').value;
+  const algoId=state.selectedAlgo;
   const game=getGame(gameId);
   const freq=buildFreq(state.datedDraws);
   const n=state.btCount||4;
