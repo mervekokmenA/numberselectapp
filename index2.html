@@ -2309,6 +2309,28 @@ function lpStart(text){
 }
 function lpEnd(){if(_lpTimer){clearTimeout(_lpTimer);_lpTimer=null;}}
 
+function buildExpectedMatchFn(game,draws){
+  if(!draws||!draws.length)return()=>0;
+  const lambda=0.04;
+  const ewfM=new Float64Array(game.max+2);
+  draws.forEach((d,i)=>{const w=Math.exp(-lambda*i);(d.nums||[]).forEach(n=>{if(n>=1&&n<=game.max)ewfM[n]+=w;});});
+  const sumM=ewfM.reduce((s,v)=>s+v,0)||1;
+  const pM=new Float64Array(game.max+2);
+  for(let n=1;n<=game.max;n++)pM[n]=ewfM[n]/sumM*game.count;
+  let pB=null;
+  if(game.bonusCount>0&&game.bonusMax>0){
+    const ewfB=new Float64Array(game.bonusMax+2);
+    draws.forEach((d,i)=>{const w=Math.exp(-lambda*i);(d.bonus||[]).forEach(n=>{if(n>=1&&n<=game.bonusMax)ewfB[n]+=w;});});
+    const sumB=ewfB.reduce((s,v)=>s+v,0)||1;
+    pB=new Float64Array(game.bonusMax+2);
+    for(let n=1;n<=game.bonusMax;n++)pB[n]=ewfB[n]/sumB*game.bonusCount;
+  }
+  return ticket=>{
+    let e=ticket.main.reduce((s,n)=>s+(pM[n]||0),0);
+    if(pB&&ticket.bonus.length)e+=ticket.bonus.reduce((s,n)=>s+(pB[n]||0),0);
+    return e;
+  };
+}
 function renderTicket(td,game,algoId,idx=0,matchCount=null,strongPositions=null,excludeNums=null,filterLabel='',excludeBonusNums=null){
   if(matchCount===null&&state.datedDraws&&state.datedDraws.length>0){
     const rd=state.datedDraws[0];
@@ -2335,7 +2357,9 @@ function renderTicket(td,game,algoId,idx=0,matchCount=null,strongPositions=null,
     const es=boxP.length?'box-shadow:'+boxP.join(','):'';
     return ballEl(n,isExact?'green':isNear?'lightyellow':game.bonusColor,(td.main.length+i)*70,true,'',es);
   }).join('');
-  const matchBadge=matchCount!==null?`<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:${matchCount>=3?'rgba(0,230,118,.15)':'rgba(255,255,255,.07)'};color:${matchCount>=3?'var(--green)':'var(--muted)'};flex-shrink:0;white-space:nowrap">${matchCount} eş</span>`:'';
+  const _isEst=matchCount!==null&&!Number.isInteger(matchCount);
+  const _dispM=_isEst?('~'+matchCount.toFixed(1)):matchCount;
+  const matchBadge=matchCount!==null?`<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:${matchCount>=3?'rgba(0,230,118,.15)':'rgba(255,255,255,.07)'};color:${matchCount>=3?'var(--green)':'var(--muted)'};flex-shrink:0;white-space:nowrap">${_dispM} eş</span>`:'';
   const algoLabel=algoId?(ALGOS.find(a=>a.id===algoId)?.name||algoId):'';
   const copyText=(algoLabel?algoLabel+'\n':'')+(filterLabel?filterLabel+'\n':'')+td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
   const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'');
@@ -2409,9 +2433,13 @@ async function generateTickets(){
       btn.textContent=`🎯 Tahmin ediliyor... ${Math.round(end/scanCount*100)}%`;
       await new Promise(r=>setTimeout(r,0));
     }
+    const expFn=buildExpectedMatchFn(game,state.datedDraws);
     const seen=new Set();
-    tickets=allPreds.filter(p=>{const k=[...p.main,...p.bonus].join(',');if(seen.has(k))return false;seen.add(k);return true;}).slice(0,2000);
-    matchCounts=tickets.map(()=>null);
+    const fwdPreds=allPreds.filter(p=>{const k=[...p.main,...p.bonus].join(',');if(seen.has(k))return false;seen.add(k);return true;}).slice(0,2000);
+    const fwdWm=fwdPreds.map(p=>({p,m:expFn(p)}));
+    fwdWm.sort((a,b)=>b.m-a.m);
+    tickets=fwdWm.map(x=>x.p);
+    matchCounts=fwdWm.map(x=>parseFloat(x.m.toFixed(2)));
     scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px">🎯 ${scanCount.toLocaleString()} bilet üretildi · <strong>${tickets.length} tahmin</strong> — Gelecek çekiliş için en iyi öngörüler</div>`;
   } else {
     await new Promise(r=>setTimeout(r,350));
