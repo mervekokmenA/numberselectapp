@@ -2377,11 +2377,11 @@ async function generateTickets(){
   const _exLd=state.excludeLastDraw&&state.allDatedDraws?.length>0?state.allDatedDraws[0]:null;
   const excludeNums=_exLd?new Set(_exLd.nums||[]):null;
   const excludeBonusNums=_exLd?new Set(_exLd.bonus||[]):null;
-  const filterLabel=disp6On?'6+ Gerçek':disp5On?'5+ Gerçek':disp4On?'4+ Gerçek':disp3On?'3+ Gerçek':filterOn?'3+ Filtre':'';
+  const _matchLabel=disp6On?'6+':disp5On?'5+':disp4On?'4+':'3+';
+  const filterLabel=displayFilterOn?(state.excludeLastDraw?_matchLabel+' Gerçek':_matchLabel+' Tahmin'):filterOn?'3+ Filtre':'';
   let tickets=[],matchCounts=[],scanHeader='';
-  const refDraw=displayFilterOn
-    ?(state.excludeLastDraw&&state.allDatedDraws?.length>0?state.allDatedDraws[0]:recentDraw)
-    :null;
+  const refDraw=displayFilterOn&&state.excludeLastDraw&&state.allDatedDraws?.length>0
+    ?state.allDatedDraws[0]:null;
   if(displayFilterOn&&refDraw){
     const isOn=game.id==='onnumara';
     const minMatch=disp6On?(isOn?10:6):disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
@@ -2400,6 +2400,19 @@ async function generateTickets(){
     tickets=qUniq.map(x=>x.pred);
     matchCounts=qUniq.map(x=>x.m);
     scanHeader=`<div style="font-size:.74rem;color:var(--green);margin-bottom:8px;padding:6px 10px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);border-radius:8px">✅ ${scanCount.toLocaleString()} bilet tarandı · <strong>${qUniq.length} eşleşen</strong> (${minMatch}+ gerçek çekilişe) — ${refDraw.date} · ${refDraw.nums.join(' ')}${refDraw.bonus?.length?' | '+refDraw.bonus.join(' '):''}</div>`;
+  } else if(displayFilterOn){
+    const scanCount=2000;const BATCH=200;
+    const allPreds=[];
+    for(let i=0;i<scanCount;i+=BATCH){
+      const end=Math.min(i+BATCH,scanCount);
+      for(let j=i;j<end;j++){allPreds.push(generateNumbers(game,state.selectedAlgo));}
+      btn.textContent=`🎯 Tahmin ediliyor... ${Math.round(end/scanCount*100)}%`;
+      await new Promise(r=>setTimeout(r,0));
+    }
+    const seen=new Set();
+    tickets=allPreds.filter(p=>{const k=[...p.main,...p.bonus].join(',');if(seen.has(k))return false;seen.add(k);return true;}).slice(0,2000);
+    matchCounts=tickets.map(()=>null);
+    scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px">🎯 ${scanCount.toLocaleString()} bilet üretildi · <strong>${tickets.length} tahmin</strong> — Gelecek çekiliş için en iyi öngörüler</div>`;
   } else {
     await new Promise(r=>setTimeout(r,350));
     const rdSet=recentDraw?new Set(recentDraw.nums||[]):null;
