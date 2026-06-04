@@ -343,22 +343,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
   <div class="card">
     <div class="card-title">Bilet Üret</div>
-    <div class="filter-toggle" style="margin-bottom:6px">
-      <input type="checkbox" id="genFilter3Chk" onchange="state.genDisplayFilter3=this.checked">
-      <label for="genFilter3Chk" id="genFilter3Label">Sadece 3+ eşleşme göster</label>
-    </div>
-    <div class="filter-toggle" style="margin-bottom:6px">
-      <input type="checkbox" id="genFilter4Chk" onchange="state.genDisplayFilter4=this.checked">
-      <label for="genFilter4Chk" id="genFilter4Label">Sadece 4+ eşleşme göster</label>
-    </div>
-    <div class="filter-toggle" style="margin-bottom:6px">
-      <input type="checkbox" id="genFilter5Chk" onchange="state.genDisplayFilter5=this.checked">
-      <label for="genFilter5Chk" id="genFilter5Label">Sadece 5+ eşleşme göster</label>
-    </div>
-    <div class="filter-toggle" style="margin-bottom:8px">
-      <input type="checkbox" id="genFilter6Chk" onchange="state.genDisplayFilter6=this.checked">
-      <label for="genFilter6Chk" id="genFilter6Label">Sadece 6+ eşleşme göster</label>
-    </div>
     <div class="counter-row">
       <span class="counter-label">Bilet sayısı:</span>
       <div class="counter-ctrl">
@@ -2292,162 +2276,50 @@ function lpStart(text){
 }
 function lpEnd(){if(_lpTimer){clearTimeout(_lpTimer);_lpTimer=null;}}
 
-function buildExpectedMatchFn(game,draws){
-  if(!draws||!draws.length)return()=>0;
-  const lambda=0.04;
-  const ewfM=new Float64Array(game.max+2);
-  draws.forEach((d,i)=>{const w=Math.exp(-lambda*i);(d.nums||[]).forEach(n=>{if(n>=1&&n<=game.max)ewfM[n]+=w;});});
-  const sumM=ewfM.reduce((s,v)=>s+v,0)||1;
-  const pM=new Float64Array(game.max+2);
-  for(let n=1;n<=game.max;n++)pM[n]=ewfM[n]/sumM*game.count;
-  let pB=null;
-  if(game.bonusCount>0&&game.bonusMax>0){
-    const ewfB=new Float64Array(game.bonusMax+2);
-    draws.forEach((d,i)=>{const w=Math.exp(-lambda*i);(d.bonus||[]).forEach(n=>{if(n>=1&&n<=game.bonusMax)ewfB[n]+=w;});});
-    const sumB=ewfB.reduce((s,v)=>s+v,0)||1;
-    pB=new Float64Array(game.bonusMax+2);
-    for(let n=1;n<=game.bonusMax;n++)pB[n]=ewfB[n]/sumB*game.bonusCount;
-  }
-  return ticket=>{
-    let e=ticket.main.reduce((s,n)=>s+(pM[n]||0),0);
-    if(pB&&ticket.bonus.length)e+=ticket.bonus.reduce((s,n)=>s+(pB[n]||0),0);
-    return e;
-  };
-}
-function renderTicket(td,game,algoId,idx=0,matchCount=null,strongPositions=null,excludeNums=null,filterLabel='',excludeBonusNums=null){
-  if(matchCount===null&&state.datedDraws&&state.datedDraws.length>0){
-    const rd=state.datedDraws[0];
-    const aSet=new Set(rd.nums||[]);const aBSet=new Set(rd.bonus||[]);
-    matchCount=td.main.filter(x=>aSet.has(x)).length+td.bonus.filter(x=>aBSet.has(x)).length;
-  }
+function renderTicket(td,game,algoId,idx=0,strongPositions=null){
   let ballsHtml=td.main.map((n,i)=>{
     const pos=i+1,isStrong=strongPositions&&strongPositions.has(pos);
-    const isExact=excludeNums&&excludeNums.has(n);
-    const isNear=!isExact&&excludeNums&&(excludeNums.has(n-1)||excludeNums.has(n+1));
-    let boxP=[];
-    if(isStrong)boxP.push('0 0 0 3px var(--green)');
-    if(isExact){if(!isStrong)boxP.push('0 0 0 3px rgba(0,230,118,1)');boxP.push('0 0 10px 3px rgba(0,230,118,.5)');}
-    else if(isNear){boxP.push('0 0 0 2px rgba(255,200,0,.85)');}
-    const es=boxP.length?'box-shadow:'+boxP.join(','):'';
-    return ballEl(n,isExact?'green':isNear?'lightyellow':game.mainColor,i*70,false,'',es);
+    const es=isStrong?'box-shadow:0 0 0 3px var(--green)':'';
+    return ballEl(n,game.mainColor,i*70,false,'',es);
   }).join('');
   if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>{
-    const isExact=excludeBonusNums&&excludeBonusNums.has(n);
-    const isNear=!isExact&&excludeBonusNums&&(excludeBonusNums.has(n-1)||excludeBonusNums.has(n+1));
-    let boxP=[];
-    if(isExact){boxP.push('0 0 0 3px rgba(0,230,118,1)');boxP.push('0 0 10px 3px rgba(0,230,118,.5)');}
-    else if(isNear){boxP.push('0 0 0 2px rgba(255,200,0,.85)');}
-    const es=boxP.length?'box-shadow:'+boxP.join(','):'';
-    return ballEl(n,isExact?'green':isNear?'lightyellow':game.bonusColor,(td.main.length+i)*70,true,'',es);
+    return ballEl(n,game.bonusColor,(td.main.length+i)*70,true,'','');
   }).join('');
-  const _isEst=matchCount!==null&&!Number.isInteger(matchCount);
-  const _dispM=_isEst?('~'+matchCount.toFixed(1)):matchCount;
-  const matchBadge=matchCount!==null?`<span style="font-size:.6rem;padding:2px 6px;border-radius:4px;background:${matchCount>=3?'rgba(0,230,118,.15)':'rgba(255,255,255,.07)'};color:${matchCount>=3?'var(--green)':'var(--muted)'};flex-shrink:0;white-space:nowrap">${_dispM} eş</span>`:'';
   const algoLabel=algoId?(ALGOS.find(a=>a.id===algoId)?.name||algoId):'';
-  const copyText=(algoLabel?algoLabel+'\n':'')+(filterLabel?filterLabel+'\n':'')+td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
+  const copyText=(algoLabel?algoLabel+'\n':'')+td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
   const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'');
-  const ticketData=td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
-  return `<div class="ticket" data-ticket="${ticketData}" style="${idx>0?'margin-top:6px;':''}--ball-size:${mobileBSZ()};cursor:pointer;user-select:none;-webkit-user-select:none"
+  return `<div class="ticket" style="${idx>0?'margin-top:6px;':''}--ball-size:${mobileBSZ()};cursor:pointer;user-select:none;-webkit-user-select:none"
     ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()"
     onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()" oncontextmenu="return false">
     <span class="ticket-idx">#${idx+1}</span>
     <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:wrap">${ballsHtml}</div>
-    ${matchBadge}
-    <button onclick="saveTicket(this)" style="flex-shrink:0;padding:3px 8px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:.72rem" title="Listeye ekle">📌</button>
   </div>`;
 }
 
 // ── Generate ──────────────────────────────────────────────────
 async function generateTickets(){
-  // Clear accumulated caches to prevent slowdown on repeated presses
-  state._algoScoreCache = {};
-  state._algoScoreCache2 = {};
+  state._algoScoreCache={};
+  state._algoScoreCache2={};
   const game=getGame(),btn=document.getElementById('generateBtn');
-  const _disp3=!!state.genDisplayFilter3&&state.datedDraws&&state.datedDraws.length>0;
-  const _disp4=!!state.genDisplayFilter4&&state.datedDraws&&state.datedDraws.length>0;
-  const _disp5=!!state.genDisplayFilter5&&state.datedDraws&&state.datedDraws.length>0;
-  const _disp6=!!state.genDisplayFilter6&&state.datedDraws&&state.datedDraws.length>0;
-  const _dispFilter=_disp3||_disp4||_disp5||_disp6;
   btn.classList.add('spinning');btn.disabled=true;
-  btn.textContent=_dispFilter?'🔍 Taranıyor...':'🎲 Sayılar çekiliyor...';
-  await new Promise(r=>setTimeout(r,50));
-  const filterOn=!!state.btFilter5&&state.datedDraws.length>0;
-  const disp6On=!!state.genDisplayFilter6&&state.datedDraws.length>0;
-  const disp5On=!!state.genDisplayFilter5&&state.datedDraws.length>0;
-  const disp4On=!!state.genDisplayFilter4&&state.datedDraws.length>0;
-  const disp3On=!!state.genDisplayFilter3&&state.datedDraws.length>0;
-  const displayFilterOn=disp6On||disp5On||disp4On||disp3On;
-  const recentDraw=state.datedDraws.length>0?state.datedDraws[0]:null;
+  btn.textContent='🎲 Sayılar çekiliyor...';
+  await new Promise(r=>setTimeout(r,350));
   const posScores=state.algoPositionScores[state.selectedGame];
   const strongPositions=posScores&&posScores[state.selectedAlgo]
     ?new Set(posScores[state.selectedAlgo].filter(x=>x.lift>0.25).map(x=>x.pos)):null;
-  const _exLd=state.excludeLastDraw&&state.allDatedDraws?.length>0?state.allDatedDraws[0]:null;
-  const excludeNums=_exLd?new Set(_exLd.nums||[]):null;
-  const excludeBonusNums=_exLd?new Set(_exLd.bonus||[]):null;
-  const _matchLabel=disp6On?'6+':disp5On?'5+':disp4On?'4+':'3+';
-  const filterLabel=displayFilterOn?(state.excludeLastDraw?_matchLabel+' Gerçek':_matchLabel+' Tahmin'):filterOn?'3+ Filtre':'';
-  let tickets=[],matchCounts=[],scanHeader='';
-  const refDraw=displayFilterOn&&state.excludeLastDraw&&state.allDatedDraws?.length>0
-    ?state.allDatedDraws[0]:null;
-  if(displayFilterOn&&refDraw){
-    const isOn=game.id==='onnumara';
-    const minMatch=disp6On?(isOn?10:6):disp5On?(isOn?9:5):disp4On?(isOn?8:4):(isOn?7:3);
-    const scanCount=disp6On?200000:disp5On?100000:disp4On?10000:2000;
-    const aSet=new Set(refDraw.nums||[]),aBSet=new Set(refDraw.bonus||[]);
-    const pc=document.getElementById('genProgressContainer');
-    const pf=document.getElementById('genProgressFill');
-    const pt=document.getElementById('genProgressText');
-    if(pc)pc.style.display='block';
-    const qualifying=await _doScanWithWorker({game,algo:state.selectedAlgo,freq:state.frequency,pastDraws:state.pastDraws||[],datedDraws:state.datedDraws||[],aArr:[...aSet],aBArr:[...aBSet],scanCount,minMatch,onProgress:(done,total)=>{const pct=Math.round(done/total*100);if(pf)pf.style.width=pct+'%';if(pt)pt.textContent=done.toLocaleString()+' / '+total.toLocaleString();}});
-    if(pc)pc.style.display='none';
-    if(pf)pf.style.width='0%';
-    qualifying.sort((a,b)=>b.m-a.m);
-    const qSeen=new Set();
-    const qUniq=qualifying.filter(x=>{const k=[...x.pred.main,...x.pred.bonus].join(',');if(qSeen.has(k))return false;qSeen.add(k);return true;}).slice(0,2000);
-    tickets=qUniq.map(x=>x.pred);
-    matchCounts=qUniq.map(x=>x.m);
-    scanHeader=`<div style="font-size:.74rem;color:var(--green);margin-bottom:8px;padding:6px 10px;background:rgba(0,230,118,.08);border:1px solid rgba(0,230,118,.3);border-radius:8px">✅ ${scanCount.toLocaleString()} bilet tarandı · <strong>${qUniq.length} eşleşen</strong> (${minMatch}+ gerçek çekilişe) — ${refDraw.date} · ${refDraw.nums.join(' ')}${refDraw.bonus?.length?' | '+refDraw.bonus.join(' '):''}</div>`;
-  } else if(displayFilterOn){
-    const scanCount=2000;const BATCH=200;
-    const allPreds=[];
-    for(let i=0;i<scanCount;i+=BATCH){
-      const end=Math.min(i+BATCH,scanCount);
-      for(let j=i;j<end;j++){allPreds.push(generateNumbers(game,state.selectedAlgo));}
-      btn.textContent=`🎯 Tahmin ediliyor... ${Math.round(end/scanCount*100)}%`;
-      await new Promise(r=>setTimeout(r,0));
-    }
-    const expFn=buildExpectedMatchFn(game,state.datedDraws);
-    const seen=new Set();
-    const fwdPreds=allPreds.filter(p=>{const k=[...p.main,...p.bonus].join(',');if(seen.has(k))return false;seen.add(k);return true;}).slice(0,2000);
-    const fwdWm=fwdPreds.map(p=>({p,m:expFn(p)}));
-    fwdWm.sort((a,b)=>b.m-a.m);
-    tickets=fwdWm.map(x=>x.p);
-    matchCounts=tickets.map(()=>null);
-    scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px">🎯 ${scanCount.toLocaleString()} bilet üretildi · <strong>${tickets.length} tahmin</strong> — Gelecek çekiliş için en iyi öngörüler</div>`;
-  } else {
-    await new Promise(r=>setTimeout(r,350));
-    const rdSet=recentDraw?new Set(recentDraw.nums||[]):null;
-    const rdBSet=recentDraw?new Set(recentDraw.bonus||[]):null;
-    const tryGen=()=>{
-      if(filterOn&&recentDraw){
-        for(let t=0;t<50;t++){
-          const pred=generateNumbers(game,state.selectedAlgo);
-          const m=pred.main.filter(x=>rdSet.has(x)).length+pred.bonus.filter(x=>rdBSet.has(x)).length;
-          if(m>=3)return{pred,m};
-        }
-      }
-      return{pred:generateNumbers(game,state.selectedAlgo),m:null};
-    };
-    const ticketResults=Array.from({length:state.ticketCount},tryGen);
-    const sortedResults=filterOn?[...ticketResults].sort((a,b)=>((b.m||0)-(a.m||0))):ticketResults;
-    tickets=sortedResults.map(r=>r.pred);
-    matchCounts=sortedResults.map(r=>r.m);
+  const seenKeys=new Set();
+  const tickets=[];
+  let attempts=0;
+  while(tickets.length<state.ticketCount&&attempts<state.ticketCount*20){
+    attempts++;
+    const t=generateNumbers(game,state.selectedAlgo);
+    const k=[...t.main,...t.bonus].join(',');
+    if(!seenKeys.has(k)){seenKeys.add(k);tickets.push(t);}
   }
   state.lastTickets={tickets,game};
   const container=document.getElementById('ticketContainer');
-  const label=displayFilterOn?(tickets.length===1?'1 Bilet':`${tickets.length} Bilet`):(state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti');
   const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
-  const copyAll=(algo?.name||state.selectedAlgo)+(filterLabel?'\n'+filterLabel:'')+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  const copyAll=(algo?.name||state.selectedAlgo)+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
   state._copyText=copyAll;
   const conf=calcConfidence(state.selectedAlgo);
   const posRow=(()=>{
@@ -2473,24 +2345,82 @@ async function generateTickets(){
       :'';
     return `<div style="display:flex;align-items:center;gap:8px;padding:2px 10px 0"><span style="min-width:18px;display:inline-block;flex-shrink:0"></span><div style="display:flex;gap:5px;">${nums}${bon}</div></div>`;
   })();
+  const label=state.ticketCount>1?`${state.ticketCount} Bileti`:'Bileti';
   container.innerHTML=`
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
     <span style="font-size:.78rem;color:var(--muted)">${game.emoji} ${game.name} · <strong style="color:var(--text)">${algo?.name||state.selectedAlgo}</strong></span>
     <span style="font-size:.72rem;color:var(--accent)">Güven: ${conf}%</span>
   </div>
   ${posRow}
-  ${scanHeader}
   ${genPosHeader}
-  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,(filterOn||displayFilterOn)?matchCounts[i]:null,strongPositions,excludeNums,filterLabel,excludeBonusNums)).join('')}
+  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions)).join('')}
   <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
     <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
     <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+    <span style="font-size:.75rem;color:var(--muted);flex-shrink:0">Bilet No:</span>
+    <input type="number" id="ticketRankInput" min="1" max="50000" placeholder="örn: 42"
+      style="width:80px;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"
+      onkeydown="if(event.key==='Enter')findTicketByRank()">
+    <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
   </div>`;
   {const titleEl=document.getElementById('ticketCardTitle');if(titleEl){if(state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0){const ld=state.allDatedDraws[0];titleEl.textContent=`${ld.date} · ${ld.nums.join(' ')}${ld.bonus&&ld.bonus.length?' | '+ld.bonus.join(' '):''}`;titleEl.style.fontSize='0.82em';titleEl.style.letterSpacing='0';titleEl.style.textTransform='none';}else{titleEl.textContent='Şanslı Sayılarınız';titleEl.style.fontSize='';titleEl.style.letterSpacing='';titleEl.style.textTransform='';}}}
   document.getElementById('ticketCard').style.display='block';
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
-  state.totalGenerated+=displayFilterOn?tickets.length:state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
+  state.totalGenerated+=state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
   btn.classList.remove('spinning');btn.disabled=false;btn.textContent='🎰 Şanslı Sayıları Üret';
+}
+async function findTicketByRank(){
+  const input=document.getElementById('ticketRankInput');
+  const n=parseInt(input?.value)||1;
+  if(n<1||n>50000){showToast('⚠️ 1 ile 50000 arasında bir sayı girin');return;}
+  const game=getGame();
+  const btn=document.getElementById('generateBtn');
+  btn.classList.add('spinning');btn.disabled=true;
+  const posScores=state.algoPositionScores[state.selectedGame];
+  const strongPositions=posScores&&posScores[state.selectedAlgo]
+    ?new Set(posScores[state.selectedAlgo].filter(x=>x.lift>0.25).map(x=>x.pos)):null;
+  const seenKeys=new Set();
+  let found=null,uniqueCount=0;
+  const BATCH=500;
+  while(uniqueCount<n){
+    const target=Math.min(uniqueCount+BATCH,n);
+    while(uniqueCount<target){
+      const t=generateNumbers(game,state.selectedAlgo);
+      const k=[...t.main,...t.bonus].join(',');
+      if(!seenKeys.has(k)){seenKeys.add(k);uniqueCount++;if(uniqueCount===n)found=t;}
+    }
+    if(found)break;
+    btn.textContent=`🎯 #${n} üretiliyor... ${Math.round(uniqueCount/n*100)}%`;
+    await new Promise(r=>setTimeout(r,0));
+  }
+  btn.classList.remove('spinning');btn.disabled=false;btn.textContent='🎰 Şanslı Sayıları Üret';
+  if(!found){showToast('⚠️ Bilet bulunamadı');return;}
+  const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
+  const conf=calcConfidence(state.selectedAlgo);
+  state._copyText=(algo?.name||state.selectedAlgo)+'\n'+[...found.main,...found.bonus].join(' - ');
+  state.lastTickets={tickets:[found],game};
+  const container=document.getElementById('ticketContainer');
+  container.innerHTML=`
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
+    <span style="font-size:.78rem;color:var(--muted)">${game.emoji} ${game.name} · <strong style="color:var(--text)">${algo?.name||state.selectedAlgo}</strong></span>
+    <span style="font-size:.72rem;color:var(--accent)">Güven: ${conf}%</span>
+  </div>
+  <div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px">🎯 #${n}. bilet</div>
+  ${renderTicket(found,game,state.selectedAlgo,0,strongPositions)}
+  <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
+    <button class="copy-btn" onclick="copyNums(state._copyText)">📋 Kopyala</button>
+    <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 Kaydet</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+    <span style="font-size:.75rem;color:var(--muted);flex-shrink:0">Bilet No:</span>
+    <input type="number" id="ticketRankInput" min="1" max="50000" placeholder="örn: 42" value="${n}"
+      style="width:80px;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"
+      onkeydown="if(event.key==='Enter')findTicketByRank()">
+    <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
+  </div>`;
+  document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function saveAllTickets(){
   const {tickets,game}=state.lastTickets||{};
