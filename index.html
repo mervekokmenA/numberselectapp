@@ -2285,14 +2285,26 @@ function lpStart(text){
 }
 function lpEnd(){if(_lpTimer){clearTimeout(_lpTimer);_lpTimer=null;}}
 
-function renderTicket(td,game,algoId,idx=0,strongPositions=null){
+function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null,excludeBonusNums=null){
   let ballsHtml=td.main.map((n,i)=>{
     const pos=i+1,isStrong=strongPositions&&strongPositions.has(pos);
-    const es=isStrong?'box-shadow:0 0 0 3px var(--green)':'';
-    return ballEl(n,game.mainColor,i*70,false,'',es);
+    const isExact=excludeNums&&excludeNums.has(n);
+    const isNear=!isExact&&excludeNums&&(excludeNums.has(n-1)||excludeNums.has(n+1));
+    let boxP=[];
+    if(isStrong)boxP.push('0 0 0 3px var(--green)');
+    if(isExact){if(!isStrong)boxP.push('0 0 0 3px rgba(0,230,118,1)');boxP.push('0 0 10px 3px rgba(0,230,118,.5)');}
+    else if(isNear){boxP.push('0 0 0 2px rgba(255,200,0,.85)');}
+    const es=boxP.length?'box-shadow:'+boxP.join(','):'';
+    return ballEl(n,isExact?'green':isNear?'lightyellow':game.mainColor,i*70,false,'',es);
   }).join('');
   if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>{
-    return ballEl(n,game.bonusColor,(td.main.length+i)*70,true,'','');
+    const isExact=excludeBonusNums&&excludeBonusNums.has(n);
+    const isNear=!isExact&&excludeBonusNums&&(excludeBonusNums.has(n-1)||excludeBonusNums.has(n+1));
+    let boxP=[];
+    if(isExact){boxP.push('0 0 0 3px rgba(0,230,118,1)');boxP.push('0 0 10px 3px rgba(0,230,118,.5)');}
+    else if(isNear){boxP.push('0 0 0 2px rgba(255,200,0,.85)');}
+    const es=boxP.length?'box-shadow:'+boxP.join(','):'';
+    return ballEl(n,isExact?'green':isNear?'lightyellow':game.bonusColor,(td.main.length+i)*70,true,'',es);
   }).join('');
   const algoLabel=algoId?(ALGOS.find(a=>a.id===algoId)?.name||algoId):'';
   const copyText=(algoLabel?algoLabel+'\n':'')+td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
@@ -2316,6 +2328,9 @@ async function generateTickets(){
   const posScores=state.algoPositionScores[state.selectedGame];
   const strongPositions=posScores&&posScores[state.selectedAlgo]
     ?new Set(posScores[state.selectedAlgo].filter(x=>x.lift>0.25).map(x=>x.pos)):null;
+  const _exLd=state.excludeLastDraw&&state.allDatedDraws?.length>0?state.allDatedDraws[0]:null;
+  const excludeNums=_exLd?new Set(_exLd.nums||[]):null;
+  const excludeBonusNums=_exLd?new Set(_exLd.bonus||[]):null;
   const seenKeys=new Set();
   const tickets=[];
   let attempts=0;
@@ -2373,7 +2388,7 @@ async function generateTickets(){
     <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
   </div>
   ${genPosHeader}
-  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions)).join('')}
+  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums)).join('')}
   <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
     <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
     <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
@@ -2396,6 +2411,9 @@ async function findTicketByRank(){
   const posScores=state.algoPositionScores[state.selectedGame];
   const strongPositions=posScores&&posScores[state.selectedAlgo]
     ?new Set(posScores[state.selectedAlgo].filter(x=>x.lift>0.25).map(x=>x.pos)):null;
+  const _exLd2=state.excludeLastDraw&&state.allDatedDraws?.length>0?state.allDatedDraws[0]:null;
+  const excludeNums=_exLd2?new Set(_exLd2.nums||[]):null;
+  const excludeBonusNums=_exLd2?new Set(_exLd2.bonus||[]):null;
   const seenKeys=new Set();
   const rangeTickets=[];
   let uniqueCount=0;
@@ -2438,7 +2456,7 @@ async function findTicketByRank(){
     <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
   </div>
   <div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px">🎯 ${rangeLabel}</div>
-  ${rangeTickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions)).join('')}
+  ${rangeTickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums)).join('')}
   <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
     <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
     <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
