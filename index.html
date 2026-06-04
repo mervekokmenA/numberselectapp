@@ -2306,10 +2306,12 @@ function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null
     const es=boxP.length?'box-shadow:'+boxP.join(','):'';
     return ballEl(n,isExact?'green':isNear?'lightyellow':game.bonusColor,(td.main.length+i)*70,true,'',es);
   }).join('');
+  const _matchCount=excludeNums?td.main.filter(n=>excludeNums.has(n)).length+(excludeBonusNums?td.bonus.filter(n=>excludeBonusNums.has(n)).length:0):0;
+  const _ticketBg=_matchCount>0?'background:rgba(0,230,118,.07);border-color:rgba(0,230,118,.25);':'';
   const algoLabel=algoId?(ALGOS.find(a=>a.id===algoId)?.name||algoId):'';
   const copyText=(algoLabel?algoLabel+'\n':'')+td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
   const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'');
-  return `<div class="ticket" style="${idx>0?'margin-top:6px;':''}--ball-size:${mobileBSZ()};cursor:pointer;user-select:none;-webkit-user-select:none"
+  return `<div class="ticket" style="${idx>0?'margin-top:6px;':''}${_ticketBg}--ball-size:${mobileBSZ()};cursor:pointer;user-select:none;-webkit-user-select:none"
     ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()"
     onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()" oncontextmenu="return false">
     <span class="ticket-idx">#${idx+1}</span>
