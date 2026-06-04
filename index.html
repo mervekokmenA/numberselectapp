@@ -2270,7 +2270,26 @@ function lpStart(text){
 }
 function lpEnd(){if(_lpTimer){clearTimeout(_lpTimer);_lpTimer=null;}}
 
-function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null,excludeBonusNums=null){
+function calcTicketScore(td,game){
+  const n=td.main,total=game.max,count=game.count;
+  const sum=n.reduce((a,b)=>a+b,0);
+  const expSum=(total+1)/2*count;
+  const sumScore=Math.round(25*Math.max(0,1-Math.abs(sum-expSum)/expSum*2.5));
+  const odds=n.filter(x=>x%2===1).length;
+  const oeScore=Math.round(25*Math.min(odds,count-odds)/(count/2));
+  const mid=Math.floor(total/2);
+  const lows=n.filter(x=>x<=mid).length;
+  const lhScore=Math.round(25*Math.min(lows,count-lows)/(count/2));
+  const freq=state.frequency||{};
+  let hotScore=13;
+  if(Object.keys(freq).length>0){
+    const hot=new Set(Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,Math.ceil(total/3)).map(e=>+e[0]));
+    hotScore=Math.round(25*n.filter(x=>hot.has(x)).length/count);
+  }
+  return Math.min(99,sumScore+oeScore+lhScore+hotScore);
+}
+
+function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null,excludeBonusNums=null,score=null){
   let ballsHtml=td.main.map((n,i)=>{
     const pos=i+1,isStrong=strongPositions&&strongPositions.has(pos);
     const isExact=excludeNums&&excludeNums.has(n);
@@ -2296,11 +2315,17 @@ function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null
   const algoLabel=algoId?(ALGOS.find(a=>a.id===algoId)?.name||algoId):'';
   const copyText=(algoLabel?algoLabel+'\n':'')+td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
   const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'');
+  const scoreBadge=score!==null?(()=>{
+    const c=score>=75?'#00e676':score>=55?'#ffc400':score>=35?'#ff9100':'#ff5252';
+    const bg=score>=75?'rgba(0,230,118,.15)':score>=55?'rgba(255,196,0,.15)':score>=35?'rgba(255,145,0,.15)':'rgba(255,82,82,.15)';
+    return `<span style="font-size:.58rem;font-weight:700;padding:2px 6px;border-radius:10px;background:${bg};color:${c};white-space:nowrap;flex-shrink:0;align-self:center">%${score}</span>`;
+  })():'';
   return `<div class="ticket" style="${idx>0?'margin-top:6px;':''}${_ticketBg}--ball-size:${mobileBSZ()};cursor:pointer;user-select:none;-webkit-user-select:none"
     ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()"
     onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()" oncontextmenu="return false">
     <span class="ticket-idx">#${idx+1}</span>
     <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:wrap">${ballsHtml}</div>
+    ${scoreBadge}
   </div>`;
 }
 
@@ -2367,6 +2392,7 @@ async function generateTickets(){
       <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:wrap">${mainBalls}${bonusBalls}</div>
     </div>`;
   })():'';
+  const ticketsSorted=tickets.map(t=>({t,score:calcTicketScore(t,game)})).sort((a,b)=>b.score-a.score);
   container.innerHTML=`
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
     <span style="font-size:.78rem;color:var(--muted)">${game.emoji} ${game.name} · <strong style="color:var(--text)">${algo?.name||state.selectedAlgo}</strong></span>
@@ -2389,7 +2415,7 @@ async function generateTickets(){
     <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
   </div>
   ${lastDrawRow}${genPosHeader}
-  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums)).join('')}`;
+  ${ticketsSorted.map(({t,score},i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums,score)).join('')}`;
   {const titleEl=document.getElementById('ticketCardTitle');if(titleEl){if(state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0){const ld=state.allDatedDraws[0];titleEl.textContent=`${ld.date} · ${ld.nums.join(' ')}${ld.bonus&&ld.bonus.length?' | '+ld.bonus.join(' '):''}`;titleEl.style.fontSize='0.82em';titleEl.style.letterSpacing='0';titleEl.style.textTransform='none';}else{titleEl.textContent='Şanslı Sayılarınız';titleEl.style.fontSize='';titleEl.style.letterSpacing='';titleEl.style.textTransform='';}}}
   document.getElementById('ticketCard').style.display='block';
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
