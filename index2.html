@@ -2410,8 +2410,13 @@ async function generateTickets(){
       await new Promise(r=>setTimeout(r,0));
     }
     const seen=new Set();
-    tickets=allPreds.filter(p=>{const k=[...p.main,...p.bonus].join(',');if(seen.has(k))return false;seen.add(k);return true;}).slice(0,2000);
-    matchCounts=tickets.map(()=>null);
+    const fwdPreds=allPreds.filter(p=>{const k=[...p.main,...p.bonus].join(',');if(seen.has(k))return false;seen.add(k);return true;}).slice(0,2000);
+    const rdSet2=recentDraw?new Set(recentDraw.nums||[]):null;
+    const rdBSet2=recentDraw?new Set(recentDraw.bonus||[]):null;
+    const fwdWm=fwdPreds.map(p=>({p,m:rdSet2?(p.main.filter(x=>rdSet2.has(x)).length+p.bonus.filter(x=>rdBSet2.has(x)).length):0}));
+    fwdWm.sort((a,b)=>b.m-a.m);
+    tickets=fwdWm.map(x=>x.p);
+    matchCounts=fwdWm.map(x=>x.m);
     scanHeader=`<div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px">🎯 ${scanCount.toLocaleString()} bilet üretildi · <strong>${tickets.length} tahmin</strong> — Gelecek çekiliş için en iyi öngörüler</div>`;
   } else {
     await new Promise(r=>setTimeout(r,350));
@@ -2428,8 +2433,9 @@ async function generateTickets(){
       return{pred:generateNumbers(game,state.selectedAlgo),m:null};
     };
     const ticketResults=Array.from({length:state.ticketCount},tryGen);
-    tickets=ticketResults.map(r=>r.pred);
-    matchCounts=ticketResults.map(r=>r.m);
+    const sortedResults=filterOn?[...ticketResults].sort((a,b)=>((b.m||0)-(a.m||0))):ticketResults;
+    tickets=sortedResults.map(r=>r.pred);
+    matchCounts=sortedResults.map(r=>r.m);
   }
   state.lastTickets={tickets,game};
   const container=document.getElementById('ticketContainer');
@@ -2928,6 +2934,7 @@ async function runBacktest(){
       if((mMain+mBonus)>=btMinM)results.push({pred,mMain,mBonus,nearTotal:nT+nB,tryNum:t+1});
       if((t+1)%300===0)await new Promise(r=>setTimeout(r,0));
     }
+    results.sort((a,b)=>(b.mMain+b.mBonus)-(a.mMain+a.mBonus));
     if(!results.length){
       rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${btMinM}+ eşleşme bulunamadı. Farklı algoritma deneyin.</div>`;
     } else {
