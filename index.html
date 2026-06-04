@@ -303,7 +303,6 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 <nav class="main-nav">
   <div class="nav-inner">
     <span class="nav-brand">🎱 Loto Tahmin Makinesi</span>
-    <a href="index2.html" style="text-decoration:none;font-size:.78rem;font-weight:700;padding:5px 12px;border-radius:20px;background:rgba(255,200,0,.12);border:1px solid rgba(255,200,0,.3);color:var(--gold);white-space:nowrap">🔍 Tarama Modu</a>
   </div>
 </nav>
 
@@ -451,9 +450,21 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
         </select>
       </div>
     </div>
-    <div class="filter-toggle">
+    <div class="filter-toggle" style="margin-bottom:4px">
       <input type="checkbox" id="btFilter5Chk" onchange="state.btFilter5=this.checked">
       <label for="btFilter5Chk" id="btFilter5Label">Sadece 3+ eşleşme göster (otomatik tarama)</label>
+    </div>
+    <div class="filter-toggle" style="margin-bottom:4px">
+      <input type="checkbox" id="btFilter4Chk" onchange="state.btFilter4=this.checked">
+      <label for="btFilter4Chk" id="btFilter4Label">Sadece 4+ eşleşme göster (otomatik tarama)</label>
+    </div>
+    <div class="filter-toggle" style="margin-bottom:4px">
+      <input type="checkbox" id="btFilter5HighChk" onchange="state.btFilter5high=this.checked">
+      <label for="btFilter5HighChk" id="btFilter5HighLabel">Sadece 5+ eşleşme göster (otomatik tarama)</label>
+    </div>
+    <div class="filter-toggle" style="margin-bottom:10px">
+      <input type="checkbox" id="btFilter6Chk" onchange="state.btFilter6=this.checked">
+      <label for="btFilter6Chk" id="btFilter6Label">Sadece 6+ eşleşme göster (otomatik tarama)</label>
     </div>
     <div id="algoScorePanel"></div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
@@ -1144,7 +1155,7 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:'sans', selectedAlgo:'balanced',
-  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, genDisplayFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
+  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -1198,13 +1209,17 @@ function initAlgoGrid(){
 }
 function updateGenFilterLabel(){
   const isOn=state.selectedGame==='onnumara';
-  const genLbl=document.getElementById('genFilter3Label');
-  if(genLbl)genLbl.textContent=isOn?'Sadece 7+ eşleşme göster':'Sadece 3+ eşleşme göster';
-  const btTxt=isOn?'Sadece 7+ eşleşme göster (otomatik tarama)':'Sadece 3+ eşleşme göster (otomatik tarama)';
-  const btLbl=document.getElementById('btFilter5Label');
-  if(btLbl)btLbl.textContent=btTxt;
-  const btLbl2=document.getElementById('btFilter5Label2');
-  if(btLbl2)btLbl2.textContent=btTxt;
+  const t=(lo,hi)=>isOn?`Sadece ${hi}+ eşleşme göster`:`Sadece ${lo}+ eşleşme göster`;
+  const tb=(lo,hi)=>isOn?`Sadece ${hi}+ eşleşme göster (otomatik tarama)`:`Sadece ${lo}+ eşleşme göster (otomatik tarama)`;
+  const g3=document.getElementById('genFilter3Label'); if(g3)g3.textContent=t(3,7);
+  const g4=document.getElementById('genFilter4Label'); if(g4)g4.textContent=t(4,8);
+  const g5=document.getElementById('genFilter5Label'); if(g5)g5.textContent=t(5,9);
+  const g6=document.getElementById('genFilter6Label'); if(g6)g6.textContent=t(6,10);
+  const b3=document.getElementById('btFilter5Label');  if(b3)b3.textContent=tb(3,7);
+  const b4=document.getElementById('btFilter4Label');  if(b4)b4.textContent=tb(4,8);
+  const b5=document.getElementById('btFilter5HighLabel'); if(b5)b5.textContent=tb(5,9);
+  const b6=document.getElementById('btFilter6Label');  if(b6)b6.textContent=tb(6,10);
+  const b32=document.getElementById('btFilter5Label2'); if(b32)b32.textContent=tb(3,7);
 }
 function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); updateGenFilterLabel(); setTimeout(initAlgoGrid,200); }
 function selectAlgo(id){
@@ -2757,6 +2772,47 @@ function buildEWF(draws,max,lambda_=0.80){
   return ewf;
 }
 
+// ── Background scan worker ───────────────────────────────────
+function _doScanWithWorker({game,algo,freq,pastDraws,datedDraws,aArr,aBArr,scanCount,minMatch,onProgress}){
+  return new Promise(resolve=>{
+    const BATCH=scanCount>=100000?8000:scanCount>=50000?4000:scanCount>=10000?2000:1000;
+    const src=[
+      `'use strict';`,
+      `let _f={},_d=[],_dd=[];`,
+      `const state={get frequency(){return _f;},get pastDraws(){return _d;},get datedDraws(){return _dd;}};`,
+      rng.toString(),
+      range.toString(),
+      pickUnique.toString(),
+      buildEWF.toString(),
+      generateNumbers.toString(),
+      `self.onmessage=function(e){`,
+      `  const d=e.data;_f=d.freq;_d=d.pastDraws;_dd=d.datedDraws;`,
+      `  const aSet=new Set(d.aArr),aBSet=new Set(d.aBArr);`,
+      `  const qualifying=[];`,
+      `  for(let i=0;i<d.scanCount;i+=d.BATCH){`,
+      `    const end=Math.min(i+d.BATCH,d.scanCount);`,
+      `    for(let j=i;j<end;j++){`,
+      `      const pred=generateNumbers(d.game,d.algo);`,
+      `      const m=pred.main.filter(x=>aSet.has(x)).length+pred.bonus.filter(x=>aBSet.has(x)).length;`,
+      `      if(m>=d.minMatch)qualifying.push({pred,m});`,
+      `    }`,
+      `    self.postMessage({type:'progress',done:end,total:d.scanCount});`,
+      `  }`,
+      `  self.postMessage({type:'result',qualifying});`,
+      `};`
+    ].join('\n');
+    const blob=new Blob([src],{type:'application/javascript'});
+    const url=URL.createObjectURL(blob);
+    const worker=new Worker(url);
+    worker.onmessage=function(e){
+      if(e.data.type==='progress')onProgress(e.data.done,e.data.total);
+      else if(e.data.type==='result'){worker.terminate();URL.revokeObjectURL(url);resolve(e.data.qualifying);}
+    };
+    worker.onerror=function(err){worker.terminate();URL.revokeObjectURL(url);console.error('Scan worker error:',err);resolve([]);};
+    worker.postMessage({game:JSON.parse(JSON.stringify(game)),algo,freq:freq||{},pastDraws:pastDraws||[],datedDraws:datedDraws||[],aArr,aBArr,scanCount,minMatch,BATCH});
+  });
+}
+
 // ── Prize tier (corrected for all games) ────────────────────
 function prizeTier(game,mMain,mBonus){
   if(game.id==='sayisal'){
@@ -2795,7 +2851,7 @@ function prizeTier(game,mMain,mBonus){
   return null;
 }
 
-function runBacktest(){
+async function runBacktest(){
   const gameId=state.selectedGame;
   const testDate=document.getElementById('btDate').value;
   const algoId=document.getElementById('btAlgo').value;
@@ -2808,9 +2864,16 @@ function runBacktest(){
   const freq=buildFreq(prior);
   const n=state.btCount||4;
   const actual=state.datedDraws.find(d=>d.date===testDate)||null;
-  const filterOn=!!state.btFilter5;
-  const filterLabel=filterOn?'3+':'';
-  const maxTries=filterOn?n*50:n;
+  const _isOn=game.id==='onnumara';
+  const btMinM=state.btFilter6?(_isOn?10:6):state.btFilter5high?(_isOn?9:5):state.btFilter4?(_isOn?8:4):state.btFilter5?(_isOn?7:3):0;
+  const filterOn=btMinM>0;
+  const filterLabel=filterOn?(btMinM>=6?'6+':btMinM>=5?'5+':btMinM>=4?'4+':'3+'):'';
+  const maxTries=filterOn?(btMinM>=6?n*5000:btMinM>=5?n*2000:btMinM>=4?n*500:n*50):n;
+  const BTBATCH=filterOn?300:n;
+  const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
+  rs.style.display='block';
+  rc.innerHTML=`<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82rem">⏳ Taranıyor...</div>`;
+  await new Promise(r=>setTimeout(r,0));
   const results=[];
   for(let t=0;t<maxTries&&results.length<n;t++){
     const pred=generateNumbers(game,algoId,freq,prior);
@@ -2825,14 +2888,12 @@ function runBacktest(){
         nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
       }
     }
-    const minM=game.id==='onnumara'?7:3;
-    if(!filterOn||!actual||(mMain+mBonus)>=minM) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
+    if(!filterOn||!actual||(mMain+mBonus)>=btMinM) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
+    if((t+1)%BTBATCH===0) await new Promise(r=>setTimeout(r,0));
   }
-  const rs=document.getElementById('btResultSection'),rc=document.getElementById('btResultContent');
-  rs.style.display='block';
+  results.sort((a,b)=>(b.mMain+b.mBonus)-(a.mMain+a.mBonus));
   if(filterOn&&!results.length){
-    const minM=game.id==='onnumara'?7:3;
-    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${minM}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
+    rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${btMinM}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
     rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn,filterLabel);
     const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
