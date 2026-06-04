@@ -183,6 +183,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .counter-ctrl button{background:none;border:none;color:var(--text);font-size:1.1rem;width:34px;height:34px;cursor:pointer;transition:background .2s;display:flex;align-items:center;justify-content:center}
 .counter-ctrl button:hover{background:rgba(255,255,255,.06)}
 .counter-val{min-width:36px;text-align:center;font-weight:700;font-size:.92rem;border-left:1px solid var(--border);border-right:1px solid var(--border);height:34px;display:flex;align-items:center;justify-content:center}
+input.counter-val{border:none;background:transparent;color:var(--text);padding:0;-moz-appearance:textfield;width:58px}
+input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 
 /* Tabs */
 .tabs{display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:4px;margin-bottom:16px}
@@ -346,9 +348,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
       <span class="counter-label">Bilet sayısı:</span>
       <div class="counter-ctrl">
         <button onclick="adjustCount(-1)">−</button>
-        <input type="number" class="counter-val" id="countVal" value="4" min="1" max="200"
-          style="width:52px;border:none;background:transparent;color:var(--text);font-weight:700;font-size:.92rem;text-align:center;padding:0;-moz-appearance:textfield"
-          oninput="state.ticketCount=Math.max(1,Math.min(200,parseInt(this.value)||1));this.value=state.ticketCount"
+        <input type="number" class="counter-val" id="countVal" value="4" min="1" max="10000"
+          oninput="state.ticketCount=Math.max(1,Math.min(10000,parseInt(this.value)||1));this.value=state.ticketCount"
           onkeydown="if(event.key==='Enter')generateTickets()">
         <button onclick="adjustCount(1)">+</button>
       </div>
@@ -1209,7 +1210,7 @@ function selectAlgo(id){
   state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid();
   const s2=document.getElementById('btAlgo2'); if(s2)s2.value=id;
 }
-function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(200,state.ticketCount+d)); const el=document.getElementById('countVal'); if(el)el.value=state.ticketCount; }
+function adjustCount(d){ state.ticketCount=Math.max(1,Math.min(10000,state.ticketCount+d)); const el=document.getElementById('countVal'); if(el)el.value=state.ticketCount; }
 function changeAnalysisWindow(val){
   state.analysisWindow=+val;
   state.algoAnalysisGame=null; // force re-analysis with new window
@@ -2376,11 +2377,11 @@ async function generateTickets(){
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:8px">
     <span style="font-size:.75rem;color:var(--muted);flex-shrink:0">Bilet No:</span>
-    <input type="number" id="ticketRankStart" min="1" max="50000" placeholder="Başlangıç"
+    <input type="number" id="ticketRankStart" min="1" max="10000" placeholder="Başlangıç"
       style="width:72px;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"
       onkeydown="if(event.key==='Enter')findTicketByRank()">
     <span style="font-size:.75rem;color:var(--muted)">—</span>
-    <input type="number" id="ticketRankEnd" min="1" max="50000" placeholder="Son"
+    <input type="number" id="ticketRankEnd" min="1" max="10000" placeholder="Son"
       style="width:72px;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"
       onkeydown="if(event.key==='Enter')findTicketByRank()">
     <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
@@ -2397,7 +2398,7 @@ async function findTicketByRank(){
   const start=parseInt(document.getElementById('ticketRankStart')?.value)||1;
   const endRaw=parseInt(document.getElementById('ticketRankEnd')?.value);
   const end=endRaw>=start?endRaw:start;
-  if(start<1||end>50000){showToast('⚠️ Aralık 1–50000 içinde olmalı');return;}
+  if(start<1||end>10000){showToast('⚠️ Aralık 1–10000 içinde olmalı');return;}
   if(end-start>199){showToast('⚠️ Aralık en fazla 200 bilet olabilir');return;}
   const game=getGame();
   const btn=document.getElementById('generateBtn');
@@ -2440,11 +2441,11 @@ async function findTicketByRank(){
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:8px">
     <span style="font-size:.75rem;color:var(--muted);flex-shrink:0">Bilet No:</span>
-    <input type="number" id="ticketRankStart" min="1" max="50000" placeholder="Başlangıç" value="${start}"
+    <input type="number" id="ticketRankStart" min="1" max="10000" placeholder="Başlangıç" value="${start}"
       style="width:72px;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"
       onkeydown="if(event.key==='Enter')findTicketByRank()">
     <span style="font-size:.75rem;color:var(--muted)">—</span>
-    <input type="number" id="ticketRankEnd" min="1" max="50000" placeholder="Son" value="${end}"
+    <input type="number" id="ticketRankEnd" min="1" max="10000" placeholder="Son" value="${end}"
       style="width:72px;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"
       onkeydown="if(event.key==='Enter')findTicketByRank()">
     <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
