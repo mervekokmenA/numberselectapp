@@ -1157,7 +1157,7 @@ onnumara:`2026-05-18 2 5 8 16 19 24 27 32 38 39 42 44 48 52 63 64 66 68 74 75 78
 
 // ── State ────────────────────────────────────────────────────
 const state = {
-  selectedGame:'sans', selectedAlgo:'balanced',
+  selectedGame:'super', selectedAlgo:'balanced',
   ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
@@ -2391,6 +2391,10 @@ async function generateTickets(){
     <span style="font-size:.72rem;color:var(--accent)">Güven: ${conf}%</span>
   </div>
   ${posRow}
+  <div style="display:flex;gap:8px;margin-bottom:8px;justify-content:flex-end;flex-wrap:wrap">
+    <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
+    <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
+  </div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:8px">
     <span style="font-size:.75rem;color:var(--muted);flex-shrink:0">Bilet No:</span>
     <input type="number" id="ticketRankStart" min="1" max="50000" placeholder="Başlangıç"
@@ -2403,11 +2407,7 @@ async function generateTickets(){
     <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
   </div>
   ${lastDrawRow}${genPosHeader}
-  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums)).join('')}
-  <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
-    <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
-    <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
-  </div>`;
+  ${tickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums)).join('')}`;
   {const titleEl=document.getElementById('ticketCardTitle');if(titleEl){if(state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0){const ld=state.allDatedDraws[0];titleEl.textContent=`${ld.date} · ${ld.nums.join(' ')}${ld.bonus&&ld.bonus.length?' | '+ld.bonus.join(' '):''}`;titleEl.style.fontSize='0.82em';titleEl.style.letterSpacing='0';titleEl.style.textTransform='none';}else{titleEl.textContent='Şanslı Sayılarınız';titleEl.style.fontSize='';titleEl.style.letterSpacing='';titleEl.style.textTransform='';}}}
   document.getElementById('ticketCard').style.display='block';
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -2470,12 +2470,12 @@ async function findTicketByRank(){
       onkeydown="if(event.key==='Enter')findTicketByRank()">
     <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
   </div>
-  <div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px">🎯 ${rangeLabel}</div>
-  ${rangeTickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums)).join('')}
-  <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;flex-wrap:wrap">
+  <div style="display:flex;gap:8px;margin-bottom:8px;justify-content:flex-end;flex-wrap:wrap">
     <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
     <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
-  </div>`;
+  </div>
+  <div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px">🎯 ${rangeLabel}</div>
+  ${rangeTickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums)).join('')}`;
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 function saveAllTickets(){
