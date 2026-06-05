@@ -370,6 +370,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="tab-btn active" onclick="switchTab('saved')">🎫 Kaydedilen Biletler</button>
       <button class="tab-btn"        onclick="switchTab('stats')">📈 İstatistikler</button>
       <button class="tab-btn"        onclick="switchTab('hotcold')">🔥 Sıcak &amp; Soğuk</button>
+      <button class="tab-btn"        onclick="switchTab('matrix3')">🔢 Matrix 3</button>
     </div>
     <div class="tab-panel active" id="tab-saved">
       <div id="savedList"><div class="empty-state"><span class="empty-icon">🎟️</span>Henüz kaydedilmiş bilet yok.</div></div>
@@ -388,6 +389,9 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     </div>
     <div class="tab-panel" id="tab-hotcold">
       <div id="hotColdDisplay"><div class="empty-state"><span class="empty-icon">🌡️</span>Çekiliş verisi yükleyin.</div></div>
+    </div>
+    <div class="tab-panel" id="tab-matrix3">
+      <div id="matrix3Panel"><div class="empty-state"><span class="empty-icon">🔢</span>Veri yükleyince analiz başlar.</div></div>
     </div>
   </div>
 </div><!-- /page-generator -->
@@ -1493,7 +1497,7 @@ function parsePastDraws(){
   state.frequency=freq;
   status.className='parse-status success';
   status.textContent=`✅ ${draws.length} çekiliş yüklendi. ${Object.keys(freq).length} tekil sayı bulundu.`;
-  updateStats(); renderFreqChart(); renderHotCold();
+  updateStats(); renderFreqChart(); renderHotCold(); renderMatrix3();
 }
 
 // ── Number generation ────────────────────────────────────────
@@ -2592,9 +2596,76 @@ function renderHotCold(){
 
 // ── Tabs ──────────────────────────────────────────────────────
 function switchTab(name){
-  const names=['saved','stats','hotcold'];
+  const names=['saved','stats','hotcold','matrix3'];
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',names[i]===name));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
+  if(name==='matrix3')renderMatrix3();
+}
+
+function renderMatrix3(){
+  const panel=document.getElementById('matrix3Panel');
+  if(!panel)return;
+  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  if(!draws||!draws.length){panel.innerHTML='<div class="empty-state"><span class="empty-icon">🔢</span>Önce veri yükleyin.</div>';return;}
+  const ALPHA='ABCDEFGHIJKLMNOP';
+  const recent=draws.slice(0,25);
+  const analyzed=recent.map(draw=>{
+    const nums=[...draw.nums].sort((a,b)=>a-b);
+    const n=Math.min(nums.length,8);
+    const sub=nums.slice(0,n);
+    // Partial cumulative sums: ns[0]=A, ns[1]=AB, ns[2]=ABC ...
+    const ns=[];let s=0;
+    for(let i=0;i<n;i++){s+=sub[i];ns.push(s);}
+    // NST: running sum of ns[1]+ns[2]+... (NST1=ns[1]+ns[2], NST2=NST1+ns[3], ...)
+    const nst=[];let nstS=0;
+    for(let i=1;i<n;i++){nstS+=ns[i];if(i>=2)nst.push(nstS);}
+    // Matches: ns[i] (i>=1) vs nums[j] (j>i) within ±2
+    const matches=[];
+    const numSet=new Set(sub);
+    for(let i=1;i<n-1;i++){
+      for(let off=-2;off<=2;off++){
+        const target=ns[i]+off;
+        if(target>=1&&numSet.has(target)){
+          const pos=sub.indexOf(target);
+          if(pos>i)matches.push({lbl:'NS'+ALPHA.slice(0,i+1),val:ns[i],match:target,off,pos});
+        }
+      }
+    }
+    return{draw,nums:sub,ns,nst,matches};
+  });
+  const total=analyzed.length;
+  const exact=analyzed.filter(d=>d.matches.some(m=>m.off===0)).length;
+  const near=analyzed.filter(d=>d.matches.length>0).length;
+  let html=`<div style="display:flex;gap:8px;margin-bottom:10px">
+    <div class="stat-box" style="flex:1"><div class="stat-val" style="font-size:1rem">${exact}/${total}</div><div class="stat-label">Tam örtüşme</div></div>
+    <div class="stat-box" style="flex:1"><div class="stat-val" style="font-size:1rem">%${Math.round(near/total*100)}</div><div class="stat-label">±2 içinde</div></div>
+    <div class="stat-box" style="flex:1"><div class="stat-val" style="font-size:1rem">${near}/${total}</div><div class="stat-label">Çekiliş</div></div>
+  </div>
+  <div style="font-size:.68rem;color:var(--muted);margin-bottom:8px;line-height:1.5">NS<strong>AB</strong>=A+B · NS<strong>ABC</strong>=A+B+C · … &nbsp;|&nbsp; NST1=NSAB+NSABC · NST2=NST1+NSABCD · …<br>Yeşil = kısmi toplam başka bir çekiliş sayısına eşit (±2)</div>`;
+  analyzed.forEach(({draw,nums,ns,nst,matches})=>{
+    const n=nums.length;
+    const matchNums=new Set(matches.map(m=>m.match));
+    const matchNS=new Set(matches.map(m=>m.val));
+    const has=matches.length>0;
+    const numsHtml=nums.map((v,i)=>`<span style="${matchNums.has(v)?'color:var(--green);font-weight:800':'color:var(--text)'}">${ALPHA[i]}:${v}</span>`).join('&nbsp;&nbsp;');
+    const nsHtml=ns.slice(1).map((v,i)=>{
+      const isM=matchNS.has(v);
+      return`<span style="${isM?'color:var(--green);font-weight:700':'color:var(--muted)'}">NS${ALPHA.slice(0,i+2)}=${v}</span>`;
+    }).join('&nbsp;&nbsp;&nbsp;');
+    const nstHtml=nst.map((v,k)=>`<span style="color:var(--muted)">NST${k+1}=${v}</span>`).join('&nbsp;&nbsp;&nbsp;');
+    const mHtml=matches.length?`<div style="font-size:.6rem;color:var(--green);margin-top:3px">✓ ${matches.map(m=>`NS${ALPHA.slice(0,m.pos)}(${m.val})${m.off?`${m.off>0?'+':''}${m.off}`:''}=${m.match}`).join(' · ')}</div>`:'';
+    html+=`<div style="background:var(--surface2);border:1px solid ${has?'rgba(0,230,118,.3)':'var(--border)'};border-radius:8px;padding:7px 10px;margin-bottom:6px${has?';background:rgba(0,230,118,.04)':''}">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+        <span style="font-size:.63rem;color:var(--muted)">${draw.date}</span>
+        ${has?'<span style="font-size:.58rem;color:var(--green)">✓ örtüşme</span>':''}
+      </div>
+      <div style="font-family:monospace;font-size:.72rem;margin-bottom:5px">${numsHtml}</div>
+      <div style="font-family:monospace;font-size:.6rem;line-height:2;flex-wrap:wrap">${nsHtml}</div>
+      ${nst.length?`<div style="font-family:monospace;font-size:.6rem;line-height:2">${nstHtml}</div>`:''}
+      ${mHtml}
+    </div>`;
+  });
+  panel.innerHTML=html;
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -2625,6 +2696,7 @@ function parseDatedDraws(){
   status.textContent=`✅ ${draws.length} tarihli çekiliş yüklendi (en yeni: ${draws[0].date}).`;
   updateBtDateOptions();
   initNaSection();
+  renderMatrix3();
 }
 
 function updateBtDateOptions(){
