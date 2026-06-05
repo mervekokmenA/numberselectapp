@@ -1219,7 +1219,7 @@ function updateGenFilterLabel(){
   const b6=document.getElementById('btFilter6Label');  if(b6)b6.textContent=tb(6,10);
   const b32=document.getElementById('btFilter5Label2'); if(b32)b32.textContent=tb(3,7);
 }
-function selectGame(id){ state.selectedGame=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); loadBtHistory(true); updateGenFilterLabel(); setTimeout(initAlgoGrid,200); }
+function selectGame(id){ state.selectedGame=id; state.drawGameId=null; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadGenHistory(); loadBtHistory(true); updateGenFilterLabel(); setTimeout(initAlgoGrid,200); }
 function selectAlgo(id){
   state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid();
   const s2=document.getElementById('btAlgo2'); if(s2)s2.value=id;
@@ -1467,6 +1467,7 @@ async function loadBtHistory(forceRefresh=false){
   state.allPastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
   state.allDatedDraws=[...state.datedDraws];
   applyExcludeFilter();
+  state.drawGameId=id;
   if(state.algoAnalysisGame!==id){ state.algoAnalysisGame=null; analyzeAlgoPositions(id); }
   saveDrawCache(id);
   setTimeout(initAlgoGrid, 100);
@@ -2286,21 +2287,25 @@ function lpEnd(){if(_lpTimer){clearTimeout(_lpTimer);_lpTimer=null;}}
 
 function calcTicketScore(td,game){
   const n=td.main,total=game.max,count=game.count;
+  // Balance components (35 pts total) — less weight to avoid rewarding random-balanced picks
   const sum=n.reduce((a,b)=>a+b,0);
   const expSum=(total+1)/2*count;
-  const sumScore=Math.round(25*Math.max(0,1-Math.abs(sum-expSum)/expSum*2.5));
+  const sumScore=Math.round(15*Math.max(0,1-Math.abs(sum-expSum)/expSum*1.8));
   const odds=n.filter(x=>x%2===1).length;
-  const oeScore=Math.round(25*Math.min(odds,count-odds)/(count/2));
+  const oeScore=Math.round(10*Math.min(odds,count-odds)/(count/2));
   const mid=Math.floor(total/2);
   const lows=n.filter(x=>x<=mid).length;
-  const lhScore=Math.round(25*Math.min(lows,count-lows)/(count/2));
+  const lhScore=Math.round(10*Math.min(lows,count-lows)/(count/2));
+  // Frequency rank score (64 pts) — continuous weight by actual historical frequency rank
   const freq=state.frequency||{};
-  let hotScore=13;
+  let freqScore=32;
   if(Object.keys(freq).length>0){
-    const hot=new Set(Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,Math.ceil(total/3)).map(e=>+e[0]));
-    hotScore=Math.round(25*n.filter(x=>hot.has(x)).length/count);
+    const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]).map(e=>+e[0]);
+    const rankMap={};sorted.forEach((num,i)=>{rankMap[num]=1-(i/sorted.length);});
+    const avgRank=n.reduce((s,x)=>s+(rankMap[x]??0.5),0)/count;
+    freqScore=Math.round(64*avgRank);
   }
-  return Math.min(99,sumScore+oeScore+lhScore+hotScore);
+  return Math.min(99,sumScore+oeScore+lhScore+freqScore);
 }
 
 function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null,excludeBonusNums=null,score=null){
@@ -2639,6 +2644,7 @@ function switchTab(name){
 function renderMatrix3(){
   const panel=document.getElementById('matrix3Panel');
   if(!panel)return;
+  if(state.drawGameId&&state.drawGameId!==state.selectedGame){panel.innerHTML='<div class="empty-state"><span class="empty-icon">⏳</span>Veri yükleniyor...</div>';return;}
   const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
   if(!draws||!draws.length){panel.innerHTML='<div class="empty-state"><span class="empty-icon">🔢</span>Önce veri yükleyin.</div>';return;}
   const ALPHA='ABCDEFGHIJKLMNOP';
