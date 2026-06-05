@@ -2643,15 +2643,23 @@ function renderMatrix3(){
     const numsHtml=nums.map((v,i)=>wrapSpan(`${ALPHA[i]}:${v}`,matchNums.has(v)?'color:var(--green);font-weight:800':'color:var(--text)')).join(' ');
     const nsHtml=ns.slice(1).map((v,i)=>wrapSpan(`NS${ALPHA.slice(0,i+2)}=${v}`,matchNS.has(v)?'color:var(--green);font-weight:700':'color:var(--muted)')).join(' ');
     const nstHtml=nst.map((v,k)=>wrapSpan(`NST${k+1}=${v}`,'color:var(--muted)')).join(' ');
+    // Mod row: NS and NST values mod game.max, highlight when result is a drawn number
+    const gameMax=getGame().max;
+    const numSet=new Set(nums);
+    const nsMods=ns.slice(1).map((v,i)=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;const hit=numSet.has(m);return wrapSpan(`NS${ALPHA.slice(0,i+2)}%${gameMax}=${m}`,hit?'color:var(--green);font-weight:700':'color:rgba(255,255,255,.3)');});
+    const nstMods=nst.map((v,k)=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;const hit=numSet.has(m);return wrapSpan(`NST${k+1}%${gameMax}=${m}`,hit?'color:var(--green);font-weight:700':'color:rgba(255,255,255,.3)');});
+    const modHits=[...ns.slice(1),...nst].some(v=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;return numSet.has(m);});
     const mHtml=matches.length?`<div style="font-size:.6rem;color:var(--green);margin-top:3px;word-break:break-word">✓ ${matches.map(m=>`NS${ALPHA.slice(0,m.pos)}(${m.val})${m.off?`${m.off>0?'+':''}${m.off}`:''}=${m.match}`).join(' · ')}</div>`:'';
-    html+=`<div style="background:var(--surface2);border:1px solid ${has?'rgba(0,230,118,.3)':'var(--border)'};border-radius:8px;padding:7px 10px;margin-bottom:6px${has?';background:rgba(0,230,118,.04)':''}">
+    const hasBorder=has||modHits;
+    html+=`<div style="background:var(--surface2);border:1px solid ${hasBorder?'rgba(0,230,118,.3)':'var(--border)'};border-radius:8px;padding:7px 10px;margin-bottom:6px${hasBorder?';background:rgba(0,230,118,.04)':''}">
       <div style="display:flex;justify-content:space-between;margin-bottom:4px">
         <span style="font-size:.63rem;color:var(--muted)">${draw.date}</span>
-        ${has?'<span style="font-size:.58rem;color:var(--green)">✓ örtüşme</span>':''}
+        ${has?'<span style="font-size:.58rem;color:var(--green)">✓ örtüşme</span>':modHits?'<span style="font-size:.58rem;color:var(--green)">✓ mod örtüşme</span>':''}
       </div>
       <div style="font-family:monospace;font-size:.72rem;margin-bottom:5px;display:flex;flex-wrap:wrap;gap:4px 8px">${numsHtml}</div>
       <div style="font-family:monospace;font-size:.6rem;display:flex;flex-wrap:wrap;gap:2px 8px;line-height:1.8">${nsHtml}</div>
       ${nst.length?`<div style="font-family:monospace;font-size:.6rem;display:flex;flex-wrap:wrap;gap:2px 8px;line-height:1.8">${nstHtml}</div>`:''}
+      <div style="font-family:monospace;font-size:.6rem;display:flex;flex-wrap:wrap;gap:2px 8px;line-height:1.8;margin-top:2px;border-top:1px solid var(--border);padding-top:2px">${[...nsMods,...nstMods].join(' ')}</div>
       ${mHtml}
     </div>`;
   });
