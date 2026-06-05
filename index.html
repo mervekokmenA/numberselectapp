@@ -594,6 +594,7 @@ const GAMES = [
 ];
 
 const ALGOS = [
+  { id:'proensemble', name:'🧬 Pro Ensemble', desc:'Retrotest sıralamasına göre en iyi 6 algoritmayı birleştirir — oy ağırlıklı uzlaşı + konum dağılımı + eşleşme örüntüsü + gecikme bonusu', expert:true },
   { id:'sislcg',      name:'🎲 Sisal-LCG Dengesi',     desc:'LCG tabanlı deterministik dağılım simülasyonu — frekans ağırlıklı, toplam dengelenmiş, bölge kapsamalı', expert:true },
   { id:'smart',      name:'🧠 Smart Kombinasyon', desc:'Üstel frekans + bölge dengesi + tarihsel toplam hedefi + tek/çift denge + son çekiliş cezası — tüm en iyi tekniklerin dengeli kombinasyonu', expert:true },
   { id:'random',   name:'Tam Rastgele',      desc:'Her sayının eşit şansa sahip olduğu gerçek rastgele seçim' },
@@ -1156,7 +1157,7 @@ onnumara:`2026-06-01 4 5 7 10 12 16 22 33 34 35 37 48 53 55 60 61 63 64 65 67 68
 
 // ── State ────────────────────────────────────────────────────
 const state = {
-  selectedGame:'super', selectedAlgo:'sislcg',
+  selectedGame:'super', selectedAlgo:'proensemble',
   ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
@@ -1761,6 +1762,125 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       mainNums=sBest||sfByF.slice(0,game.count);
       bonusNums=smartBonus();
       break;}
+    case 'proensemble':{
+      // ── 1. Determine top algos by retrotest (or sensible default set) ──
+      const peGameId=game.id;
+      const pePerf=state.algoPerf&&state.algoPerf[peGameId];
+      let peTopAlgos;
+      const peExclude=new Set(['proensemble','random']);
+      if(pePerf){
+        peTopAlgos=ALGOS.filter(a=>!peExclude.has(a.id)&&pePerf[a.id]&&pePerf[a.id].avg>0)
+          .sort((a,b)=>(pePerf[b.id]?.avg||0)-(pePerf[a.id]?.avg||0)).slice(0,6);
+      }else{
+        peTopAlgos=ALGOS.filter(a=>['dateshift','excelblend','delta','sislcg','starv2','hot'].includes(a.id));
+      }
+      if(!peTopAlgos.length)peTopAlgos=ALGOS.filter(a=>a.id==='sislcg');
+
+      // ── 2. Position-specific historical frequency ──
+      const peDrawsSrc=drawsOverride||state.allDatedDraws||state.datedDraws||[];
+      const peDraws=peDrawsSrc.slice(0,Math.min(200,peDrawsSrc.length));
+      const pePosFreq=Array.from({length:game.count},()=>new Float32Array(game.max+1));
+      peDraws.forEach(d=>{
+        const ns=(Array.isArray(d)?d:(d.nums||[])).slice().sort((a,b)=>a-b).slice(0,game.count);
+        ns.forEach((n,i)=>{if(n>=1&&n<=game.max)pePosFreq[i][n]++;});
+      });
+      const pePosNorm=pePosFreq.map(pf=>{const tot=pf.reduce((s,v)=>s+v,0)||1;return pf.map(v=>v/tot);});
+
+      // ── 3. Co-occurrence (last 50 draws, recency-weighted) ──
+      const peCo={};
+      peDraws.slice(0,50).forEach((d,i)=>{
+        const w=Math.pow(0.92,i);
+        const ns=(Array.isArray(d)?d:(d.nums||[])).slice(0,game.count);
+        for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){
+          const k=Math.min(ns[a],ns[b])+'_'+Math.max(ns[a],ns[b]);
+          peCo[k]=(peCo[k]||0)+w;
+        }
+      });
+
+      // ── 4. Gap/due bonus: numbers not seen recently get weight boost ──
+      const peLastSeen=new Int32Array(game.max+1).fill(999);
+      peDraws.slice(0,60).forEach((d,i)=>{
+        (Array.isArray(d)?d:(d.nums||[])).forEach(n=>{if(n>=1&&n<=game.max&&peLastSeen[n]===999)peLastSeen[n]=i;});
+      });
+      const peAvgGap=peDraws.length/game.max;
+
+      // ── 5. Run top algos N times each, collect weighted votes ──
+      const peVotes=new Float32Array(game.max+1);
+      const PE_SIMS=30;
+      for(const algo of peTopAlgos){
+        const algoW=pePerf?(pePerf[algo.id]?.avg||0.5):1;
+        for(let s=0;s<PE_SIMS;s++){
+          try{
+            const t=generateNumbers(game,algo.id,freqOverride,drawsOverride);
+            t.main.forEach(n=>{if(n>=1&&n<=game.max)peVotes[n]+=algoW;});
+          }catch(e){}
+        }
+      }
+
+      // ── 6. Blend with position prior + gap bonus ──
+      for(let n=1;n<=game.max;n++){
+        // Position prior: sum across all positions (broad signal)
+        let posScore=0;
+        for(let p=0;p<game.count;p++)posScore+=pePosNorm[p][n];
+        peVotes[n]+=posScore*peTopAlgos.length*PE_SIMS*0.12;
+        // Gap bonus
+        const gap=peLastSeen[n]===999?60:peLastSeen[n];
+        if(gap>peAvgGap*1.5)peVotes[n]*=1+Math.min(1,(gap-peAvgGap)/peAvgGap*0.4);
+      }
+
+      // ── 7. Greedy pick with co-occurrence synergy ──
+      const peSel=[],peUsed=new Set();
+      // Historical sum range for constraint
+      const peSums=peDraws.map(d=>(Array.isArray(d)?d:(d.nums||[])).slice(0,game.count).reduce((s,v)=>s+v,0)).filter(s=>s>0).sort((a,b)=>a-b);
+      const peSumLo=peSums[Math.floor(peSums.length*0.18)]||(game.max+1)*game.count*0.3;
+      const peSumHi=peSums[Math.floor(peSums.length*0.82)]||(game.max+1)*game.count*0.7;
+
+      for(let pick=0;pick<game.count;pick++){
+        const remaining=peSumHi-peSel.reduce((s,v)=>s+v,0);
+        const needed=game.count-pick;
+        let bestN=-1,bestScore=-Infinity;
+        for(let n=1;n<=game.max;n++){
+          if(peUsed.has(n))continue;
+          // Sum-range feasibility check
+          const projMin=peSel.reduce((s,v)=>s+v,0)+n+(needed-1);
+          const projMax=peSel.reduce((s,v)=>s+v,0)+n+(game.max*(needed-1));
+          if(projMax<peSumLo||projMin>peSumHi)continue;
+          let score=peVotes[n];
+          // Co-occurrence boost with already selected
+          for(const sel of peSel){const k=Math.min(n,sel)+'_'+Math.max(n,sel);score+=(peCo[k]||0)*0.6;}
+          if(score>bestScore){bestScore=score;bestN=n;}
+        }
+        if(bestN===-1){// fallback: drop sum constraint
+          for(let n=1;n<=game.max;n++){if(!peUsed.has(n)&&(bestN===-1||peVotes[n]>bestScore)){bestScore=peVotes[n];bestN=n;}}
+        }
+        if(bestN>0){peSel.push(bestN);peUsed.add(bestN);}
+      }
+
+      // ── 8. One-pass swap improvement (SA-lite) ──
+      const peFitness=S=>{
+        let f=S.reduce((s,n)=>s+peVotes[n],0);
+        for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++){
+          const k=Math.min(S[i],S[j])+'_'+Math.max(S[i],S[j]);f+=(peCo[k]||0)*0.6;
+        }
+        return f;
+      };
+      let peCur=[...peSel],peCurFit=peFitness(peCur);
+      for(let iter=0;iter<200;iter++){
+        const oi=Math.floor(Math.random()*game.count);
+        const candidates=[];
+        for(let n=1;n<=game.max;n++){if(!peUsed.has(n)||n===peCur[oi])candidates.push(n);}
+        if(!candidates.length)continue;
+        const newN=candidates[Math.floor(Math.random()*candidates.length)];
+        const nS=[...peCur];nS[oi]=newN;
+        const nf=peFitness(nS);
+        const T=0.3*Math.pow(0.01/0.3,iter/200);
+        if(nf>peCurFit||Math.random()<Math.exp((nf-peCurFit)/T)){
+          peUsed.delete(peCur[oi]);peUsed.add(newN);peCur=nS;peCurFit=nf;
+        }
+      }
+      mainNums=peCur.sort((a,b)=>a-b);bonusNums=smartBonus();
+      break;}
+
     case 'star':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       const stD=(drawsOverride||state.pastDraws||[]);
@@ -2704,10 +2824,10 @@ function showAlgoRankTable(perf,gameId){
     <span style="font-size:.63rem;color:var(--muted)">Son ${testN} çekiliş · ${trials} bilet/çekiliş · ${minH}+ eşleşme</span>
     <button class="copy-btn" onclick="runAlgoRank()">↺ Yenile</button>
   </div>`;
-  html+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:3px 12px;align-items:center">
-    <span style="font-size:.58rem;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:3px">Algoritma</span>
-    <span style="font-size:.58rem;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:3px;text-align:right">Ort.İsabet</span>
-    <span style="font-size:.58rem;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:3px;text-align:right">${minH}+%</span>`;
+  html+=`<div style="overflow-y:auto;max-height:420px"><div style="display:grid;grid-template-columns:1fr auto auto;gap:3px 12px;align-items:center">
+    <span style="font-size:.58rem;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:3px;position:sticky;top:0;background:var(--surface)">Algoritma</span>
+    <span style="font-size:.58rem;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:3px;text-align:right;position:sticky;top:0;background:var(--surface)">Ort.İsabet</span>
+    <span style="font-size:.58rem;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:3px;text-align:right;position:sticky;top:0;background:var(--surface)">${minH}+%</span>`;
   sorted.forEach((a,rank)=>{
     const bar=Math.round(a.avg/maxAvg*100);
     const isSelected=a.id===state.selectedAlgo;
@@ -2723,7 +2843,7 @@ function showAlgoRankTable(perf,gameId){
     <span style="font-family:monospace;font-size:.7rem;color:var(--accent);text-align:right">${a.avg}</span>
     <span style="font-family:monospace;font-size:.7rem;color:${m3color};text-align:right">${a.m3rate}%</span>`;
   });
-  html+='</div>';
+  html+='</div></div>';
   panel.innerHTML=html;
 }
 
@@ -2759,6 +2879,7 @@ async function runAlgoRank(){
 
     const numSet=new Set(actual.nums);
     for(const algo of ALGOS){
+      if(algo.id==='proensemble')continue; // tested separately, avoids infinite recursion
       let best=0;
       for(let t=0;t<TRIALS;t++){
         try{
@@ -2969,7 +3090,7 @@ function updateBtDateOptions(){
   updateBtDateOptions2();
 }
 
-const ALGO_SHORT={random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG *',star:'🌟 Star',starv2:'🌟 StarV2',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup',smart:'🧠 Smart *'};
+const ALGO_SHORT={proensemble:'🧬 ProEnsemble',random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG *',star:'🌟 Star',starv2:'🌟 StarV2',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup',smart:'🧠 Smart *'};
 
 function updateAlgoScores(){
   const gameId=state.selectedGame;
