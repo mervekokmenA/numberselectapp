@@ -1190,6 +1190,15 @@ function selectBtGame(id){ state.selectedGame=id; state.btRunCount=0; updateRunC
 function initAlgoGrid(){
   const scores=state.algoPositionScores[state.selectedGame];
   const analyzing=state.algoAnalysisGame===state.selectedGame;
+  const gameId=state.selectedGame;
+  const perf=state.algoPerf&&state.algoPerf[gameId];
+  // Build rank order from retrotest if available
+  const rankMap={};
+  if(perf){
+    const sorted=[...ALGOS].filter(a=>perf[a.id]).sort((a,b)=>(perf[b.id]?.avg||0)-(perf[a.id]?.avg||0)||(perf[b.id]?.m3rate||0)-(perf[a.id]?.m3rate||0));
+    sorted.forEach((a,i)=>{rankMap[a.id]=i+1;});
+  }
+  const medals={1:'🥇',2:'🥈',3:'🥉'};
   document.getElementById('algoGrid').innerHTML='<div class="algo-score-panel">'+ALGOS.map(a=>{
     let posHtml='';
     if(scores&&scores[a.id]){
@@ -1202,10 +1211,23 @@ function initAlgoGrid(){
     } else if(analyzing){
       posHtml=`<span style="font-size:.62rem;color:var(--muted)">⏳</span>`;
     }
-    const hasPos=!!posHtml;
-    return `<div class="algo-score-item${a.id===state.selectedAlgo?' selected':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:stretch;':''}" onclick="selectAlgo('${a.id}')">
+    // Retrotest badge
+    let perfHtml='';
+    if(perf&&perf[a.id]){
+      const p=perf[a.id];
+      const rank=rankMap[a.id];
+      const medal=medals[rank]||'';
+      const m3color=p.m3rate>=25?'var(--green)':p.m3rate>=12?'#ffd700':'var(--muted)';
+      perfHtml=`<div style="display:flex;align-items:center;gap:4px;margin-top:3px;flex-wrap:wrap">
+        ${medal?`<span style="font-size:.65rem">${medal}</span>`:`<span style="font-size:.58rem;color:var(--muted)">#${rank}</span>`}
+        <span style="font-size:.58rem;color:var(--accent);font-family:monospace">∅${p.avg}</span>
+        <span style="font-size:.58rem;color:${m3color};font-family:monospace">${p.m3rate}%</span>
+      </div>`;
+    }
+    const hasExtra=!!(posHtml||perfHtml);
+    return `<div class="algo-score-item${a.id===state.selectedAlgo?' selected':''}" style="cursor:pointer;${hasExtra?'flex-direction:column;align-items:stretch;':''}" onclick="selectAlgo('${a.id}')">
       <span class="as-name" style="flex:1;font-weight:${a.id===state.selectedAlgo?700:400};width:100%;min-width:0">${ALGO_SHORT[a.id]||a.name}</span>
-      ${posHtml}
+      ${posHtml}${perfHtml}
     </div>`;
   }).join('')+'</div>';
 }
