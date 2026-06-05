@@ -2410,7 +2410,7 @@ async function generateTickets(){
   const _m3Draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws||[];
   const _m3OffFreq={};
   _m3Draws.slice(0,4).forEach(dr=>{
-    const sn=[...dr.nums].sort((a,b)=>a-b);
+    const sn=[...dr.nums].sort((a,b)=>a-b).slice(0,getGame().count);
     const sn_ns=[];let ss=0;sn.forEach(v=>{ss+=v;sn_ns.push(ss);});
     const snSet=new Set(sn);
     for(let i=1;i<sn.length-1;i++)for(let o=-2;o<=2;o++){const t=sn_ns[i]+o;if(t>=1&&snSet.has(t)&&sn.indexOf(t)>i)_m3OffFreq[o]=(_m3OffFreq[o]||0)+1;}
@@ -2641,7 +2641,7 @@ function renderMatrix3(){
   if(!draws||!draws.length){panel.innerHTML='<div class="empty-state"><span class="empty-icon">🔢</span>Önce veri yükleyin.</div>';return;}
   const ALPHA='ABCDEFGHIJKLMNOP';
   const analyzeDrawM3=draw=>{
-    const nums=[...draw.nums].sort((a,b)=>a-b);
+    const nums=[...draw.nums].sort((a,b)=>a-b).slice(0,getGame().count);
     const n=nums.length;
     const ns=[];let s=0;
     for(let i=0;i<n;i++){s+=nums[i];ns.push(s);}
@@ -2669,7 +2669,7 @@ function renderMatrix3(){
   let projHtml='';
   if(lastDraw){
     const gmax=getGame().max;
-    const lnums=[...lastDraw.nums].sort((a,b)=>a-b);
+    const lnums=[...lastDraw.nums].sort((a,b)=>a-b).slice(0,getGame().count);
     const lns=[];let ls=0;lnums.forEach(v=>{ls+=v;lns.push(ls);});
     const lnst=[];let lnstS=0;
     for(let i=1;i<lnums.length;i++){lnstS+=lns[i];if(i>=2)lnst.push(lnstS);}
@@ -2679,7 +2679,7 @@ function renderMatrix3(){
     const rowsHtml=rows.map(({lbl,val})=>{
       const m=((val%gmax)+gmax)%gmax||gmax;
       if(m>=1&&m<=gmax)candidates.add(m);
-      return `<span style="white-space:nowrap;font-family:monospace;font-size:.62rem;background:rgba(255,255,255,.04);border-radius:4px;padding:1px 5px"><span style="color:var(--muted)">${lbl}=</span><span style="color:rgba(255,255,255,.35)">÷${gmax}</span><span style="color:var(--accent);font-weight:700">${m}</span></span>`;
+      return `<span style="white-space:nowrap;font-family:monospace;font-size:.62rem;background:rgba(255,255,255,.04);border-radius:4px;padding:1px 6px"><span style="color:var(--muted)">${lbl}</span><span style="color:rgba(255,255,255,.25)"> == </span><span style="color:var(--accent);font-weight:700">${m}</span></span>`;
     }).join('');
     const candArr=[...candidates].sort((a,b)=>a-b);
     projHtml=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px">
@@ -2703,8 +2703,8 @@ function renderMatrix3(){
     // Mod row: NS and NST values mod game.max, highlight when result is a drawn number
     const gameMax=getGame().max;
     const numSet=new Set(nums);
-    const nsMods=ns.slice(1).map((v,i)=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;const hit=numSet.has(m);return wrapSpan(`NS${ALPHA.slice(0,i+2)}%${gameMax}=${m}`,hit?'color:var(--green);font-weight:700':'color:rgba(255,255,255,.3)');});
-    const nstMods=nst.map((v,k)=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;const hit=numSet.has(m);return wrapSpan(`NST${k+1}%${gameMax}=${m}`,hit?'color:var(--green);font-weight:700':'color:rgba(255,255,255,.3)');});
+    const nsMods=ns.slice(1).map((v,i)=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;const hit=numSet.has(m);return wrapSpan(`NS${ALPHA.slice(0,i+2)}==${m}`,hit?'color:var(--green);font-weight:700':'color:rgba(255,255,255,.3)');});
+    const nstMods=nst.map((v,k)=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;const hit=numSet.has(m);return wrapSpan(`NST${k+1}==${m}`,hit?'color:var(--green);font-weight:700':'color:rgba(255,255,255,.3)');});
     const modHits=[...ns.slice(1),...nst].some(v=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;return numSet.has(m);});
     const candNums=[...new Set([...ns.slice(1),...nst].map(v=>((v%gameMax)+gameMax)%gameMax||gameMax))].sort((a,b)=>a-b);
     const candHtml=candNums.map(m=>wrapSpan(m,numSet.has(m)?'color:var(--green);font-weight:800':'color:var(--text)')).join(' ');
