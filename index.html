@@ -2693,14 +2693,15 @@ function renderAlgoRank(){
 function showAlgoRankTable(perf,gameId){
   const panel=document.getElementById('algoRankPanel');
   const game=getGame(gameId);
-  const testN=Object.values(perf)[0]?.n||'?';
-  const minH=perf._minHits3||2;
+  const testN=perf._testN||Object.values(perf).find(v=>v?.n)?.n||'?';
+  const trials=perf._trials||1;
+  const minH=perf._minHits3||3;
   const sorted=ALGOS.map(a=>({...a,...(perf[a.id]||{avg:0,m3rate:0,n:0})}))
     .sort((a,b)=>b.avg-a.avg||b.m3rate-a.m3rate);
   const maxAvg=sorted[0]?.avg||1;
   const medals=['🥇','🥈','🥉'];
   let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-    <span style="font-size:.63rem;color:var(--muted)">Son ${testN} çekiliş · ${minH}+ eşleşme</span>
+    <span style="font-size:.63rem;color:var(--muted)">Son ${testN} çekiliş · ${trials} bilet/çekiliş · ${minH}+ eşleşme</span>
     <button class="copy-btn" onclick="runAlgoRank()">↺ Yenile</button>
   </div>`;
   html+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:3px 12px;align-items:center">
@@ -2734,15 +2735,15 @@ async function runAlgoRank(){
   const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws||[];
   if(draws.length<10){panel.innerHTML='<div class="empty-state">En az 10 çekiliş gerekli.</div>';return;}
   const testN=Math.min(50,draws.length-5);
-  const minHits3=game.id==='onnumara'?5:game.id==='sayisal'?3:2;
-  panel.innerHTML=`<div style="font-size:.73rem;color:var(--muted)">⏳ ${testN} çekiliş · ${ALGOS.length} algoritma test ediliyor...</div>
+  const TRIALS=4; // simulate real usage: 4 tickets per algo, take best match
+  const minHits3=game.id==='onnumara'?5:3;
+  panel.innerHTML=`<div style="font-size:.73rem;color:var(--muted)">⏳ ${testN} çekiliş · ${ALGOS.length} algoritma · ${TRIALS} bilet/çekiliş test ediliyor...</div>
   <div style="height:5px;background:var(--border);border-radius:3px;margin-top:8px"><div id="arBar" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width .15s"></div></div>
   <div id="arStatus" style="font-size:.6rem;color:var(--muted);margin-top:4px"></div>`;
 
   const totHits={},totM3={},totN={};
   ALGOS.forEach(a=>{totHits[a.id]=0;totM3[a.id]=0;totN[a.id]=0;});
 
-  // Save state
   const sv={freq:state.frequency,past:state.pastDraws,allPast:state.allPastDraws,dated:state.allDatedDraws,dated2:state.datedDraws};
 
   for(let i=0;i<testN;i++){
@@ -2750,10 +2751,7 @@ async function runAlgoRank(){
     const train=draws.slice(i+1);
     if(train.length<3)continue;
     const trainFlat=train.map(d=>Array.isArray(d)?d:[...d.nums,...(d.bonus||[])]);
-    const trainFreq=buildFreq(train);
-
-    // Set training state
-    state.frequency=trainFreq;
+    state.frequency=buildFreq(train);
     state.pastDraws=trainFlat;
     state.allPastDraws=trainFlat;
     state.allDatedDraws=train;
@@ -2761,25 +2759,28 @@ async function runAlgoRank(){
 
     const numSet=new Set(actual.nums);
     for(const algo of ALGOS){
-      try{
-        const t=generateNumbers(game,algo.id);
-        const h=t.main.filter(n=>numSet.has(n)).length;
-        totHits[algo.id]+=h;
-        if(h>=minHits3)totM3[algo.id]++;
-        totN[algo.id]++;
-      }catch(e){}
+      let best=0;
+      for(let t=0;t<TRIALS;t++){
+        try{
+          const tk=generateNumbers(game,algo.id);
+          const h=tk.main.filter(n=>numSet.has(n)).length;
+          if(h>best)best=h;
+        }catch(e){}
+      }
+      totHits[algo.id]+=best;
+      if(best>=minHits3)totM3[algo.id]++;
+      totN[algo.id]++;
     }
 
     const pct=Math.round((i+1)/testN*100);
     const barEl=document.getElementById('arBar');if(barEl)barEl.style.width=pct+'%';
     const stEl=document.getElementById('arStatus');if(stEl)stEl.textContent=`${i+1}/${testN} çekiliş işlendi`;
-    if(i%8===7)await new Promise(r=>setTimeout(r,0));
+    if(i%5===4)await new Promise(r=>setTimeout(r,0));
   }
 
-  // Restore state
   state.frequency=sv.freq;state.pastDraws=sv.past;state.allPastDraws=sv.allPast;state.allDatedDraws=sv.dated;state.datedDraws=sv.dated2;
 
-  const perf={_minHits3:minHits3};
+  const perf={_minHits3:minHits3,_testN:testN,_trials:TRIALS};
   ALGOS.forEach(a=>{
     const n=totN[a.id]||1;
     perf[a.id]={avg:+(totHits[a.id]/n).toFixed(2),m3rate:+(totM3[a.id]/n*100).toFixed(0),n};
@@ -2788,7 +2789,7 @@ async function runAlgoRank(){
   state.algoPerf[gameId]=perf;
 
   showAlgoRankTable(perf,gameId);
-  initAlgoGrid(); // refresh algo grid confidence scores
+  initAlgoGrid();
 }
 
 function renderMatrix3(){
