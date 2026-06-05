@@ -2406,6 +2406,43 @@ async function generateTickets(){
     </div>`;
   })():'';
   const ticketsSorted=tickets.map(t=>({t,score:calcTicketScore(t,game)})).sort((a,b)=>b.score-a.score);
+  // Matrix 3 tahmin ön hesabı
+  const _m3Draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws||[];
+  const _m3OffFreq={};
+  _m3Draws.slice(0,4).forEach(dr=>{
+    const sn=[...dr.nums].sort((a,b)=>a-b).slice(0,8);
+    const sn_ns=[];let ss=0;sn.forEach(v=>{ss+=v;sn_ns.push(ss);});
+    const snSet=new Set(sn);
+    for(let i=1;i<sn.length-1;i++)for(let o=-2;o<=2;o++){const t=sn_ns[i]+o;if(t>=1&&snSet.has(t)&&sn.indexOf(t)>i)_m3OffFreq[o]=(_m3OffFreq[o]||0)+1;}
+  });
+  const _m3Best=Object.entries(_m3OffFreq).sort((a,b)=>b[1]-a[1])[0];
+  const _m3Off=_m3Best?parseInt(_m3Best[0]):0;
+  const _m3Html=(()=>{
+    const freq=state.frequency||{};const pool=Array.from({length:game.max},(_,i)=>i+1);
+    const wts=pool.map(n=>Math.max(freq[n]||0,.1));
+    const pw=used=>{const av=pool.filter(n=>!used.has(n));const w=av.map(n=>wts[n-1]);const tot=w.reduce((a,b)=>a+b,0);let r=Math.random()*tot;for(let i=0;i<av.length;i++){r-=w[i];if(r<=0)return av[i];}return av[av.length-1];};
+    const u=new Set(),n=[];
+    const A=pw(u);u.add(A);n.push(A);const B=pw(u);u.add(B);n.push(B);
+    const Ct=A+B+_m3Off;if(Ct>=1&&Ct<=game.max&&!u.has(Ct)){u.add(Ct);n.push(Ct);}else{const C=pw(u);u.add(C);n.push(C);}
+    while(n.length<game.count){const x=pw(u);u.add(x);n.push(x);}
+    n.sort((a,b)=>a-b);
+    const applied=(n[0]+n[1]+_m3Off===n[2]);
+    const copyTxt=`🔢 Matrix 3\n${n.join(' ')}`;
+    state._m3CopyText=copyTxt;
+    const bsz=mobileBSZ();
+    const balls=n.map(v=>staticBall(v,game.mainColor,'',bsz)).join('');
+    return `<div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+        <span style="font-size:.72rem;font-weight:600;color:var(--green)">🔢 Matrix 3 Tahmini &nbsp;<span style="font-weight:400;color:var(--muted)">(offset ${_m3Off>=0?'+':''}${_m3Off})</span></span>
+        <button class="copy-btn" onclick="copyNums(state._m3CopyText)">📋 Kopyala</button>
+      </div>
+      <div class="ticket" style="--ball-size:${bsz};${applied?'border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.04)':''}">
+        <span class="ticket-idx" style="font-size:.5rem;color:var(--green);line-height:1.3;text-align:center">M<br>3</span>
+        <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:wrap">${balls}</div>
+      </div>
+      <div style="font-size:.6rem;color:var(--muted);margin-top:3px">${applied?`<span style="color:var(--green)">✓ NSAB=${n[0]+n[1]}${_m3Off>=0?'+':''}${_m3Off}=${n[2]} uygulandı</span>`:'hedef dışı, frekans ağırlıklı'}</div>
+    </div>`;
+  })();
   container.innerHTML=`
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
     <span style="font-size:.78rem;color:var(--muted)">${game.emoji} ${game.name} · <strong style="color:var(--text)">${algo?.name||state.selectedAlgo}</strong></span>
@@ -2427,7 +2464,8 @@ async function generateTickets(){
     <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
   </div>
   ${lastDrawRow}${genPosHeader}
-  ${ticketsSorted.map(({t,score},i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums,score)).join('')}`;
+  ${ticketsSorted.map(({t,score},i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums,score)).join('')}
+  ${_m3Html}`;
   {const titleEl=document.getElementById('ticketCardTitle');if(titleEl){if(state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0){const ld=state.allDatedDraws[0];titleEl.textContent=`${ld.date} · ${ld.nums.join(' ')}${ld.bonus&&ld.bonus.length?' | '+ld.bonus.join(' '):''}`;titleEl.style.fontSize='0.82em';titleEl.style.letterSpacing='0';titleEl.style.textTransform='none';}else{titleEl.textContent='Şanslı Sayılarınız';titleEl.style.fontSize='';titleEl.style.letterSpacing='';titleEl.style.textTransform='';}}}
   document.getElementById('ticketCard').style.display='block';
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -2626,14 +2664,40 @@ function renderMatrix3(){
   const bestOff=Object.entries(offFreq).sort((a,b)=>b[1]-a[1])[0];
   const predOff=bestOff?parseInt(bestOff[0]):0;
   const near=analyzed.filter(d=>d.matches.length>0).length;
+  // Gelecek çekiliş projeksiyonu: son çekilişin NS/NST değerlerinin mod sonuçları
+  const lastDraw=draws[0];
+  let projHtml='';
+  if(lastDraw){
+    const gmax=getGame().max;
+    const lnums=[...lastDraw.nums].sort((a,b)=>a-b).slice(0,8);
+    const lns=[];let ls=0;lnums.forEach(v=>{ls+=v;lns.push(ls);});
+    const lnst=[];let lnstS=0;
+    for(let i=1;i<lnums.length;i++){lnstS+=lns[i];if(i>=2)lnst.push(lnstS);}
+    const ALPHA2='ABCDEFGHIJKLMNOP';
+    const candidates=new Set();
+    const rows=[...lns.slice(1).map((v,i)=>({lbl:`NS${ALPHA2.slice(0,i+2)}`,val:v})),...lnst.map((v,k)=>({lbl:`NST${k+1}`,val:v}))];
+    const rowsHtml=rows.map(({lbl,val})=>{
+      const m=((val%gmax)+gmax)%gmax||gmax;
+      if(m>=1&&m<=gmax)candidates.add(m);
+      return `<div style="display:flex;gap:6px;font-family:monospace;font-size:.65rem;line-height:1.8">
+        <span style="color:var(--muted);min-width:80px">${lbl}=${val}</span>
+        <span style="color:var(--muted)">÷${gmax}→</span>
+        <span style="color:var(--accent);font-weight:700">${m}</span>
+      </div>`;
+    }).join('');
+    const candArr=[...candidates].sort((a,b)=>a-b);
+    projHtml=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px">
+      <div style="font-size:.72rem;font-weight:600;margin-bottom:6px">📐 Gelecek Çekiliş Projeksiyonu</div>
+      <div style="font-size:.63rem;color:var(--muted);margin-bottom:6px">Son çekiliş (${lastDraw.date}) NS/NST değerleri mod ${gmax}</div>
+      ${rowsHtml}
+      <div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border)">
+        <div style="font-size:.63rem;color:var(--muted);margin-bottom:4px">Aday sayılar (mod sonuçları):</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">${candArr.map(v=>`<span style="background:rgba(100,120,255,.15);border:1px solid rgba(100,120,255,.3);border-radius:6px;padding:2px 8px;font-size:.72rem;font-weight:700;color:var(--accent)">${v}</span>`).join('')}</div>
+      </div>
+    </div>`;
+  }
   let html=`<div style="font-size:.68rem;color:var(--muted);margin-bottom:6px;line-height:1.5">NS<strong>AB</strong>=A+B · NS<strong>ABC</strong>=A+B+C · … &nbsp;|&nbsp; NST1=NSAB+NSABC · …<br>Yeşil = toplam başka bir sayıya eşit (±2) · Son 4 çekiliş</div>
-  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px">
-    <div style="font-size:.72rem;font-weight:600;margin-bottom:6px">🔮 Matrix 3 Tahmini</div>
-    <div style="font-size:.68rem;color:var(--muted);margin-bottom:6px">Son 4 çekilişte en sık görülen offset: <strong style="color:var(--text)">${bestOff?`${predOff>=0?'+':''}${predOff} (${bestOff[1]}/${analyzed.length} çekilişte)`:'veri yok'}</strong><br>
-    Tahmin mantığı: A+B${predOff>=0?'+':''}${predOff}=C konumuna sığıyorsa oturtulur, geri kalanı frekans ağırlıklı seçilir.</div>
-    <button class="copy-btn" onclick="generateMatrix3Ticket(${predOff})" style="width:100%">🔢 Matrix 3 ile Bilet Üret</button>
-    <div id="m3PredResult" style="margin-top:8px"></div>
-  </div>`;
+  ${projHtml}`;
   analyzed.forEach(({draw,nums,ns,nst,matches})=>{
     const n=nums.length;
     const matchNums=new Set(matches.map(m=>m.match));
