@@ -1165,6 +1165,7 @@ const state = {
   btAlgoPositionScores:{}, btAlgoAnalysisGame:null,
   algoNumberScores:{}, btAlgoNumberScores:{},
   allDatedDraws:[], allPastDraws:[], excludeLastDraw:false,
+  algoPerf:(()=>{const p={};try{['sans','super','sayisal','onnumara'].forEach(id=>{const v=localStorage.getItem('algoPerf_'+id);if(v)p[id]=JSON.parse(v);});}catch(e){}return p;})(),
 };
 
 const getGame = id => GAMES.find(g=>g.id===(id||state.selectedGame));
@@ -1262,9 +1263,11 @@ function changeAnalysisWindow(val){
 }
 
 async function analyzeAlgoPositions(gameId){
-  if(state.algoAnalysisGame===gameId)return; // already done / running
+  if(state.algoPositionScores[gameId]&&state.algoNumberScores&&state.algoNumberScores[gameId])return;
+  if(state._analyzingGame===gameId)return;
+  state._analyzingGame=gameId;
   const draws=state.pastDraws;
-  if(!draws||draws.length<15)return;
+  if(!draws||draws.length<15){state._analyzingGame=null;return;}
   state.algoAnalysisGame=gameId;
   initAlgoGrid(); // show "analiz..." placeholders
 
@@ -1304,10 +1307,8 @@ async function analyzeAlgoPositions(gameId){
         actual.forEach(n=>{ if(!numHits[algo.id][n])numHits[algo.id][n]=0; if(pSet.has(n))numHits[algo.id][n]++; });
       }catch(e){}
     }
-    // Yield every 4 iterations to keep UI responsive
-    if((i-MIN_PRIOR)%4===3) await new Promise(r=>setTimeout(r,0));
-    // Abort if game changed while running
-    if(state.algoAnalysisGame!==gameId)return;
+    if((i-MIN_PRIOR)%3===2) await new Promise(r=>setTimeout(r,0));
+    if(state._analyzingGame!==gameId)return;
   }
 
   // Build score objects with lift vs baseline
@@ -1329,6 +1330,7 @@ async function analyzeAlgoPositions(gameId){
       .filter(x=>x.lift>0.12).sort((a,b)=>b.lift-a.lift).slice(0,15);
   });
   state.algoNumberScores[gameId]=numScores;
+  state._analyzingGame=null;
   if(state.selectedGame===gameId)initAlgoGrid();
 }
 
@@ -1479,9 +1481,14 @@ async function loadBtHistory(forceRefresh=false){
     let fetched=false;
     try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
     const fr=dataFreshnessMsg(id);
-    if(fetched)
+    if(fetched){
       showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
-    else if(fr&&fr.missing>0)
+      // Invalidate analysis caches for this game so they re-run with new data
+      delete state.algoPositionScores[id];
+      if(state.algoNumberScores)delete state.algoNumberScores[id];
+      if(state.algoPerf)delete state.algoPerf[id];
+      try{localStorage.removeItem('algoPerf_'+id);}catch(e){}
+    } else if(fr&&fr.missing>0)
       showToast(`⚠️ Kaynak henüz güncellemedi. Son bilinen: ${fr.lastDate}. Eksik: ${fr.missingDates.join(', ')}`);
     else
       showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
@@ -1495,15 +1502,14 @@ async function loadBtHistory(forceRefresh=false){
   state.allDatedDraws=[...state.datedDraws];
   applyExcludeFilter();
   state.drawGameId=id;
-  if(state.algoAnalysisGame!==id){ state.algoAnalysisGame=null; analyzeAlgoPositions(id); }
+  analyzeAlgoPositions(id);
   saveDrawCache(id);
   setTimeout(initAlgoGrid, 100);
   const m3panel=document.getElementById('tab-matrix3');
   if(m3panel&&m3panel.classList.contains('active'))renderMatrix3();
-  // Auto-run algo rank if tab is open or cache missing
+  // Only run algo rank if tab is currently open — never auto-run in background
   const arTab=document.getElementById('tab-algorank');
   if(arTab&&arTab.classList.contains('active'))runAlgoRank();
-  else if(!state.algoPerf||!state.algoPerf[id])setTimeout(runAlgoRank,500);
 }
 
 // ── Past-draws parser (generator) ───────────────────────────
@@ -2859,7 +2865,7 @@ async function runAlgoRank(){
     const pct=Math.round((i+1)/testN*100);
     const barEl=document.getElementById('arBar');if(barEl)barEl.style.width=pct+'%';
     const stEl=document.getElementById('arStatus');if(stEl)stEl.textContent=`${i+1}/${testN} çekiliş işlendi`;
-    if(i%5===4)await new Promise(r=>setTimeout(r,0));
+    if(i%2===1)await new Promise(r=>setTimeout(r,0));
   }
 
   state.frequency=sv.freq;state.pastDraws=sv.past;state.allPastDraws=sv.allPast;state.allDatedDraws=sv.dated;state.datedDraws=sv.dated2;
@@ -2871,6 +2877,7 @@ async function runAlgoRank(){
   });
   state.algoPerf=state.algoPerf||{};
   state.algoPerf[gameId]=perf;
+  try{localStorage.setItem('algoPerf_'+gameId,JSON.stringify(perf));}catch(e){}
 
   showAlgoRankTable(perf,gameId);
   initAlgoGrid();
