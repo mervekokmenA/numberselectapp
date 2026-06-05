@@ -368,11 +368,15 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div class="card">
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('matrix3')">🔢 Matrix 3</button>
+      <button class="tab-btn"        onclick="switchTab('algorank')">📊 Algo Rankı</button>
       <button class="tab-btn"        onclick="switchTab('stats')">📈 İstatistikler</button>
       <button class="tab-btn"        onclick="switchTab('hotcold')">🔥 Sıcak &amp; Soğuk</button>
     </div>
     <div class="tab-panel active" id="tab-matrix3">
       <div id="matrix3Panel"><div class="empty-state"><span class="empty-icon">🔢</span>Veri yükleyince analiz başlar.</div></div>
+    </div>
+    <div class="tab-panel" id="tab-algorank">
+      <div id="algoRankPanel"><div class="empty-state"><span class="empty-icon">📊</span>Veri yükleyince analiz başlar.</div></div>
     </div>
     <div class="tab-panel" id="tab-stats">
       <div class="stats-grid">
@@ -1473,6 +1477,10 @@ async function loadBtHistory(forceRefresh=false){
   setTimeout(initAlgoGrid, 100);
   const m3panel=document.getElementById('tab-matrix3');
   if(m3panel&&m3panel.classList.contains('active'))renderMatrix3();
+  // Auto-run algo rank if tab is open or cache missing
+  const arTab=document.getElementById('tab-algorank');
+  if(arTab&&arTab.classList.contains('active'))runAlgoRank();
+  else if(!state.algoPerf||!state.algoPerf[id])setTimeout(runAlgoRank,500);
 }
 
 // ── Past-draws parser (generator) ───────────────────────────
@@ -2259,6 +2267,14 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
 
 // ── Confidence ───────────────────────────────────────────────
 function calcConfidence(algo){
+  const gameId=state.selectedGame;
+  const perf=state.algoPerf&&state.algoPerf[gameId]&&state.algoPerf[gameId][algo];
+  if(perf&&perf.n>=5){
+    const game=getGame();
+    const hitRate=perf.avg/game.count;
+    const base=Math.round(hitRate*300);
+    return Math.min(99,Math.max(15,base+perf.m3rate*0.3));
+  }
   const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,dateshift:65,poswave:67,excelblend:78,fb10:70,smart:90};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
@@ -2635,10 +2651,122 @@ function renderHotCold(){
 
 // ── Tabs ──────────────────────────────────────────────────────
 function switchTab(name){
-  const names=['matrix3','stats','hotcold'];
+  const names=['matrix3','algorank','stats','hotcold'];
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',names[i]===name));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
   if(name==='matrix3')renderMatrix3();
+  if(name==='algorank')renderAlgoRank();
+}
+
+function renderAlgoRank(){
+  const panel=document.getElementById('algoRankPanel');
+  if(!panel)return;
+  const gameId=state.selectedGame;
+  const perf=state.algoPerf&&state.algoPerf[gameId];
+  if(perf){showAlgoRankTable(perf,gameId);return;}
+  panel.innerHTML=`<div style="font-size:.75rem;color:var(--muted);margin-bottom:10px">Son 50 çekiliş üzerinden tüm algoritmalar gerçek veriyle test edilir.</div>
+  <button class="parse-btn" onclick="runAlgoRank()">▶ Retrotest Başlat</button>`;
+}
+
+function showAlgoRankTable(perf,gameId){
+  const panel=document.getElementById('algoRankPanel');
+  const game=getGame(gameId);
+  const testN=Object.values(perf)[0]?.n||'?';
+  const minH=perf._minHits3||2;
+  const sorted=ALGOS.map(a=>({...a,...(perf[a.id]||{avg:0,m3rate:0,n:0})}))
+    .sort((a,b)=>b.avg-a.avg||b.m3rate-a.m3rate);
+  const maxAvg=sorted[0]?.avg||1;
+  const medals=['🥇','🥈','🥉'];
+  let html=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+    <span style="font-size:.63rem;color:var(--muted)">Son ${testN} çekiliş · ${minH}+ eşleşme</span>
+    <button class="copy-btn" onclick="runAlgoRank()">↺ Yenile</button>
+  </div>`;
+  html+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:3px 12px;align-items:center">
+    <span style="font-size:.58rem;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:3px">Algoritma</span>
+    <span style="font-size:.58rem;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:3px;text-align:right">Ort.İsabet</span>
+    <span style="font-size:.58rem;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:3px;text-align:right">${minH}+%</span>`;
+  sorted.forEach((a,rank)=>{
+    const bar=Math.round(a.avg/maxAvg*100);
+    const isSelected=a.id===state.selectedAlgo;
+    const m3color=a.m3rate>=25?'var(--green)':a.m3rate>=12?'var(--gold)':'var(--muted)';
+    html+=`
+    <div style="display:flex;align-items:center;gap:5px;padding:2px 0">
+      <span style="font-size:.62rem;width:14px;text-align:center">${medals[rank]||''}</span>
+      <div style="flex:1">
+        <div style="font-size:.68rem;${isSelected?'color:var(--green);font-weight:700':'color:var(--text)'}">${a.name}</div>
+        <div style="height:3px;background:var(--border);border-radius:2px;margin-top:2px"><div style="height:100%;width:${bar}%;background:${isSelected?'var(--green)':'var(--accent)'};border-radius:2px"></div></div>
+      </div>
+    </div>
+    <span style="font-family:monospace;font-size:.7rem;color:var(--accent);text-align:right">${a.avg}</span>
+    <span style="font-family:monospace;font-size:.7rem;color:${m3color};text-align:right">${a.m3rate}%</span>`;
+  });
+  html+='</div>';
+  panel.innerHTML=html;
+}
+
+async function runAlgoRank(){
+  const panel=document.getElementById('algoRankPanel');
+  if(!panel)return;
+  const gameId=state.selectedGame;
+  const game=getGame();
+  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws||[];
+  if(draws.length<10){panel.innerHTML='<div class="empty-state">En az 10 çekiliş gerekli.</div>';return;}
+  const testN=Math.min(50,draws.length-5);
+  const minHits3=game.id==='onnumara'?5:game.id==='sayisal'?3:2;
+  panel.innerHTML=`<div style="font-size:.73rem;color:var(--muted)">⏳ ${testN} çekiliş · ${ALGOS.length} algoritma test ediliyor...</div>
+  <div style="height:5px;background:var(--border);border-radius:3px;margin-top:8px"><div id="arBar" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width .15s"></div></div>
+  <div id="arStatus" style="font-size:.6rem;color:var(--muted);margin-top:4px"></div>`;
+
+  const totHits={},totM3={},totN={};
+  ALGOS.forEach(a=>{totHits[a.id]=0;totM3[a.id]=0;totN[a.id]=0;});
+
+  // Save state
+  const sv={freq:state.frequency,past:state.pastDraws,allPast:state.allPastDraws,dated:state.allDatedDraws,dated2:state.datedDraws};
+
+  for(let i=0;i<testN;i++){
+    const actual=draws[i];
+    const train=draws.slice(i+1);
+    if(train.length<3)continue;
+    const trainFlat=train.map(d=>Array.isArray(d)?d:[...d.nums,...(d.bonus||[])]);
+    const trainFreq=buildFreq(train);
+
+    // Set training state
+    state.frequency=trainFreq;
+    state.pastDraws=trainFlat;
+    state.allPastDraws=trainFlat;
+    state.allDatedDraws=train;
+    state.datedDraws=train;
+
+    const numSet=new Set(actual.nums);
+    for(const algo of ALGOS){
+      try{
+        const t=generateNumbers(game,algo.id);
+        const h=t.main.filter(n=>numSet.has(n)).length;
+        totHits[algo.id]+=h;
+        if(h>=minHits3)totM3[algo.id]++;
+        totN[algo.id]++;
+      }catch(e){}
+    }
+
+    const pct=Math.round((i+1)/testN*100);
+    const barEl=document.getElementById('arBar');if(barEl)barEl.style.width=pct+'%';
+    const stEl=document.getElementById('arStatus');if(stEl)stEl.textContent=`${i+1}/${testN} çekiliş işlendi`;
+    if(i%8===7)await new Promise(r=>setTimeout(r,0));
+  }
+
+  // Restore state
+  state.frequency=sv.freq;state.pastDraws=sv.past;state.allPastDraws=sv.allPast;state.allDatedDraws=sv.dated;state.datedDraws=sv.dated2;
+
+  const perf={_minHits3:minHits3};
+  ALGOS.forEach(a=>{
+    const n=totN[a.id]||1;
+    perf[a.id]={avg:+(totHits[a.id]/n).toFixed(2),m3rate:+(totM3[a.id]/n*100).toFixed(0),n};
+  });
+  state.algoPerf=state.algoPerf||{};
+  state.algoPerf[gameId]=perf;
+
+  showAlgoRankTable(perf,gameId);
+  initAlgoGrid(); // refresh algo grid confidence scores
 }
 
 function renderMatrix3(){
