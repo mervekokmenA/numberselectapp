@@ -2348,6 +2348,7 @@ async function generateTickets(){
   const game=getGame(),btn=document.getElementById('generateBtn');
   btn.classList.add('spinning');btn.disabled=true;
   btn.textContent='🎲 Sayılar çekiliyor...';
+  try{
   await new Promise(r=>setTimeout(r,350));
   const posScores=state.algoPositionScores[state.selectedGame];
   const strongPositions=posScores&&posScores[state.selectedAlgo]
@@ -2469,7 +2470,7 @@ async function generateTickets(){
   document.getElementById('ticketCard').style.display='block';
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
   state.totalGenerated+=state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
-  btn.classList.remove('spinning');btn.disabled=false;btn.textContent='🎰 Şanslı Sayıları Üret';
+  }finally{btn.classList.remove('spinning');btn.disabled=false;btn.textContent='🎰 Şanslı Sayıları Üret';}
 }
 async function findTicketByRank(){
   const start=parseInt(document.getElementById('ticketRankStart')?.value)||1;
@@ -2480,6 +2481,7 @@ async function findTicketByRank(){
   const game=getGame();
   const btn=document.getElementById('generateBtn');
   btn.classList.add('spinning');btn.disabled=true;
+  try{
   const posScores=state.algoPositionScores[state.selectedGame];
   const strongPositions=posScores&&posScores[state.selectedAlgo]
     ?new Set(posScores[state.selectedAlgo].filter(x=>x.lift>0.25).map(x=>x.pos)):null;
@@ -2501,7 +2503,6 @@ async function findTicketByRank(){
     btn.textContent=`🎯 #${end} üretiliyor... ${Math.round(uniqueCount/end*100)}%`;
     await new Promise(r=>setTimeout(r,0));
   }
-  btn.classList.remove('spinning');btn.disabled=false;btn.textContent='🎰 Şanslı Sayıları Üret';
   if(!rangeTickets.length){showToast('⚠️ Bilet bulunamadı');return;}
   const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
   const conf=calcConfidence(state.selectedAlgo);
@@ -2533,6 +2534,7 @@ async function findTicketByRank(){
   <div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px">🎯 ${rangeLabel}</div>
   ${rangeTickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums)).join('')}`;
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
+  }finally{btn.classList.remove('spinning');btn.disabled=false;btn.textContent='🎰 Şanslı Sayıları Üret';}
 }
 function saveAllTickets(){
   const {tickets,game}=state.lastTickets||{};
