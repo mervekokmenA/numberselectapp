@@ -2410,7 +2410,7 @@ async function generateTickets(){
   const _m3Draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws||[];
   const _m3OffFreq={};
   _m3Draws.slice(0,4).forEach(dr=>{
-    const sn=[...dr.nums].sort((a,b)=>a-b).slice(0,8);
+    const sn=[...dr.nums].sort((a,b)=>a-b);
     const sn_ns=[];let ss=0;sn.forEach(v=>{ss+=v;sn_ns.push(ss);});
     const snSet=new Set(sn);
     for(let i=1;i<sn.length-1;i++)for(let o=-2;o<=2;o++){const t=sn_ns[i]+o;if(t>=1&&snSet.has(t)&&sn.indexOf(t)>i)_m3OffFreq[o]=(_m3OffFreq[o]||0)+1;}
@@ -2642,20 +2642,19 @@ function renderMatrix3(){
   const ALPHA='ABCDEFGHIJKLMNOP';
   const analyzeDrawM3=draw=>{
     const nums=[...draw.nums].sort((a,b)=>a-b);
-    const n=Math.min(nums.length,8);
-    const sub=nums.slice(0,n);
+    const n=nums.length;
     const ns=[];let s=0;
-    for(let i=0;i<n;i++){s+=sub[i];ns.push(s);}
+    for(let i=0;i<n;i++){s+=nums[i];ns.push(s);}
     const nst=[];let nstS=0;
     for(let i=1;i<n;i++){nstS+=ns[i];if(i>=2)nst.push(nstS);}
-    const matches=[];const numSet=new Set(sub);
+    const matches=[];const numSet=new Set(nums);
     for(let i=1;i<n-1;i++){
       for(let off=-2;off<=2;off++){
         const target=ns[i]+off;
-        if(target>=1&&numSet.has(target)){const pos=sub.indexOf(target);if(pos>i)matches.push({lbl:'NS'+ALPHA.slice(0,i+1),val:ns[i],match:target,off,pos});}
+        if(target>=1&&numSet.has(target)){const pos=nums.indexOf(target);if(pos>i)matches.push({lbl:'NS'+ALPHA.slice(0,i+1),val:ns[i],match:target,off,pos});}
       }
     }
-    return{draw,nums:sub,ns,nst,matches};
+    return{draw,nums,ns,nst,matches};
   };
   const recent=draws.slice(0,4);
   const analyzed=recent.map(analyzeDrawM3);
@@ -2670,7 +2669,7 @@ function renderMatrix3(){
   let projHtml='';
   if(lastDraw){
     const gmax=getGame().max;
-    const lnums=[...lastDraw.nums].sort((a,b)=>a-b).slice(0,8);
+    const lnums=[...lastDraw.nums].sort((a,b)=>a-b);
     const lns=[];let ls=0;lnums.forEach(v=>{ls+=v;lns.push(ls);});
     const lnst=[];let lnstS=0;
     for(let i=1;i<lnums.length;i++){lnstS+=lns[i];if(i>=2)lnst.push(lnstS);}
@@ -2711,6 +2710,8 @@ function renderMatrix3(){
     const nsMods=ns.slice(1).map((v,i)=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;const hit=numSet.has(m);return wrapSpan(`NS${ALPHA.slice(0,i+2)}%${gameMax}=${m}`,hit?'color:var(--green);font-weight:700':'color:rgba(255,255,255,.3)');});
     const nstMods=nst.map((v,k)=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;const hit=numSet.has(m);return wrapSpan(`NST${k+1}%${gameMax}=${m}`,hit?'color:var(--green);font-weight:700':'color:rgba(255,255,255,.3)');});
     const modHits=[...ns.slice(1),...nst].some(v=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;return numSet.has(m);});
+    const candNums=[...new Set([...ns.slice(1),...nst].map(v=>((v%gameMax)+gameMax)%gameMax||gameMax))].sort((a,b)=>a-b);
+    const candHtml=candNums.map(m=>wrapSpan(m,numSet.has(m)?'color:var(--green);font-weight:800':'color:var(--text)')).join(' ');
     const mHtml=matches.length?`<div style="font-size:.6rem;color:var(--green);margin-top:3px;word-break:break-word">✓ ${matches.map(m=>`NS${ALPHA.slice(0,m.pos)}(${m.val})${m.off?`${m.off>0?'+':''}${m.off}`:''}=${m.match}`).join(' · ')}</div>`:'';
     const hasBorder=has||modHits;
     html+=`<div style="background:var(--surface2);border:1px solid ${hasBorder?'rgba(0,230,118,.3)':'var(--border)'};border-radius:8px;padding:7px 10px;margin-bottom:6px${hasBorder?';background:rgba(0,230,118,.04)':''}">
@@ -2720,6 +2721,7 @@ function renderMatrix3(){
       </div>
       <div style="font-family:monospace;font-size:.72rem;margin-bottom:5px;display:flex;flex-wrap:wrap;gap:4px 8px">${numsHtml}</div>
       <div style="font-family:monospace;font-size:.6rem;display:flex;flex-wrap:wrap;gap:2px 8px;line-height:1.8">${[...nsMods,...nstMods].join(' ')}</div>
+      <div style="font-family:monospace;font-size:.72rem;margin-top:4px;padding:3px 6px;background:rgba(255,255,255,.04);border-radius:5px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center"><span style="font-size:.55rem;color:var(--muted);flex-shrink:0">aday:</span>${candHtml}</div>
       ${mHtml}
     </div>`;
   });
