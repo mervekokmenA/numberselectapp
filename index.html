@@ -367,18 +367,16 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
   <div class="card">
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('saved')">🎫 Kaydedilen Biletler</button>
+      <button class="tab-btn active" onclick="switchTab('matrix3')">🔢 Matrix 3</button>
       <button class="tab-btn"        onclick="switchTab('stats')">📈 İstatistikler</button>
       <button class="tab-btn"        onclick="switchTab('hotcold')">🔥 Sıcak &amp; Soğuk</button>
-      <button class="tab-btn"        onclick="switchTab('matrix3')">🔢 Matrix 3</button>
     </div>
-    <div class="tab-panel active" id="tab-saved">
-      <div id="savedList"><div class="empty-state"><span class="empty-icon">🎟️</span>Henüz kaydedilmiş bilet yok.</div></div>
+    <div class="tab-panel active" id="tab-matrix3">
+      <div id="matrix3Panel"><div class="empty-state"><span class="empty-icon">🔢</span>Veri yükleyince analiz başlar.</div></div>
     </div>
     <div class="tab-panel" id="tab-stats">
       <div class="stats-grid">
         <div class="stat-box"><div class="stat-val" id="statGenerated">0</div><div class="stat-label">Üretilen</div></div>
-        <div class="stat-box"><div class="stat-val" id="statSaved">0</div><div class="stat-label">Kaydedilen</div></div>
         <div class="stat-box"><div class="stat-val" id="statDraws">0</div><div class="stat-label">Çekiliş</div></div>
         <div class="stat-box"><div class="stat-val" id="statUnique">—</div><div class="stat-label">Tekil Sayı</div></div>
       </div>
@@ -389,9 +387,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     </div>
     <div class="tab-panel" id="tab-hotcold">
       <div id="hotColdDisplay"><div class="empty-state"><span class="empty-icon">🌡️</span>Çekiliş verisi yükleyin.</div></div>
-    </div>
-    <div class="tab-panel" id="tab-matrix3">
-      <div id="matrix3Panel"><div class="empty-state"><span class="empty-icon">🔢</span>Veri yükleyince analiz başlar.</div></div>
     </div>
   </div>
 </div><!-- /page-generator -->
@@ -2419,7 +2414,6 @@ async function generateTickets(){
   ${posRow}
   <div style="display:flex;gap:8px;margin-bottom:8px;justify-content:flex-end;flex-wrap:wrap">
     <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
-    <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
   </div>
   <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:8px">
     <span style="font-size:.75rem;color:var(--muted);flex-shrink:0">Bilet No:</span>
@@ -2498,7 +2492,6 @@ async function findTicketByRank(){
   </div>
   <div style="display:flex;gap:8px;margin-bottom:8px;justify-content:flex-end;flex-wrap:wrap">
     <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
-    <button class="copy-btn" style="color:var(--green);border-color:rgba(0,230,118,.3)" onclick="saveAllTickets()">💾 ${label} Kaydet</button>
   </div>
   <div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px">🎯 ${rangeLabel}</div>
   ${rangeTickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums)).join('')}`;
@@ -2596,7 +2589,7 @@ function renderHotCold(){
 
 // ── Tabs ──────────────────────────────────────────────────────
 function switchTab(name){
-  const names=['saved','stats','hotcold','matrix3'];
+  const names=['matrix3','stats','hotcold'];
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',names[i]===name));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
   if(name==='matrix3')renderMatrix3();
