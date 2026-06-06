@@ -545,6 +545,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     </div>
   </div>
 
+  <div class="card" id="btHistoryCard" style="display:none">
+    <div class="card-title">📋 Test Geçmişi</div>
+    <div id="btHistory"></div>
+  </div>
+
 </div><!-- /page-backtest -->
 
 <!-- ═══════════ NEW: Tekli Sayı Bakımı ile Analiz ═══════════ -->
@@ -1511,6 +1516,8 @@ async function loadBtHistory(forceRefresh=false){
     const run=(fn)=>{try{fn();}catch(e){console.warn(fn.name,e);}};
     run(updateBtDateOptions);
     run(updateBtDateOptions2);
+    run(updateAlgoScores);
+    run(updateAlgoScores2);
     run(initNaSection);
     run(initAlgoGrid);
     run(updateStats);
@@ -2610,8 +2617,7 @@ async function generateTickets(){
     <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
   </div>
   ${lastDrawRow}${genPosHeader}
-  ${ticketsSorted.map(({t,score},i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums,score)).join('')}
-  ${_m3Html}`;
+  ${ticketsSorted.map(({t,score},i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums,score)).join('')}`;
   {const titleEl=document.getElementById('ticketCardTitle');if(titleEl){if(state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0){const ld=state.allDatedDraws[0];titleEl.textContent=`${ld.date} · ${ld.nums.join(' ')}${ld.bonus&&ld.bonus.length?' | '+ld.bonus.join(' '):''}`;titleEl.style.fontSize='0.82em';titleEl.style.letterSpacing='0';titleEl.style.textTransform='none';}else{titleEl.textContent='Şanslı Sayılarınız';titleEl.style.fontSize='';titleEl.style.letterSpacing='';titleEl.style.textTransform='';}}}
   document.getElementById('ticketCard').style.display='block';
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -3100,17 +3106,18 @@ function updateAlgoScores(){
   const aSet=new Set(actual.nums);
   const aBSet=new Set(actual.bonus);
   const total=game.count+(game.bonusCount||0);
-  const results=ALGOS.map(a=>{
+  const results=ALGOS.filter(a=>a.id!=='proensemble').map(a=>{
     let best=0;
-    for(let i=0;i<5;i++){
-      const pred=generateNumbers(game,a.id,freq,prior);
-      const m=pred.main.filter(n=>aSet.has(n)).length+(game.bonusCount>0?pred.bonus.filter(n=>aBSet.has(n)).length:0);
-      if(m>best)best=m;
+    for(let i=0;i<2;i++){
+      try{
+        const pred=generateNumbers(game,a.id,freq,prior);
+        const m=pred.main.filter(n=>aSet.has(n)).length+(game.bonusCount>0?pred.bonus.filter(n=>aBSet.has(n)).length:0);
+        if(m>best)best=m;
+      }catch(e){}
     }
     return{id:a.id,match:best};
   });
   const maxMatch=Math.max(...results.map(r=>r.match));
-  // Use shared analysis data (same source as generator tab — no separate wait needed)
   const posScores=state.algoPositionScores[gameId];
   const numScores=state.algoNumberScores[gameId];
   panel.innerHTML=`<div class="algo-score-panel">${results.map(r=>{
@@ -3165,12 +3172,10 @@ function updateAlgoScores2(){
   const aSet=new Set(actual.nums);
   const aBSet=new Set(actual.bonus);
   const total=game.count+(game.bonusCount||0);
-  const results=ALGOS.map(a=>{
+  const results=ALGOS.filter(a=>a.id!=='proensemble').map(a=>{
     let best=0;
-    for(let i=0;i<5;i++){
-      const pred=generateNumbers(game,a.id,freq,prior);
-      const m=pred.main.filter(n=>aSet.has(n)).length+(game.bonusCount>0?pred.bonus.filter(n=>aBSet.has(n)).length:0);
-      if(m>best)best=m;
+    for(let i=0;i<2;i++){
+      try{const pred=generateNumbers(game,a.id,freq,prior);const m=pred.main.filter(n=>aSet.has(n)).length+(game.bonusCount>0?pred.bonus.filter(n=>aBSet.has(n)).length:0);if(m>best)best=m;}catch(e){}
     }
     return{id:a.id,match:best};
   });
@@ -3612,7 +3617,8 @@ function renderBtHistory(){
       <div class="bt-hist-score">${h.score}</div>
     </div>`).join('')
     :'<div class="empty-state"><span class="empty-icon">🔬</span>Henüz test çalıştırılmadı.</div>';
-  const c=document.getElementById('btHistory');if(c)c.innerHTML=html;
+  const c=document.getElementById('btHistory');
+  if(c){c.innerHTML=html;const card=document.getElementById('btHistoryCard');if(card)card.style.display=state.btHistory.length?'':'none';}
   const c2=document.getElementById('btHistory2');if(c2)c2.innerHTML=html;
 }
 
