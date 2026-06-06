@@ -1299,6 +1299,7 @@ async function analyzeAlgoPositions(gameId){
     actual.forEach(n=>{ numApps[n]=(numApps[n]||0)+1; });
 
     for(const algo of ALGOS){
+      if(algo.id==='proensemble')continue;
       try{
         const pred=generateNumbers(game,algo.id,freq,prior);
         const pSet=new Set(pred.main);
@@ -2928,21 +2929,22 @@ function renderMatrix3(){
       return `<span style="white-space:nowrap;font-family:monospace;font-size:.62rem;background:rgba(255,255,255,.04);border-radius:4px;padding:1px 6px"><span style="color:var(--muted)">${lbl}</span><span style="color:rgba(255,255,255,.25)"> == </span><span style="color:var(--accent);font-weight:700">${m}</span></span>`;
     }).join('');
     const candArr=[...candidates].sort((a,b)=>a-b);
-    projHtml=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px">
+    projHtml=`<div style="background:linear-gradient(135deg,rgba(100,120,255,.08),rgba(100,120,255,.03));border:1px solid rgba(100,120,255,.35);border-radius:10px;padding:10px 12px;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:.72rem;font-weight:600">📐 Gelecek Çekiliş Projeksiyonu</span>
+        <span style="font-size:.75rem;font-weight:700;color:var(--accent)">🎯 Yeni Oyun Projeksiyonu</span>
         <button class="copy-btn" onclick="renderMatrix3()" style="padding:2px 8px;font-size:.65rem">↺ Yenile</button>
       </div>
-      <div style="font-size:.63rem;color:var(--muted);margin-bottom:6px">Son çekiliş (${lastDraw.date}) NS/NST değerleri mod ${gmax}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px 6px;line-height:1">${rowsHtml}</div>
-      <div style="margin-top:8px;padding-top:6px;border-top:1px solid var(--border)">
-        <div style="font-size:.63rem;color:var(--muted);margin-bottom:4px">Aday sayılar (mod sonuçları):</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">${candArr.map(v=>`<span style="background:rgba(100,120,255,.15);border:1px solid rgba(100,120,255,.3);border-radius:6px;padding:2px 8px;font-size:.72rem;font-weight:700;color:var(--accent)">${v}</span>`).join('')}</div>
+      <div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">Son çekiliş (${lastDraw.date}) NS/NST → mod ${gmax} → aday sayılar</div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px 6px;line-height:1.9">${rowsHtml}</div>
+      <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(100,120,255,.25)">
+        <div style="font-size:.6rem;color:var(--muted);margin-bottom:5px">Gelecek çekiliş aday sayıları:</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">${candArr.map(v=>`<span style="background:rgba(100,120,255,.2);border:1px solid rgba(100,120,255,.45);border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;color:var(--accent)">${v}</span>`).join('')}</div>
       </div>
     </div>`;
   }
-  let html=`<div style="font-size:.68rem;color:var(--muted);margin-bottom:6px;line-height:1.5">NS<strong>AB</strong>=A+B · NS<strong>ABC</strong>=A+B+C · … &nbsp;|&nbsp; NST1=NSAB+NSABC · …<br>Yeşil = toplam başka bir sayıya eşit (±2) · Son 4 çekiliş</div>
-  ${projHtml}`;
+  let html=`<div style="font-size:.65rem;color:var(--muted);margin-bottom:8px;line-height:1.6">NS<strong>AB</strong>=A+B &nbsp;·&nbsp; NS<strong>ABC</strong>=A+B+C &nbsp;·&nbsp; NST1=NSAB+NSABC &nbsp;·&nbsp; Yeşil = mod eşleşmesi<br><span style="color:rgba(255,255,255,.3)">Son 4 çekiliş analizi + yeni oyun projeksiyonu</span></div>
+  ${projHtml}
+  <div style="font-size:.62rem;font-weight:600;color:var(--muted);margin:6px 0 5px;padding-left:2px">▸ Son 4 Çekiliş</div>`;
   analyzed.forEach(({draw,nums,ns,nst,matches})=>{
     const n=nums.length;
     const matchNums=new Set(matches.map(m=>m.match));
@@ -4152,7 +4154,7 @@ function toggleExcludeLast(val){
   state.excludeLastDraw=val;
   try{localStorage.setItem('excludeLastDraw',val?'1':'0');}catch(e){}
   applyExcludeFilter();
-  if(state.datedDraws.length||state.pastDraws.length) analyzeAlgoPositions(state.selectedGame);
+  updateStats();
 }
 
 // ── Draw cache helpers ────────────────────────────────────────
