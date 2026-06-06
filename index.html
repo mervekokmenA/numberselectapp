@@ -1498,6 +1498,16 @@ async function loadBtHistory(forceRefresh=false){
   // Non-critical UI updates deferred so data is available immediately
   const _deferredId=id;
   setTimeout(()=>{
+    // Populate textareas so manual parse buttons and BT panel work
+    const ddi=document.getElementById('datedDrawsInput');
+    if(ddi&&DRAW_DATA[_deferredId])ddi.value=DRAW_DATA[_deferredId];
+    const plain=(DRAW_DATA[_deferredId]||'').split('\n').map(l=>l.replace(/^\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?\s+/,'')).join('\n');
+    const pdi=document.getElementById('pastDrawsInput');if(pdi)pdi.value=plain;
+    // Show parse status so user sees confirmation
+    const bps=document.getElementById('btParseStatus');
+    if(bps&&state.datedDraws.length){bps.className='parse-status success';bps.textContent=`✅ ${state.datedDraws.length} tarihli çekiliş yüklendi (en yeni: ${state.datedDraws[0]?.date||''}).`;}
+    const ps=document.getElementById('parseStatus');
+    if(ps&&state.pastDraws.length){ps.className='parse-status success';ps.textContent=`✅ ${state.pastDraws.length} çekiliş yüklendi. ${Object.keys(state.frequency).length} tekil sayı bulundu.`;}
     const run=(fn)=>{try{fn();}catch(e){console.warn(fn.name,e);}};
     run(updateBtDateOptions);
     run(updateBtDateOptions2);
