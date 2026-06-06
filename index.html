@@ -2491,7 +2491,7 @@ function calcTicketScore(td,game){
   return Math.min(99,sumScore+oeScore+lhScore+freqScore);
 }
 
-function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null,excludeBonusNums=null,score=null){
+function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null,excludeBonusNums=null,score=null,useStatic=false){
   let ballsHtml=td.main.map((n,i)=>{
     const pos=i+1,isStrong=strongPositions&&strongPositions.has(pos);
     const isExact=excludeNums&&excludeNums.has(n);
@@ -2501,7 +2501,8 @@ function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null
     if(isExact){if(!isStrong)boxP.push('0 0 0 3px rgba(0,230,118,1)');boxP.push('0 0 10px 3px rgba(0,230,118,.5)');}
     else if(isNear){boxP.push('0 0 0 2px rgba(255,200,0,.85)');}
     const es=boxP.length?'box-shadow:'+boxP.join(','):'';
-    return ballEl(n,isExact?'green':isNear?'lightyellow':game.mainColor,i*70,false,'',es);
+    const cls=isExact?'green':isNear?'lightyellow':game.mainColor;
+    return useStatic?`<div class="ball ${cls}" style="animation:none${es?';'+es:''}">${n}</div>`:ballEl(n,cls,i*70,false,'',es);
   }).join('');
   if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>{
     const isExact=excludeBonusNums&&excludeBonusNums.has(n);
@@ -2510,7 +2511,8 @@ function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null
     if(isExact){boxP.push('0 0 0 3px rgba(0,230,118,1)');boxP.push('0 0 10px 3px rgba(0,230,118,.5)');}
     else if(isNear){boxP.push('0 0 0 2px rgba(255,200,0,.85)');}
     const es=boxP.length?'box-shadow:'+boxP.join(','):'';
-    return ballEl(n,isExact?'green':isNear?'lightyellow':game.bonusColor,(td.main.length+i)*70,true,'',es);
+    const cls=isExact?'green':isNear?'lightyellow':game.bonusColor;
+    return useStatic?`<div class="ball ${cls} special" style="animation:none${es?';'+es:''}">${n}</div>`:ballEl(n,cls,(td.main.length+i)*70,true,'',es);
   }).join('');
   const _matchCount=excludeNums?td.main.filter(n=>excludeNums.has(n)).length+(excludeBonusNums?td.bonus.filter(n=>excludeBonusNums.has(n)).length:0):0;
   const _ticketBg=_matchCount>0?'background:rgba(0,230,118,.07);border-color:rgba(0,230,118,.25);':'';
@@ -2549,11 +2551,18 @@ async function generateTickets(){
   const seenKeys=new Set();
   const tickets=[];
   let attempts=0;
+  const _isPe=state.selectedAlgo==='proensemble';
+  const _yieldEvery=_isPe?1:10;
+  const _shouldYield=_isPe||state.ticketCount>20;
   while(tickets.length<state.ticketCount&&attempts<state.ticketCount*20){
     attempts++;
     const t=generateNumbers(game,state.selectedAlgo);
     const k=[...t.main,...t.bonus].join(',');
     if(!seenKeys.has(k)){seenKeys.add(k);tickets.push(t);}
+    if(_shouldYield&&tickets.length>0&&tickets.length%_yieldEvery===0){
+      if(state.ticketCount>10)btn.textContent=`🎲 ${tickets.length}/${state.ticketCount}...`;
+      await new Promise(r=>setTimeout(r,0));
+    }
   }
   state.lastTickets={tickets,game};
   const container=document.getElementById('ticketContainer');
@@ -2595,6 +2604,7 @@ async function generateTickets(){
       <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:wrap">${mainBalls}${bonusBalls}</div>
     </div>`;
   })():'';
+  const useStatic=state.ticketCount>10;
   const ticketsSorted=tickets.map(t=>({t,score:calcTicketScore(t,game)})).sort((a,b)=>b.score-a.score);
   container.innerHTML=`
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:6px">
@@ -2617,7 +2627,7 @@ async function generateTickets(){
     <button class="copy-btn" onclick="findTicketByRank()">🎯 Bul</button>
   </div>
   ${lastDrawRow}${genPosHeader}
-  ${ticketsSorted.map(({t,score},i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums,score)).join('')}`;
+  ${ticketsSorted.map(({t,score},i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums,score,useStatic)).join('')}`;
   {const titleEl=document.getElementById('ticketCardTitle');if(titleEl){if(state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0){const ld=state.allDatedDraws[0];titleEl.textContent=`${ld.date} · ${ld.nums.join(' ')}${ld.bonus&&ld.bonus.length?' | '+ld.bonus.join(' '):''}`;titleEl.style.fontSize='0.82em';titleEl.style.letterSpacing='0';titleEl.style.textTransform='none';}else{titleEl.textContent='Şanslı Sayılarınız';titleEl.style.fontSize='';titleEl.style.letterSpacing='';titleEl.style.textTransform='';}}}
   document.getElementById('ticketCard').style.display='block';
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -2684,7 +2694,7 @@ async function findTicketByRank(){
     <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
   </div>
   <div style="font-size:.74rem;color:var(--accent);margin-bottom:8px;padding:6px 10px;background:rgba(108,99,255,.08);border:1px solid rgba(108,99,255,.3);border-radius:8px">🎯 ${rangeLabel}</div>
-  ${rangeTickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums)).join('')}`;
+  ${rangeTickets.map((t,i)=>renderTicket(t,game,state.selectedAlgo,i,strongPositions,excludeNums,excludeBonusNums,null,rangeTickets.length>10)).join('')}`;
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
   }finally{btn.classList.remove('spinning');btn.disabled=false;btn.textContent='🎰 Şanslı Sayıları Üret';}
 }
