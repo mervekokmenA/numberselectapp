@@ -586,6 +586,24 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
 </div>
 
+<!-- ═══════════ Oyun No → Sayı Üretimi ═══════════ -->
+<div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="oyunNoSection">
+  <div class="card">
+    <div class="card-title">🎫 Oyun Numarasına Göre Sayı Üretimi</div>
+    <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
+      Biletinizdeki <strong>Oyun No</strong>'yu girin. Aynı numara her zaman aynı sayı kolonlarını verir.
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
+      <input type="text" id="oyunNoInput" inputmode="numeric" placeholder="Oyun Numarası — örn: 3567472650"
+        style="flex:1;min-width:180px;font-size:.88rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;outline:none"
+        oninput="oyunNoHesapla()" onkeydown="if(event.key==='Enter')oyunNoHesapla()">
+      <button class="run-btn" onclick="oyunNoHesapla()" style="flex-shrink:0;padding:9px 20px">🎯 Üret</button>
+    </div>
+    <div class="game-grid" id="oyunNoGameGrid" style="margin-bottom:10px"></div>
+    <div id="oyunNoResult"><div class="empty-state"><span class="empty-icon">🎫</span>Oyun numarasını girin.</div></div>
+  </div>
+</div>
+
 </div><!-- /app -->
 <div id="toast"></div>
 
@@ -3116,10 +3134,9 @@ function updateAlgoScores(){
   const aSet=new Set(actual.nums);
   const aBSet=new Set(actual.bonus);
   const total=game.count+(game.bonusCount||0);
-  const results=ALGOS.map(a=>{
-    const trials=a.id==='proensemble'?1:2;
+  const results=ALGOS.filter(a=>a.id!=='proensemble').map(a=>{
     let best=0;
-    for(let i=0;i<trials;i++){
+    for(let i=0;i<2;i++){
       try{
         const pred=generateNumbers(game,a.id,freq,prior);
         const m=pred.main.filter(n=>aSet.has(n)).length+(game.bonusCount>0?pred.bonus.filter(n=>aBSet.has(n)).length:0);
@@ -3183,10 +3200,9 @@ function updateAlgoScores2(){
   const aSet=new Set(actual.nums);
   const aBSet=new Set(actual.bonus);
   const total=game.count+(game.bonusCount||0);
-  const results=ALGOS.map(a=>{
-    const trials=a.id==='proensemble'?1:2;
+  const results=ALGOS.filter(a=>a.id!=='proensemble').map(a=>{
     let best=0;
-    for(let i=0;i<trials;i++){
+    for(let i=0;i<2;i++){
       try{const pred=generateNumbers(game,a.id,freq,prior);const m=pred.main.filter(n=>aSet.has(n)).length+(game.bonusCount>0?pred.bonus.filter(n=>aBSet.has(n)).length:0);if(m>best)best=m;}catch(e){}
     }
     return{id:a.id,match:best};
@@ -4213,13 +4229,84 @@ function loadDrawCaches(){
   });
 }
 
+// ── Oyun No → Sayı Üretimi ───────────────────────────────────
+function _fnvHash(s){
+  let h=2166136261>>>0;
+  for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619)>>>0;}
+  return h||1;
+}
+function _seededRng(seed){
+  let s=seed>>>0;
+  return()=>{
+    s+=0x6D2B79F5;let t=s;
+    t=Math.imul(t^(t>>>15),1|t);
+    t^=t+Math.imul(t^(t>>>7),61|t);
+    return((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+function _seededPick(seed,count,max){
+  const rng=_seededRng(seed);
+  const pool=Array.from({length:max},(_,i)=>i+1);
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  return pool.slice(0,count).sort((a,b)=>a-b);
+}
+function initOyunNoGameGrid(){
+  const g=document.getElementById('oyunNoGameGrid');if(!g)return;
+  if(!state.oyunNoGame)state.oyunNoGame='super';
+  g.innerHTML=GAMES.map(gm=>
+    `<button class="game-btn${state.oyunNoGame===gm.id?' active':''}" onclick="state.oyunNoGame='${gm.id}';initOyunNoGameGrid();oyunNoHesapla()">${gm.emoji} ${gm.name}</button>`
+  ).join('');
+}
+function oyunNoHesapla(){
+  const raw=(document.getElementById('oyunNoInput')?.value||'').trim().replace(/\D/g,'');
+  const res=document.getElementById('oyunNoResult');if(!res)return;
+  if(!raw||raw.length<4){
+    res.innerHTML='<div class="empty-state"><span class="empty-icon">🎫</span>Oyun numarasını girin.</div>';return;
+  }
+  const game=getGame(state.oyunNoGame||'super');
+  const BSZ=mobileBSZ();
+  const reversed=raw.split('').reverse().join('');
+  const digitSum=raw.split('').reduce((s,c)=>s+(+c),0).toString();
+  const kolonlar=[
+    {label:'Kolon 1',seed:_fnvHash(raw)},
+    {label:'Kolon 2',seed:_fnvHash(reversed)},
+    {label:'Kolon 3',seed:_fnvHash(digitSum+raw.slice(-4))},
+  ].map(({label,seed})=>{
+    const main=_seededPick(seed,game.count,game.max);
+    const bonus=game.bonusCount>0?_seededPick(seed^0xA5B6C7D8,game.bonusCount,game.bonusMax):[];
+    const copyText=label+'\n'+main.join(' ')+(bonus.length?' | '+bonus.join(' '):'');
+    const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n');
+    const mainHtml=main.map(n=>staticBall(n,game.mainColor,'',BSZ)).join('');
+    const bonHtml=bonus.length?`<div class="balls-divider">+</div>`+bonus.map(n=>staticBall(n,game.bonusColor+' special','',BSZ)).join(''):'';
+    const score=calcTicketScore({main,bonus},game);
+    const sc=score>=75?'#00e676':score>=55?'#ffc400':score>=35?'#ff9100':'#ff5252';
+    const sbg=score>=75?'rgba(0,230,118,.15)':score>=55?'rgba(255,196,0,.15)':score>=35?'rgba(255,145,0,.15)':'rgba(255,82,82,.15)';
+    return `<div class="ticket" style="margin-bottom:6px;--ball-size:${BSZ};cursor:pointer;user-select:none;-webkit-user-select:none"
+      onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()"
+      ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()" oncontextmenu="return false">
+      <span class="ticket-idx" style="font-size:.55rem;line-height:1.4;text-align:center">${label.replace('Kolon ','K')}</span>
+      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:wrap">${mainHtml}${bonHtml}</div>
+      <span style="font-size:.58rem;font-weight:700;padding:2px 6px;border-radius:10px;background:${sbg};color:${sc};white-space:nowrap;flex-shrink:0;align-self:center">%${score}</span>
+    </div>`;
+  });
+  res.innerHTML=`
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">
+      ${game.emoji} <strong style="color:var(--text)">${game.name}</strong>
+      &nbsp;·&nbsp; Oyun No: <code style="color:var(--accent);font-size:.8rem">${raw}</code>
+    </div>
+    ${kolonlar.join('')}
+    <div style="font-size:.63rem;color:var(--muted);margin-top:6px;padding:5px 8px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
+      💡 Her kolon farklı bir türetme yöntemiyle üretilmiştir. Uzun basarak kopyalayabilirsiniz.
+    </div>`;
+}
+
 // ── Boot ──────────────────────────────────────────────────────
 (function(){
   try{const v=localStorage.getItem('excludeLastDraw');if(v!==null){state.excludeLastDraw=v==='1';}}catch(e){}
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();
 </script>
 </body>
 </html>
