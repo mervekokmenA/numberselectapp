@@ -1458,8 +1458,6 @@ function _parseDrawDataDirect(id){
   draws.sort((a,b)=>b.date.localeCompare(a.date));
   state.allDatedDraws=draws;
   state.datedDraws=draws;
-  updateBtDateOptions();
-  initNaSection();
 }
 
 async function loadBtHistory(forceRefresh=false){
@@ -1495,18 +1493,25 @@ async function loadBtHistory(forceRefresh=false){
   applyExcludeFilter();
   // Frequency map for generator tab
   state.frequency=buildFreq(state.datedDraws);
-  // Sync generator textarea so manual parse still works
-  const plain=(DRAW_DATA[id]||'').split('\n').map(l=>l.replace(/^\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?\s+/,'')).join('\n');
-  const pdi=document.getElementById('pastDrawsInput'); if(pdi)pdi.value=plain;
   state.drawGameId=id;
-  analyzeAlgoPositions(id);
   saveDrawCache(id);
-  setTimeout(()=>{initAlgoGrid();updateStats();renderFreqChart();renderHotCold();}, 50);
-  const m3panel=document.getElementById('tab-matrix3');
-  if(m3panel&&m3panel.classList.contains('active'))renderMatrix3();
-  // Only run algo rank if tab is currently open — never auto-run in background
-  const arTab=document.getElementById('tab-algorank');
-  if(arTab&&arTab.classList.contains('active'))runAlgoRank();
+  // Non-critical UI updates deferred so data is available immediately
+  const _deferredId=id;
+  setTimeout(()=>{
+    const run=(fn)=>{try{fn();}catch(e){console.warn(fn.name,e);}};
+    run(updateBtDateOptions);
+    run(updateBtDateOptions2);
+    run(initNaSection);
+    run(initAlgoGrid);
+    run(updateStats);
+    run(renderFreqChart);
+    run(renderHotCold);
+    const m3panel=document.getElementById('tab-matrix3');
+    if(m3panel&&m3panel.classList.contains('active'))try{renderMatrix3();}catch(e){}
+    const arTab=document.getElementById('tab-algorank');
+    if(arTab&&arTab.classList.contains('active'))try{runAlgoRank();}catch(e){}
+    analyzeAlgoPositions(_deferredId);
+  }, 0);
 }
 
 // ── Past-draws parser (generator) ───────────────────────────
@@ -2688,6 +2693,7 @@ function deleteTicket(id){
 }
 function renderSavedTickets(){
   const c=document.getElementById('savedList');
+  if(!c)return;
   if(!state.savedTickets.length){c.innerHTML='<div class="empty-state"><span class="empty-icon">🎟️</span>Henüz kaydedilmiş bilet yok.</div>';return;}
   c.innerHTML=state.savedTickets.map(t=>`
     <div class="saved-ticket">
@@ -2723,10 +2729,10 @@ function updateRunCounters(){
   if(bc2){bc2.style.display=state.btRunCount2>0?'inline':'none';bc2.textContent=`${state.btRunCount2}× çalıştırıldı`;}
 }
 function updateStats(){
-  document.getElementById('statGenerated').textContent=state.totalGenerated;
-  document.getElementById('statSaved').textContent=state.savedTickets.length;
-  document.getElementById('statDraws').textContent=state.pastDraws.length;
-  document.getElementById('statUnique').textContent=Object.keys(state.frequency).length||'—';
+  const s=(id,v)=>{const e=document.getElementById(id);if(e)e.textContent=v;};
+  s('statGenerated',state.totalGenerated);
+  s('statDraws',state.pastDraws.length);
+  s('statUnique',Object.keys(state.frequency).length||'—');
 }
 function renderFreqChart(){
   const chart=document.getElementById('freqChart'),freq=state.frequency;
@@ -3051,14 +3057,12 @@ function parseDatedDraws(){
 
 function updateBtDateOptions(){
   const sel=document.getElementById('btDate');
-  // Skip the 2 oldest draws (insufficient prior data); display oldest→newest; pre-select newest
+  if(!sel)return;
   const newest=state.datedDraws.slice(0,Math.max(0,state.datedDraws.length-2));
   if(!newest.length){sel.innerHTML='<option value="">— Yeterli veri yok —</option>';return;}
-  const asc=[...newest].reverse(); // oldest first for display
+  const asc=[...newest].reverse();
   sel.innerHTML=asc.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
-  sel.value=newest[0].date; // newest pre-selected
-  updateAlgoScores();
-  updateBtDateOptions2();
+  sel.value=newest[0].date;
 }
 
 const ALGO_SHORT={proensemble:'🧬 ProEnsemble',random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG *',star:'🌟 Star',starv2:'🌟 StarV2',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup',smart:'🧠 Smart *'};
@@ -3127,7 +3131,6 @@ function updateBtDateOptions2(){
   const asc2=[...newest2].reverse();
   sel.innerHTML=asc2.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
   sel.value=newest2[0].date;
-  updateAlgoScores2();
 }
 
 function updateAlgoScores2(){
@@ -4148,7 +4151,6 @@ function applyExcludeFilter(){
   const skip=state.excludeLastDraw?1:0;
   state.pastDraws=(state.allPastDraws||[]).slice(skip);
   state.datedDraws=(state.allDatedDraws||[]).slice(skip);
-  updateBtDateOptions();
 }
 function toggleExcludeLast(val){
   state.excludeLastDraw=val;
