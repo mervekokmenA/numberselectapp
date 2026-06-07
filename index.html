@@ -4084,6 +4084,59 @@ function runNaTransform(){
   document.getElementById('naTransformResult').innerHTML=html;
 }
 
+// ── Süperstar (Joker) birleşik skorlama motoru ──────────────────
+// draws: en yeni→en eski sıralı dizi. Tüm sinyaller tek noktada üretilir,
+// böylece canlı tahmin ile geçmiş test BİREBİR aynı algoritmayı kullanır.
+function _naJokerScores(draws,MAX){
+  const freq={},lastSeen={},seq=[];
+  draws.forEach((d,i)=>{
+    const j=d.bonus?.[0];
+    if(!j||j<1||j>MAX)return;
+    seq.push(j);
+    freq[j]=(freq[j]||0)+1;
+    if(lastSeen[j]===undefined)lastSeen[j]=i;
+  });
+  const total=seq.length;
+  if(total<3)return null;
+  for(let n=1;n<=MAX;n++){if(freq[n]===undefined)freq[n]=0;if(lastSeen[n]===undefined)lastSeen[n]=total;}
+  const expGap=Math.max(total/MAX,1);
+  // Sıralı delta dağılımı (bir önceki Süperstar'a göre fark)
+  const deltas=[];
+  for(let i=0;i<seq.length-1;i++)deltas.push((seq[i]-seq[i+1]+MAX)%MAX);
+  const dfreq={};deltas.forEach(d=>{dfreq[d]=(dfreq[d]||0)+1;});
+  // Markov geçiş matrisi: a (eski) → b (yeni)
+  const trans={};
+  for(let i=seq.length-1;i>0;i--){const a=seq[i],b=seq[i-1];(trans[a]=trans[a]||{})[b]=(trans[a][b]||0)+1;}
+  const prevJ=seq[0];
+  const fromPrev=trans[prevJ]||{};
+  const fromPrevTot=Object.values(fromPrev).reduce((s,c)=>s+c,0)||1;
+  const scored=[];
+  for(let n=1;n<=MAX;n++){
+    const gap=lastSeen[n],f=freq[n];
+    const gapSc=Math.min(3,gap/expGap)/3;                       // 0..1 gecikme
+    const freqSc=Math.max(0,1-f/expGap);                        // 0..1 düşük frekans
+    const dl=((n-prevJ+MAX)%MAX);
+    const deltaSc=Math.min(1,(dfreq[dl]||0)/Math.max(deltas.length,1)*MAX/3); // sıralı delta
+    const markovSc=Math.min(1,(fromPrev[n]||0)/fromPrevTot*MAX/4);            // Markov geçişi
+    const rw=seq.slice(0,8).filter(v=>v===n).length;
+    const pw=seq.slice(8,28).filter(v=>v===n).length;
+    const revSc=(pw>0&&rw===0)?Math.min(1,pw/3):0;              // soğuma sonrası dönüş
+    const score=gapSc*0.30+freqSc*0.25+deltaSc*0.15+markovSc*0.20+revSc*0.10;
+    const sigs=[
+      {s:gapSc*0.30,t:`${gap} çekiliştir yok`},
+      {s:markovSc*0.20,t:`${prevJ}→${n} geçişi ${fromPrev[n]||0}×`},
+      {s:freqSc*0.25,t:`${f}× görüldü (bek. ${expGap.toFixed(1)}×)`},
+      {s:deltaSc*0.15,t:`Δ${dl} sık (${dfreq[dl]||0}×)`},
+      {s:revSc*0.10,t:'Soğuma sonrası dönüş'},
+    ].sort((a,b)=>b.s-a.s);
+    scored.push({n,score,gap,f,gapSc,freqSc,deltaSc,markovSc,dl,reason:sigs[0].t});
+  }
+  scored.sort((a,b)=>b.score-a.score||b.gap-a.gap||a.n-b.n);
+  return {scored,total,freq,lastSeen,seq,expGap,deltas,dfreq,prevJ,fromPrev};
+}
+
+const _NA_JOKER_K=12; // aday/tahmin sayısı
+
 function runNaJoker(){
   const el=document.getElementById('naJokerResult');
   // Always use Sayısal Loto built-in data for Süperstar analysis
@@ -4101,59 +4154,18 @@ function runNaJoker(){
   draws.sort((a,b)=>b.date.localeCompare(a.date));
   const MAX=90; // Sayısal Loto Süperstar aralığı
 
-  const freq={};const lastSeen={};const jokers=[];
-  draws.forEach((d,i)=>{
-    const j=d.bonus?.[0];
-    if(!j||j<1||j>MAX)return;
-    jokers.push({v:j,date:d.date,nums:d.nums});
-    freq[j]=(freq[j]||0)+1;
-    if(lastSeen[j]===undefined)lastSeen[j]=i;
-  });
-  const total=jokers.length;
-  if(!total){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Bu veride Süperstar sayısı bulunamadı.</div>';return;}
-
-  for(let n=1;n<=MAX;n++){
-    if(freq[n]===undefined)freq[n]=0;
-    if(lastSeen[n]===undefined)lastSeen[n]=total;
-  }
+  const eng=_naJokerScores(draws,MAX);
+  if(!eng){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Bu veride Süperstar sayısı bulunamadı.</div>';return;}
+  const {scored,total,freq,lastSeen,expGap,deltas,dfreq,prevJ}=eng;
+  // jokers: ana sayı örtüşmesi vb. için zengin nesne listesi
+  const jokers=draws.filter(d=>{const j=d.bonus?.[0];return j&&j>=1&&j<=MAX;}).map(d=>({v:d.bonus[0],date:d.date,nums:d.nums}));
 
   const hot=Object.entries(freq).map(([n,f])=>({n:+n,f})).sort((a,b)=>b.f-a.f||a.n-b.n).slice(0,10);
   const cold=Object.entries(lastSeen).map(([n,g])=>({n:+n,g,f:freq[n]||0})).sort((a,b)=>b.g-a.g||a.n-b.n).slice(0,10);
-
-  // Delta analysis
-  const deltas=[];
-  for(let i=0;i<jokers.length-1;i++)deltas.push((jokers[i].v-jokers[i+1].v+MAX)%MAX);
-  const dfreq={};deltas.forEach(d=>{dfreq[d]=(dfreq[d]||0)+1;});
   const topDeltas=Object.entries(dfreq).sort((a,b)=>b[1]-a[1]).slice(0,6);
-
-  // Overlap: joker in main numbers
   const overlap=jokers.filter(j=>j.nums&&j.nums.includes(j.v)).length;
 
-  const prevJ=jokers[0].v;
-  const expGap=total/MAX;
-  // Multi-signal scoring for all 90 numbers
-  const scored=[];
-  for(let n=1;n<=MAX;n++){
-    const gap=(lastSeen[n]!==undefined)?lastSeen[n]:total;
-    const f=freq[n]||0;
-    const gapSc=Math.min(4,gap/expGap);
-    const freqSc=Math.max(0,1-f/expGap);
-    const dl=((n-prevJ+MAX)%MAX);
-    const deltaSc=(dfreq[dl]||0)/Math.max(deltas.length,1)*5;
-    const rw=jokers.slice(0,10).filter(j=>j.v===n).length;
-    const pw=jokers.slice(10,30).filter(j=>j.v===n).length;
-    const revSc=(pw>0&&rw===0)?pw/20*5:0;
-    const score=gapSc*0.35+freqSc*0.30+deltaSc*0.25+revSc*0.10;
-    const sigs=[
-      {s:gapSc*0.35,t:`${gap} çekilişte yok`},
-      {s:freqSc*0.30,t:`${f}× görüldü (beklenen: ${expGap.toFixed(1)}×)`},
-      {s:deltaSc*0.25,t:`Sıralı Δ${dl} sık (${dfreq[dl]||0}×)`},
-      {s:revSc*0.10,t:'Soğuma sonrası bekleniyor'},
-    ].sort((a,b)=>b.s-a.s);
-    scored.push({n,score,gap,f,gapSc,freqSc,deltaSc,dl,reason:sigs[0].t});
-  }
-  scored.sort((a,b)=>b.score-a.score);
-  const topCands=scored.slice(0,10);
+  const topCands=scored.slice(0,_NA_JOKER_K);
   const maxCandScore=topCands[0]?.score||1;
 
   // Decade distribution
@@ -4252,41 +4264,20 @@ function runNaJoker(){
   html+=`• <strong style="color:var(--text)">Pratik öneri:</strong> "En Uzun Süredir Çıkmayan" listesindeki ilk 3–5 sayıyı Süperstar tahmini olarak kullanmak istatistiksel açıdan en savunulabilir yaklaşım. Her çekilişin bağımsız olduğu unutulmamalıdır.`;
   html+=`</div></details>`;
 
-  // ── Geçmiş Tahmin Testi ──────────────────────────────────────
+  // ── Geçmiş Tahmin Testi (canlı tahmin ile birebir aynı motor) ──
   const btRows=[];
-  const btLimit=Math.min(20,draws.length-5);
+  const btLimit=Math.min(30,draws.length-10);
   for(let i=1;i<=btLimit;i++){
-    const priorDraws=draws.slice(i+1);
-    if(priorDraws.length<5)break;
-    const actual=draws[i].bonus?.[0];
+    const priorDraws=draws.slice(i); // i. çekilişten önceki tüm veri
+    const actual=draws[i-1].bonus?.[0];
     if(!actual||actual<1||actual>MAX)continue;
-    const pJ=draws[i+1]?.bonus?.[0];
-    const pFreq={},pLastSeen={},pJokers=[];
-    priorDraws.forEach((d,k)=>{
-      const j=d.bonus?.[0];
-      if(!j||j<1||j>MAX)return;
-      pJokers.push(j);
-      pFreq[j]=(pFreq[j]||0)+1;
-      if(pLastSeen[j]===undefined)pLastSeen[j]=k;
-    });
-    for(let n=1;n<=MAX;n++){
-      if(pFreq[n]===undefined)pFreq[n]=0;
-      if(pLastSeen[n]===undefined)pLastSeen[n]=pJokers.length;
-    }
-    const pCold=Object.entries(pLastSeen).map(([n,g])=>({n:+n,g})).sort((a,b)=>b.g-a.g||a.n-b.n).slice(0,3).map(x=>x.n);
-    const pHot=Object.entries(pFreq).map(([n,f])=>({n:+n,f})).filter(x=>x.f>0).sort((a,b)=>b.f-a.f||a.n-b.n).slice(0,2).map(x=>x.n);
-    const pCands=new Set([...pCold,...pHot]);
-    if(pJ&&pJokers.length>2){
-      const deltas=[];
-      for(let k=0;k<pJokers.length-1;k++)deltas.push((pJokers[k]-pJokers[k+1]+MAX)%MAX);
-      const dfreq={};deltas.forEach(d=>{dfreq[d]=(dfreq[d]||0)+1;});
-      const topD=+Object.entries(dfreq).sort((a,b)=>b[1]-a[1])[0][0];
-      pCands.add((pJ+topD-1)%MAX+1);
-    }
-    btRows.push({date:draws[i].date,actual,cands:[...pCands],hit:pCands.has(actual)});
+    const pEng=_naJokerScores(priorDraws,MAX);
+    if(!pEng)continue;
+    const cands=pEng.scored.slice(0,_NA_JOKER_K).map(s=>s.n);
+    btRows.push({date:draws[i-1].date,actual,cands,hit:cands.includes(actual)});
   }
   const btHits=btRows.filter(r=>r.hit).length;
-  const candCount=btRows.length?Math.round(btRows.reduce((s,r)=>s+r.cands.length,0)/btRows.length):5;
+  const candCount=_NA_JOKER_K;
 
   html+=`<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">`;
   html+=`<div style="font-size:.67rem;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">📊 Geçmiş Tahmin Testi (Son ${btRows.length} Çekiliş)</div>`;
