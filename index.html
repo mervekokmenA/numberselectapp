@@ -4531,6 +4531,7 @@ function openGizliSayfa(){
   if(!el)return;
   el.style.display='block';
   _gizliRenderInputs();
+  gizliTestInit();
 }
 function closeGizliSayfa(){
   const el=document.getElementById('gizliSayfa');
@@ -4710,6 +4711,108 @@ function gizliModelUygula(){
   if(btn)btn.style.display='inline-block';
   showToast(`✅ ${top30.length} kolon üretildi`);
 }
+function gizliTestInit(){
+  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const sel=document.getElementById('gizliTestDate');
+  if(!sel)return;
+  if(!draws||!draws.length){sel.innerHTML='<option value="">— Veri yok —</option>';return;}
+  const sorted=[...draws].sort((a,b)=>b.date.localeCompare(a.date));
+  sel.innerHTML='<option value="">— Tarih seçin —</option>'+sorted.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
+  if(sorted.length){sel.value=sorted[0].date;gizliTestDateChanged();}
+}
+function gizliTestDateChanged(){
+  const sel=document.getElementById('gizliTestDate');
+  const actual=document.getElementById('gizliTestActual');
+  const res=document.getElementById('gizliTestResult');
+  if(!sel||!actual)return;
+  if(res)res.innerHTML='';
+  const testDate=sel.value;
+  if(!testDate){actual.innerHTML='';return;}
+  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const draw=draws.find(d=>d.date===testDate);
+  if(!draw){actual.innerHTML='<div style="font-size:.7rem;color:#ff5252">Bu tarihte çekiliş bulunamadı</div>';return;}
+  const n=_gizliPositionCount();const labels='ABCDEF';
+  const nums=[...draw.nums].sort((a,b2)=>a-b2).slice(0,n);
+  actual.innerHTML=`<div style="font-size:.63rem;color:var(--muted);margin-bottom:4px">Gerçek Çekiliş · ${testDate}</div>
+    <div style="font-family:monospace;font-size:.82rem;display:flex;gap:10px;flex-wrap:wrap">
+      ${nums.map((v,i)=>`<span style="color:var(--green);font-weight:700">${labels[i]}:${v}</span>`).join('')}
+      ${draw.bonus&&draw.bonus.length?`<span style="color:var(--muted);font-size:.7rem"> | ${draw.bonus.join(' ')}</span>`:''}
+    </div>`;
+}
+function gizliTestStepDate(dir){
+  const sel=document.getElementById('gizliTestDate');
+  if(!sel||!sel.options.length)return;
+  const idx=Array.from(sel.options).findIndex(o=>o.value===sel.value);
+  const next=idx+dir;if(next<0||next>=sel.options.length)return;
+  sel.value=sel.options[next].value;gizliTestDateChanged();
+}
+function gizliTestEt(){
+  const sel=document.getElementById('gizliTestDate');
+  const testDate=sel?.value;
+  if(!testDate){showToast('Tarih seçin');return;}
+  const game=_gizliCurrentGame();
+  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const actualDraw=draws.find(d=>d.date===testDate);
+  if(!actualDraw){showToast('Bu tarihte çekiliş yok');return;}
+  const beklenti=_gizliGetBeklenti();
+  const harften=document.getElementById('gizliHarftenChk')?.checked??true;
+  const n=_gizliPositionCount();
+  const bankos=_gizliGetBankos();
+  const need=n-bankos.length;
+  if(need<0){showToast('⚠️ Çok fazla banko sayısı');return;}
+  // Archive from draws BEFORE test date only (no data leakage)
+  const priorDraws=draws.filter(d=>d.date<testDate);
+  const anyC=beklenti.some(b=>b!==null);
+  const testArchive=priorDraws.map(d=>[...d.nums].sort((a,b2)=>a-b2).slice(0,n))
+    .filter(nums=>!anyC||_gizliDrawMatch(nums,beklenti,harften));
+  if(!testArchive.length){showToast('⚠️ Bu tarih öncesi arşivde eşleşen çekiliş yok');return;}
+  const bankSet=new Set(bankos);
+  const freqMap={};
+  testArchive.forEach(nums=>nums.forEach(v=>{if(!bankSet.has(v))freqMap[v]=(freqMap[v]||0)+1;}));
+  const pool=Object.entries(freqMap).sort((a,b2)=>b2[1]-a[1]).map(([v,f])=>({n:parseInt(v),f}));
+  if(need>0&&pool.length<need){showToast('⚠️ Arşivde yeterli sayı yok');return;}
+  const maxK=need===0?1:([0,100,60,30,20,15,12,10][need]||10);
+  const topPool=pool.slice(0,Math.min(maxK,pool.length));
+  const columns=[];
+  if(need===0){columns.push({col:[...bankos].sort((a,b2)=>a-b2),guc:_gizliGuc(bankos,freqMap,testArchive.length)});}
+  else{_gizliCombine(topPool,need,bankos,game,freqMap,testArchive.length,columns,2000);}
+  if(!columns.length){
+    const res=document.getElementById('gizliTestResult');
+    if(res)res.innerHTML='<div style="color:#ff5252;font-size:.72rem">Kolon üretilemedi</div>';return;
+  }
+  const actualNums=[...actualDraw.nums].sort((a,b2)=>a-b2).slice(0,n);
+  const actualSet=new Set(actualNums);
+  columns.forEach(c=>{c.matchCount=c.col.filter(v=>actualSet.has(v)).length;});
+  columns.sort((a,b2)=>b2.matchCount-a.matchCount||b2.guc-a.guc);
+  const top30=columns.slice(0,30);
+  const labels='ABCDEF';
+  const best=top30[0];
+  const mc=best.matchCount;
+  const matchColor=mc>=n?'var(--green)':mc>=n-1?'#00e676':mc>=n-2?'#ffc400':mc>=n-3?'#ff9100':'var(--muted)';
+  const c5p=columns.filter(c=>c.matchCount>=n-1).length;
+  const c4p=columns.filter(c=>c.matchCount>=n-2).length;
+  const summaryHtml=`<div style="background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.18);border-radius:8px;padding:10px;margin-bottom:8px">
+    <div style="font-size:.7rem;color:var(--text);font-weight:700;margin-bottom:3px">Arşiv: ${testArchive.length} çekiliş (${testDate} öncesi)</div>
+    <div style="font-size:.85rem;font-weight:800;color:${matchColor}">En iyi: ${mc}/${n} eşleşme</div>
+    <div style="font-size:.62rem;color:var(--muted);margin-top:3px">${c5p} kolon ≥${n-1} eşleşme · ${c4p} kolon ≥${n-2} eşleşme</div>
+  </div>`;
+  const rows=top30.map(({col,guc,matchCount},idx)=>{
+    const colHtml=col.map((v,i)=>{
+      const isM=actualSet.has(v);const isB=bankSet.has(v);
+      return `<span style="color:${isM?'var(--green)':'rgba(255,255,255,.3)'};font-weight:${isM||isB?800:400}">${labels[i]}:${v}</span>`;
+    }).join('  ');
+    const hl=matchCount>=n-1?'rgba(0,230,118,.08)':matchCount>=n-2?'rgba(255,196,0,.05)':'transparent';
+    const bl=matchCount>=n-1?'border-left:2px solid rgba(0,230,118,.4);':matchCount>=n-2?'border-left:2px solid rgba(255,196,0,.3);':'border-left:2px solid transparent;';
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:${hl};${bl}border-radius:5px;margin-bottom:2px">
+      <span style="color:var(--muted);font-size:.62rem;min-width:26px;font-family:monospace">${idx+1})</span>
+      <span style="flex:1;font-family:monospace;font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap">${colHtml}</span>
+      <span style="font-size:.65rem;font-weight:700;color:${matchCount>=n-1?'var(--green)':matchCount>=n-2?'#ffc400':'var(--muted)'};margin-left:6px;white-space:nowrap">${matchCount}/${n}</span>
+      <span style="color:var(--muted);font-size:.58rem;margin-left:5px">güç:${guc}</span>
+    </div>`;
+  }).join('');
+  const res=document.getElementById('gizliTestResult');
+  if(res)res.innerHTML=summaryHtml+rows;
+}
 function gizliKopyalaHepsi(){
   const labels='ABCDEF';
   const text=_gizliLastColumns.map(({col,guc},i)=>`${i+1}) ${col.map((v,j)=>labels[j]+':'+v).join('  ')}  güç:${guc}`).join('\n');
@@ -4776,6 +4879,22 @@ initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats(
     <button onclick="gizliKopyalaHepsi()" id="gizliKopyaBtn" style="display:none;background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:.65rem">📋 Kopyala</button>
    </div>
    <div id="gizliKolonlar" style="max-height:440px;overflow-y:auto"><div class="empty-state"><span class="empty-icon">📊</span>Beklenti ve banko sayıları girin, MODEL UYGULA'ya basın.</div></div>
+  </div>
+
+  <!-- Geçmiş Test -->
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-top:10px">
+   <div style="font-size:.8rem;font-weight:700;color:var(--text);margin-bottom:6px">🔬 Geçmiş Test — Modeli Geri Doğrula</div>
+   <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;line-height:1.5">Seçilen tarih <strong>öncesindeki</strong> verilerle arşiv kurulur, beklenti + banko ayarları uygulanır, üretilen kolonlar gerçek sonuçla karşılaştırılır. Yeşil = eşleşen sayı.</div>
+   <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+    <select id="gizliTestDate" onchange="gizliTestDateChanged()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 10px;font-size:.78rem;flex:1;min-width:140px">
+     <option value="">— Tarih seçin —</option>
+    </select>
+    <button onclick="gizliTestStepDate(-1)" style="background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:.8rem">◀</button>
+    <button onclick="gizliTestStepDate(1)" style="background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:.8rem">▶</button>
+    <button onclick="gizliTestEt()" style="background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.1));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem;font-weight:700">🔬 Test Et</button>
+   </div>
+   <div id="gizliTestActual" style="padding:8px 10px;background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.12);border-radius:8px;min-height:36px;margin-bottom:8px"></div>
+   <div id="gizliTestResult" style="max-height:420px;overflow-y:auto"></div>
   </div>
 
  </div>
