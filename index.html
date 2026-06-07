@@ -4516,6 +4516,7 @@ function copyOyunNoAll(tabNum){
 
 // ── Gizli Analiz Sayfası ──────────────────────────────────────
 let _gizliArchive=[];
+let _gizliSelectedGame='super';
 let _gizliClickCount=0;
 let _gizliClickTimer=null;
 let _gizliLastColumns=[];
@@ -4529,16 +4530,48 @@ function _gizliLogoClick(){
 function openGizliSayfa(){
   const el=document.getElementById('gizliSayfa');
   if(!el)return;
+  _gizliSelectedGame=state.selectedGame||'super';
   el.style.display='block';
+  _gizliRenderGameSelector();
   _gizliRenderInputs();
+  gizliArsivTemizle();
   gizliTestInit();
 }
 function closeGizliSayfa(){
   const el=document.getElementById('gizliSayfa');
   if(el)el.style.display='none';
 }
-function _gizliCurrentGame(){return getGame(state.selectedGame||'super');}
+function _gizliCurrentGame(){return getGame(_gizliSelectedGame||'super');}
 function _gizliPositionCount(){return Math.min(_gizliCurrentGame().count,6);}
+function _gizliGetDraws(){
+  const raw=DRAW_DATA[_gizliSelectedGame]||'';
+  const draws=[];
+  raw.split('\n').forEach(line=>{
+    const dm=line.match(/^(\d{4}-\d{2}-\d{2})/);if(!dm)return;
+    const date=dm[1],rest=line.slice(dm[1].length),parts=rest.split('|');
+    const nums=(parts[0].match(/\d+/g)||[]).map(Number);
+    const bonus=parts[1]?(parts[1].match(/\d+/g)||[]).map(Number):[];
+    if(nums.length>=1)draws.push({date,nums,bonus});
+  });
+  draws.sort((a,b)=>b.date.localeCompare(a.date));
+  return draws;
+}
+function _gizliSetGame(gameId){
+  _gizliSelectedGame=gameId;
+  _gizliRenderGameSelector();
+  _gizliRenderInputs();
+  gizliArsivTemizle();
+  gizliTestInit();
+}
+function _gizliRenderGameSelector(){
+  document.querySelectorAll('.gz-game-btn').forEach(b=>{
+    const active=b.dataset.game===_gizliSelectedGame;
+    b.style.background=active?'rgba(129,140,248,.3)':'rgba(255,255,255,.06)';
+    b.style.borderColor=active?'rgba(129,140,248,.6)':'var(--border)';
+    b.style.color=active?'var(--accent)':'var(--muted)';
+    b.style.fontWeight=active?'700':'400';
+  });
+}
 function _gizliRenderInputs(){
   const n=_gizliPositionCount();
   const labels='ABCDEF';
@@ -4596,8 +4629,8 @@ function _gizliDrawMatch(nums,beklenti,harften){
 }
 function gizliTara(){
   const game=_gizliCurrentGame();
-  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
-  if(!draws||!draws.length){showToast('⚠️ Önce veri yükleyin');return;}
+  const draws=_gizliGetDraws();
+  if(!draws||!draws.length){showToast('⚠️ '+game.name+' verisi bulunamadı');return;}
   const beklenti=_gizliGetBeklenti();
   const harften=document.getElementById('gizliHarftenChk')?.checked??true;
   const n=_gizliPositionCount();
@@ -4712,7 +4745,7 @@ function gizliModelUygula(){
   showToast(`✅ ${top30.length} kolon üretildi`);
 }
 function gizliTestInit(){
-  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const draws=_gizliGetDraws();
   const sel=document.getElementById('gizliTestDate');
   if(!sel)return;
   if(!draws||!draws.length){sel.innerHTML='<option value="">— Veri yok —</option>';return;}
@@ -4728,7 +4761,7 @@ function gizliTestDateChanged(){
   if(res)res.innerHTML='';
   const testDate=sel.value;
   if(!testDate){actual.innerHTML='';return;}
-  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const draws=_gizliGetDraws();
   const draw=draws.find(d=>d.date===testDate);
   if(!draw){actual.innerHTML='<div style="font-size:.7rem;color:#ff5252">Bu tarihte çekiliş bulunamadı</div>';return;}
   const n=_gizliPositionCount();const labels='ABCDEF';
@@ -4751,7 +4784,7 @@ function gizliTestEt(){
   const testDate=sel?.value;
   if(!testDate){showToast('Tarih seçin');return;}
   const game=_gizliCurrentGame();
-  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const draws=_gizliGetDraws();
   const actualDraw=draws.find(d=>d.date===testDate);
   if(!actualDraw){showToast('Bu tarihte çekiliş yok');return;}
   const beklenti=_gizliGetBeklenti();
@@ -4838,6 +4871,13 @@ initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats(
     <div style="font-size:.63rem;color:var(--muted)">Arşiv tabanlı beklenti modeli</div>
    </div>
    <button onclick="closeGizliSayfa()" style="background:rgba(255,82,82,.15);border:1px solid rgba(255,82,82,.35);color:#ff5252;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:.78rem;font-weight:700">✕ Kapat</button>
+  </div>
+
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+   <button class="gz-game-btn" data-game="sayisal" onclick="_gizliSetGame('sayisal')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">Sayısal Loto</button>
+   <button class="gz-game-btn" data-game="super" onclick="_gizliSetGame('super')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">Süper Loto</button>
+   <button class="gz-game-btn" data-game="sans" onclick="_gizliSetGame('sans')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">Şans Topu</button>
+   <button class="gz-game-btn" data-game="onnumara" onclick="_gizliSetGame('onnumara')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">On Numara</button>
   </div>
 
   <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
