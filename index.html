@@ -661,6 +661,18 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div class="tab-panel active" id="b10Tab-tahmin">
       <button onclick="runB10()" style="width:100%;padding:10px;background:linear-gradient(135deg,rgba(129,140,248,.25),rgba(255,101,132,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:700;margin-bottom:10px">🎯 Analiz Et — B10 Sayılarını Üret</button>
       <div id="b10Result"><div class="empty-state"><span class="empty-icon">🎯</span>Veri yükleyip "Analiz Et"e basın.</div></div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+          <span style="font-size:.72rem;color:var(--muted)">Sistem kuponu garanti:</span>
+          <select id="b10WheelGuar" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px">
+            <option value="2">2 çıkarsa 2 garanti (az kolon)</option>
+            <option value="3" selected>3 çıkarsa 3 garanti</option>
+            <option value="4">4 çıkarsa 4 garanti (çok kolon)</option>
+          </select>
+        </div>
+        <button onclick="runB10Wheel()" style="width:100%;padding:9px;background:linear-gradient(135deg,rgba(255,196,0,.18),rgba(255,140,0,.1));border:1px solid rgba(255,196,0,.4);color:#ffc400;border-radius:10px;cursor:pointer;font-size:.8rem;font-weight:700;margin-bottom:10px">🎟️ Sistem Kuponu Üret (Wheeling)</button>
+        <div id="b10WheelResult"></div>
+      </div>
     </div>
     <div class="tab-panel" id="b10Tab-backtest">
       <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
@@ -5158,6 +5170,101 @@ function _b10Tier(lift){
   return{icon:'〰️',label:'Zayıf',color:'rgba(255,255,255,.4)'};
 }
 
+// ── Hipergeometrik (gerçeklik) modeli ─────────────────────────
+function _b10nCr(n,r){
+  if(r<0||r>n)return 0;r=Math.min(r,n-r);let res=1;
+  for(let i=0;i<r;i++)res=res*(n-i)/(i+1);
+  return res;
+}
+// P(tam k eşleşme) = C(cnt,k)·C(max-cnt, pick-k) / C(max, pick)
+function _b10HyperPmf(k,pick,cnt,max){
+  const d=_b10nCr(max,pick);if(d<=0)return 0;
+  return _b10nCr(cnt,k)*_b10nCr(max-cnt,pick-k)/d;
+}
+
+// Popülerlik: insanlar genelde 1–31 (doğum günü) oynar; düşük popülerlik =
+// tutturulduğunda ikramiye daha az kişiyle paylaşılır (tek gerçek "edge").
+function _b10LowPop(n){return n>31;}
+
+// ── Sistem kuponu (Wheeling) ──────────────────────────────────
+// Açgözlü küme-örtme: seçili sayılardan üretilen kombinasyonlarla,
+// "draw'da seçilenlerden ≥hitN çıkarsa ≥guarK garanti" hedefini örter.
+// Açgözlü küme-örtme covering design C(v,k,t=guarK):
+// pool'daki HER guarK-altkümesi en az bir bilette birlikte bulunsun.
+// Garanti: pool'dan çekilişte ≥guarK sayı çıkarsa, bir kolonda ≥guarK tutar.
+function _b10BuildWheel(pool,k,guarK){
+  const combos=(arr,r)=>{
+    const out=[];const rec=(st,cur)=>{
+      if(cur.length===r){out.push(cur.slice());return;}
+      for(let i=st;i<arr.length;i++){cur.push(arr[i]);rec(i+1,cur);cur.pop();}
+    };rec(0,[]);return out;
+  };
+  const uncovered=new Set(combos(pool,guarK).map(s=>s.join(',')));
+  const candidateTickets=combos(pool,k);
+  const tickets=[];
+  let guard=0;
+  while(uncovered.size>0 && guard++<5000){
+    let best=null,bestCov=null,bestN=-1;
+    for(const t of candidateTickets){
+      const subs=combos(t,guarK).map(s=>s.join(','));
+      let c=0;for(const s of subs)if(uncovered.has(s))c++;
+      if(c>bestN){bestN=c;best=t;bestCov=subs;}
+    }
+    if(!best||bestN<=0)break;
+    tickets.push(best);
+    bestCov.forEach(s=>uncovered.delete(s));
+  }
+  return {tickets,guarK,remaining:uncovered.size};
+}
+
+function runB10Wheel(){
+  const game=getGame(state.selectedGame);
+  const rawDraws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const draws=_b10CleanDraws(rawDraws,game);
+  const out=document.getElementById('b10WheelResult');
+  if(!draws||draws.length<10){if(out)out.innerHTML='<div class="empty-state" style="padding:14px"><span class="empty-icon">⚠️</span>Önce veri yükleyin.</div>';return;}
+  const wSize=parseInt(document.getElementById('b10Window')?.value)||50;
+  const poolSize=parseInt(document.getElementById('b10BankCount')?.value)||10;
+  const guarK=parseInt(document.getElementById('b10WheelGuar')?.value)||3;
+  const k=game.count;
+  if(guarK>=k){if(out)out.innerHTML='<div style="padding:10px;font-size:.7rem;color:#ff9100">Bu oyun için garanti seviyesi çok yüksek.</div>';return;}
+  const scores=buildB10Scores(draws,game,wSize);
+  if(!scores.length){if(out)out.innerHTML='<div class="empty-state" style="padding:14px">Yeterli veri yok</div>';return;}
+  // Havuz: en güçlü B10 sayıları. Kombinasyon patlamasını sınırla.
+  const cap=Math.min(poolSize,k+5,14);
+  const pool=scores.slice(0,cap).map(s=>s.n).sort((a,b)=>a-b);
+  if(out)out.innerHTML='<div style="padding:10px;font-size:.72rem;color:var(--muted)">⏳ Sistem hesaplanıyor…</div>';
+  setTimeout(()=>{
+    let res;try{res=_b10BuildWheel(pool,k,guarK);}catch(e){if(out)out.innerHTML='<div style="padding:10px;color:#ff5252">Hesaplama hatası.</div>';return;}
+    const {tickets}=res;
+    const ticketTxt=tickets.map((t,i)=>(i+1)+'. '+t.join(' - ')).join('\n');
+    const copyTxt='🎟️ B10 Sistem Kuponu — '+game.name+'\n'+
+      pool.length+' sayı · '+tickets.length+' kolon · '+guarK+' çıkarsa '+guarK+' garanti\n\n'+ticketTxt;
+    const rows=tickets.map((t,i)=>`<div style="display:flex;gap:5px;align-items:center;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.04);font-size:.72rem">
+      <span style="color:var(--muted);min-width:22px">${i+1}.</span>
+      <span style="font-family:monospace;display:flex;gap:6px;flex-wrap:wrap">${t.map(n=>`<span style="${_b10LowPop(n)?'color:#ffc400':'color:var(--text)'}">${n}${_b10LowPop(n)?'⭐':''}</span>`).join('')}</span>
+    </div>`).join('');
+    if(out)out.innerHTML=`
+      <div style="padding:10px 12px;background:rgba(255,196,0,.06);border:1px solid rgba(255,196,0,.25);border-radius:10px;margin-bottom:8px">
+        <div style="font-size:.72rem;font-weight:700;color:#ffc400;margin-bottom:4px">🎟️ ${tickets.length} kolonluk sistem kuponu</div>
+        <div style="font-size:.62rem;color:var(--muted);line-height:1.5">
+          <strong>${pool.length}</strong> B10 sayısından üretildi · <strong>Garanti:</strong> bu ${pool.length} sayıdan çekilişte
+          en az <strong>${guarK}</strong> tanesi çıkarsa, kolonlardan <strong>en az birinde ${guarK} sayı tutması garantidir</strong>${res.remaining>0?' (yaklaşık)':''}.
+          <br>⭐ = düşük popülerlik (>31) — tutturursan ikramiyeyi daha az kişiyle paylaşırsın.
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:.62rem;color:var(--muted)">Havuz: ${pool.join(' · ')}</span>
+        <button onclick="copyNumsRaw(b10WheelCopy)" style="background:rgba(255,196,0,.15);border:1px solid rgba(255,196,0,.3);color:#ffc400;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:.66rem">📋 Tüm Kolonları Kopyala</button>
+      </div>
+      <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:7px">${rows}</div>`;
+    window.b10WheelCopy=copyTxt;
+  },30);
+}
+function copyNumsRaw(text){
+  navigator.clipboard.writeText(text).then(()=>showToast('📋 Sistem kuponu kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
+}
+
 function runB10(){
   const game=getGame(state.selectedGame);
   const rawDraws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
@@ -5205,9 +5312,10 @@ function runB10(){
     <div style="margin-bottom:10px;padding:10px 12px;background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.2);border-radius:10px">
       <div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">İlk ${pickCount} B10 sayısı · Son ${actualW} çekiliş · ${game.name} · güven sırasına göre</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        ${scores.slice(0,pickCount).map(s=>{const t=_b10Tier(s.lift);return`<span title="${t.label} · ${Math.round(s.conf*100)}% güven · ${s.lift.toFixed(2)}×" style="background:rgba(129,140,248,.18);border:2px solid ${t.color};border-radius:50%;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:.92rem;color:var(--accent)">${s.n}</span>`;}).join('')}
+        ${scores.slice(0,pickCount).map(s=>{const t=_b10Tier(s.lift);const lp=_b10LowPop(s.n);return`<span title="${t.label} · ${Math.round(s.conf*100)}% güven · ${s.lift.toFixed(2)}×${lp?' · düşük popülerlik':''}" style="position:relative;background:rgba(129,140,248,.18);border:2px solid ${t.color};border-radius:50%;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:.92rem;color:var(--accent)">${s.n}${lp?'<span style="position:absolute;top:-3px;right:-3px;font-size:.5rem">⭐</span>':''}</span>`;}).join('')}
         <button onclick="copyB10('${picks.join(' - ')}')" style="margin-left:auto;background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:.68rem">📋 Kopyala</button>
       </div>
+      <div style="font-size:.53rem;color:rgba(255,255,255,.3);margin-top:5px">⭐ = düşük popülerlik (>31) · tutturursan ikramiyeyi daha az kişiyle paylaşırsın</div>
     </div>
     <details style="margin-bottom:8px">
       <summary style="cursor:pointer;font-size:.61rem;font-weight:600;color:var(--muted);padding:5px 8px;background:rgba(255,255,255,.03);border-radius:7px;list-style:none">
@@ -5326,17 +5434,34 @@ function runB10Backtest(){
       <div style="position:absolute;left:0;right:0;bottom:${baseLineBottom}px;border-top:1px dashed rgba(255,196,0,.45);pointer-events:none"></div>
       <div style="display:flex;gap:1px;height:52px;align-items:flex-end">${spark}</div>
     </div>
-    <div style="font-size:.57rem;color:var(--muted);margin:5px 0 2px">Eşleşme dağılımı:</div>
-    <div style="display:flex;gap:3px;align-items:flex-end;height:38px">
+    <div style="font-size:.57rem;color:var(--muted);margin:5px 0 2px">Eşleşme dağılımı — <span style="color:var(--accent)">▮ B10 (gerçek)</span> vs <span style="color:rgba(255,255,255,.5)">▭ rastgele beklenti (hipergeometrik)</span>:</div>
+    <div style="display:flex;gap:3px;align-items:flex-end;height:44px">
       ${Array.from({length:pickCount+1},(_,k)=>{
-        const c=dist[k]||0;const h=total>0?Math.max(2,Math.round(c/total*34)):2;
+        const c=dist[k]||0;const obs=c/total;
+        const theo=_b10HyperPmf(k,pickCount,cnt,max);
+        const mxv=Math.max(0.001,...Array.from({length:pickCount+1},(_,j)=>Math.max((dist[j]||0)/total,_b10HyperPmf(j,pickCount,cnt,max))));
+        const h=Math.max(2,Math.round(obs/mxv*38));
+        const th=Math.max(1,Math.round(theo/mxv*38));
         return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
-          <div style="font-size:.46rem;color:var(--muted)">${c}</div>
-          <div style="height:${h}px;width:100%;background:${k>=3?'var(--green)':k>=2?'#ffc400':'rgba(255,255,255,.18)'};border-radius:2px 2px 0 0"></div>
-          <div style="font-size:.46rem;color:var(--muted)">${k}</div>
+          <div style="font-size:.44rem;color:var(--muted)">${c}</div>
+          <div style="position:relative;width:100%;height:38px;display:flex;align-items:flex-end">
+            <div style="height:${h}px;width:100%;background:${k>=3?'var(--green)':k>=2?'#ffc400':'var(--accent)'};border-radius:2px 2px 0 0;opacity:.85"></div>
+            <div style="position:absolute;bottom:${th}px;left:0;right:0;border-top:1.5px solid rgba(255,255,255,.55)" title="rastgele: ${Math.round(theo*total)}"></div>
+          </div>
+          <div style="font-size:.44rem;color:var(--muted)">${k}</div>
         </div>`;
       }).join('')}
     </div>
+    ${(()=>{
+      const theoGe2=Array.from({length:pickCount-1},(_,j)=>_b10HyperPmf(j+2,pickCount,cnt,max)).reduce((a,b)=>a+b,0);
+      const obsGe2=hit2/total;
+      const edge=theoGe2>0?obsGe2/theoGe2:1;
+      const v=edge>=1.15?{c:'var(--green)',t:'B10 rastgeleyi geçiyor 🟢'}:edge>=0.9?{c:'#ffc400',t:'şans seviyesinde 🟡'}:{c:'#ff7070',t:'şansın altında 🔴'};
+      return`<div style="margin-top:6px;font-size:.58rem;color:var(--muted);padding:5px 8px;background:rgba(255,255,255,.03);border-radius:6px">
+        Gerçeklik testi: ≥2 isabet gerçek <b style="color:var(--text)">%${Math.round(obsGe2*100)}</b> · rastgele beklenti <b style="color:var(--text)">%${Math.round(theoGe2*100)}</b> →
+        <b style="color:${v.c}">${edge.toFixed(2)}× · ${v.t}</b>
+      </div>`;
+    })()}
   </div>`;
 
   // Sıra-bazlı isabet oranı
