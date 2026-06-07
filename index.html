@@ -4923,63 +4923,132 @@ function switchB10Tab(name){
   });
 }
 
-// ── B10 ADVANCED ENGINE ────────────────────────────────────────
-// Multi-window rank fusion + self-calibrating weights + co-occurrence
-// coherence + gap-stability + trend slope + confidence calibration.
-let _b10LastWeights=null;
+// ── B10 UZMAN MOTORU v3 ───────────────────────────────────────
+// 7 bağımsız sinyal · z-score walk-forward kalibrasyon ·
+// çok-pencere RRF · Beta-Binomial posterior karışımı.
+// Backtest: tek kalibrasyon turu (hız) · çalışma LIFT grafiği.
 
-// Compute six raw factor maps over a newest-first window.
-function _b10Factors(used,max,cnt){
-  const W=used.length;
-  const lambda=0.85;
-  const ewf={},lFreq={},sFreq={};
-  const shortW=Math.max(3,Math.floor(W*0.18));
-  for(let i=1;i<=max;i++){ewf[i]=0;lFreq[i]=0;sFreq[i]=0;}
-  used.forEach((d,idx)=>{
-    const w=Math.pow(lambda,idx);
-    d.nums.forEach(n=>{if(n>=1&&n<=max){ewf[n]+=w;lFreq[n]++;if(idx<shortW)sFreq[n]++;}});
-  });
-  // gaps (chronological): due + stability(low gap-variance)
-  const lastCI={},gaps={};
-  for(let i=1;i<=max;i++){lastCI[i]=-1;gaps[i]=[];}
-  for(let ci=0;ci<W;ci++){
-    const d=used[W-1-ci];
-    d.nums.forEach(n=>{if(n>=1&&n<=max){if(lastCI[n]>=0)gaps[n].push(ci-lastCI[n]);lastCI[n]=ci;}});
-  }
-  const due={},stab={};
+let _b10LastWeights=null;
+let _b10CalibInfo=null;
+const _B10_SIGS=['bb','geo','ewma','trend','pos','cold','pair'];
+const _B10_SIG_NAMES={bb:'Beta-Bayes',geo:'Gap CDF',ewma:'EWMA',
+  trend:'Trend',pos:'Pozisyon',cold:'Soğuk↑',pair:'Çift Kor.'};
+
+// S0 — Recency-weighted Beta-Binomial posterior P(n appears next)
+function _b10SigBB(draws,max,cnt){
+  const lam=0.92;let wE=0;const wC={};for(let i=1;i<=max;i++)wC[i]=0;
+  draws.forEach((d,idx)=>{const w=Math.pow(lam,idx);wE+=w;d.nums.forEach(n=>{if(n>=1&&n<=max)wC[n]+=w;});});
+  const base=cnt/max,s0=8,a0=base*s0,b0=(1-base)*s0,r={};
+  for(let i=1;i<=max;i++)r[i]=(wC[i]+a0)/(wE+a0+b0);
+  return r;
+}
+
+// S1 — Geometrik gap CDF: ne kadar süredir görülmüyor?
+// P(gap >= k | p) = (1-p)^k  →  skor = 1 - survival (CDF)
+// i.i.d. çekilişlerin istatistiksel olarak doğru bekleme modelidir.
+function _b10SigGeo(draws,max){
+  const W=draws.length;
+  const freq={},last={};for(let i=1;i<=max;i++){freq[i]=0;last[i]=-1;}
+  draws.forEach((d,idx)=>{d.nums.forEach(n=>{
+    if(n>=1&&n<=max){freq[n]++;if(last[n]<0)last[n]=idx;}
+  });});
+  const r={};
   for(let i=1;i<=max;i++){
-    const g=gaps[i];
-    const avgG=g.length?g.reduce((a,b)=>a+b,0)/g.length:W*0.6;
-    const curG=lastCI[i]>=0?(W-1)-lastCI[i]:W;
-    due[i]=Math.max(0,curG/Math.max(1,avgG)-0.5);
-    if(g.length>=2){const v=g.reduce((a,b)=>a+(b-avgG)*(b-avgG),0)/g.length;stab[i]=(lFreq[i]/W)/(1+Math.sqrt(v));}
-    else stab[i]=0;
+    const p=(freq[i]+0.5)/(W+1); // Laplace-düzeltmeli ampirik p
+    const g=last[i]>=0?last[i]:W;
+    r[i]=1-Math.pow(1-p,g);      // 1 = istatistiksel olarak çok beklenmiş
   }
-  // momentum: short-window vs long-window rate
-  const mom={};
-  for(let i=1;i<=max;i++)mom[i]=(sFreq[i]/Math.max(1,shortW)+0.002)/(lFreq[i]/W+0.002);
-  // trend slope: least-squares slope of appearance count across chrono bins
-  const bins=Math.min(6,Math.max(3,Math.floor(W/8)));
-  const binSize=W/bins;
-  const binCount={};
-  used.forEach((d,idx)=>{
-    const b=Math.min(bins-1,Math.floor((W-1-idx)/binSize));
-    d.nums.forEach(n=>{if(n>=1&&n<=max){(binCount[n]=binCount[n]||new Array(bins).fill(0))[b]++;}});
+  return r;
+}
+
+// S2 — EWMA hit göstergesi (α=0.15, yarı-ömür≈4.3 çekiliş)
+// Kararlı kısa-dönem frekans tahmini — ham oran'dan daha az gürültülü.
+function _b10SigEwma(draws,max){
+  const alpha=0.15,base=1/max;
+  const e={};for(let i=1;i<=max;i++)e[i]=base;
+  for(let t=draws.length-1;t>=0;t--){
+    const hit=new Set(draws[t].nums.filter(n=>n>=1&&n<=max));
+    for(let i=1;i<=max;i++)e[i]=alpha*(hit.has(i)?1:0)+(1-alpha)*e[i];
+  }
+  return e;
+}
+
+// S3 — Bölümlenmiş doğrusal eğim (histogram bin'leri üzerinde)
+function _b10SigTrend(draws,max){
+  const W=draws.length;
+  const bins=Math.min(5,Math.max(3,Math.floor(W/7)));
+  const bsz=W/bins;
+  const bh={};for(let i=1;i<=max;i++)bh[i]=new Array(bins).fill(0);
+  draws.forEach((d,idx)=>{
+    const b=Math.min(bins-1,Math.floor(idx/bsz));
+    d.nums.forEach(n=>{if(n>=1&&n<=max)bh[n][b]++;});
   });
-  const trend={};const xm=(bins-1)/2;
+  const r={};const xm=(bins-1)/2;
   for(let i=1;i<=max;i++){
-    const bc=binCount[i]||new Array(bins).fill(0);
-    let ym=0;for(let b=0;b<bins;b++)ym+=bc[b];ym/=bins;
-    let num=0,den=0;for(let b=0;b<bins;b++){num+=(b-xm)*(bc[b]-ym);den+=(b-xm)*(b-xm);}
-    trend[i]=den>0?num/den:0;
+    const bc=bh[i];let ym=0;for(let b=0;b<bins;b++)ym+=bc[b];ym/=bins;
+    let num=0,den=0;
+    for(let b=0;b<bins;b++){
+      const xb=bins-1-b; // b=0=en yeni → xb=bins-1
+      num+=(xb-xm)*(bc[b]-ym);den+=(xb-xm)*(xb-xm);
+    }
+    r[i]=den>0?num/den:0;
   }
-  // position weight (middle sorted positions favored)
-  const pos={};for(let i=1;i<=max;i++)pos[i]=0;
-  used.forEach(d=>{
+  return r;
+}
+
+// S4 — Pozisyon ağırlığı (orta sıralı pozisyonlar, uçlardan daha fazla)
+function _b10SigPos(draws,max,cnt){
+  const p={};for(let i=1;i<=max;i++)p[i]=0;
+  draws.forEach(d=>{
     const s=[...d.nums].filter(n=>n>=1&&n<=max).sort((a,b)=>a-b).slice(0,cnt);
-    s.forEach((n,p)=>{pos[n]+=(p>0&&p<cnt-1)?1.5:1.0;});
+    const mid=(cnt-1)/2;
+    s.forEach((n,pos)=>{p[n]+=(1-Math.abs(pos-mid)/(mid||1)*0.35);});
   });
-  return {ewf,due,stab,mom,trend,pos,_freq:lFreq};
+  return p;
+}
+
+// S5 — Soğuk toparlanma: mid-dönem sıcak ama son-dönem soğuyan sayılar
+// Ortalamaya dönüş (mean-reversion) sinyali.
+function _b10SigCold(draws,max){
+  const W=draws.length;
+  const sw=Math.max(3,Math.floor(W*0.15));
+  const mw=Math.max(sw+2,Math.floor(W*0.38));
+  const sf={},mf={},lf={};for(let i=1;i<=max;i++){sf[i]=0;mf[i]=0;lf[i]=0;}
+  draws.forEach((d,idx)=>{d.nums.forEach(n=>{
+    if(n>=1&&n<=max){lf[n]++;if(idx<mw)mf[n]++;if(idx<sw)sf[n]++;}
+  });});
+  const r={};
+  for(let i=1;i<=max;i++){
+    const lr=lf[i]/W,mr=mf[i]/Math.max(1,mw),sr=sf[i]/Math.max(1,sw);
+    r[i]=Math.max(0,(mr-sr)/(lr+0.005));
+  }
+  return r;
+}
+
+// S6 — Frekans-normalize ağırlıklı çift korelasyonu
+// Sayının, kendi frekansıyla orantılı olarak diğer sık sayılarla
+// birlikte çıkıp çıkmadığını ölçer.
+function _b10SigPair(draws,max){
+  const W=draws.length;
+  const freq={};for(let i=1;i<=max;i++)freq[i]=0;
+  draws.forEach(d=>d.nums.forEach(n=>{if(n>=1&&n<=max)freq[n]++;}));
+  const co={};for(let i=1;i<=max;i++)co[i]=0;
+  draws.forEach((d,idx)=>{
+    const ns=d.nums.filter(n=>n>=1&&n<=max);
+    const ww=Math.pow(0.92,idx);
+    for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){
+      co[ns[a]]+=ww*(freq[ns[b]]/W);
+      co[ns[b]]+=ww*(freq[ns[a]]/W);
+    }
+  });
+  return co;
+}
+
+function _b10AllSigs(draws,max,cnt){
+  return{bb:_b10SigBB(draws,max,cnt),geo:_b10SigGeo(draws,max),
+    ewma:_b10SigEwma(draws,max),trend:_b10SigTrend(draws,max),
+    pos:_b10SigPos(draws,max,cnt),cold:_b10SigCold(draws,max),
+    pair:_b10SigPair(draws,max)};
 }
 
 function _b10Norm(obj,max){
@@ -4990,48 +5059,76 @@ function _b10Norm(obj,max){
   return res;
 }
 
-const _B10_KEYS=['ewf','due','stab','mom','trend','pos'];
-
-// Walk-forward calibration: weight each factor by how well it predicted recent
-// draws. Factors that perform worse than random are aggressively suppressed.
-function _b10AdaptiveWeights(draws,game){
+// Walk-forward kalibrasyon: her sinyalin precision@topK lift'i ölçülür.
+// Z-score softmax: zararlı sinyaller ağırlık=~0 alır.
+function _b10Calibrate(draws,game){
   const max=game.max,cnt=Math.min(game.count,7);
-  const V=Math.min(18,Math.max(5,Math.floor(draws.length/3)));
-  const power={};_B10_KEYS.forEach(k=>power[k]=0);
-  const topK=Math.max(cnt,Math.round(max*0.15));
-  const baseHit=topK/max; // random expectation of hit-rate in top-K
+  const V=Math.min(22,Math.max(8,Math.floor(draws.length*0.3)));
+  const topK=Math.max(cnt,Math.round(max*0.14));
+  const baseHit=topK/max;
+  const sumL={};_B10_SIGS.forEach(k=>sumL[k]=0);
   let valid=0;
   for(let t=0;t<V;t++){
     const prior=draws.slice(t+1);
-    if(prior.length<10)break;
-    const f=_b10Factors(prior,max,cnt);
-    const actual=new Set([...draws[t].nums].filter(n=>n>=1&&n<=max));
-    if(!actual.size)continue;
-    _B10_KEYS.forEach(k=>{
-      const nf=_b10Norm(f[k],max);
+    if(prior.length<12)break;
+    const actual=new Set(draws[t].nums.filter(n=>n>=1&&n<=max));
+    if(actual.size<2)continue;
+    const sg=_b10AllSigs(prior,max,cnt);
+    _B10_SIGS.forEach(k=>{
+      const nf=_b10Norm(sg[k],max);
       const ranked=[];for(let i=1;i<=max;i++)ranked.push([i,nf[i]]);
       ranked.sort((a,b)=>b[1]-a[1]);
-      const hits=ranked.slice(0,topK).filter(([num])=>actual.has(num)).length;
-      power[k]+=(hits/topK)-baseHit; // lift over random per draw
+      sumL[k]+=(ranked.slice(0,topK).filter(([n])=>actual.has(n)).length/topK)-baseHit;
     });
     valid++;
   }
-  // Average lift per factor, then z-score → exponential weighting (softmax-like).
-  const rl={};_B10_KEYS.forEach(k=>rl[k]=valid?power[k]/valid:0);
-  let mean=0;_B10_KEYS.forEach(k=>mean+=rl[k]);mean/=_B10_KEYS.length;
-  let sd=0;_B10_KEYS.forEach(k=>sd+=(rl[k]-mean)*(rl[k]-mean));sd=Math.sqrt(sd/_B10_KEYS.length)||1e-6;
+  const rl={};_B10_SIGS.forEach(k=>rl[k]=valid?sumL[k]/valid:0);
+  let mean=0;_B10_SIGS.forEach(k=>mean+=rl[k]);mean/=_B10_SIGS.length;
+  let sd2=0;_B10_SIGS.forEach(k=>sd2+=(rl[k]-mean)**2);
+  const sd=Math.sqrt(sd2/_B10_SIGS.length)||1e-6;
   const w={};let sum=0;
-  _B10_KEYS.forEach(k=>{
-    let val=Math.exp(1.7*((rl[k]-mean)/sd));
-    if(rl[k]<0)val*=0.30;          // penalize worse-than-random factors
-    val=Math.max(val,0.02);         // keep a tiny floor for stability
-    w[k]=val;sum+=val;
+  _B10_SIGS.forEach(k=>{
+    let v=Math.exp(2.2*((rl[k]-mean)/sd));
+    if(rl[k]<0)v*=0.10;  // rastgeleden kötü sinyal → ağırlık ~0
+    v=Math.max(v,0.01);w[k]=v;sum+=v;
   });
-  _B10_KEYS.forEach(k=>w[k]=w[k]/sum);
+  _B10_SIGS.forEach(k=>w[k]=w[k]/sum);
+  _b10CalibInfo={rounds:valid,lift:rl,topK,base:baseHit};
   return w;
 }
 
-// Sanitize draws: drop malformed/duplicate rows, clamp to valid range, newest-first.
+// Hızlı puanlama (kalibrasyonsuz) — backtest ve tahmin birlikte kullanır.
+function _b10ScoreFast(draws,max,cnt,w,wSize){
+  const N=draws.length;
+  const mainW=Math.min(wSize||50,N);
+  const main=draws.slice(0,mainW);
+  const windows=[...new Set([Math.min(20,N),Math.min(35,N),mainW,N])].filter(x=>x>=10);
+  const rrf={};for(let i=1;i<=max;i++)rrf[i]=0;const kRRF=10;
+  windows.forEach(W=>{
+    const sg=_b10AllSigs(draws.slice(0,W),max,cnt);
+    const nf={};_B10_SIGS.forEach(k=>nf[k]=_b10Norm(sg[k],max));
+    const comp=[];
+    for(let i=1;i<=max;i++){let s=0;_B10_SIGS.forEach(k=>s+=w[k]*nf[k][i]);comp.push([i,s]);}
+    comp.sort((a,b)=>b[1]-a[1]);
+    comp.forEach(([n],rank)=>{rrf[n]+=1/(kRRF+rank);});
+  });
+  const rrfN=_b10Norm(rrf,max);
+  const lam=0.92;let wE=0;const wC={};for(let i=1;i<=max;i++)wC[i]=0;
+  main.forEach((d,idx)=>{const ww=Math.pow(lam,idx);wE+=ww;d.nums.forEach(n=>{if(n>=1&&n<=max)wC[n]+=ww;});});
+  const base=cnt/max,s0=10,a0=base*s0,b0=(1-base)*s0;
+  const bb={};for(let i=1;i<=max;i++)bb[i]=(wC[i]+a0)/(wE+a0+b0);
+  const bbN=_b10Norm(bb,max);
+  const freq={};for(let i=1;i<=max;i++)freq[i]=0;
+  main.forEach(d=>d.nums.forEach(n=>{if(n>=1&&n<=max)freq[n]++;}));
+  const scores=[];
+  for(let i=1;i<=max;i++){
+    scores.push({n:i,raw:0.58*rrfN[i]+0.42*bbN[i],conf:bb[i],lift:bb[i]/base,freq:freq[i]});
+  }
+  scores.sort((a,b)=>b.raw-a.raw||b.conf-a.conf);
+  const mx=scores[0]?.raw||1;scores.forEach(s=>s.score=mx>0?s.raw/mx:0);
+  return scores;
+}
+
 function _b10CleanDraws(draws,game){
   if(!Array.isArray(draws))return[];
   const seen=new Set();const out=[];
@@ -5047,82 +5144,17 @@ function _b10CleanDraws(draws,game){
 }
 
 function buildB10Scores(draws,game,wSize){
-  const N=draws.length;
-  if(N<8)return[];
+  if(draws.length<10)return[];
   const max=game.max,cnt=Math.min(game.count,7);
-  const mainW=Math.min(wSize||50,N);
-  const main=draws.slice(0,mainW);
-
-  // 1) Self-calibrating factor weights (walk-forward)
-  const w=_b10AdaptiveWeights(main,game);
+  const w=_b10Calibrate(draws,game);
   _b10LastWeights=w;
-
-  // 2) Multi-window Reciprocal Rank Fusion — stabilizes against any single window
-  const cand=[Math.min(20,N),Math.min(40,N),mainW,N];
-  const windows=[...new Set(cand)].filter(x=>x>=10);
-  if(!windows.length)windows.push(mainW);
-  const rrf={};for(let i=1;i<=max;i++)rrf[i]=0;
-  const kRRF=12;
-  windows.forEach(W=>{
-    const f=_b10Factors(draws.slice(0,W),max,cnt);
-    const nf={};_B10_KEYS.forEach(k=>nf[k]=_b10Norm(f[k],max));
-    const comp=[];
-    for(let i=1;i<=max;i++){let s=0;_B10_KEYS.forEach(k=>s+=w[k]*nf[k][i]);comp.push([i,s]);}
-    comp.sort((a,b)=>b[1]-a[1]);
-    comp.forEach(([n],rank)=>{rrf[n]+=1/(kRRF+rank);});
-  });
-  const rrfN=_b10Norm(rrf,max);
-
-  // 3) Co-occurrence coherence — favor numbers that historically appear together
-  const poolRank=[];for(let i=1;i<=max;i++)poolRank.push([i,rrfN[i]]);
-  poolRank.sort((a,b)=>b[1]-a[1]);
-  const pool=poolRank.slice(0,Math.min(max,Math.max(14,cnt*4))).map(p=>p[0]);
-  const poolSet=new Set(pool);
-  const co={};pool.forEach(a=>co[a]={});
-  main.forEach(d=>{
-    const ns=d.nums.filter(n=>poolSet.has(n));
-    for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){
-      co[ns[a]][ns[b]]=(co[ns[a]][ns[b]]||0)+1;
-      co[ns[b]][ns[a]]=(co[ns[b]][ns[a]]||0)+1;
-    }
-  });
-  const coher={};let coMax=0;
-  pool.forEach(a=>{let s=0;pool.forEach(b=>{if(a!==b)s+=(co[a][b]||0)*rrfN[b];});coher[a]=s;if(s>coMax)coMax=s;});
-
-  // 4) Recency-weighted Beta-Binomial posterior P(appears next) — calibrated,
-  //    shrunk toward the base rate to avoid overfitting small windows.
-  const lam=0.92;let wEff=0;const wCnt={};
-  for(let i=1;i<=max;i++)wCnt[i]=0;
-  main.forEach((d,idx)=>{const ww=Math.pow(lam,idx);wEff+=ww;d.nums.forEach(n=>{if(n>=1&&n<=max)wCnt[n]+=ww;});});
-  const baseRate=cnt/max,s0=6,a0=baseRate*s0,b0=(1-baseRate)*s0;
-  const post={};for(let i=1;i<=max;i++)post[i]=(wCnt[i]+a0)/(wEff+a0+b0);
-  const postN=_b10Norm(post,max);
-
-  // 5) Final fused score + per-factor norms for display
-  const fMain=_b10Factors(main,max,cnt);
-  const nfMain={};_B10_KEYS.forEach(k=>nfMain[k]=_b10Norm(fMain[k],max));
-  const appr={};for(let i=1;i<=max;i++)appr[i]=0;
-  main.forEach(d=>d.nums.forEach(n=>{if(n>=1&&n<=max)appr[n]++;}));
-
-  const scores=[];
-  for(let i=1;i<=max;i++){
-    const coh=poolSet.has(i)&&coMax>0?coher[i]/coMax:0;
-    scores.push({n:i,raw:0.55*rrfN[i]+0.30*postN[i]+0.15*coh,
-      conf:post[i],lift:post[i]/baseRate,
-      ewf:nfMain.ewf[i],due:nfMain.due[i],stab:nfMain.stab[i],mom:nfMain.mom[i],trend:nfMain.trend[i],pos:nfMain.pos[i],
-      freq:appr[i]});
-  }
-  scores.sort((a,b)=>b.raw-a.raw||b.conf-a.conf);
-  const mx=scores[0]?scores[0].raw:1;
-  scores.forEach(s=>{s.score=mx>0?s.raw/mx:0;});
-  return scores;
+  return _b10ScoreFast(draws,max,cnt,w,wSize);
 }
 
-// Confidence tier label relative to random base rate.
 function _b10Tier(lift){
-  if(lift>=1.8)return{icon:'🔥',label:'Çok Güçlü',color:'var(--green)'};
-  if(lift>=1.35)return{icon:'⚡',label:'Güçlü',color:'#9ae6b4'};
-  if(lift>=1.05)return{icon:'➕',label:'Orta',color:'#ffc400'};
+  if(lift>=2.0)return{icon:'🔥',label:'Çok Güçlü',color:'var(--green)'};
+  if(lift>=1.4)return{icon:'⚡',label:'Güçlü',color:'#9ae6b4'};
+  if(lift>=1.1)return{icon:'➕',label:'Orta',color:'#ffc400'};
   return{icon:'〰️',label:'Zayıf',color:'rgba(255,255,255,.4)'};
 }
 
@@ -5131,51 +5163,66 @@ function runB10(){
   const rawDraws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
   const draws=_b10CleanDraws(rawDraws,game);
   const res=document.getElementById('b10Result');
-  if(!draws||draws.length<8){if(res)res.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Yeterli veri yok (min 8 çekiliş). Önce "Gerçek Verileri Getir" butonuna basın.</div>';return;}
+  if(!draws||draws.length<10){if(res)res.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Yeterli veri yok (min 10 çekiliş). Önce "Gerçek Verileri Getir" butonuna basın.</div>';return;}
   const wSize=parseInt(document.getElementById('b10Window')?.value)||50;
   const pickCount=parseInt(document.getElementById('b10BankCount')?.value)||10;
   const scores=buildB10Scores(draws,game,wSize);
-  if(!scores.length){if(res)res.innerHTML='<div class="empty-state">Yeterli veri yok (min 8 çekiliş)</div>';return;}
-  const showN=Math.max(pickCount+4,12);
-  const top=scores.slice(0,showN);
+  if(!scores.length){if(res)res.innerHTML='<div class="empty-state">Yeterli veri yok</div>';return;}
+  const showN=Math.max(pickCount+5,15);
   const picks=scores.slice(0,pickCount).map(s=>s.n);
   const actualW=Math.min(wSize,draws.length);
-  const w=_b10LastWeights||{};
+  const w=_b10LastWeights||{};const ci=_b10CalibInfo||{};
   const wPct=k=>Math.round((w[k]||0)*100);
+  const lPct=k=>ci.lift?+(((ci.lift[k]||0)*100).toFixed(1)):0;
 
-  const rows=top.map(({n,score,conf,lift,ewf,due,stab,mom,trend,freq},i)=>{
-    const isBk=i<pickCount;
-    const pct=Math.round(score*100);
-    const tier=_b10Tier(lift);
-    return `<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;background:${isBk?'rgba(129,140,248,.07)':'transparent'};border-radius:7px;border:1px solid ${isBk?'rgba(129,140,248,.22)':'transparent'};margin-bottom:3px">
-      <span style="font-size:.6rem;color:var(--muted);min-width:16px">${i+1}.</span>
-      <span style="font-family:monospace;font-size:.88rem;font-weight:800;min-width:26px;color:${isBk?'var(--accent)':'var(--text)'}">${n}</span>
-      <span style="font-size:.62rem;min-width:62px;color:${tier.color}">${tier.icon} ${lift.toFixed(2)}×</span>
-      <div style="flex:1;height:7px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${isBk?'linear-gradient(90deg,var(--accent),rgba(255,101,132,.8))':'rgba(255,255,255,.25)'};border-radius:4px;transition:width .3s"></div>
+  const wBars=_B10_SIGS.map(k=>{
+    const pct=wPct(k);const lv=lPct(k);const isPos=!ci.lift||(ci.lift[k]||0)>=0;
+    return`<div style="display:flex;align-items:center;gap:5px;font-size:.59rem;margin-bottom:2px">
+      <span style="min-width:60px;color:var(--muted)">${_B10_SIG_NAMES[k]}</span>
+      <div style="flex:1;height:5px;background:rgba(255,255,255,.07);border-radius:2px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${isPos?'var(--accent)':'rgba(255,82,82,.6)'};border-radius:2px"></div>
       </div>
-      <span style="font-size:.6rem;color:var(--muted);min-width:34px;text-align:right">${Math.round(conf*100)}%</span>
+      <span style="min-width:24px;color:var(--muted);text-align:right">${pct}%</span>
+      <span style="min-width:58px;color:${isPos?'var(--green)':'rgba(255,100,100,.8)'};text-align:right;font-size:.54rem">${lv>=0?'+':''}${lv.toFixed(1)}% lift</span>
+    </div>`;
+  }).join('');
+
+  const rows=scores.slice(0,showN).map(({n,score,conf,lift},i)=>{
+    const isBk=i<pickCount;const pct=Math.round(score*100);const tier=_b10Tier(lift);
+    return`<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;background:${isBk?'rgba(129,140,248,.07)':'transparent'};border-radius:7px;border:1px solid ${isBk?'rgba(129,140,248,.22)':'transparent'};margin-bottom:2px">
+      <span style="font-size:.59rem;color:var(--muted);min-width:16px">${i+1}.</span>
+      <span style="font-family:monospace;font-size:.87rem;font-weight:800;min-width:26px;color:${isBk?'var(--accent)':'var(--text)'}">${n}</span>
+      <span style="font-size:.59rem;min-width:72px;color:${tier.color}">${tier.icon} ${lift.toFixed(2)}× ${tier.label}</span>
+      <div style="flex:1;height:6px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${isBk?'linear-gradient(90deg,var(--accent),rgba(255,101,132,.8))':'rgba(255,255,255,.2)'};border-radius:3px"></div>
+      </div>
+      <span style="font-size:.59rem;color:var(--muted);min-width:32px;text-align:right">${Math.round(conf*100)}%</span>
     </div>`;
   }).join('');
 
   if(!res)return;
   res.innerHTML=`
     <div style="margin-bottom:10px;padding:10px 12px;background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.2);border-radius:10px">
-      <div style="font-size:.63rem;color:var(--muted);margin-bottom:6px">İlk ${pickCount} B10 sayısı · Son ${actualW} çekiliş · ${game.name} · güven sırasına göre</div>
+      <div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">İlk ${pickCount} B10 sayısı · Son ${actualW} çekiliş · ${game.name} · güven sırasına göre</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        ${scores.slice(0,pickCount).map(s=>{const t=_b10Tier(s.lift);return`<span title="güven ${Math.round(s.conf*100)}% · ${t.label}" style="background:rgba(129,140,248,.18);border:2px solid ${t.color};border-radius:50%;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:.92rem;color:var(--accent)">${s.n}</span>`;}).join('')}
+        ${scores.slice(0,pickCount).map(s=>{const t=_b10Tier(s.lift);return`<span title="${t.label} · ${Math.round(s.conf*100)}% güven · ${s.lift.toFixed(2)}×" style="background:rgba(129,140,248,.18);border:2px solid ${t.color};border-radius:50%;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:.92rem;color:var(--accent)">${s.n}</span>`;}).join('')}
         <button onclick="copyB10('${picks.join(' - ')}')" style="margin-left:auto;background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:.68rem">📋 Kopyala</button>
       </div>
     </div>
-    <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;padding:6px 9px;background:rgba(255,255,255,.03);border-radius:7px">
-      <span style="color:var(--text);font-weight:600">Kendini ayarlayan ağırlıklar:</span>
-      EWF ${wPct('ewf')}% · Gecikme ${wPct('due')}% · Kararlılık ${wPct('stab')}% · Momentum ${wPct('mom')}% · Trend ${wPct('trend')}% · Pozisyon ${wPct('pos')}%
-    </div>
-    <div style="display:flex;justify-content:space-between;font-size:.62rem;font-weight:600;color:var(--muted);margin-bottom:6px;padding:0 8px">
-      <span># &nbsp; Sayı &nbsp; Güç (×kat)</span><span>Skor · Güven</span>
+    <details style="margin-bottom:8px">
+      <summary style="cursor:pointer;font-size:.61rem;font-weight:600;color:var(--muted);padding:5px 8px;background:rgba(255,255,255,.03);border-radius:7px;list-style:none">
+        ⚙️ Sinyal ağırlıkları — ${ci.rounds||0} geçmiş çekiliş kalibrasyonu (klik ile aç)
+      </summary>
+      <div style="padding:8px;margin-top:4px;background:rgba(255,255,255,.02);border-radius:7px">
+        ${wBars}
+        <div style="font-size:.52rem;color:rgba(255,255,255,.2);margin-top:5px">lift = precision@${ci.topK||'?'} artışı rastgele baz üstünde · kırmızı bar = o sinyal zararlı (ağırlık ≈0)</div>
+      </div>
+    </details>
+    <div style="display:flex;justify-content:space-between;font-size:.57rem;font-weight:600;color:var(--muted);margin-bottom:3px;padding:0 8px">
+      <span># · Sayı · Güç (×kat)</span><span>Skor · Güven%</span>
     </div>
     ${rows}
-    <div style="font-size:.57rem;color:rgba(255,255,255,.22);margin-top:6px;text-align:right">×kat = rastgeleye göre isabet katı (1.00× = şans seviyesi) · Güven = tahmini isabet olasılığı</div>`;
+    <div style="font-size:.52rem;color:rgba(255,255,255,.2);margin-top:5px;text-align:right">×kat = rastgeleye göre isabet katı (1.00×=şans) · Güven = Beta-Binomial posterior olasılığı</div>`;
 }
 
 function runB10Backtest(){
@@ -5187,132 +5234,165 @@ function runB10Backtest(){
   const priorW=parseInt(document.getElementById('b10Window')?.value)||50;
   const pickCount=parseInt(document.getElementById('b10BankCount')?.value)||10;
   const testW=parseInt(document.getElementById('b10BtTestWindow')?.value)||50;
-  const testDraws=draws.slice(0,Math.min(testW,draws.length-Math.max(10,Math.min(priorW,draws.length-2))));
+  const maxTestIdx=draws.length-Math.max(10,Math.min(priorW,draws.length-2));
+  const testDraws=draws.slice(0,Math.min(testW,maxTestIdx));
   if(!testDraws.length){if(btRes)btRes.innerHTML='<div class="empty-state">Geçmiş test için yeterli tarihsel veri yok</div>';return;}
+  const max=game.max,cnt=Math.min(game.count,7),expPer=cnt/max;
 
-  const results=[];const dist={};
-  for(let k=0;k<=pickCount;k++)dist[k]=0;
-  // per-rank hit tracking: did the #1 pick hit more often than #N?
+  // Tek kalibrasyon — tüm backtest adımları aynı ağırlıkları kullanır (hız + tutarlılık)
+  const calW=_b10Calibrate(draws,game);
+
+  const results=[];const dist={};for(let k=0;k<=pickCount;k++)dist[k]=0;
   const rankHits=new Array(pickCount).fill(0);
-  // confidence-tier hit tracking
   const tierAgg={'Çok Güçlü':{h:0,t:0},'Güçlü':{h:0,t:0},'Orta':{h:0,t:0},'Zayıf':{h:0,t:0}};
 
   for(let ti=0;ti<testDraws.length;ti++){
     const prior=draws.slice(ti+1,ti+1+priorW);
-    if(prior.length<8)continue;
-    const scores=buildB10Scores(prior,game,priorW);
+    if(prior.length<10)continue;
+    const scores=_b10ScoreFast(prior,max,cnt,calW,priorW);
     if(!scores.length)continue;
     const top=scores.slice(0,pickCount);
     const picks=top.map(s=>s.n);
-    const pickSet=new Set(picks);
-    const actual=[...new Set(testDraws[ti].nums.filter(n=>n>=1&&n<=game.max))].sort((a,b)=>a-b).slice(0,game.count);
+    const actual=[...new Set(testDraws[ti].nums.filter(n=>n>=1&&n<=max))].sort((a,b)=>a-b).slice(0,game.count);
     const actualSet=new Set(actual);
     const matches=picks.filter(n=>actualSet.has(n)).length;
     dist[Math.min(matches,pickCount)]=(dist[Math.min(matches,pickCount)]||0)+1;
     top.forEach((s,r)=>{
-      const hit=actualSet.has(s.n)?1:0;
-      if(hit)rankHits[r]++;
-      const tl=_b10Tier(s.lift).label;
-      if(tierAgg[tl]){tierAgg[tl].t++;tierAgg[tl].h+=hit;}
+      const hit=actualSet.has(s.n)?1:0;if(hit)rankHits[r]++;
+      const tl=_b10Tier(s.lift).label;if(tierAgg[tl]){tierAgg[tl].t++;tierAgg[tl].h+=hit;}
     });
-    results.push({date:testDraws[ti].date,picks,actual,matches,pickSet,actualSet});
+    results.push({date:testDraws[ti].date,picks,actual,matches,actualSet});
   }
 
-  const total=results.length;if(!total){if(btRes)btRes.innerHTML='<div class="empty-state">Geçmiş test için yeterli tarihsel veri yok</div>';return;}
-  const avgM=(results.reduce((s,r)=>s+r.matches,0)/total).toFixed(2);
+  const total=results.length;
+  if(!total){if(btRes)btRes.innerHTML='<div class="empty-state">Geçmiş test için yeterli tarihsel veri yok</div>';return;}
+  const sumM=results.reduce((s,r)=>s+r.matches,0);
+  const avgM=(sumM/total).toFixed(2);
+  const expAvg=(pickCount*expPer).toFixed(2);
+  const overallLift=sumM/(total*pickCount*expPer);
   const hit1=results.filter(r=>r.matches>=1).length;
   const hit2=results.filter(r=>r.matches>=2).length;
   const hit3=results.filter(r=>r.matches>=3).length;
   const maxM=Math.max(0,...results.map(r=>r.matches));
-  const expAvg=(pickCount*game.count/game.max).toFixed(2);
-  const expPer=game.count/game.max; // random hit prob per single number
 
-  const statsHtml=`<div style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.18);border-radius:10px;padding:12px;margin-bottom:10px">
-    <div style="font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:8px">📊 ${total} çekiliş · İlk ${pickCount} B10 sayısı · ${priorW} çekiliş penceresi · ${game.name}</div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:8px">
-      <div style="text-align:center;padding:7px;background:rgba(255,255,255,.04);border-radius:7px">
-        <div style="font-size:1.2rem;font-weight:800;color:var(--accent)">${avgM}</div>
-        <div style="font-size:.58rem;color:var(--muted)">Ort. eşleşme</div>
-        <div style="font-size:.56rem;color:rgba(255,255,255,.2)">Şans: ${expAvg}</div>
-      </div>
-      <div style="text-align:center;padding:7px;background:rgba(255,255,255,.04);border-radius:7px">
-        <div style="font-size:1.2rem;font-weight:800;color:${hit1/total>=0.35?'var(--green)':'#ffc400'}">${Math.round(hit1/total*100)}%</div>
-        <div style="font-size:.58rem;color:var(--muted)">≥1 eşleşme</div>
-      </div>
-      <div style="text-align:center;padding:7px;background:rgba(255,255,255,.04);border-radius:7px">
-        <div style="font-size:1.2rem;font-weight:800;color:${hit2/total>=0.15?'var(--green)':'#ff9100'}">${Math.round(hit2/total*100)}%</div>
-        <div style="font-size:.58rem;color:var(--muted)">≥2 eşleşme</div>
-      </div>
-      <div style="text-align:center;padding:7px;background:rgba(255,255,255,.04);border-radius:7px">
-        <div style="font-size:1.2rem;font-weight:800;color:var(--accent)">${maxM}/${pickCount}</div>
-        <div style="font-size:.58rem;color:var(--muted)">En iyi tek</div>
-      </div>
-    </div>
-    <div style="font-size:.62rem;color:var(--muted);margin-bottom:4px">Eşleşme dağılımı:</div>
-    <div style="display:flex;gap:3px;align-items:flex-end;height:44px">
-      ${Array.from({length:pickCount+1},(_,k)=>{
-        const c=dist[k]||0;const h=total>0?Math.max(2,Math.round(c/total*42)):2;
-        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
-          <div style="font-size:.5rem;color:var(--muted)">${c}</div>
-          <div style="height:${h}px;width:100%;background:${k>=3?'var(--green)':k>=2?'#ffc400':'rgba(255,255,255,.18)'};border-radius:3px 3px 0 0"></div>
-          <div style="font-size:.5rem;color:var(--muted)">${k}</div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`;
-
-  const rowsHtml=results.map(({date,picks,actual,matches,pickSet,actualSet})=>{
-    const picksHtml=picks.map(n=>`<span style="color:${actualSet.has(n)?'var(--green)':'rgba(255,255,255,.3)'};font-weight:${actualSet.has(n)?800:400}">${n}</span>`).join(' ');
-    const mc=matches;const mc_c=mc>=3?'var(--green)':mc>=2?'#ffc400':mc>=1?'#ff9100':'rgba(255,255,255,.3)';
-    return`<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.04);font-size:.67rem;min-width:0">
-      <span style="color:var(--muted);white-space:nowrap;min-width:78px">${date}</span>
-      <span style="font-family:monospace;display:flex;gap:5px;flex-wrap:wrap;flex:1">${picksHtml}</span>
-      <span style="font-family:monospace;color:rgba(255,255,255,.3);font-size:.6rem;white-space:nowrap">${actual.join(' ')}</span>
-      <span style="color:${mc_c};font-weight:700;min-width:24px;text-align:right">${mc}/${pickCount}</span>
-    </div>`;
+  // Çalışma LIFT (kayan pencere 7 çekiliş)
+  const sWin=Math.min(7,Math.max(3,Math.floor(total/6)));
+  const runLift=results.map((_,i)=>{
+    const sl=results.slice(Math.max(0,i-sWin+1),i+1);
+    return sl.reduce((s,r)=>s+r.matches,0)/Math.max(0.001,sl.length*pickCount*expPer);
+  });
+  const maxRL=Math.max(2.5,...runLift);
+  const liftColor=overallLift>=1.3?'var(--green)':overallLift>=1.1?'#ffc400':'rgba(255,255,255,.5)';
+  const spark=runLift.map((v,i)=>{
+    const h=Math.max(2,Math.round(v/maxRL*48));
+    const c=v>=1.5?'var(--green)':v>=1.0?'#ffc400':'rgba(255,82,82,.7)';
+    return`<div style="flex:1;height:${h}px;background:${c};border-radius:1px 1px 0 0;min-width:2px;align-self:flex-end" title="${results[i]?.date||''}: ${v.toFixed(2)}×"></div>`;
   }).join('');
+  const baseLineBottom=Math.round(1/maxRL*48)+2;
 
-  // Per-rank hit rate — validates that higher-ranked picks actually hit more
-  const rankPct=rankHits.map(h=>h/total);
-  const rankMaxPct=Math.max(expPer,...rankPct,0.001);
-  const rankHtml=`<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.15);border-radius:10px;padding:11px;margin-bottom:10px">
-    <div style="font-size:.66rem;font-weight:700;color:var(--text);margin-bottom:3px">🏅 Sıra-bazlı isabet oranı</div>
-    <div style="font-size:.57rem;color:var(--muted);margin-bottom:8px">Her sıranın gerçekte tutturma oranı. İdeal: üst sıralar daha yüksek olmalı. Kesikli çizgi = rastgele (${Math.round(expPer*100)}%).</div>
-    <div style="display:flex;gap:3px;align-items:flex-end;height:60px;position:relative">
-      <div style="position:absolute;left:0;right:0;bottom:${Math.round(expPer/rankMaxPct*52)+8}px;border-top:1px dashed rgba(255,196,0,.5);z-index:1"></div>
-      ${rankPct.map((p,r)=>{
-        const h=Math.max(2,Math.round(p/rankMaxPct*52));
-        const good=p>=expPer;
-        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;z-index:2">
-          <div style="font-size:.48rem;color:var(--muted)">${Math.round(p*100)}%</div>
-          <div style="height:${h}px;width:100%;background:${good?'linear-gradient(180deg,var(--green),rgba(0,230,118,.4))':'rgba(255,255,255,.18)'};border-radius:3px 3px 0 0"></div>
-          <div style="font-size:.48rem;color:var(--muted)">#${r+1}</div>
+  const statsHtml=`<div style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.18);border-radius:10px;padding:12px;margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;flex-wrap:wrap;gap:6px">
+      <div style="font-size:.7rem;font-weight:700;color:var(--text)">${total} çekiliş · İlk ${pickCount} B10 · ${priorW} pencere · ${game.name}</div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:1.5rem;font-weight:900;color:${liftColor};line-height:1">${overallLift.toFixed(2)}×</div>
+        <div style="font-size:.54rem;color:var(--muted)">toplam LIFT</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(82px,1fr));gap:5px;margin-bottom:8px">
+      <div style="text-align:center;padding:7px;background:rgba(255,255,255,.04);border-radius:7px">
+        <div style="font-size:1.05rem;font-weight:800;color:var(--accent)">${avgM}</div>
+        <div style="font-size:.55rem;color:var(--muted)">Ort. eşleşme</div>
+        <div style="font-size:.52rem;color:rgba(255,255,255,.2)">Şans: ${expAvg}</div>
+      </div>
+      <div style="text-align:center;padding:7px;background:rgba(255,255,255,.04);border-radius:7px">
+        <div style="font-size:1.05rem;font-weight:800;color:${hit1/total>=0.5?'var(--green)':'#ffc400'}">${Math.round(hit1/total*100)}%</div>
+        <div style="font-size:.55rem;color:var(--muted)">≥1 eşleşme</div>
+      </div>
+      <div style="text-align:center;padding:7px;background:rgba(255,255,255,.04);border-radius:7px">
+        <div style="font-size:1.05rem;font-weight:800;color:${hit2/total>=0.25?'var(--green)':'#ff9100'}">${Math.round(hit2/total*100)}%</div>
+        <div style="font-size:.55rem;color:var(--muted)">≥2 eşleşme</div>
+      </div>
+      <div style="text-align:center;padding:7px;background:rgba(255,255,255,.04);border-radius:7px">
+        <div style="font-size:1.05rem;font-weight:800;color:${hit3/total>=0.10?'var(--green)':'#ff9100'}">${Math.round(hit3/total*100)}%</div>
+        <div style="font-size:.55rem;color:var(--muted)">≥3 eşleşme</div>
+      </div>
+      <div style="text-align:center;padding:7px;background:rgba(255,255,255,.04);border-radius:7px">
+        <div style="font-size:1.05rem;font-weight:800;color:var(--accent)">${maxM}/${pickCount}</div>
+        <div style="font-size:.55rem;color:var(--muted)">En iyi tek</div>
+      </div>
+    </div>
+    <div style="font-size:.59rem;color:var(--muted);margin-bottom:3px">Çalışma LIFT — ${sWin} çekiliş kayan pencere (sarı kesik=1.0×=şans):</div>
+    <div style="position:relative;height:52px">
+      <div style="position:absolute;left:0;right:0;bottom:${baseLineBottom}px;border-top:1px dashed rgba(255,196,0,.45);pointer-events:none"></div>
+      <div style="display:flex;gap:1px;height:52px;align-items:flex-end">${spark}</div>
+    </div>
+    <div style="font-size:.57rem;color:var(--muted);margin:5px 0 2px">Eşleşme dağılımı:</div>
+    <div style="display:flex;gap:3px;align-items:flex-end;height:38px">
+      ${Array.from({length:pickCount+1},(_,k)=>{
+        const c=dist[k]||0;const h=total>0?Math.max(2,Math.round(c/total*34)):2;
+        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
+          <div style="font-size:.46rem;color:var(--muted)">${c}</div>
+          <div style="height:${h}px;width:100%;background:${k>=3?'var(--green)':k>=2?'#ffc400':'rgba(255,255,255,.18)'};border-radius:2px 2px 0 0"></div>
+          <div style="font-size:.46rem;color:var(--muted)">${k}</div>
         </div>`;
       }).join('')}
     </div>
   </div>`;
 
-  // Confidence-tier calibration — do "stronger" tiers really hit more?
+  // Sıra-bazlı isabet oranı
+  const rankPct=rankHits.map(h=>h/total);
+  const rankMax=Math.max(expPer,...rankPct,0.001);
+  const rankHtml=`<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.15);border-radius:10px;padding:10px;margin-bottom:8px">
+    <div style="font-size:.63rem;font-weight:700;color:var(--text);margin-bottom:2px">🏅 Sıra-bazlı isabet oranı</div>
+    <div style="font-size:.54rem;color:var(--muted);margin-bottom:6px">Üst sıralar daha çok tutuyorsa model anlamlı sıralama yapıyor demektir. Sarı çizgi = rastgele (${Math.round(expPer*100)}%).</div>
+    <div style="display:flex;gap:2px;align-items:flex-end;height:54px;position:relative">
+      <div style="position:absolute;left:0;right:0;bottom:${Math.round(expPer/rankMax*48)+2}px;border-top:1px dashed rgba(255,196,0,.5)"></div>
+      ${rankPct.map((p,r)=>{
+        const h=Math.max(2,Math.round(p/rankMax*48));
+        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;z-index:1">
+          <div style="font-size:.43rem;color:var(--muted)">${Math.round(p*100)}%</div>
+          <div style="height:${h}px;width:100%;background:${p>=expPer*0.9?'linear-gradient(180deg,var(--green),rgba(0,230,118,.35))':'rgba(255,255,255,.18)'};border-radius:2px 2px 0 0" title="${(p/expPer).toFixed(2)}×"></div>
+          <div style="font-size:.43rem;color:var(--muted)">#${r+1}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  // Güven kademesi kalibrasyonu
   const tierOrder=['Çok Güçlü','Güçlü','Orta','Zayıf'];
   const tierColor={'Çok Güçlü':'var(--green)','Güçlü':'#9ae6b4','Orta':'#ffc400','Zayıf':'rgba(255,255,255,.4)'};
   const tierIcon={'Çok Güçlü':'🔥','Güçlü':'⚡','Orta':'➕','Zayıf':'〰️'};
   const tierRows=tierOrder.filter(tl=>tierAgg[tl].t>0).map(tl=>{
-    const a=tierAgg[tl];const rate=a.h/a.t;const lift=rate/expPer;
-    return`<div style="display:flex;align-items:center;gap:8px;font-size:.63rem;padding:3px 0">
-      <span style="min-width:80px;color:${tierColor[tl]}">${tierIcon[tl]} ${tl}</span>
-      <div style="flex:1;height:8px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,Math.round(rate/Math.max(0.01,rankMaxPct)*100))}%;background:${tierColor[tl]};border-radius:4px"></div></div>
-      <span style="min-width:90px;text-align:right;color:var(--muted)">${Math.round(rate*100)}% · <b style="color:${lift>=1.2?'var(--green)':lift>=1?'#ffc400':'var(--muted)'}">${lift.toFixed(2)}×</b></span>
+    const a=tierAgg[tl];const rate=a.h/a.t;const lv=rate/expPer;
+    return`<div style="display:flex;align-items:center;gap:7px;font-size:.6rem;padding:3px 0">
+      <span style="min-width:76px;color:${tierColor[tl]}">${tierIcon[tl]} ${tl}</span>
+      <div style="flex:1;height:7px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${Math.min(100,Math.round(rate/Math.max(0.01,rankMax)*100))}%;background:${tierColor[tl]};border-radius:4px"></div>
+      </div>
+      <span style="min-width:28px;text-align:right;color:var(--muted)">${Math.round(rate*100)}%</span>
+      <span style="min-width:38px;text-align:right;font-weight:700;color:${lv>=1.2?'var(--green)':lv>=1?'#ffc400':'var(--muted)'}">${lv.toFixed(2)}×</span>
     </div>`;
   }).join('');
-  const tierHtml=`<div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.15);border-radius:10px;padding:11px;margin-bottom:10px">
-    <div style="font-size:.66rem;font-weight:700;color:var(--text);margin-bottom:3px">🎚️ Güven derecesi kalibrasyonu</div>
-    <div style="font-size:.57rem;color:var(--muted);margin-bottom:8px">Her güven kademesinin gerçek isabet oranı (×kat = rastgeleye göre). Model çalışıyorsa 🔥/⚡ kademeleri 1.00×'in üzerinde olmalı.</div>
+  const tierHtml=`<div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.15);border-radius:10px;padding:10px;margin-bottom:8px">
+    <div style="font-size:.63rem;font-weight:700;color:var(--text);margin-bottom:2px">🎚️ Güven kademesi kalibrasyonu</div>
+    <div style="font-size:.54rem;color:var(--muted);margin-bottom:6px">🔥 kademesi gerçekten 1.00×'in üstündeyse model doğru kademe atıyor demektir.</div>
     ${tierRows||'<div style="font-size:.6rem;color:var(--muted)">Veri yok</div>'}
   </div>`;
 
+  const rowsHtml=results.map(({date,picks,actual,matches,actualSet})=>{
+    const ph=picks.map(n=>`<span style="color:${actualSet.has(n)?'var(--green)':'rgba(255,255,255,.28)'};font-weight:${actualSet.has(n)?800:400}">${n}</span>`).join(' ');
+    const mc=matches;const mc_c=mc>=3?'var(--green)':mc>=2?'#ffc400':mc>=1?'#ff9100':'rgba(255,255,255,.28)';
+    return`<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.04);font-size:.63rem;min-width:0">
+      <span style="color:var(--muted);white-space:nowrap;min-width:76px">${date}</span>
+      <span style="font-family:monospace;display:flex;gap:4px;flex-wrap:wrap;flex:1">${ph}</span>
+      <span style="font-family:monospace;color:rgba(255,255,255,.26);font-size:.57rem;white-space:nowrap">${actual.join(' ')}</span>
+      <span style="color:${mc_c};font-weight:700;min-width:24px;text-align:right">${mc}/${pickCount}</span>
+    </div>`;
+  }).join('');
+
   if(!btRes)return;
   btRes.innerHTML=statsHtml+rankHtml+tierHtml+`
-    <div style="font-size:.63rem;font-weight:600;color:var(--muted);margin-bottom:5px">Tüm çekilişler — Yeşil = B10 eşleşmesi · Son sütun gerçek sayılar</div>
+    <div style="font-size:.61rem;font-weight:600;color:var(--muted);margin-bottom:4px">Tüm çekilişler — Yeşil = B10 eşleşmesi · Son sütun gerçek sayılar</div>
     <div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:7px">${rowsHtml}</div>`;
 }
 
