@@ -626,13 +626,13 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
 </div>
 
-<!-- ═══════════ B10 Banko Analizi ═══════════ -->
+<!-- ═══════════ B10 Analizi ═══════════ -->
 <div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="b10Section">
   <div class="card">
-    <div class="card-title">🎯 B10 Banko Analizi</div>
+    <div class="card-title">🎯 B10 Analizi</div>
     <div style="font-size:.7rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
       <strong>Gelişmiş ensemble motoru:</strong> çoklu pencere sıra-füzyonu (RRF) · kendini ayarlayan ağırlıklar (walk-forward kalibrasyon) · birliktelik tutarlılığı (co-occurrence) · gecikme kararlılığı &amp; trend eğimi.
-      Her banko için <strong>güven derecesi</strong> ve geçmiş testte sıra-bazlı isabet doğrulaması.
+      Her sayı için <strong>güven derecesi</strong> ve geçmiş testte sıra-bazlı isabet doğrulaması.
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:6px">
@@ -645,7 +645,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
         </select>
       </div>
       <div style="display:flex;align-items:center;gap:6px">
-        <span style="font-size:.72rem;color:var(--muted)">Banko sayısı:</span>
+        <span style="font-size:.72rem;color:var(--muted)">Sayı adedi:</span>
         <select id="b10BankCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px">
           <option value="3">3</option>
           <option value="5">5</option>
@@ -655,11 +655,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       </div>
     </div>
     <div class="tabs" style="margin-bottom:10px">
-      <button class="tab-btn active" id="b10TabBtn-tahmin" onclick="switchB10Tab('tahmin')">🎯 Banko Tahmin</button>
+      <button class="tab-btn active" id="b10TabBtn-tahmin" onclick="switchB10Tab('tahmin')">🎯 Tahmin</button>
       <button class="tab-btn" id="b10TabBtn-backtest" onclick="switchB10Tab('backtest')">📊 Geçmiş Test</button>
     </div>
     <div class="tab-panel active" id="b10Tab-tahmin">
-      <button onclick="runB10()" style="width:100%;padding:10px;background:linear-gradient(135deg,rgba(129,140,248,.25),rgba(255,101,132,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:700;margin-bottom:10px">🎯 Analiz Et — Banko Sayıları Üret</button>
+      <button onclick="runB10()" style="width:100%;padding:10px;background:linear-gradient(135deg,rgba(129,140,248,.25),rgba(255,101,132,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:700;margin-bottom:10px">🎯 Analiz Et — B10 Sayılarını Üret</button>
       <div id="b10Result"><div class="empty-state"><span class="empty-icon">🎯</span>Veri yükleyip "Analiz Et"e basın.</div></div>
     </div>
     <div class="tab-panel" id="b10Tab-backtest">
@@ -3839,6 +3839,11 @@ function renderBtHistory(){
 function copyNums(text){
   navigator.clipboard.writeText(text).then(()=>showToast('📋 Kopyalandı: '+text)).catch(()=>showToast('Sayılar: '+text));
 }
+function copyB10(numsStr){
+  const game=getGame(state.selectedGame);
+  const text='🎯 B10 Analizi — '+(game?.name||'')+'\n'+numsStr;
+  navigator.clipboard.writeText(text).then(()=>showToast('📋 B10 Analizi kopyalandı')).catch(()=>showToast('B10: '+numsStr));
+}
 function showToast(msg){
   const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');
   setTimeout(()=>el.classList.remove('show'),2800);
@@ -4910,7 +4915,7 @@ function gizliKopyalaHepsi(){
   copyNums(text);
 }
 
-// ── B10 Banko Analizi ─────────────────────────────────────────
+// ── B10 Analizi ───────────────────────────────────────────────
 function switchB10Tab(name){
   ['tahmin','backtest'].forEach(t=>{
     document.getElementById('b10TabBtn-'+t)?.classList.toggle('active',t===name);
@@ -4987,12 +4992,13 @@ function _b10Norm(obj,max){
 
 const _B10_KEYS=['ewf','due','stab','mom','trend','pos'];
 
-// Walk-forward calibration: weight each factor by how well it predicted recent draws.
+// Walk-forward calibration: weight each factor by how well it predicted recent
+// draws. Factors that perform worse than random are aggressively suppressed.
 function _b10AdaptiveWeights(draws,game){
   const max=game.max,cnt=Math.min(game.count,7);
-  const V=Math.min(10,Math.floor(draws.length/3));
+  const V=Math.min(18,Math.max(5,Math.floor(draws.length/3)));
   const power={};_B10_KEYS.forEach(k=>power[k]=0);
-  const topK=Math.max(8,Math.round(max*0.15));
+  const topK=Math.max(cnt,Math.round(max*0.15));
   const baseHit=topK/max; // random expectation of hit-rate in top-K
   let valid=0;
   for(let t=0;t<V;t++){
@@ -5000,19 +5006,44 @@ function _b10AdaptiveWeights(draws,game){
     if(prior.length<10)break;
     const f=_b10Factors(prior,max,cnt);
     const actual=new Set([...draws[t].nums].filter(n=>n>=1&&n<=max));
+    if(!actual.size)continue;
     _B10_KEYS.forEach(k=>{
       const nf=_b10Norm(f[k],max);
       const ranked=[];for(let i=1;i<=max;i++)ranked.push([i,nf[i]]);
       ranked.sort((a,b)=>b[1]-a[1]);
       const hits=ranked.slice(0,topK).filter(([num])=>actual.has(num)).length;
-      power[k]+=(hits/topK)-baseHit; // lift over random
+      power[k]+=(hits/topK)-baseHit; // lift over random per draw
     });
     valid++;
   }
+  // Average lift per factor, then z-score → exponential weighting (softmax-like).
+  const rl={};_B10_KEYS.forEach(k=>rl[k]=valid?power[k]/valid:0);
+  let mean=0;_B10_KEYS.forEach(k=>mean+=rl[k]);mean/=_B10_KEYS.length;
+  let sd=0;_B10_KEYS.forEach(k=>sd+=(rl[k]-mean)*(rl[k]-mean));sd=Math.sqrt(sd/_B10_KEYS.length)||1e-6;
   const w={};let sum=0;
-  _B10_KEYS.forEach(k=>{const p=valid?power[k]/valid:0;w[k]=Math.max(0.04,0.08+p*2.2);sum+=w[k];});
+  _B10_KEYS.forEach(k=>{
+    let val=Math.exp(1.7*((rl[k]-mean)/sd));
+    if(rl[k]<0)val*=0.30;          // penalize worse-than-random factors
+    val=Math.max(val,0.02);         // keep a tiny floor for stability
+    w[k]=val;sum+=val;
+  });
   _B10_KEYS.forEach(k=>w[k]=w[k]/sum);
   return w;
+}
+
+// Sanitize draws: drop malformed/duplicate rows, clamp to valid range, newest-first.
+function _b10CleanDraws(draws,game){
+  if(!Array.isArray(draws))return[];
+  const seen=new Set();const out=[];
+  for(const d of draws){
+    if(!d||!Array.isArray(d.nums))continue;
+    const nums=[...new Set(d.nums.filter(n=>Number.isInteger(n)&&n>=1&&n<=game.max))];
+    if(nums.length<Math.min(game.count,3))continue;
+    if(d.date){if(seen.has(d.date))continue;seen.add(d.date);}
+    out.push({date:d.date||'',nums});
+  }
+  if(out.length&&out.every(d=>d.date))out.sort((a,b)=>b.date.localeCompare(a.date));
+  return out;
 }
 
 function buildB10Scores(draws,game,wSize){
@@ -5058,7 +5089,16 @@ function buildB10Scores(draws,game,wSize){
   const coher={};let coMax=0;
   pool.forEach(a=>{let s=0;pool.forEach(b=>{if(a!==b)s+=(co[a][b]||0)*rrfN[b];});coher[a]=s;if(s>coMax)coMax=s;});
 
-  // 4) Final fused score + per-factor norms for display
+  // 4) Recency-weighted Beta-Binomial posterior P(appears next) — calibrated,
+  //    shrunk toward the base rate to avoid overfitting small windows.
+  const lam=0.92;let wEff=0;const wCnt={};
+  for(let i=1;i<=max;i++)wCnt[i]=0;
+  main.forEach((d,idx)=>{const ww=Math.pow(lam,idx);wEff+=ww;d.nums.forEach(n=>{if(n>=1&&n<=max)wCnt[n]+=ww;});});
+  const baseRate=cnt/max,s0=6,a0=baseRate*s0,b0=(1-baseRate)*s0;
+  const post={};for(let i=1;i<=max;i++)post[i]=(wCnt[i]+a0)/(wEff+a0+b0);
+  const postN=_b10Norm(post,max);
+
+  // 5) Final fused score + per-factor norms for display
   const fMain=_b10Factors(main,max,cnt);
   const nfMain={};_B10_KEYS.forEach(k=>nfMain[k]=_b10Norm(fMain[k],max));
   const appr={};for(let i=1;i<=max;i++)appr[i]=0;
@@ -5067,22 +5107,14 @@ function buildB10Scores(draws,game,wSize){
   const scores=[];
   for(let i=1;i<=max;i++){
     const coh=poolSet.has(i)&&coMax>0?coher[i]/coMax:0;
-    scores.push({n:i,raw:0.78*rrfN[i]+0.22*coh,
+    scores.push({n:i,raw:0.55*rrfN[i]+0.30*postN[i]+0.15*coh,
+      conf:post[i],lift:post[i]/baseRate,
       ewf:nfMain.ewf[i],due:nfMain.due[i],stab:nfMain.stab[i],mom:nfMain.mom[i],trend:nfMain.trend[i],pos:nfMain.pos[i],
       freq:appr[i]});
   }
-  scores.sort((a,b)=>b.raw-a.raw);
-
-  // 5) Confidence calibration — anchored hit-probability per banko
-  const baseRate=cnt/max;
+  scores.sort((a,b)=>b.raw-a.raw||b.conf-a.conf);
   const mx=scores[0]?scores[0].raw:1;
-  scores.forEach((s,idx)=>{
-    const apprRate=appr[s.n]/mainW;
-    const pct=1-idx/Math.max(1,scores.length-1); // model percentile (1=best)
-    s.conf=Math.min(0.95,0.55*apprRate+0.45*(baseRate+(pct-0.5)*baseRate*1.8));
-    s.lift=s.conf/baseRate;
-    s.score=mx>0?s.raw/mx:0;
-  });
+  scores.forEach(s=>{s.score=mx>0?s.raw/mx:0;});
   return scores;
 }
 
@@ -5096,22 +5128,23 @@ function _b10Tier(lift){
 
 function runB10(){
   const game=getGame(state.selectedGame);
-  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const rawDraws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const draws=_b10CleanDraws(rawDraws,game);
   const res=document.getElementById('b10Result');
-  if(!draws||!draws.length){if(res)res.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Önce "Gerçek Verileri Getir" butonuna basın.</div>';return;}
+  if(!draws||draws.length<8){if(res)res.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Yeterli veri yok (min 8 çekiliş). Önce "Gerçek Verileri Getir" butonuna basın.</div>';return;}
   const wSize=parseInt(document.getElementById('b10Window')?.value)||50;
-  const bankCount=parseInt(document.getElementById('b10BankCount')?.value)||10;
+  const pickCount=parseInt(document.getElementById('b10BankCount')?.value)||10;
   const scores=buildB10Scores(draws,game,wSize);
   if(!scores.length){if(res)res.innerHTML='<div class="empty-state">Yeterli veri yok (min 8 çekiliş)</div>';return;}
-  const showN=Math.max(bankCount+4,12);
+  const showN=Math.max(pickCount+4,12);
   const top=scores.slice(0,showN);
-  const bankos=scores.slice(0,bankCount).map(s=>s.n);
+  const picks=scores.slice(0,pickCount).map(s=>s.n);
   const actualW=Math.min(wSize,draws.length);
   const w=_b10LastWeights||{};
   const wPct=k=>Math.round((w[k]||0)*100);
 
   const rows=top.map(({n,score,conf,lift,ewf,due,stab,mom,trend,freq},i)=>{
-    const isBk=i<bankCount;
+    const isBk=i<pickCount;
     const pct=Math.round(score*100);
     const tier=_b10Tier(lift);
     return `<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;background:${isBk?'rgba(129,140,248,.07)':'transparent'};border-radius:7px;border:1px solid ${isBk?'rgba(129,140,248,.22)':'transparent'};margin-bottom:3px">
@@ -5128,10 +5161,10 @@ function runB10(){
   if(!res)return;
   res.innerHTML=`
     <div style="margin-bottom:10px;padding:10px 12px;background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.2);border-radius:10px">
-      <div style="font-size:.63rem;color:var(--muted);margin-bottom:6px">Top ${bankCount} Banko Adayı · Son ${actualW} çekiliş · ${game.name} · güven sırasına göre</div>
+      <div style="font-size:.63rem;color:var(--muted);margin-bottom:6px">İlk ${pickCount} B10 sayısı · Son ${actualW} çekiliş · ${game.name} · güven sırasına göre</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        ${scores.slice(0,bankCount).map(s=>{const t=_b10Tier(s.lift);return`<span title="güven ${Math.round(s.conf*100)}% · ${t.label}" style="background:rgba(129,140,248,.18);border:2px solid ${t.color};border-radius:50%;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:.92rem;color:var(--accent)">${s.n}</span>`;}).join('')}
-        <button onclick="copyNums('${bankos.join(' - ')}')" style="margin-left:auto;background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:.68rem">📋 Kopyala</button>
+        ${scores.slice(0,pickCount).map(s=>{const t=_b10Tier(s.lift);return`<span title="güven ${Math.round(s.conf*100)}% · ${t.label}" style="background:rgba(129,140,248,.18);border:2px solid ${t.color};border-radius:50%;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:.92rem;color:var(--accent)">${s.n}</span>`;}).join('')}
+        <button onclick="copyB10('${picks.join(' - ')}')" style="margin-left:auto;background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:.68rem">📋 Kopyala</button>
       </div>
     </div>
     <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;padding:6px 9px;background:rgba(255,255,255,.03);border-radius:7px">
@@ -5147,53 +5180,55 @@ function runB10(){
 
 function runB10Backtest(){
   const game=getGame(state.selectedGame);
-  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const rawDraws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const draws=_b10CleanDraws(rawDraws,game);
   const btRes=document.getElementById('b10BtResult');
   if(!draws||draws.length<25){if(btRes)btRes.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Yeterli veri yok (min 25 çekiliş). Önce veri yükleyin.</div>';return;}
   const priorW=parseInt(document.getElementById('b10Window')?.value)||50;
-  const bankCount=parseInt(document.getElementById('b10BankCount')?.value)||5;
+  const pickCount=parseInt(document.getElementById('b10BankCount')?.value)||10;
   const testW=parseInt(document.getElementById('b10BtTestWindow')?.value)||50;
-  const testDraws=draws.slice(0,Math.min(testW,draws.length-Math.max(10,priorW)));
-  if(!testDraws.length){if(btRes)btRes.innerHTML='<div class="empty-state">Backtest için yeterli tarihsel veri yok</div>';return;}
+  const testDraws=draws.slice(0,Math.min(testW,draws.length-Math.max(10,Math.min(priorW,draws.length-2))));
+  if(!testDraws.length){if(btRes)btRes.innerHTML='<div class="empty-state">Geçmiş test için yeterli tarihsel veri yok</div>';return;}
 
   const results=[];const dist={};
-  for(let k=0;k<=bankCount;k++)dist[k]=0;
-  // per-rank hit tracking: did the #1 banko hit more often than #N?
-  const rankHits=new Array(bankCount).fill(0);
+  for(let k=0;k<=pickCount;k++)dist[k]=0;
+  // per-rank hit tracking: did the #1 pick hit more often than #N?
+  const rankHits=new Array(pickCount).fill(0);
   // confidence-tier hit tracking
   const tierAgg={'Çok Güçlü':{h:0,t:0},'Güçlü':{h:0,t:0},'Orta':{h:0,t:0},'Zayıf':{h:0,t:0}};
 
   for(let ti=0;ti<testDraws.length;ti++){
     const prior=draws.slice(ti+1,ti+1+priorW);
-    if(prior.length<5)continue;
+    if(prior.length<8)continue;
     const scores=buildB10Scores(prior,game,priorW);
-    const top=scores.slice(0,bankCount);
-    const bankos=top.map(s=>s.n);
-    const bankSet=new Set(bankos);
-    const actual=[...testDraws[ti].nums].filter(n=>n>=1&&n<=game.max).sort((a,b)=>a-b).slice(0,game.count);
+    if(!scores.length)continue;
+    const top=scores.slice(0,pickCount);
+    const picks=top.map(s=>s.n);
+    const pickSet=new Set(picks);
+    const actual=[...new Set(testDraws[ti].nums.filter(n=>n>=1&&n<=game.max))].sort((a,b)=>a-b).slice(0,game.count);
     const actualSet=new Set(actual);
-    const matches=bankos.filter(n=>actualSet.has(n)).length;
-    dist[Math.min(matches,bankCount)]=(dist[Math.min(matches,bankCount)]||0)+1;
+    const matches=picks.filter(n=>actualSet.has(n)).length;
+    dist[Math.min(matches,pickCount)]=(dist[Math.min(matches,pickCount)]||0)+1;
     top.forEach((s,r)=>{
       const hit=actualSet.has(s.n)?1:0;
       if(hit)rankHits[r]++;
       const tl=_b10Tier(s.lift).label;
       if(tierAgg[tl]){tierAgg[tl].t++;tierAgg[tl].h+=hit;}
     });
-    results.push({date:testDraws[ti].date,bankos,actual,matches,bankSet,actualSet});
+    results.push({date:testDraws[ti].date,picks,actual,matches,pickSet,actualSet});
   }
 
-  const total=results.length;if(!total)return;
+  const total=results.length;if(!total){if(btRes)btRes.innerHTML='<div class="empty-state">Geçmiş test için yeterli tarihsel veri yok</div>';return;}
   const avgM=(results.reduce((s,r)=>s+r.matches,0)/total).toFixed(2);
   const hit1=results.filter(r=>r.matches>=1).length;
   const hit2=results.filter(r=>r.matches>=2).length;
   const hit3=results.filter(r=>r.matches>=3).length;
-  const maxM=Math.max(...results.map(r=>r.matches));
-  const expAvg=(bankCount*game.count/game.max).toFixed(2);
-  const expPerBanko=game.count/game.max; // random hit prob per single banko
+  const maxM=Math.max(0,...results.map(r=>r.matches));
+  const expAvg=(pickCount*game.count/game.max).toFixed(2);
+  const expPer=game.count/game.max; // random hit prob per single number
 
   const statsHtml=`<div style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.18);border-radius:10px;padding:12px;margin-bottom:10px">
-    <div style="font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:8px">📊 ${total} çekiliş · Top-${bankCount} banko · ${priorW} çekiliş penceresi · ${game.name}</div>
+    <div style="font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:8px">📊 ${total} çekiliş · İlk ${pickCount} B10 sayısı · ${priorW} çekiliş penceresi · ${game.name}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;margin-bottom:8px">
       <div style="text-align:center;padding:7px;background:rgba(255,255,255,.04);border-radius:7px">
         <div style="font-size:1.2rem;font-weight:800;color:var(--accent)">${avgM}</div>
@@ -5209,13 +5244,13 @@ function runB10Backtest(){
         <div style="font-size:.58rem;color:var(--muted)">≥2 eşleşme</div>
       </div>
       <div style="text-align:center;padding:7px;background:rgba(255,255,255,.04);border-radius:7px">
-        <div style="font-size:1.2rem;font-weight:800;color:var(--accent)">${maxM}/${bankCount}</div>
+        <div style="font-size:1.2rem;font-weight:800;color:var(--accent)">${maxM}/${pickCount}</div>
         <div style="font-size:.58rem;color:var(--muted)">En iyi tek</div>
       </div>
     </div>
     <div style="font-size:.62rem;color:var(--muted);margin-bottom:4px">Eşleşme dağılımı:</div>
     <div style="display:flex;gap:3px;align-items:flex-end;height:44px">
-      ${Array.from({length:bankCount+1},(_,k)=>{
+      ${Array.from({length:pickCount+1},(_,k)=>{
         const c=dist[k]||0;const h=total>0?Math.max(2,Math.round(c/total*42)):2;
         return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px">
           <div style="font-size:.5rem;color:var(--muted)">${c}</div>
@@ -5226,28 +5261,28 @@ function runB10Backtest(){
     </div>
   </div>`;
 
-  const rowsHtml=results.map(({date,bankos,actual,matches,bankSet,actualSet})=>{
-    const bankoHtml=bankos.map(n=>`<span style="color:${actualSet.has(n)?'var(--green)':'rgba(255,255,255,.3)'};font-weight:${actualSet.has(n)?800:400}">${n}</span>`).join(' ');
+  const rowsHtml=results.map(({date,picks,actual,matches,pickSet,actualSet})=>{
+    const picksHtml=picks.map(n=>`<span style="color:${actualSet.has(n)?'var(--green)':'rgba(255,255,255,.3)'};font-weight:${actualSet.has(n)?800:400}">${n}</span>`).join(' ');
     const mc=matches;const mc_c=mc>=3?'var(--green)':mc>=2?'#ffc400':mc>=1?'#ff9100':'rgba(255,255,255,.3)';
     return`<div style="display:flex;align-items:center;gap:6px;padding:4px 8px;border-bottom:1px solid rgba(255,255,255,.04);font-size:.67rem;min-width:0">
       <span style="color:var(--muted);white-space:nowrap;min-width:78px">${date}</span>
-      <span style="font-family:monospace;display:flex;gap:5px;flex-wrap:wrap;flex:1">${bankoHtml}</span>
+      <span style="font-family:monospace;display:flex;gap:5px;flex-wrap:wrap;flex:1">${picksHtml}</span>
       <span style="font-family:monospace;color:rgba(255,255,255,.3);font-size:.6rem;white-space:nowrap">${actual.join(' ')}</span>
-      <span style="color:${mc_c};font-weight:700;min-width:24px;text-align:right">${mc}/${bankCount}</span>
+      <span style="color:${mc_c};font-weight:700;min-width:24px;text-align:right">${mc}/${pickCount}</span>
     </div>`;
   }).join('');
 
-  // Per-rank hit rate — validates that higher-ranked bankos actually hit more
+  // Per-rank hit rate — validates that higher-ranked picks actually hit more
   const rankPct=rankHits.map(h=>h/total);
-  const rankMaxPct=Math.max(expPerBanko,...rankPct,0.001);
+  const rankMaxPct=Math.max(expPer,...rankPct,0.001);
   const rankHtml=`<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.15);border-radius:10px;padding:11px;margin-bottom:10px">
     <div style="font-size:.66rem;font-weight:700;color:var(--text);margin-bottom:3px">🏅 Sıra-bazlı isabet oranı</div>
-    <div style="font-size:.57rem;color:var(--muted);margin-bottom:8px">Her banko sırasının gerçekte tutturma oranı. İdeal: üst sıralar daha yüksek olmalı. Kesikli çizgi = rastgele (${Math.round(expPerBanko*100)}%).</div>
+    <div style="font-size:.57rem;color:var(--muted);margin-bottom:8px">Her sıranın gerçekte tutturma oranı. İdeal: üst sıralar daha yüksek olmalı. Kesikli çizgi = rastgele (${Math.round(expPer*100)}%).</div>
     <div style="display:flex;gap:3px;align-items:flex-end;height:60px;position:relative">
-      <div style="position:absolute;left:0;right:0;bottom:${Math.round(expPerBanko/rankMaxPct*52)+8}px;border-top:1px dashed rgba(255,196,0,.5);z-index:1"></div>
+      <div style="position:absolute;left:0;right:0;bottom:${Math.round(expPer/rankMaxPct*52)+8}px;border-top:1px dashed rgba(255,196,0,.5);z-index:1"></div>
       ${rankPct.map((p,r)=>{
         const h=Math.max(2,Math.round(p/rankMaxPct*52));
-        const good=p>=expPerBanko;
+        const good=p>=expPer;
         return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;z-index:2">
           <div style="font-size:.48rem;color:var(--muted)">${Math.round(p*100)}%</div>
           <div style="height:${h}px;width:100%;background:${good?'linear-gradient(180deg,var(--green),rgba(0,230,118,.4))':'rgba(255,255,255,.18)'};border-radius:3px 3px 0 0"></div>
@@ -5262,7 +5297,7 @@ function runB10Backtest(){
   const tierColor={'Çok Güçlü':'var(--green)','Güçlü':'#9ae6b4','Orta':'#ffc400','Zayıf':'rgba(255,255,255,.4)'};
   const tierIcon={'Çok Güçlü':'🔥','Güçlü':'⚡','Orta':'➕','Zayıf':'〰️'};
   const tierRows=tierOrder.filter(tl=>tierAgg[tl].t>0).map(tl=>{
-    const a=tierAgg[tl];const rate=a.h/a.t;const lift=rate/expPerBanko;
+    const a=tierAgg[tl];const rate=a.h/a.t;const lift=rate/expPer;
     return`<div style="display:flex;align-items:center;gap:8px;font-size:.63rem;padding:3px 0">
       <span style="min-width:80px;color:${tierColor[tl]}">${tierIcon[tl]} ${tl}</span>
       <div style="flex:1;height:8px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,Math.round(rate/Math.max(0.01,rankMaxPct)*100))}%;background:${tierColor[tl]};border-radius:4px"></div></div>
@@ -5277,7 +5312,7 @@ function runB10Backtest(){
 
   if(!btRes)return;
   btRes.innerHTML=statsHtml+rankHtml+tierHtml+`
-    <div style="font-size:.63rem;font-weight:600;color:var(--muted);margin-bottom:5px">Tüm çekilişler — Yeşil = banko eşleşmesi · Son sütun gerçek sayılar</div>
+    <div style="font-size:.63rem;font-weight:600;color:var(--muted);margin-bottom:5px">Tüm çekilişler — Yeşil = B10 eşleşmesi · Son sütun gerçek sayılar</div>
     <div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:7px">${rowsHtml}</div>`;
 }
 
