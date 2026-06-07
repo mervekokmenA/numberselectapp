@@ -26,6 +26,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .main-nav{position:sticky;top:0;z-index:100;background:rgba(10,10,26,.93);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 16px}
 .nav-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:52px;gap:12px}
 .nav-brand{font-size:.96rem;font-weight:800;white-space:nowrap;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:6px}
+.nav-link{background:none;border:1px solid transparent;color:var(--muted);border-radius:8px;padding:5px 12px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .18s}
+.nav-link:hover{border-color:var(--border);color:var(--text)}
+.nav-link.active{background:rgba(108,99,255,.18);border-color:rgba(108,99,255,.45);color:var(--accent)}
 /* Pages */
 .app{position:relative;z-index:1;max-width:1920px;margin:0 auto;padding:20px 24px 40px;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
 .col-bt-right{display:flex;flex-direction:column;gap:16px;min-width:0;grid-column:2;grid-row:1}
@@ -305,6 +309,10 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <nav class="main-nav">
   <div class="nav-inner">
     <span class="nav-brand" onclick="_gizliLogoClick()" style="cursor:pointer;user-select:none">🎱 Loto Tahmin Makinesi</span>
+    <div class="nav-links">
+      <button class="nav-link active" id="navBtn-home" onclick="showMainPage('home')">🏠 Ana Sayfa</button>
+      <button class="nav-link" id="navBtn-scan" onclick="showMainPage('scan')">🔍 Tarama</button>
+    </div>
   </div>
 </nav>
 
@@ -559,7 +567,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div id="naDataInfo" style="font-size:.74rem;color:var(--muted);margin-bottom:12px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">⚠️ Analiz için önce "Gerçek Verileri Yükle" yapın.</div>
     <div class="tabs" id="naTabs">
       <button class="tab-btn active" onclick="switchNaTab('transform')">🔄 Sayı Dönüşümleri</button>
-      <button class="tab-btn" onclick="switchNaTab('date')">📅 Tarih Hesabı</button>
       <button class="tab-btn" onclick="switchNaTab('joker')">🎯 Sayısal Son Sayı Tahmini</button>
     </div>
     <div class="tab-panel active" id="naTab-transform">
@@ -570,15 +577,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
         <button onclick="stepNaDraw(1)"  title="Daha eski"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
       </div>
       <div id="naTransformResult"><div class="empty-state"><span class="empty-icon">🔄</span>Veri yükleyin.</div></div>
-    </div>
-    <div class="tab-panel" id="naTab-date">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap">
-        <span style="font-size:.74rem;color:var(--text);font-weight:600">Oyun tarihi:</span>
-        <select id="naDateIdx" onchange="runNaDate()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:.72rem;flex:1;min-width:0"></select>
-        <button onclick="stepNaDate(-1)" title="Daha yeni" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
-        <button onclick="stepNaDate(1)"  title="Daha eski"  style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
-      </div>
-      <div id="naDateResult"><div class="empty-state"><span class="empty-icon">📅</span>Veri yükleyin.</div></div>
     </div>
     <div class="tab-panel" id="naTab-joker">
       <div id="naJokerResult"><div class="empty-state"><span class="empty-icon">🎯</span>Veri yükleyin.</div></div>
@@ -688,6 +686,62 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button onclick="runB10Backtest()" style="width:100%;padding:10px;background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.08));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:700;margin-bottom:10px">🔬 Geri Test Et</button>
       <div id="b10BtResult"><div class="empty-state"><span class="empty-icon">📊</span>Test etmek için veri yükleyip butona basın.</div></div>
     </div>
+  </div>
+</div>
+
+<!-- ═══════════ PAGE: TARAMA ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-scan">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+
+    <!-- Left: Tahmin -->
+    <div>
+      <div class="card">
+        <div class="card-title">🔍 Sayı Grubu Tarama</div>
+        <div style="font-size:.74rem;color:var(--muted);margin-bottom:14px;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
+          Bilet üretmeden analiz — seçili algoritma ile sayı grubu oluştur, geçmiş ile karşılaştır.
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:.72rem;color:var(--muted);min-width:70px">Oyun:</span>
+            <div id="scanGameGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:.72rem;color:var(--muted);min-width:70px">Algoritma:</span>
+            <select id="scanAlgo" style="flex:1;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:.72rem;color:var(--muted);min-width:70px">Pencere:</span>
+            <select id="scanWindow" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+              <option value="20">Son 20</option>
+              <option value="50">Son 50</option>
+              <option value="100">Son 100</option>
+              <option value="999" selected>Tümü</option>
+            </select>
+          </div>
+        </div>
+        <button onclick="runScan()" style="width:100%;padding:11px;background:linear-gradient(135deg,rgba(108,99,255,.3),rgba(255,101,132,.15));border:1px solid rgba(108,99,255,.55);color:var(--accent);border-radius:10px;cursor:pointer;font-size:.88rem;font-weight:700;margin-bottom:14px">🔍 Analiz Et — Sayı Grubunu Göster</button>
+        <div id="scanResult"><div class="empty-state"><span class="empty-icon">🔍</span>Analiz Et'e basın.</div></div>
+      </div>
+    </div>
+
+    <!-- Right: Geçmiş Test -->
+    <div>
+      <div class="card">
+        <div class="card-title">📊 Tarama Geçmiş Testi</div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <span style="font-size:.72rem;color:var(--muted)">Test sayısı:</span>
+          <select id="scanBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+            <option value="10">Son 10 çekiliş</option>
+            <option value="20" selected>Son 20 çekiliş</option>
+            <option value="30">Son 30 çekiliş</option>
+            <option value="50">Son 50 çekiliş</option>
+          </select>
+        </div>
+        <button onclick="runScanBacktest()" style="width:100%;padding:10px;background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.08));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:700;margin-bottom:12px">📊 Geçmişi Test Et</button>
+        <div id="scanBtResult"><div class="empty-state"><span class="empty-icon">📊</span>Geçmişi Test Et'e basın.</div></div>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -3867,12 +3921,11 @@ let _naTab='transform';
 
 function switchNaTab(id){
   _naTab=id;
-  ['transform','date','joker'].forEach((t,i)=>{
+  ['transform','joker'].forEach((t,i)=>{
     document.querySelectorAll('#naTabs .tab-btn')[i].classList.toggle('active',t===id);
-    document.getElementById('naTab-'+t).classList.toggle('active',t===id);
+    document.getElementById('naTab-'+t)?.classList.toggle('active',t===id);
   });
   if(id==='transform')runNaTransform();
-  else if(id==='date')runNaDate();
   else runNaJoker();
 }
 
@@ -3897,16 +3950,7 @@ function initNaSection(){
     ).join('');
   }
 
-  // Populate date draw selector
-  const dateSel=document.getElementById('naDateIdx');
-  if(dateSel){
-    dateSel.innerHTML=draws.slice(0,30).map((d,i)=>
-      `<option value="${i}">${fmtOpt(d)}</option>`
-    ).join('');
-  }
-
   if(_naTab==='transform')runNaTransform();
-  else if(_naTab==='date')runNaDate();
   else runNaJoker();
 }
 
@@ -3921,11 +3965,6 @@ function stepNaDraw(d){
   const sel=document.getElementById('naDrawIdx');if(!sel)return;
   const newIdx=Math.max(0,Math.min(sel.options.length-1,+sel.value+d));
   sel.value=newIdx;runNaTransform();
-}
-function stepNaDate(d){
-  const sel=document.getElementById('naDateIdx');if(!sel)return;
-  const newIdx=Math.max(0,Math.min(sel.options.length-1,+sel.value+d));
-  sel.value=newIdx;runNaDate();
 }
 let _naHoldTimer=null;
 function naHoldStart(n){
@@ -4037,135 +4076,21 @@ function runNaTransform(){
   document.getElementById('naTransformResult').innerHTML=html;
 }
 
-function runNaDate(){
-  const draws=state.datedDraws;
-  const el=document.getElementById('naDateResult');
-  if(!draws.length){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Veri yükleyin.</div>';return;}
-  const idx=+(document.getElementById('naDateIdx')?.value||0);
-  const draw=draws[Math.min(idx,draws.length-1)];
-  const dateStr=draw.date;
-  // Actual result of this draw — used to highlight matched predictions
-  const actualSet=new Set([...(draw.nums||[]),...(draw.bonus||[])]);
-  const parts=dateStr.split('-').map(Number);
-  const year=parts[0],month=parts[1],day=parts[2];
-  const game=getGame(state.selectedGame);
-  const MAX=game.max;
-  const mod=v=>((v%MAX)+MAX)%MAX||MAX;
-
-  const dt=new Date(year,month-1,day);
-  const doy=Math.round((dt-new Date(year,0,0))/86400000);
-  const dow=dt.getDay()||7;
-  const ySuf=year%100;
-  const yDsum=String(year).split('').reduce((a,b)=>a+(+b),0);
-  const allDigs=String(year)+String(month).padStart(2,'0')+String(day).padStart(2,'0');
-  const allDigArr=allDigs.split('').map(Number);
-  const allDigSum=allDigArr.reduce((a,b)=>a+b,0);
-  const allDigProd=allDigArr.reduce((a,b)=>a*b,1);
-
-  // Date digit pairs
-  const pairVals=[];
-  for(let i=0;i<allDigs.length-1;i++){const p=+allDigs.slice(i,i+2);if(p>=1&&p<=MAX)pairVals.push(p);}
-  // Reverse date digits
-  const revStr=allDigs.split('').reverse().join('');
-  const revPairs=[];
-  for(let i=0;i<revStr.length-1;i++){const p=+revStr.slice(i,i+2);if(p>=1&&p<=MAX)revPairs.push(p);}
-
-  const formulas=[
-    {name:'Gün (D)',                      vals:[day],                              hint:`${day}`},
-    {name:'Ay × Gün',                     vals:[mod(month*day)],                   hint:`${month}×${day}=${month*day}`},
-    {name:'Gün + Ay×5',                   vals:[mod(day+month*5)],                 hint:`${day}+${month*5}`},
-    {name:'Yıl%100 + Gün',                vals:[mod(ySuf+day)],                    hint:`${ySuf}+${day}`},
-    {name:'Tüm Basamak Toplamı',          vals:[allDigSum<=MAX?allDigSum:mod(allDigSum)], hint:`${allDigArr.join('+')}=${allDigSum}`},
-    {name:'Basamak Toplamı × Gün',        vals:[mod(allDigSum*day)],               hint:`${allDigSum}×${day}`},
-    {name:'Gün³',                         vals:[mod(day*day*day)],                 hint:`${day}³=${day*day*day}`},
-    {name:'Gün² + Ay',                    vals:[mod(day*day+month)],               hint:`${day*day}+${month}`},
-    {name:'D+M+Y%100',                    vals:[mod(day+month+ySuf)],              hint:`${day}+${month}+${ySuf}`},
-    {name:'Gün × Yıl Basamak Toplamı',   vals:[mod(day*yDsum)],                   hint:`${day}×${yDsum}`},
-    {name:'Yılın Günü',                   vals:[mod(doy)],                         hint:`${doy}. gün`},
-    {name:'Yılın Günü + Ay',             vals:[mod(doy+month)],                   hint:`${doy}+${month}`},
-    {name:'Haftanın Günü × 13',          vals:[mod(dow*13)],                      hint:`${['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'][dow-1]}×13`},
-    {name:'Ay² × Gün',                   vals:[mod(month*month*day)],             hint:`${month}²×${day}`},
-    {name:'Basamak Çarpımı',             vals:[allDigProd<=MAX&&allDigProd>=1?allDigProd:mod(allDigProd)], hint:`${allDigArr.join('×')}=${allDigProd}`},
-    {name:'Tarih Basamak Çiftleri',      vals:pairVals,                           hint:`${allDigs}→çiftler`},
-    {name:'Ters Tarih Basamak Çiftleri', vals:revPairs,                           hint:`${revStr}→çiftler`},
-    {name:'Gün × Ay + Yıl%10',          vals:[mod(day*month+year%10)],           hint:`${day*month}+${year%10}`},
-    {name:'Ay³ + Gün',                   vals:[mod(month*month*month+day)],       hint:`${month}³+${day}`},
-    {name:'Yılın Günü % MAX + Gün%10',  vals:[mod(doy+day%10)],                  hint:`${doy}+${day%10}`},
-  ];
-
-  const votes={};const fsrcs={};
-  formulas.forEach(f=>{
-    f.vals.forEach(v=>{
-      if(!v||v<1||v>MAX||!Number.isFinite(v))return;
-      const k=Math.round(v);
-      if(k<1||k>MAX)return;
-      votes[k]=(votes[k]||0)+1;
-      if(!fsrcs[k])fsrcs[k]=[];
-      fsrcs[k].push(f.name);
-    });
-  });
-
-  const ranked=Object.entries(votes).map(([n,v])=>({n:+n,v,srcs:fsrcs[n]||[]})).sort((a,b)=>b.v-a.v||a.n-b.n);
-  const top=ranked.slice(0,24);
-  const maxVote=top[0]?.v||1;
-
-  const dowNames=['Pzt','Sal','Çar','Per','Cum','Cmt','Paz'];
-  const hitCount=top.filter(r=>actualSet.has(r.n)).length;
-  let html=`<div style="font-size:.72rem;color:var(--muted);margin-bottom:10px;display:flex;flex-wrap:wrap;gap:10px">`;
-  html+=`<span>Tarih: <strong style="color:var(--text)">${dateStr}</strong></span>`;
-  html+=`<span>Gün=<strong style="color:var(--text)">${day}</strong></span>`;
-  html+=`<span>Ay=<strong style="color:var(--text)">${month}</strong></span>`;
-  html+=`<span>Hgün=<strong style="color:var(--text)">${dowNames[dow-1]||dow}</strong></span>`;
-  html+=`<span>Yılın ${doy}. günü</span>`;
-  html+=`<span>Basamak toplamı=<strong style="color:var(--text)">${allDigSum}</strong></span>`;
-  html+=`</div>`;
-
-  // Actual draw result banner
-  html+=`<div style="font-size:.71rem;padding:7px 11px;border-radius:7px;margin-bottom:10px;background:rgba(0,230,118,.07);border:1px solid rgba(0,230,118,.25);display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
-  html+=`<span style="color:var(--green);font-weight:700">Gerçek çekiliş:</span>`;
-  html+=`<span style="color:var(--text)">`+(draw.nums||[]).map(n=>`<strong style="color:${actualSet.has(n)?'var(--green)':'var(--text)'}">${n}</strong>`).join(' ');
-  if(draw.bonus?.length) html+=` | `+(draw.bonus||[]).map(n=>`<strong style="color:var(--accent2)">${n}</strong>`).join(' ');
-  html+=`</span><span style="font-size:.65rem;color:var(--muted);margin-left:auto">${hitCount} tahmin tuttu</span></div>`;
-
-  html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:8px;margin-bottom:14px">`;
-  top.forEach(r=>{
-    const pct=Math.round(r.v/maxVote*100);
-    const hit=actualSet.has(r.n);
-    const clr=hit?'var(--green)':r.v>=4?'var(--green)':r.v>=3?'var(--accent)':r.v>=2?'#ffd700':'var(--muted)';
-    const bg=hit?'rgba(0,230,118,.18)':r.v>=4?'rgba(0,230,118,.12)':r.v>=3?'rgba(108,99,255,.12)':r.v>=2?'rgba(255,215,0,.08)':'transparent';
-    const bc=hit?'var(--green)':r.v>=4?'rgba(0,230,118,.5)':r.v>=3?'rgba(108,99,255,.4)':r.v>=2?'rgba(255,215,0,.3)':'var(--border)';
-    const bw=hit?'3px':'1px';
-    html+=`<div style="background:${bg};border:${bw} solid ${bc};border-radius:8px;padding:9px 11px${hit?';box-shadow:0 0 10px rgba(0,230,118,.25)':''}">`;
-    html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">`;
-    html+=`<span style="font-size:1.15rem;font-weight:800;color:${clr};min-width:28px">${r.n}</span>`;
-    if(hit) html+=`<span style="font-size:.62rem;font-weight:700;color:var(--green);background:rgba(0,230,118,.2);border-radius:4px;padding:1px 5px">✓ Tuttu</span>`;
-    html+=`<div style="flex:1;background:var(--surface2);border-radius:3px;height:5px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${clr};border-radius:3px"></div></div>`;
-    html+=`<span style="font-size:.62rem;font-weight:700;color:${clr}">${r.v} oy</span>`;
-    html+=`</div><div style="font-size:.6rem;color:var(--muted);line-height:1.5">`;
-    r.srcs.forEach(s=>{ html+=`<span style="display:inline-block;background:var(--surface);border-radius:3px;padding:1px 4px;margin:1px;border:1px solid var(--border)">${s}</span>`; });
-    html+=`</div></div>`;
-  });
-  html+=`</div>`;
-
-  html+=`<details><summary style="cursor:pointer;font-size:.71rem;color:var(--accent);user-select:none">Tüm ${formulas.length} formül detayı</summary>`;
-  html+=`<div style="margin-top:8px;display:grid;gap:3px">`;
-  formulas.forEach(f=>{
-    const vs=f.vals.filter(v=>v&&v>=1&&v<=MAX);
-    html+=`<div style="display:flex;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:5px;align-items:baseline;font-size:.68rem">`;
-    html+=`<span style="color:var(--muted);min-width:200px;flex-shrink:0">${f.name}</span>`;
-    html+=`<span style="color:var(--text);font-weight:700;min-width:50px">${vs.join(', ')}</span>`;
-    html+=`<span style="color:var(--muted);font-size:.6rem">${f.hint}</span></div>`;
-  });
-  html+=`</div></details>`;
-
-  el.innerHTML=html;
-}
-
 function runNaJoker(){
-  // Always analyzes Sayısal Loto Süperstar (1–90) regardless of selected game
-  const draws=state.datedDraws;
   const el=document.getElementById('naJokerResult');
-  if(!draws.length){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Veri yüklenmemiş — Gerçek Verileri Yükle yapın.</div>';return;}
+  // Always use Sayısal Loto built-in data for Süperstar analysis
+  const raw=DRAW_DATA.sayisal||'';
+  if(!raw){el.innerHTML='<div style="color:var(--muted);font-size:.8rem">Sayısal Loto verisi bulunamadı.</div>';return;}
+  const draws=[];
+  raw.split('\n').forEach(line=>{
+    const dm=line.match(/^(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)/);
+    if(!dm)return;
+    const date=dm[1].trim(),rest=line.slice(dm[1].length),parts=rest.split('|');
+    const nums=(parts[0].match(/\d+/g)||[]).map(Number);
+    const bonus=parts[1]?(parts[1].match(/\d+/g)||[]).map(Number):[];
+    if(nums.length>=1)draws.push({date,nums,bonus});
+  });
+  draws.sort((a,b)=>b.date.localeCompare(a.date));
   const MAX=90; // Sayısal Loto Süperstar aralığı
 
   const freq={};const lastSeen={};const jokers=[];
@@ -5520,6 +5445,176 @@ function runB10Backtest(){
   btRes.innerHTML=statsHtml+rankHtml+tierHtml+`
     <div style="font-size:.61rem;font-weight:600;color:var(--muted);margin-bottom:4px">Tüm çekilişler — Yeşil = B10 eşleşmesi · Son sütun gerçek sayılar</div>
     <div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:7px">${rowsHtml}</div>`;
+}
+
+// ═══════════ Tarama Sayfası ═══════════════════════════════
+const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','oyunNoSection','b10Section'];
+let _scanGame=null;
+
+function showMainPage(id){
+  const home=id==='home';
+  _HOME_IDS.forEach(sid=>{
+    const el=document.getElementById(sid);
+    if(el)el.style.display=home?'':'none';
+  });
+  const scanEl=document.getElementById('page-scan');
+  if(scanEl)scanEl.style.display=home?'none':'block';
+  ['navBtn-home','navBtn-scan'].forEach(bid=>{
+    document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
+  });
+  if(!home)_initScanPage();
+}
+
+function _scanGetDraws(gameId){
+  const raw=DRAW_DATA[gameId]||'';
+  const draws=[];
+  raw.split('\n').forEach(line=>{
+    const dm=line.match(/^(\d{4}-\d{2}-\d{2}(?:\s+\d{2}:\d{2})?)/);
+    if(!dm)return;
+    const date=dm[1].trim(),rest=line.slice(dm[1].length),parts=rest.split('|');
+    const nums=(parts[0].match(/\d+/g)||[]).map(Number);
+    const bonus=parts[1]?(parts[1].match(/\d+/g)||[]).map(Number):[];
+    if(nums.length>=1)draws.push({date,nums,bonus});
+  });
+  draws.sort((a,b)=>b.date.localeCompare(a.date));
+  return draws;
+}
+
+function _initScanPage(){
+  // Game buttons
+  const grid=document.getElementById('scanGameGrid');
+  if(grid&&!grid.dataset.init){
+    grid.dataset.init='1';
+    GAMES.forEach(g=>{
+      const btn=document.createElement('button');
+      btn.textContent=g.emoji+' '+g.name;
+      btn.style.cssText='font-size:.7rem;padding:4px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s';
+      btn.onclick=()=>{
+        _scanGame=g.id;
+        grid.querySelectorAll('button').forEach(b=>{ b.style.background='var(--surface2)';b.style.color='var(--muted)';b.style.borderColor='var(--border)'; });
+        btn.style.background='rgba(108,99,255,.2)';btn.style.color='var(--accent)';btn.style.borderColor='rgba(108,99,255,.5)';
+      };
+      if(!_scanGame){_scanGame=g.id;btn.style.background='rgba(108,99,255,.2)';btn.style.color='var(--accent)';btn.style.borderColor='rgba(108,99,255,.5)';}
+      grid.appendChild(btn);
+    });
+  }
+  // Algo select
+  const sel=document.getElementById('scanAlgo');
+  if(sel&&!sel.dataset.init){
+    sel.dataset.init='1';
+    ALGOS.forEach(a=>{sel.innerHTML+=`<option value="${a.id}">${a.name}</option>`;});
+  }
+}
+
+function runScan(){
+  const gameId=_scanGame||state.selectedGame;
+  const game=getGame(gameId);
+  if(!game){showToast('Oyun seçin');return;}
+  const algoId=document.getElementById('scanAlgo')?.value;
+  const winVal=document.getElementById('scanWindow')?.value;
+  const draws=_scanGetDraws(gameId);
+  let prior=draws;
+  if(winVal&&winVal!=='999')prior=draws.slice(0,parseInt(winVal));
+  const res=document.getElementById('scanResult');
+  if(!prior.length){res.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Bu oyun için veri bulunamadı.</div>';return;}
+  const freq=buildFreq(prior);
+  let pred;
+  try{pred=generateNumbers(game,algoId,freq,prior);}catch(e){res.innerHTML='<div class="empty-state">Algoritma hatası: '+e.message+'</div>';return;}
+  const allNums=[...(pred.main||[]),...(pred.bonus||[])];
+  const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
+  // Ball renderer
+  const ballHtml=(nums,bonus)=>{
+    let h='<div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0">';
+    (nums||[]).forEach(n=>{
+      h+=`<div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,rgba(108,99,255,.4),rgba(108,99,255,.15));border:2px solid rgba(108,99,255,.7);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.95rem;color:var(--accent)">${n}</div>`;
+    });
+    (bonus||[]).forEach(n=>{
+      h+=`<div style="width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,rgba(255,101,132,.4),rgba(255,101,132,.15));border:2px solid rgba(255,101,132,.7);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.95rem;color:var(--accent2)">${n}</div>`;
+    });
+    h+='</div>';
+    return h;
+  };
+  const lastDraw=draws[0];
+  let html=`<div style="margin-bottom:10px">`;
+  html+=`<div style="font-size:.67rem;color:var(--muted);margin-bottom:6px;text-transform:uppercase;font-weight:700;letter-spacing:1px">${game.emoji} ${game.name} · ${algoName}</div>`;
+  html+=`<div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">Son ${prior.length} çekiliş analiz edildi</div>`;
+  html+=ballHtml(pred.main,pred.bonus);
+  html+=`<div style="font-size:.72rem;color:var(--muted);padding:8px 0;display:flex;gap:8px;flex-wrap:wrap">`;
+  (pred.main||[]).forEach(n=>{ html+=`<span style="font-weight:700;color:var(--accent)">${n}</span>`; });
+  if((pred.bonus||[]).length){ html+=`<span style="color:var(--muted)">|</span>`; (pred.bonus||[]).forEach(n=>{ html+=`<span style="font-weight:700;color:var(--accent2)">${n}</span>`; }); }
+  html+=`</div>`;
+  html+=`<button onclick="navigator.clipboard.writeText('${allNums.join(' ')}').then(()=>showToast('📋 Kopyalandı'))" style="margin-top:6px;font-size:.72rem;padding:5px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋 Sayıları Kopyala</button>`;
+  if(lastDraw){
+    html+=`<div style="margin-top:12px;font-size:.71rem;padding:8px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)">`;
+    html+=`<span style="color:var(--muted)">Son çekiliş (${lastDraw.date}): </span>`;
+    const mainSet=new Set(pred.main||[]);
+    (lastDraw.nums||[]).forEach(n=>{ html+=`<strong style="color:${mainSet.has(n)?'var(--green)':'var(--text)'}">${n} </strong>`; });
+    if(lastDraw.bonus?.length){html+=`<span style="color:var(--muted)">| </span>`;const bSet=new Set(pred.bonus||[]);(lastDraw.bonus||[]).forEach(n=>{html+=`<strong style="color:${bSet.has(n)?'var(--accent2)':'var(--text)'}">${n} </strong>`;});}
+    const m=(lastDraw.nums||[]).filter(n=>(pred.main||[]).includes(n)).length+((pred.bonus||[]).filter(n=>(lastDraw.bonus||[]).includes(n)).length);
+    html+=`<span style="margin-left:8px;font-size:.67rem;color:${m>=3?'var(--green)':m>=2?'var(--accent)':'var(--muted)'}">→ ${m} eşleşme</span>`;
+    html+=`</div>`;
+  }
+  html+=`</div>`;
+  res.innerHTML=html;
+}
+
+function runScanBacktest(){
+  const gameId=_scanGame||state.selectedGame;
+  const game=getGame(gameId);
+  if(!game){showToast('Oyun seçin');return;}
+  const algoId=document.getElementById('scanAlgo')?.value;
+  const winVal=document.getElementById('scanWindow')?.value;
+  const btCount=parseInt(document.getElementById('scanBtCount')?.value)||20;
+  const draws=_scanGetDraws(gameId);
+  const res=document.getElementById('scanBtResult');
+  if(draws.length<5){res.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Bu oyun için yeterli veri yok.</div>';return;}
+  res.innerHTML='<div style="font-size:.75rem;color:var(--muted);padding:20px;text-align:center">⏳ Hesaplanıyor...</div>';
+  setTimeout(()=>{
+    const tests=draws.slice(0,Math.min(btCount,draws.length-5));
+    const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
+    const rows=[];
+    let totalMatch=0;let hitCount=0;
+    tests.forEach((d,ti)=>{
+      let prior=draws.slice(ti+1);
+      if(winVal&&winVal!=='999')prior=prior.slice(-parseInt(winVal));
+      if(!prior.length)return;
+      const freq=buildFreq(prior);
+      let pred;
+      try{pred=generateNumbers(game,algoId,freq,prior);}catch(e){return;}
+      const mainSet=new Set(pred.main||[]);
+      const bSet=new Set(pred.bonus||[]);
+      const matchMain=(d.nums||[]).filter(n=>mainSet.has(n)).length;
+      const matchBonus=(pred.bonus||[]).filter(n=>(d.bonus||[]).includes(n)).length;
+      const match=matchMain+matchBonus;
+      totalMatch+=match;
+      if(match>=3)hitCount++;
+      rows.push({date:d.date,pred:pred.main||[],predBonus:pred.bonus||[],actual:d.nums||[],actualBonus:d.bonus||[],match,matchMain,matchBonus});
+    });
+    if(!rows.length){res.innerHTML='<div class="empty-state">Yeterli test satırı oluşturulamadı.</div>';return;}
+    const avg=(totalMatch/rows.length).toFixed(2);
+    const pct=Math.round(hitCount/rows.length*100);
+    let html=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">`;
+    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--accent)">${avg}</div><div style="font-size:.62rem;color:var(--muted)">ort. eşleşme</div></div>`;
+    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--green)">${pct}%</div><div style="font-size:.62rem;color:var(--muted)">3+ eşleşme</div></div>`;
+    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--text)">${rows.length}</div><div style="font-size:.62rem;color:var(--muted)">test sayısı</div></div>`;
+    html+=`</div>`;
+    html+=`<div style="font-size:.67rem;color:var(--muted);margin-bottom:8px">${game.emoji} ${game.name} · ${algoName}</div>`;
+    html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
+    html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tahmin</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Eş.</th></tr></thead><tbody>`;
+    rows.forEach(r=>{
+      const clr=r.match>=4?'var(--green)':r.match>=3?'var(--accent)':r.match>=2?'var(--gold)':'var(--muted)';
+      const mainSet=new Set(r.pred);
+      const bSet=new Set(r.predBonus);
+      html+=`<tr style="border-bottom:1px solid rgba(42,42,90,.5)">`;
+      html+=`<td style="padding:5px 6px;color:var(--muted);white-space:nowrap">${r.date}</td>`;
+      html+=`<td style="padding:5px 6px;color:var(--text)">${r.pred.join(' ')}${r.predBonus.length?' | '+r.predBonus.join(' '):''}</td>`;
+      html+=`<td style="padding:5px 6px">${r.actual.map(n=>`<span style="color:${mainSet.has(n)?'var(--green)':'var(--text)'};font-weight:${mainSet.has(n)?'700':'400'}">${n}</span>`).join(' ')}${r.actualBonus.length?' | '+r.actualBonus.map(n=>`<span style="color:${bSet.has(n)?'var(--accent2)':'var(--text)'};font-weight:${bSet.has(n)?'700':'400'}">${n}</span>`).join(' '):''}</td>`;
+      html+=`<td style="padding:5px 6px;text-align:center;font-weight:800;color:${clr}">${r.match}</td>`;
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table></div>`;
+    res.innerHTML=html;
+  },20);
 }
 
 // ── Boot ──────────────────────────────────────────────────────
