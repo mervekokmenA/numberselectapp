@@ -304,7 +304,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <nav class="main-nav">
   <div class="nav-inner">
-    <span class="nav-brand">🎱 Loto Tahmin Makinesi</span>
+    <span class="nav-brand" onclick="_gizliLogoClick()" style="cursor:pointer;user-select:none">🎱 Loto Tahmin Makinesi</span>
   </div>
 </nav>
 
@@ -4514,6 +4514,208 @@ function copyOyunNoAll(tabNum){
   copyNums(text);
 }
 
+// ── Gizli Analiz Sayfası ──────────────────────────────────────
+let _gizliArchive=[];
+let _gizliClickCount=0;
+let _gizliClickTimer=null;
+let _gizliLastColumns=[];
+
+function _gizliLogoClick(){
+  clearTimeout(_gizliClickTimer);
+  _gizliClickCount++;
+  if(_gizliClickCount>=4){_gizliClickCount=0;openGizliSayfa();}
+  else _gizliClickTimer=setTimeout(()=>{_gizliClickCount=0;},2000);
+}
+function openGizliSayfa(){
+  const el=document.getElementById('gizliSayfa');
+  if(!el)return;
+  el.style.display='block';
+  _gizliRenderInputs();
+}
+function closeGizliSayfa(){
+  const el=document.getElementById('gizliSayfa');
+  if(el)el.style.display='none';
+}
+function _gizliCurrentGame(){return getGame(state.selectedGame||'super');}
+function _gizliPositionCount(){return Math.min(_gizliCurrentGame().count,6);}
+function _gizliRenderInputs(){
+  const n=_gizliPositionCount();
+  const labels='ABCDEF';
+  const ist='width:46px;text-align:center;padding:5px 3px;font-size:.82rem;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text)';
+  let bHtml='',bankHtml='';
+  for(let i=0;i<n;i++){
+    const lbl=labels[i];
+    bHtml+=`<div style="text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:3px">${lbl}</div><input id="gb_bek_${i}" type="text" inputmode="decimal" style="${ist}" oninput="_gizliUpdateHint()"/></div>`;
+    bankHtml+=`<div style="text-align:center"><div style="font-size:.62rem;color:var(--gold);margin-bottom:3px">${lbl}</div><input id="gb_bank_${i}" type="text" inputmode="numeric" style="${ist}"/></div>`;
+  }
+  const bc=document.getElementById('gizliBeklentiInputs');
+  const bk=document.getElementById('gizliBankoInputs');
+  if(bc)bc.innerHTML=bHtml;
+  if(bk)bk.innerHTML=bankHtml;
+  _gizliUpdateHint();
+}
+function _gizliUpdateHint(){
+  const hint=document.getElementById('gizliBeklentiHint');
+  if(!hint)return;
+  const n=_gizliPositionCount();
+  const parts=[];
+  for(let i=0;i<n;i++){
+    const v=(document.getElementById('gb_bek_'+i)?.value||'').trim();
+    if(!v)continue;
+    const num=parseInt(v);if(isNaN(num))continue;
+    const lbl='ABCDEF'[i];
+    if(num<0)parts.push(`${lbl}: ${Math.abs(num)}'den küçük`);
+    else if(num>=1&&num<=9)parts.push(`${lbl}: ${num*10}'lı (${num*10}–${Math.min(num*10+9,_gizliCurrentGame().max)})`);
+    else parts.push(`${lbl}: birebir ${num}`);
+  }
+  hint.textContent=parts.length?parts.join(' · '):'— kısıt yok (tüm çekilişler)';
+}
+function _gizliGetBeklenti(){
+  const n=_gizliPositionCount();
+  return Array.from({length:n},(_,i)=>{const v=(document.getElementById('gb_bek_'+i)?.value||'').trim();const num=parseInt(v);return(!v||isNaN(num))?null:num;});
+}
+function _gizliGetBankos(){
+  const game=_gizliCurrentGame();
+  const n=_gizliPositionCount();
+  const r=[];
+  for(let i=0;i<n;i++){const v=(document.getElementById('gb_bank_'+i)?.value||'').trim();const num=parseInt(v);if(!isNaN(num)&&num>=1&&num<=game.max)r.push(num);}
+  return[...new Set(r)].sort((a,b)=>a-b);
+}
+function _gizliNumMatch(n,b){
+  if(b===null)return true;
+  if(b<0)return n<Math.abs(b);
+  if(b>=1&&b<=9)return Math.floor(n/10)===b;
+  return n===b;
+}
+function _gizliDrawMatch(nums,beklenti,harften){
+  const nonNull=beklenti.map((b,i)=>({b,i})).filter(x=>x.b!==null);
+  if(!nonNull.length)return true;
+  if(harften)return nonNull.every(({b})=>nums.some(n=>_gizliNumMatch(n,b)));
+  return nonNull.every(({b,i})=>i<nums.length&&_gizliNumMatch(nums[i],b));
+}
+function gizliTara(){
+  const game=_gizliCurrentGame();
+  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  if(!draws||!draws.length){showToast('⚠️ Önce veri yükleyin');return;}
+  const beklenti=_gizliGetBeklenti();
+  const harften=document.getElementById('gizliHarftenChk')?.checked??true;
+  const n=_gizliPositionCount();
+  const anyC=beklenti.some(b=>b!==null);
+  _gizliArchive=draws.map(d=>[...d.nums].sort((a,b2)=>a-b2).slice(0,n))
+    .filter(nums=>!anyC||_gizliDrawMatch(nums,beklenti,harften));
+  const st=document.getElementById('gizliArchiveStatus');
+  if(st){st.textContent=`Arşiv: ${_gizliArchive.length} çekiliş (${draws.length} içinden, %${Math.round(_gizliArchive.length/draws.length*100)})`;
+    st.style.color=_gizliArchive.length>0?'var(--green)':'#ff5252';}
+  showToast(`✅ Arşiv: ${_gizliArchive.length} çekiliş filtrelendi`);
+}
+function gizliArsivTemizle(){
+  _gizliArchive=[];_gizliLastColumns=[];
+  const st=document.getElementById('gizliArchiveStatus');
+  if(st){st.textContent='Arşiv temizlendi';st.style.color='var(--muted)';}
+  const kol=document.getElementById('gizliKolonlar');
+  if(kol)kol.innerHTML='<div class="empty-state"><span class="empty-icon">📊</span>Beklenti girin ve TARA yapın.</div>';
+  const btn=document.getElementById('gizliKopyaBtn');if(btn)btn.style.display='none';
+  const mr=document.getElementById('gizliModelAraResult');if(mr){mr.style.display='none';mr.innerHTML='';}
+}
+function gizliTemizle(){
+  const n=_gizliPositionCount();
+  for(let i=0;i<n;i++){
+    const bel=document.getElementById('gb_bek_'+i);const bank=document.getElementById('gb_bank_'+i);
+    if(bel)bel.value='';if(bank)bank.value='';
+  }
+  _gizliUpdateHint();
+}
+function gizliModelAra(){
+  if(!_gizliArchive.length){gizliTara();if(!_gizliArchive.length){showToast('⚠️ Arşiv boş');return;}}
+  const bankos=_gizliGetBankos();
+  const mr=document.getElementById('gizliModelAraResult');
+  if(!mr)return;
+  const n=_gizliPositionCount();
+  const labels='ABCDEF';
+  const scored=_gizliArchive.map(nums=>{
+    const exact=bankos.filter(b=>nums.includes(b)).length;
+    const close=bankos.filter(b=>nums.some(v=>Math.abs(v-b)<=5&&v!==b)).length;
+    return{nums,score:exact*100+close*10};
+  }).sort((a,b)=>b.score-a.score);
+  const top=scored.slice(0,5);
+  mr.style.display='block';
+  mr.innerHTML=`<div style="font-size:.75rem;font-weight:700;color:#ffc400;margin-bottom:8px">🔍 En Yakın Modeller (${scored.filter(s=>s.score>0).length} eşleşme)</div>
+  ${top.map(({nums,score})=>`<div style="display:flex;justify-content:space-between;padding:5px 8px;background:rgba(255,196,0,.04);border:1px solid rgba(255,196,0,.1);border-radius:7px;margin-bottom:4px">
+    <span style="font-family:monospace;font-size:.72rem;display:flex;gap:8px;flex-wrap:wrap">${nums.slice(0,n).map((v,i)=>`<span style="${bankos.includes(v)?'color:var(--accent);font-weight:800':'color:var(--muted)'}">${labels[i]}:${v}</span>`).join('')}</span>
+    <span style="font-size:.63rem;color:var(--muted);flex-shrink:0;margin-left:6px">${score>=100?Math.round(score/100)+' banko eşleşmesi':'yakın'}</span>
+  </div>`).join('')}`;
+}
+function _gizliGuc(col,freqMap,archiveSize){
+  const hits=col.reduce((s,n)=>s+(freqMap[n]||0),0);
+  const pct=hits/Math.max(1,col.length*archiveSize);
+  return Math.round(Math.min(2000,Math.max(100,1400+pct*350)));
+}
+function _gizliCombine(pool,need,bankos,game,freqMap,archiveSize,result,maxR){
+  const bankSet=new Set(bankos);
+  function go(start,cur){
+    if(result.length>=maxR)return;
+    if(cur.length===need){
+      const col=[...bankos,...cur.map(x=>x.n)];
+      const colU=[...new Set(col)].filter(v=>v>=1&&v<=game.max).sort((a,b)=>a-b);
+      if(colU.length===bankos.length+need)
+        result.push({col:colU,guc:_gizliGuc(colU,freqMap,archiveSize)});
+      return;
+    }
+    for(let i=start;i<pool.length&&result.length<maxR;i++)go(i+1,[...cur,pool[i]]);
+  }
+  go(0,[]);
+}
+function gizliModelUygula(){
+  if(!_gizliArchive.length){gizliTara();if(!_gizliArchive.length){showToast('⚠️ Önce TARA yapın');return;}}
+  const game=_gizliCurrentGame();
+  const bankos=_gizliGetBankos();
+  const n=_gizliPositionCount();
+  const need=n-bankos.length;
+  const kol=document.getElementById('gizliKolonlar');
+  const btn=document.getElementById('gizliKopyaBtn');
+  if(need<0){showToast('⚠️ Çok fazla banko sayısı');return;}
+  const bankSet=new Set(bankos);
+  const freqMap={};
+  _gizliArchive.forEach(nums=>nums.forEach(v=>{if(!bankSet.has(v))freqMap[v]=(freqMap[v]||0)+1;}));
+  const pool=Object.entries(freqMap).sort((a,b)=>b[1]-a[1]).map(([v,f])=>({n:parseInt(v),f}));
+  if(need>0&&pool.length<need){
+    if(kol)kol.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Arşivde yeterli sayı yok. Beklentiyi genişletin veya banko sayısını azaltın.</div>';
+    return;
+  }
+  const maxK=need===0?1:[0,100,60,30,20,15,12,10][need]||10;
+  const topPool=pool.slice(0,Math.min(maxK,pool.length));
+  const columns=[];
+  if(need===0){
+    columns.push({col:[...bankos].sort((a,b)=>a-b),guc:_gizliGuc(bankos,freqMap,_gizliArchive.length)});
+  }else{
+    _gizliCombine(topPool,need,bankos,game,freqMap,_gizliArchive.length,columns,2000);
+  }
+  if(!columns.length){
+    if(kol)kol.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Kolon üretilemedi — banko sayıları ve arşiv uyumsuz.</div>';
+    return;
+  }
+  columns.sort((a,b)=>b.guc-a.guc);
+  const top30=columns.slice(0,30);
+  _gizliLastColumns=top30;
+  const labels='ABCDEF';
+  const rows=top30.map(({col,guc},idx)=>{
+    const colHtml=col.map((v,i)=>`<span style="${bankSet.has(v)?'color:var(--accent);font-weight:800':'color:var(--text)'}">${labels[i]}:${v}</span>`).join('  ');
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:${idx%2===0?'rgba(255,255,255,.022)':'transparent'};border-radius:5px">
+      <span style="color:var(--muted);font-size:.62rem;min-width:26px;font-family:monospace">${idx+1})</span>
+      <span style="flex:1;font-family:monospace;font-size:.7rem;display:flex;gap:8px;flex-wrap:wrap">${colHtml}</span>
+      <span style="color:var(--muted);font-size:.6rem;margin-left:8px;white-space:nowrap">güç:${guc}</span>
+    </div>`;
+  }).join('');
+  if(kol)kol.innerHTML=rows;
+  if(btn)btn.style.display='inline-block';
+  showToast(`✅ ${top30.length} kolon üretildi`);
+}
+function gizliKopyalaHepsi(){
+  const labels='ABCDEF';
+  const text=_gizliLastColumns.map(({col,guc},i)=>`${i+1}) ${col.map((v,j)=>labels[j]+':'+v).join('  ')}  güç:${guc}`).join('\n');
+  copyNums(text);
+}
+
 // ── Boot ──────────────────────────────────────────────────────
 (function(){
   try{const v=localStorage.getItem('excludeLastDraw');if(v!==null){state.excludeLastDraw=v==='1';}}catch(e){}
@@ -4522,5 +4724,62 @@ function copyOyunNoAll(tabNum){
 loadDrawCaches();
 initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();
 </script>
+
+<!-- ═══════════ GİZLİ ANALİZ SAYFASI ═══════════ -->
+<div id="gizliSayfa" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(8,10,20,.94);overflow-y:auto;padding:16px 10px">
+ <div style="max-width:680px;margin:0 auto">
+
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+   <div>
+    <div style="font-size:1.05rem;font-weight:800;background:linear-gradient(135deg,#ffd700,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">🔬 Gelişmiş Kolon Analizi</div>
+    <div style="font-size:.63rem;color:var(--muted)">Arşiv tabanlı beklenti modeli</div>
+   </div>
+   <button onclick="closeGizliSayfa()" style="background:rgba(255,82,82,.15);border:1px solid rgba(255,82,82,.35);color:#ff5252;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:.78rem;font-weight:700">✕ Kapat</button>
+  </div>
+
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+   <div id="gizliArchiveStatus" style="font-size:.7rem;color:var(--muted)">Arşiv boş — önce TARA yapın</div>
+   <div style="display:flex;gap:7px;flex-wrap:wrap">
+    <button onclick="gizliArsivTemizle()" style="background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);color:#ff7070;border-radius:7px;padding:4px 10px;cursor:pointer;font-size:.7rem">Arsivi Temizle</button>
+    <button onclick="gizliTara()" style="background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.25);color:var(--green);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:.7rem">Arsivi Yeniden Hesapla</button>
+   </div>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+   <div style="font-size:.8rem;font-weight:700;color:var(--text);margin-bottom:10px">A-F Beklenti Analizi</div>
+   <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <div id="gizliBeklentiInputs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <label style="display:flex;align-items:center;gap:5px;font-size:.7rem;color:var(--muted);cursor:pointer;padding-bottom:4px">
+     <input type="checkbox" id="gizliHarftenChk" checked style="accent-color:var(--accent);width:14px;height:14px">
+     Hartten Bağımsız
+    </label>
+   </div>
+   <div id="gizliBeklentiHint" style="font-size:.62rem;color:var(--muted);min-height:14px;margin-bottom:10px;padding:4px 8px;background:rgba(255,255,255,.03);border-radius:5px"></div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button onclick="gizliTara()" style="background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.4);color:var(--accent);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem;font-weight:700">TARA</button>
+    <button onclick="gizliTemizle()" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem">TEMİZLE</button>
+    <button onclick="gizliModelAra()" style="background:rgba(255,196,0,.12);border:1px solid rgba(255,196,0,.3);color:#ffc400;border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem;font-weight:700">MODEL ARA</button>
+    <button onclick="gizliModelUygula()" style="background:linear-gradient(135deg,rgba(129,140,248,.28),rgba(255,101,132,.18));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem;font-weight:700">MODEL UYGULA</button>
+   </div>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+   <div style="font-size:.8rem;font-weight:700;color:var(--gold);margin-bottom:10px">🔒 Kesin Beklenen Sayılar (Banko)</div>
+   <div id="gizliBankoInputs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  </div>
+
+  <div id="gizliModelAraResult" style="display:none;background:var(--surface);border:1px solid rgba(255,196,0,.22);border-radius:10px;padding:12px;margin-bottom:10px"></div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">
+   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div style="font-size:.8rem;font-weight:700;color:var(--text)">Model Uygulama / Örnek Kolonlar</div>
+    <button onclick="gizliKopyalaHepsi()" id="gizliKopyaBtn" style="display:none;background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:.65rem">📋 Kopyala</button>
+   </div>
+   <div id="gizliKolonlar" style="max-height:440px;overflow-y:auto"><div class="empty-state"><span class="empty-icon">📊</span>Beklenti ve banko sayıları girin, MODEL UYGULA'ya basın.</div></div>
+  </div>
+
+ </div>
+</div>
+
 </body>
 </html>
