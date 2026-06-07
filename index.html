@@ -4774,10 +4774,14 @@ function gizliTestDateChanged(){
 }
 function gizliTestStepDate(dir){
   const sel=document.getElementById('gizliTestDate');
-  if(!sel||!sel.options.length)return;
-  const idx=Array.from(sel.options).findIndex(o=>o.value===sel.value);
-  const next=idx+dir;if(next<0||next>=sel.options.length)return;
-  sel.value=sel.options[next].value;gizliTestDateChanged();
+  if(!sel)return;
+  const opts=Array.from(sel.options).filter(o=>o.value);
+  if(!opts.length)return;
+  const cur=opts.findIndex(o=>o.value===sel.value);
+  if(cur<0){sel.value=opts[0].value;gizliTestDateChanged();return;}
+  const next=cur+dir;
+  if(next<0||next>=opts.length)return;
+  sel.value=opts[next].value;gizliTestDateChanged();
 }
 function gizliTestEt(){
   const sel=document.getElementById('gizliTestDate');
@@ -4929,8 +4933,8 @@ initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats(
     <select id="gizliTestDate" onchange="gizliTestDateChanged()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 10px;font-size:.78rem;flex:1;min-width:140px">
      <option value="">— Tarih seçin —</option>
     </select>
-    <button onclick="gizliTestStepDate(-1)" style="background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:.8rem">◀</button>
-    <button onclick="gizliTestStepDate(1)" style="background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:.8rem">▶</button>
+    <button onclick="gizliTestStepDate(1)" style="background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:.8rem" title="Daha eski">◀</button>
+    <button onclick="gizliTestStepDate(-1)" style="background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:.8rem" title="Daha yeni">▶</button>
     <button onclick="gizliTestEt()" style="background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.1));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem;font-weight:700">🔬 Test Et</button>
    </div>
    <div id="gizliTestActual" style="padding:8px 10px;background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.12);border-radius:8px;min-height:36px;margin-bottom:8px"></div>
