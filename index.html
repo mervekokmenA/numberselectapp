@@ -590,17 +590,39 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="oyunNoSection">
   <div class="card">
     <div class="card-title">🎫 Oyun Numarasına Göre Sayı Üretimi</div>
-    <div style="font-size:.74rem;color:var(--muted);margin-bottom:12px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
+    <div style="font-size:.74rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
       Biletinizdeki <strong>Oyun No</strong>'yu girin. Aynı numara her zaman aynı sayı kolonlarını verir.
     </div>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-      <input type="text" id="oyunNoInput" inputmode="numeric" placeholder="Oyun Numarası — örn: 3567472650"
-        style="flex:1;min-width:180px;font-size:.88rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;outline:none"
-        oninput="oyunNoHesapla()" onkeydown="if(event.key==='Enter')oyunNoHesapla()">
-      <button class="run-btn" onclick="oyunNoHesapla()" style="flex-shrink:0;padding:9px 20px">🎯 Üret</button>
-    </div>
+    <input type="text" id="oyunNoInput" inputmode="numeric" placeholder="Oyun Numarası — örn: 3567472650"
+      style="width:100%;box-sizing:border-box;font-size:.88rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;outline:none;margin-bottom:10px;display:block"
+      oninput="oyunNoHesapla()" onkeydown="if(event.key==='Enter')oyunNoHesapla()">
     <div class="game-grid" id="oyunNoGameGrid" style="margin-bottom:10px"></div>
-    <div id="oyunNoResult"><div class="empty-state"><span class="empty-icon">🎫</span>Oyun numarasını girin.</div></div>
+    <div class="tabs" style="margin-bottom:10px">
+      <button class="tab-btn active" id="oyunNoTabBtn-tahmin" onclick="switchOyunNoTab('tahmin')">🎯 Tahmin</button>
+      <button class="tab-btn" id="oyunNoTabBtn-gecmis" onclick="switchOyunNoTab('gecmis')">📅 Geçmişle Karşılaştır</button>
+    </div>
+    <!-- Tab: Tahmin -->
+    <div class="tab-panel active" id="oyunNoTab-tahmin">
+      <div id="oyunNoResult1"><div class="empty-state"><span class="empty-icon">🎫</span>Oyun numarasını girin.</div></div>
+      <div id="oyunNoCopyBar1" style="display:none;margin-top:8px">
+        <button class="copy-btn" style="width:100%;padding:8px;justify-content:center" onclick="copyOyunNoAll(1)">📋 3 Kolonu Kopyala</button>
+      </div>
+    </div>
+    <!-- Tab: Geçmişle Karşılaştır -->
+    <div class="tab-panel" id="oyunNoTab-gecmis">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-size:.74rem;color:var(--muted);flex-shrink:0">Çekiliş tarihi:</span>
+        <select id="oyunNoDate" onchange="renderOyunNoGecmis()" style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:.72rem">
+          <option value="">— Önce veri yükleyin —</option>
+        </select>
+        <button onclick="stepOyunNoDate(-1)" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
+        <button onclick="stepOyunNoDate(1)" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
+      </div>
+      <div id="oyunNoResult2"><div class="empty-state"><span class="empty-icon">📅</span>Oyun numarasını girin ve tarih seçin.</div></div>
+      <div id="oyunNoCopyBar2" style="display:none;margin-top:8px">
+        <button class="copy-btn" style="width:100%;padding:8px;justify-content:center" onclick="copyOyunNoAll(2)">📋 Tahmin + Gerçek Çekilişi Kopyala</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -4237,16 +4259,10 @@ function _fnvHash(s){
 }
 function _seededRng(seed){
   let s=seed>>>0;
-  return()=>{
-    s+=0x6D2B79F5;let t=s;
-    t=Math.imul(t^(t>>>15),1|t);
-    t^=t+Math.imul(t^(t>>>7),61|t);
-    return((t^(t>>>14))>>>0)/4294967296;
-  };
+  return()=>{s+=0x6D2B79F5;let t=s;t=Math.imul(t^(t>>>15),1|t);t^=t+Math.imul(t^(t>>>7),61|t);return((t^(t>>>14))>>>0)/4294967296;};
 }
 function _seededPick(seed,count,max){
-  const rng=_seededRng(seed);
-  const pool=Array.from({length:max},(_,i)=>i+1);
+  const rng=_seededRng(seed);const pool=Array.from({length:max},(_,i)=>i+1);
   for(let i=pool.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
   return pool.slice(0,count).sort((a,b)=>a-b);
 }
@@ -4257,47 +4273,142 @@ function initOyunNoGameGrid(){
     `<button class="game-btn${state.oyunNoGame===gm.id?' active':''}" onclick="state.oyunNoGame='${gm.id}';initOyunNoGameGrid();oyunNoHesapla()">${gm.emoji} ${gm.name}</button>`
   ).join('');
 }
-function oyunNoHesapla(){
-  const raw=(document.getElementById('oyunNoInput')?.value||'').trim().replace(/\D/g,'');
-  const res=document.getElementById('oyunNoResult');if(!res)return;
-  if(!raw||raw.length<4){
-    res.innerHTML='<div class="empty-state"><span class="empty-icon">🎫</span>Oyun numarasını girin.</div>';return;
-  }
-  const game=getGame(state.oyunNoGame||'super');
-  const BSZ=mobileBSZ();
-  const reversed=raw.split('').reverse().join('');
-  const digitSum=raw.split('').reduce((s,c)=>s+(+c),0).toString();
-  const kolonlar=[
+function switchOyunNoTab(name){
+  state.oyunNoTab=name;
+  document.querySelectorAll('#oyunNoSection .tab-btn').forEach(b=>b.classList.toggle('active',b.id==='oyunNoTabBtn-'+name));
+  document.querySelectorAll('#oyunNoSection .tab-panel').forEach(p=>p.classList.toggle('active',p.id==='oyunNoTab-'+name));
+  if(name==='gecmis'){updateOyunNoDateOptions();renderOyunNoGecmis();}
+}
+function updateOyunNoDateOptions(){
+  const sel=document.getElementById('oyunNoDate');if(!sel)return;
+  if(!state.datedDraws.length){sel.innerHTML='<option value="">— Önce veri yükleyin —</option>';return;}
+  const prev=sel.value;
+  sel.innerHTML=state.datedDraws.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
+  if(prev&&state.datedDraws.find(d=>d.date===prev))sel.value=prev;
+  else sel.value=state.datedDraws[0]?.date||'';
+}
+function stepOyunNoDate(dir){
+  const sel=document.getElementById('oyunNoDate');if(!sel||!sel.options.length)return;
+  const idx=Array.from(sel.options).findIndex(o=>o.value===sel.value);
+  const next=idx+dir;if(next<0||next>=sel.options.length)return;
+  sel.value=sel.options[next].value;renderOyunNoGecmis();
+}
+function _buildOyunNoKolonlar(raw,game){
+  const rev=raw.split('').reverse().join('');
+  const ds=raw.split('').reduce((s,c)=>s+(+c),0).toString();
+  return[
     {label:'Kolon 1',seed:_fnvHash(raw)},
-    {label:'Kolon 2',seed:_fnvHash(reversed)},
-    {label:'Kolon 3',seed:_fnvHash(digitSum+raw.slice(-4))},
+    {label:'Kolon 2',seed:_fnvHash(rev)},
+    {label:'Kolon 3',seed:_fnvHash(ds+raw.slice(-4))},
   ].map(({label,seed})=>{
     const main=_seededPick(seed,game.count,game.max);
     const bonus=game.bonusCount>0?_seededPick(seed^0xA5B6C7D8,game.bonusCount,game.bonusMax):[];
-    const copyText=label+'\n'+main.join(' ')+(bonus.length?' | '+bonus.join(' '):'');
-    const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n');
-    const mainHtml=main.map(n=>staticBall(n,game.mainColor,'',BSZ)).join('');
-    const bonHtml=bonus.length?`<div class="balls-divider">+</div>`+bonus.map(n=>staticBall(n,game.bonusColor+' special','',BSZ)).join(''):'';
-    const score=calcTicketScore({main,bonus},game);
-    const sc=score>=75?'#00e676':score>=55?'#ffc400':score>=35?'#ff9100':'#ff5252';
-    const sbg=score>=75?'rgba(0,230,118,.15)':score>=55?'rgba(255,196,0,.15)':score>=35?'rgba(255,145,0,.15)':'rgba(255,82,82,.15)';
-    return `<div class="ticket" style="margin-bottom:6px;--ball-size:${BSZ};cursor:pointer;user-select:none;-webkit-user-select:none"
-      onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()"
-      ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()" oncontextmenu="return false">
-      <span class="ticket-idx" style="font-size:.55rem;line-height:1.4;text-align:center">${label.replace('Kolon ','K')}</span>
-      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:wrap">${mainHtml}${bonHtml}</div>
-      <span style="font-size:.58rem;font-weight:700;padding:2px 6px;border-radius:10px;background:${sbg};color:${sc};white-space:nowrap;flex-shrink:0;align-self:center">%${score}</span>
-    </div>`;
+    return{label,main,bonus};
   });
-  res.innerHTML=`
-    <div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">
-      ${game.emoji} <strong style="color:var(--text)">${game.name}</strong>
-      &nbsp;·&nbsp; Oyun No: <code style="color:var(--accent);font-size:.8rem">${raw}</code>
+}
+function _renderKolonTicket(k,game,BSZ,aSet,aBSet){
+  const{label,main,bonus}=k;
+  const mMain=aSet?main.filter(n=>aSet.has(n)).length:0;
+  const mBonus=aBSet?bonus.filter(n=>aBSet.has(n)).length:0;
+  const matchTotal=mMain+mBonus;
+  const total=main.length+bonus.length;
+  const matchLabel=aSet?`${matchTotal}/${total}`:'';
+  const matchColor=aSet?(matchTotal>=3?'var(--green)':matchTotal>=1?'var(--accent)':'var(--muted)'):'var(--muted)';
+  const copyText=label+'\n'+main.join(' ')+(bonus.length?' | '+bonus.join(' '):'');
+  const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n');
+  const mainHtml=main.map(n=>{
+    const cls=aSet?(aSet.has(n)?'matched':(aSet.has(n-1)||aSet.has(n+1))?'near':'unmatched'):'';
+    return staticBall(n,game.mainColor,cls,BSZ);
+  }).join('');
+  const bonHtml=bonus.length?`<div class="balls-divider">+</div>`+bonus.map(n=>{
+    const cls=aBSet?(aBSet.has(n)?'matched':(aBSet.has(n-1)||aBSet.has(n+1))?'near':'unmatched'):'';
+    return staticBall(n,game.bonusColor+' special',cls,BSZ);
+  }).join(''):'';
+  const score=calcTicketScore({main,bonus},game);
+  const sc=score>=75?'#00e676':score>=55?'#ffc400':score>=35?'#ff9100':'#ff5252';
+  const sbg=score>=75?'rgba(0,230,118,.15)':score>=55?'rgba(255,196,0,.15)':score>=35?'rgba(255,145,0,.15)':'rgba(255,82,82,.15)';
+  return `<div class="ticket" style="margin-bottom:6px;--ball-size:${BSZ};cursor:pointer;user-select:none;-webkit-user-select:none"
+    onmousedown="lpStart('${eq(copyText)}')" onmouseup="lpEnd()" onmouseleave="lpEnd()"
+    ontouchstart="lpStart('${eq(copyText)}')" ontouchend="lpEnd()" ontouchmove="lpEnd()" oncontextmenu="return false">
+    <span class="ticket-idx" style="font-size:.55rem;line-height:1.4;text-align:center">${label.replace('Kolon ','K')}</span>
+    <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:wrap">${mainHtml}${bonHtml}</div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0">
+      <span style="font-size:.58rem;font-weight:700;padding:2px 6px;border-radius:10px;background:${sbg};color:${sc};white-space:nowrap">%${score}</span>
+      ${matchLabel?`<span style="font-size:.7rem;font-weight:700;color:${matchColor}">${matchLabel}</span>`:''}
     </div>
-    ${kolonlar.join('')}
-    <div style="font-size:.63rem;color:var(--muted);margin-top:6px;padding:5px 8px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
-      💡 Her kolon farklı bir türetme yöntemiyle üretilmiştir. Uzun basarak kopyalayabilirsiniz.
-    </div>`;
+  </div>`;
+}
+function oyunNoHesapla(){
+  const raw=(document.getElementById('oyunNoInput')?.value||'').trim().replace(/\D/g,'');
+  const res1=document.getElementById('oyunNoResult1');
+  const bar1=document.getElementById('oyunNoCopyBar1');
+  const empty='<div class="empty-state"><span class="empty-icon">🎫</span>Oyun numarasını girin.</div>';
+  if(!raw||raw.length<4){
+    if(res1)res1.innerHTML=empty;if(bar1)bar1.style.display='none';
+    state._oyunNoKolonlar=null;renderOyunNoGecmis();return;
+  }
+  const game=getGame(state.oyunNoGame||'super');
+  const BSZ=mobileBSZ();
+  state._oyunNoKolonlar=_buildOyunNoKolonlar(raw,game);
+  const header=`<div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">
+    ${game.emoji} <strong style="color:var(--text)">${game.name}</strong>
+    &nbsp;·&nbsp; Oyun No: <code style="color:var(--accent);font-size:.8rem">${raw}</code></div>`;
+  const footer=`<div style="font-size:.63rem;color:var(--muted);margin-top:6px;padding:5px 8px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
+    💡 Her kolon farklı türetme yöntemiyle üretilmiştir. Uzun basarak kopyalayabilirsiniz.</div>`;
+  if(res1)res1.innerHTML=header+state._oyunNoKolonlar.map(k=>_renderKolonTicket(k,game,BSZ,null,null)).join('')+footer;
+  if(bar1)bar1.style.display='block';
+  if(state.oyunNoTab==='gecmis')renderOyunNoGecmis();
+}
+function renderOyunNoGecmis(){
+  const res2=document.getElementById('oyunNoResult2');
+  const bar2=document.getElementById('oyunNoCopyBar2');
+  if(!res2)return;
+  if(!state._oyunNoKolonlar){
+    res2.innerHTML='<div class="empty-state"><span class="empty-icon">📅</span>Oyun numarasını girin ve tarih seçin.</div>';
+    if(bar2)bar2.style.display='none';return;
+  }
+  updateOyunNoDateOptions();
+  const sel=document.getElementById('oyunNoDate');
+  const testDate=sel?.value||'';
+  const actual=testDate?state.datedDraws.find(d=>d.date===testDate):null;
+  const game=getGame(state.oyunNoGame||'super');
+  const BSZ=mobileBSZ();
+  const raw=(document.getElementById('oyunNoInput')?.value||'').trim().replace(/\D/g,'');
+  const aSet=actual?new Set(actual.nums):null;
+  const aBSet=actual?new Set(actual.bonus):null;
+  // actual draw row
+  let actualHtml='';
+  if(actual){
+    const pMainSet=new Set(state._oyunNoKolonlar.flatMap(k=>k.main));
+    const pBonSet=new Set(state._oyunNoKolonlar.flatMap(k=>k.bonus));
+    const aBalls=actual.nums.map(n=>staticBall(n,game.mainColor,pMainSet.has(n)?'matched':'unmatched',BSZ)).join('');
+    const aBon=actual.bonus.length?`<div class="balls-divider">+</div>`+actual.bonus.map(n=>staticBall(n,game.bonusColor+' special',pBonSet.has(n)?'matched':'unmatched',BSZ)).join(''):'';
+    actualHtml=`<div class="bt-section-label" style="padding:0 0 4px">Gerçek Çekiliş — ${testDate}</div>
+    <div class="ticket" style="margin-bottom:8px;border-color:rgba(0,230,118,.25);background:rgba(0,230,118,.04);--ball-size:${BSZ}">
+      <span class="ticket-idx" style="font-size:.52rem;color:var(--green);line-height:1.3;text-align:center">G<br>Ç</span>
+      <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:wrap">${aBalls}${aBon}</div>
+    </div>
+    <div class="bt-section-label" style="padding:0 0 4px">Tahminler</div>`;
+  }
+  const header=`<div style="font-size:.72rem;color:var(--muted);margin-bottom:8px">
+    ${game.emoji} <strong style="color:var(--text)">${game.name}</strong>
+    &nbsp;·&nbsp; Oyun No: <code style="color:var(--accent);font-size:.8rem">${raw}</code></div>`;
+  res2.innerHTML=header+actualHtml+state._oyunNoKolonlar.map(k=>_renderKolonTicket(k,game,BSZ,aSet,aBSet)).join('')+
+    (!actual&&testDate?`<div style="font-size:.63rem;color:var(--muted);margin-top:6px">Seçilen tarihe ait çekiliş verisi bulunamadı.</div>`:'');
+  if(bar2)bar2.style.display='block';
+}
+function copyOyunNoAll(tabNum){
+  if(!state._oyunNoKolonlar){showToast('⚠️ Önce oyun numarası girin');return;}
+  const game=getGame(state.oyunNoGame||'super');
+  const raw=(document.getElementById('oyunNoInput')?.value||'').trim().replace(/\D/g,'');
+  let text=`${game.name} — Oyun No: ${raw}\n`;
+  if(tabNum===2){
+    const date=document.getElementById('oyunNoDate')?.value||'';
+    if(date){const actual=state.datedDraws.find(d=>d.date===date);if(actual)text+=`Gerçek Çekiliş (${date}): ${actual.nums.join(' ')}${actual.bonus.length?' | '+actual.bonus.join(' '):''}\n`;}
+    text+='---\n';
+  }
+  text+=state._oyunNoKolonlar.map(k=>k.label+': '+k.main.join(' ')+(k.bonus.length?' | '+k.bonus.join(' '):'')).join('\n');
+  copyNums(text);
 }
 
 // ── Boot ──────────────────────────────────────────────────────
