@@ -631,8 +631,8 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div class="card">
     <div class="card-title">🎯 B10 Banko Analizi</div>
     <div style="font-size:.7rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
-      Çoklu faktörlü puanlama sistemi: <strong>EWF</strong> (ağırlıklı frekans) · <strong>Gecikme</strong> (ortalama aralık aşımı) · <strong>Momentum</strong> (son trend) · <strong>Pozisyon</strong> ağırlığı.
-      Geçmiş test ile gerçek isabetlilik ölçülür.
+      <strong>Gelişmiş ensemble motoru:</strong> çoklu pencere sıra-füzyonu (RRF) · kendini ayarlayan ağırlıklar (walk-forward kalibrasyon) · birliktelik tutarlılığı (co-occurrence) · gecikme kararlılığı &amp; trend eğimi.
+      Her banko için <strong>güven derecesi</strong> ve geçmiş testte sıra-bazlı isabet doğrulaması.
     </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <div style="display:flex;align-items:center;gap:6px">
@@ -648,9 +648,9 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
         <span style="font-size:.72rem;color:var(--muted)">Banko sayısı:</span>
         <select id="b10BankCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px">
           <option value="3">3</option>
-          <option value="5" selected>5</option>
+          <option value="5">5</option>
           <option value="7">7</option>
-          <option value="10">10</option>
+          <option value="10" selected>10</option>
         </select>
       </div>
     </div>
@@ -4918,79 +4918,180 @@ function switchB10Tab(name){
   });
 }
 
-function buildB10Scores(draws,game,wSize){
-  const W=Math.min(wSize||50,draws.length);
-  if(W<5)return[];
-  const used=draws.slice(0,W); // newest-first
-  const max=game.max;
-  const cnt=Math.min(game.count,7);
+// ── B10 ADVANCED ENGINE ────────────────────────────────────────
+// Multi-window rank fusion + self-calibrating weights + co-occurrence
+// coherence + gap-stability + trend slope + confidence calibration.
+let _b10LastWeights=null;
 
-  // 1. EWF (exponentially-weighted frequency, lambda=0.82)
-  const lambda=0.82;
-  const ewf={};
-  for(let i=1;i<=max;i++)ewf[i]=0;
+// Compute six raw factor maps over a newest-first window.
+function _b10Factors(used,max,cnt){
+  const W=used.length;
+  const lambda=0.85;
+  const ewf={},lFreq={},sFreq={};
+  const shortW=Math.max(3,Math.floor(W*0.18));
+  for(let i=1;i<=max;i++){ewf[i]=0;lFreq[i]=0;sFreq[i]=0;}
   used.forEach((d,idx)=>{
     const w=Math.pow(lambda,idx);
-    d.nums.forEach(n=>{if(n>=1&&n<=max)ewf[n]+=w;});
+    d.nums.forEach(n=>{if(n>=1&&n<=max){ewf[n]+=w;lFreq[n]++;if(idx<shortW)sFreq[n]++;}});
   });
-
-  // 2. Due/gap score — numbers overdue relative to their average interval
-  const lastCI={}; // chronological index (0=oldest, W-1=newest)
-  const gapSum={},gapCnt={};
-  for(let i=1;i<=max;i++){lastCI[i]=-1;gapSum[i]=0;gapCnt[i]=0;}
+  // gaps (chronological): due + stability(low gap-variance)
+  const lastCI={},gaps={};
+  for(let i=1;i<=max;i++){lastCI[i]=-1;gaps[i]=[];}
   for(let ci=0;ci<W;ci++){
-    const d=used[W-1-ci]; // ci=0→oldest, ci=W-1→newest
-    d.nums.forEach(n=>{
-      if(n>=1&&n<=max){
-        if(lastCI[n]>=0){gapSum[n]+=ci-lastCI[n];gapCnt[n]++;}
-        lastCI[n]=ci;
-      }
-    });
+    const d=used[W-1-ci];
+    d.nums.forEach(n=>{if(n>=1&&n<=max){if(lastCI[n]>=0)gaps[n].push(ci-lastCI[n]);lastCI[n]=ci;}});
   }
-  const due={};
+  const due={},stab={};
   for(let i=1;i<=max;i++){
-    const avgG=gapCnt[i]>0?gapSum[i]/gapCnt[i]:W*0.6;
+    const g=gaps[i];
+    const avgG=g.length?g.reduce((a,b)=>a+b,0)/g.length:W*0.6;
     const curG=lastCI[i]>=0?(W-1)-lastCI[i]:W;
-    due[i]=Math.max(0,curG/Math.max(1,avgG)-0.6);
+    due[i]=Math.max(0,curG/Math.max(1,avgG)-0.5);
+    if(g.length>=2){const v=g.reduce((a,b)=>a+(b-avgG)*(b-avgG),0)/g.length;stab[i]=(lFreq[i]/W)/(1+Math.sqrt(v));}
+    else stab[i]=0;
   }
-
-  // 3. Momentum — recent-window frequency vs overall frequency ratio
-  const shortW=Math.max(3,Math.floor(W*0.15));
-  const sFreq={},lFreq={};
-  for(let i=1;i<=max;i++){sFreq[i]=0;lFreq[i]=0;}
-  used.forEach((d,idx)=>{
-    d.nums.forEach(n=>{
-      if(n>=1&&n<=max){lFreq[n]++;if(idx<shortW)sFreq[n]++;}
-    });
-  });
+  // momentum: short-window vs long-window rate
   const mom={};
-  for(let i=1;i<=max;i++){
-    mom[i]=(sFreq[i]/shortW+0.001)/(lFreq[i]/W+0.001);
-  }
-
-  // 4. Position weight — numbers appearing in middle sorted positions weighted more
-  const posW={};
-  for(let i=1;i<=max;i++)posW[i]=0;
-  used.forEach(d=>{
-    const sorted=[...d.nums].filter(n=>n>=1&&n<=max).sort((a,b)=>a-b).slice(0,cnt);
-    sorted.forEach((n,pos)=>{posW[n]+=(pos>0&&pos<cnt-1)?1.5:1.0;});
+  for(let i=1;i<=max;i++)mom[i]=(sFreq[i]/Math.max(1,shortW)+0.002)/(lFreq[i]/W+0.002);
+  // trend slope: least-squares slope of appearance count across chrono bins
+  const bins=Math.min(6,Math.max(3,Math.floor(W/8)));
+  const binSize=W/bins;
+  const binCount={};
+  used.forEach((d,idx)=>{
+    const b=Math.min(bins-1,Math.floor((W-1-idx)/binSize));
+    d.nums.forEach(n=>{if(n>=1&&n<=max){(binCount[n]=binCount[n]||new Array(bins).fill(0))[b]++;}});
   });
+  const trend={};const xm=(bins-1)/2;
+  for(let i=1;i<=max;i++){
+    const bc=binCount[i]||new Array(bins).fill(0);
+    let ym=0;for(let b=0;b<bins;b++)ym+=bc[b];ym/=bins;
+    let num=0,den=0;for(let b=0;b<bins;b++){num+=(b-xm)*(bc[b]-ym);den+=(b-xm)*(b-xm);}
+    trend[i]=den>0?num/den:0;
+  }
+  // position weight (middle sorted positions favored)
+  const pos={};for(let i=1;i<=max;i++)pos[i]=0;
+  used.forEach(d=>{
+    const s=[...d.nums].filter(n=>n>=1&&n<=max).sort((a,b)=>a-b).slice(0,cnt);
+    s.forEach((n,p)=>{pos[n]+=(p>0&&p<cnt-1)?1.5:1.0;});
+  });
+  return {ewf,due,stab,mom,trend,pos,_freq:lFreq};
+}
 
-  // Normalize each factor to [0,1]
-  const norm=obj=>{
-    let mn=Infinity,mx=-Infinity;
-    for(let i=1;i<=max;i++){mn=Math.min(mn,obj[i]||0);mx=Math.max(mx,obj[i]||0);}
-    const r=mx-mn,res={};
-    for(let i=1;i<=max;i++)res[i]=r>0?((obj[i]||0)-mn)/r:0;
-    return res;
-  };
-  const eN=norm(ewf),dN=norm(due),mN=norm(mom),pN=norm(posW);
+function _b10Norm(obj,max){
+  let mn=Infinity,mx=-Infinity;
+  for(let i=1;i<=max;i++){const v=obj[i]||0;if(v<mn)mn=v;if(v>mx)mx=v;}
+  const r=mx-mn,res={};
+  for(let i=1;i<=max;i++)res[i]=r>0?((obj[i]||0)-mn)/r:0;
+  return res;
+}
+
+const _B10_KEYS=['ewf','due','stab','mom','trend','pos'];
+
+// Walk-forward calibration: weight each factor by how well it predicted recent draws.
+function _b10AdaptiveWeights(draws,game){
+  const max=game.max,cnt=Math.min(game.count,7);
+  const V=Math.min(10,Math.floor(draws.length/3));
+  const power={};_B10_KEYS.forEach(k=>power[k]=0);
+  const topK=Math.max(8,Math.round(max*0.15));
+  const baseHit=topK/max; // random expectation of hit-rate in top-K
+  let valid=0;
+  for(let t=0;t<V;t++){
+    const prior=draws.slice(t+1);
+    if(prior.length<10)break;
+    const f=_b10Factors(prior,max,cnt);
+    const actual=new Set([...draws[t].nums].filter(n=>n>=1&&n<=max));
+    _B10_KEYS.forEach(k=>{
+      const nf=_b10Norm(f[k],max);
+      const ranked=[];for(let i=1;i<=max;i++)ranked.push([i,nf[i]]);
+      ranked.sort((a,b)=>b[1]-a[1]);
+      const hits=ranked.slice(0,topK).filter(([num])=>actual.has(num)).length;
+      power[k]+=(hits/topK)-baseHit; // lift over random
+    });
+    valid++;
+  }
+  const w={};let sum=0;
+  _B10_KEYS.forEach(k=>{const p=valid?power[k]/valid:0;w[k]=Math.max(0.04,0.08+p*2.2);sum+=w[k];});
+  _B10_KEYS.forEach(k=>w[k]=w[k]/sum);
+  return w;
+}
+
+function buildB10Scores(draws,game,wSize){
+  const N=draws.length;
+  if(N<8)return[];
+  const max=game.max,cnt=Math.min(game.count,7);
+  const mainW=Math.min(wSize||50,N);
+  const main=draws.slice(0,mainW);
+
+  // 1) Self-calibrating factor weights (walk-forward)
+  const w=_b10AdaptiveWeights(main,game);
+  _b10LastWeights=w;
+
+  // 2) Multi-window Reciprocal Rank Fusion — stabilizes against any single window
+  const cand=[Math.min(20,N),Math.min(40,N),mainW,N];
+  const windows=[...new Set(cand)].filter(x=>x>=10);
+  if(!windows.length)windows.push(mainW);
+  const rrf={};for(let i=1;i<=max;i++)rrf[i]=0;
+  const kRRF=12;
+  windows.forEach(W=>{
+    const f=_b10Factors(draws.slice(0,W),max,cnt);
+    const nf={};_B10_KEYS.forEach(k=>nf[k]=_b10Norm(f[k],max));
+    const comp=[];
+    for(let i=1;i<=max;i++){let s=0;_B10_KEYS.forEach(k=>s+=w[k]*nf[k][i]);comp.push([i,s]);}
+    comp.sort((a,b)=>b[1]-a[1]);
+    comp.forEach(([n],rank)=>{rrf[n]+=1/(kRRF+rank);});
+  });
+  const rrfN=_b10Norm(rrf,max);
+
+  // 3) Co-occurrence coherence — favor numbers that historically appear together
+  const poolRank=[];for(let i=1;i<=max;i++)poolRank.push([i,rrfN[i]]);
+  poolRank.sort((a,b)=>b[1]-a[1]);
+  const pool=poolRank.slice(0,Math.min(max,Math.max(14,cnt*4))).map(p=>p[0]);
+  const poolSet=new Set(pool);
+  const co={};pool.forEach(a=>co[a]={});
+  main.forEach(d=>{
+    const ns=d.nums.filter(n=>poolSet.has(n));
+    for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){
+      co[ns[a]][ns[b]]=(co[ns[a]][ns[b]]||0)+1;
+      co[ns[b]][ns[a]]=(co[ns[b]][ns[a]]||0)+1;
+    }
+  });
+  const coher={};let coMax=0;
+  pool.forEach(a=>{let s=0;pool.forEach(b=>{if(a!==b)s+=(co[a][b]||0)*rrfN[b];});coher[a]=s;if(s>coMax)coMax=s;});
+
+  // 4) Final fused score + per-factor norms for display
+  const fMain=_b10Factors(main,max,cnt);
+  const nfMain={};_B10_KEYS.forEach(k=>nfMain[k]=_b10Norm(fMain[k],max));
+  const appr={};for(let i=1;i<=max;i++)appr[i]=0;
+  main.forEach(d=>d.nums.forEach(n=>{if(n>=1&&n<=max)appr[n]++;}));
 
   const scores=[];
   for(let i=1;i<=max;i++){
-    scores.push({n:i,score:0.35*eN[i]+0.30*dN[i]+0.20*mN[i]+0.15*pN[i],ewf:eN[i],due:dN[i],mom:mN[i],pos:pN[i],freq:lFreq[i]});
+    const coh=poolSet.has(i)&&coMax>0?coher[i]/coMax:0;
+    scores.push({n:i,raw:0.78*rrfN[i]+0.22*coh,
+      ewf:nfMain.ewf[i],due:nfMain.due[i],stab:nfMain.stab[i],mom:nfMain.mom[i],trend:nfMain.trend[i],pos:nfMain.pos[i],
+      freq:appr[i]});
   }
-  return scores.sort((a,b)=>b.score-a.score);
+  scores.sort((a,b)=>b.raw-a.raw);
+
+  // 5) Confidence calibration — anchored hit-probability per banko
+  const baseRate=cnt/max;
+  const mx=scores[0]?scores[0].raw:1;
+  scores.forEach((s,idx)=>{
+    const apprRate=appr[s.n]/mainW;
+    const pct=1-idx/Math.max(1,scores.length-1); // model percentile (1=best)
+    s.conf=Math.min(0.95,0.55*apprRate+0.45*(baseRate+(pct-0.5)*baseRate*1.8));
+    s.lift=s.conf/baseRate;
+    s.score=mx>0?s.raw/mx:0;
+  });
+  return scores;
+}
+
+// Confidence tier label relative to random base rate.
+function _b10Tier(lift){
+  if(lift>=1.8)return{icon:'🔥',label:'Çok Güçlü',color:'var(--green)'};
+  if(lift>=1.35)return{icon:'⚡',label:'Güçlü',color:'#9ae6b4'};
+  if(lift>=1.05)return{icon:'➕',label:'Orta',color:'#ffc400'};
+  return{icon:'〰️',label:'Zayıf',color:'rgba(255,255,255,.4)'};
 }
 
 function runB10(){
@@ -4999,39 +5100,49 @@ function runB10(){
   const res=document.getElementById('b10Result');
   if(!draws||!draws.length){if(res)res.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Önce "Gerçek Verileri Getir" butonuna basın.</div>';return;}
   const wSize=parseInt(document.getElementById('b10Window')?.value)||50;
-  const bankCount=parseInt(document.getElementById('b10BankCount')?.value)||5;
+  const bankCount=parseInt(document.getElementById('b10BankCount')?.value)||10;
   const scores=buildB10Scores(draws,game,wSize);
-  if(!scores.length){if(res)res.innerHTML='<div class="empty-state">Yeterli veri yok</div>';return;}
-  const top10=scores.slice(0,Math.max(10,bankCount));
-  const bankos=top10.slice(0,bankCount).map(s=>s.n);
+  if(!scores.length){if(res)res.innerHTML='<div class="empty-state">Yeterli veri yok (min 8 çekiliş)</div>';return;}
+  const showN=Math.max(bankCount+4,12);
+  const top=scores.slice(0,showN);
+  const bankos=scores.slice(0,bankCount).map(s=>s.n);
   const actualW=Math.min(wSize,draws.length);
+  const w=_b10LastWeights||{};
+  const wPct=k=>Math.round((w[k]||0)*100);
 
-  const rows=top10.map(({n,score,ewf,due,mom,pos,freq},i)=>{
+  const rows=top.map(({n,score,conf,lift,ewf,due,stab,mom,trend,freq},i)=>{
     const isBk=i<bankCount;
     const pct=Math.round(score*100);
+    const tier=_b10Tier(lift);
     return `<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;background:${isBk?'rgba(129,140,248,.07)':'transparent'};border-radius:7px;border:1px solid ${isBk?'rgba(129,140,248,.22)':'transparent'};margin-bottom:3px">
-      <span style="font-size:.6rem;color:var(--muted);min-width:18px">${i+1}.</span>
-      <span style="font-family:monospace;font-size:.88rem;font-weight:800;min-width:28px;color:${isBk?'var(--accent)':'var(--text)'}">${n}</span>
+      <span style="font-size:.6rem;color:var(--muted);min-width:16px">${i+1}.</span>
+      <span style="font-family:monospace;font-size:.88rem;font-weight:800;min-width:26px;color:${isBk?'var(--accent)':'var(--text)'}">${n}</span>
+      <span style="font-size:.62rem;min-width:62px;color:${tier.color}">${tier.icon} ${lift.toFixed(2)}×</span>
       <div style="flex:1;height:7px;background:rgba(255,255,255,.08);border-radius:4px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${isBk?'linear-gradient(90deg,var(--accent),rgba(255,101,132,.8))':'rgba(255,255,255,.25)'};border-radius:4px;transition:width .3s"></div>
       </div>
-      <span style="font-size:.62rem;color:var(--muted);min-width:28px;text-align:right">${pct}%</span>
-      <span style="font-size:.54rem;color:rgba(255,255,255,.2);white-space:nowrap;display:none" class="b10-detail">EWF:${Math.round(ewf*10)} Gec:${Math.round(due*10)} Mmt:${Math.round(mom*10)}</span>
+      <span style="font-size:.6rem;color:var(--muted);min-width:34px;text-align:right">${Math.round(conf*100)}%</span>
     </div>`;
   }).join('');
 
   if(!res)return;
   res.innerHTML=`
     <div style="margin-bottom:10px;padding:10px 12px;background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.2);border-radius:10px">
-      <div style="font-size:.63rem;color:var(--muted);margin-bottom:6px">Top ${bankCount} Banko Adayı · Son ${actualW} çekiliş · ${game.name}</div>
-      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
-        ${bankos.map(n=>`<span style="background:rgba(129,140,248,.18);border:2px solid rgba(129,140,248,.5);border-radius:50%;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:.92rem;color:var(--accent)">${n}</span>`).join('')}
+      <div style="font-size:.63rem;color:var(--muted);margin-bottom:6px">Top ${bankCount} Banko Adayı · Son ${actualW} çekiliş · ${game.name} · güven sırasına göre</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+        ${scores.slice(0,bankCount).map(s=>{const t=_b10Tier(s.lift);return`<span title="güven ${Math.round(s.conf*100)}% · ${t.label}" style="background:rgba(129,140,248,.18);border:2px solid ${t.color};border-radius:50%;width:38px;height:38px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:.92rem;color:var(--accent)">${s.n}</span>`;}).join('')}
         <button onclick="copyNums('${bankos.join(' - ')}')" style="margin-left:auto;background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:4px 12px;cursor:pointer;font-size:.68rem">📋 Kopyala</button>
       </div>
     </div>
-    <div style="font-size:.7rem;font-weight:600;color:var(--muted);margin-bottom:6px;padding-left:2px">Puanlama Detayı (EWF %35 · Gecikme %30 · Momentum %20 · Pozisyon %15)</div>
+    <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;padding:6px 9px;background:rgba(255,255,255,.03);border-radius:7px">
+      <span style="color:var(--text);font-weight:600">Kendini ayarlayan ağırlıklar:</span>
+      EWF ${wPct('ewf')}% · Gecikme ${wPct('due')}% · Kararlılık ${wPct('stab')}% · Momentum ${wPct('mom')}% · Trend ${wPct('trend')}% · Pozisyon ${wPct('pos')}%
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:.62rem;font-weight:600;color:var(--muted);margin-bottom:6px;padding:0 8px">
+      <span># &nbsp; Sayı &nbsp; Güç (×kat)</span><span>Skor · Güven</span>
+    </div>
     ${rows}
-    <div style="font-size:.57rem;color:rgba(255,255,255,.18);margin-top:6px;text-align:right">EWF = Üstel ağırlıklı frekans · Gecikme = ortalama aralık aşımı · Momentum = kısa/uzun dönem oran</div>`;
+    <div style="font-size:.57rem;color:rgba(255,255,255,.22);margin-top:6px;text-align:right">×kat = rastgeleye göre isabet katı (1.00× = şans seviyesi) · Güven = tahmini isabet olasılığı</div>`;
 }
 
 function runB10Backtest(){
@@ -5047,17 +5158,28 @@ function runB10Backtest(){
 
   const results=[];const dist={};
   for(let k=0;k<=bankCount;k++)dist[k]=0;
+  // per-rank hit tracking: did the #1 banko hit more often than #N?
+  const rankHits=new Array(bankCount).fill(0);
+  // confidence-tier hit tracking
+  const tierAgg={'Çok Güçlü':{h:0,t:0},'Güçlü':{h:0,t:0},'Orta':{h:0,t:0},'Zayıf':{h:0,t:0}};
 
   for(let ti=0;ti<testDraws.length;ti++){
     const prior=draws.slice(ti+1,ti+1+priorW);
     if(prior.length<5)continue;
     const scores=buildB10Scores(prior,game,priorW);
-    const bankos=scores.slice(0,bankCount).map(s=>s.n);
+    const top=scores.slice(0,bankCount);
+    const bankos=top.map(s=>s.n);
     const bankSet=new Set(bankos);
     const actual=[...testDraws[ti].nums].filter(n=>n>=1&&n<=game.max).sort((a,b)=>a-b).slice(0,game.count);
     const actualSet=new Set(actual);
     const matches=bankos.filter(n=>actualSet.has(n)).length;
     dist[Math.min(matches,bankCount)]=(dist[Math.min(matches,bankCount)]||0)+1;
+    top.forEach((s,r)=>{
+      const hit=actualSet.has(s.n)?1:0;
+      if(hit)rankHits[r]++;
+      const tl=_b10Tier(s.lift).label;
+      if(tierAgg[tl]){tierAgg[tl].t++;tierAgg[tl].h+=hit;}
+    });
     results.push({date:testDraws[ti].date,bankos,actual,matches,bankSet,actualSet});
   }
 
@@ -5068,6 +5190,7 @@ function runB10Backtest(){
   const hit3=results.filter(r=>r.matches>=3).length;
   const maxM=Math.max(...results.map(r=>r.matches));
   const expAvg=(bankCount*game.count/game.max).toFixed(2);
+  const expPerBanko=game.count/game.max; // random hit prob per single banko
 
   const statsHtml=`<div style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.18);border-radius:10px;padding:12px;margin-bottom:10px">
     <div style="font-size:.72rem;font-weight:700;color:var(--text);margin-bottom:8px">📊 ${total} çekiliş · Top-${bankCount} banko · ${priorW} çekiliş penceresi · ${game.name}</div>
@@ -5114,8 +5237,46 @@ function runB10Backtest(){
     </div>`;
   }).join('');
 
+  // Per-rank hit rate — validates that higher-ranked bankos actually hit more
+  const rankPct=rankHits.map(h=>h/total);
+  const rankMaxPct=Math.max(expPerBanko,...rankPct,0.001);
+  const rankHtml=`<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.15);border-radius:10px;padding:11px;margin-bottom:10px">
+    <div style="font-size:.66rem;font-weight:700;color:var(--text);margin-bottom:3px">🏅 Sıra-bazlı isabet oranı</div>
+    <div style="font-size:.57rem;color:var(--muted);margin-bottom:8px">Her banko sırasının gerçekte tutturma oranı. İdeal: üst sıralar daha yüksek olmalı. Kesikli çizgi = rastgele (${Math.round(expPerBanko*100)}%).</div>
+    <div style="display:flex;gap:3px;align-items:flex-end;height:60px;position:relative">
+      <div style="position:absolute;left:0;right:0;bottom:${Math.round(expPerBanko/rankMaxPct*52)+8}px;border-top:1px dashed rgba(255,196,0,.5);z-index:1"></div>
+      ${rankPct.map((p,r)=>{
+        const h=Math.max(2,Math.round(p/rankMaxPct*52));
+        const good=p>=expPerBanko;
+        return`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;z-index:2">
+          <div style="font-size:.48rem;color:var(--muted)">${Math.round(p*100)}%</div>
+          <div style="height:${h}px;width:100%;background:${good?'linear-gradient(180deg,var(--green),rgba(0,230,118,.4))':'rgba(255,255,255,.18)'};border-radius:3px 3px 0 0"></div>
+          <div style="font-size:.48rem;color:var(--muted)">#${r+1}</div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+
+  // Confidence-tier calibration — do "stronger" tiers really hit more?
+  const tierOrder=['Çok Güçlü','Güçlü','Orta','Zayıf'];
+  const tierColor={'Çok Güçlü':'var(--green)','Güçlü':'#9ae6b4','Orta':'#ffc400','Zayıf':'rgba(255,255,255,.4)'};
+  const tierIcon={'Çok Güçlü':'🔥','Güçlü':'⚡','Orta':'➕','Zayıf':'〰️'};
+  const tierRows=tierOrder.filter(tl=>tierAgg[tl].t>0).map(tl=>{
+    const a=tierAgg[tl];const rate=a.h/a.t;const lift=rate/expPerBanko;
+    return`<div style="display:flex;align-items:center;gap:8px;font-size:.63rem;padding:3px 0">
+      <span style="min-width:80px;color:${tierColor[tl]}">${tierIcon[tl]} ${tl}</span>
+      <div style="flex:1;height:8px;background:rgba(255,255,255,.07);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,Math.round(rate/Math.max(0.01,rankMaxPct)*100))}%;background:${tierColor[tl]};border-radius:4px"></div></div>
+      <span style="min-width:90px;text-align:right;color:var(--muted)">${Math.round(rate*100)}% · <b style="color:${lift>=1.2?'var(--green)':lift>=1?'#ffc400':'var(--muted)'}">${lift.toFixed(2)}×</b></span>
+    </div>`;
+  }).join('');
+  const tierHtml=`<div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.15);border-radius:10px;padding:11px;margin-bottom:10px">
+    <div style="font-size:.66rem;font-weight:700;color:var(--text);margin-bottom:3px">🎚️ Güven derecesi kalibrasyonu</div>
+    <div style="font-size:.57rem;color:var(--muted);margin-bottom:8px">Her güven kademesinin gerçek isabet oranı (×kat = rastgeleye göre). Model çalışıyorsa 🔥/⚡ kademeleri 1.00×'in üzerinde olmalı.</div>
+    ${tierRows||'<div style="font-size:.6rem;color:var(--muted)">Veri yok</div>'}
+  </div>`;
+
   if(!btRes)return;
-  btRes.innerHTML=statsHtml+`
+  btRes.innerHTML=statsHtml+rankHtml+tierHtml+`
     <div style="font-size:.63rem;font-weight:600;color:var(--muted);margin-bottom:5px">Tüm çekilişler — Yeşil = banko eşleşmesi · Son sütun gerçek sayılar</div>
     <div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:7px">${rowsHtml}</div>`;
 }
