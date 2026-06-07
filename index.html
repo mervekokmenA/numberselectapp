@@ -714,7 +714,9 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:.72rem;color:var(--muted);min-width:70px">Algoritma:</span>
-            <select id="scanAlgo" style="flex:1;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+            <select id="scanAlgo" onchange="runScan()" style="flex:1;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+            <button onclick="stepScanAlgo(-1)" title="Önceki algoritma" style="flex-shrink:0;padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.82rem;line-height:1">▲</button>
+            <button onclick="stepScanAlgo(1)"  title="Sonraki algoritma" style="flex-shrink:0;padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.82rem;line-height:1">▼</button>
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:.72rem;color:var(--muted);min-width:70px">Pencere:</span>
@@ -5505,6 +5507,14 @@ function _initScanPage(){
   }
 }
 
+function stepScanAlgo(d){
+  const sel=document.getElementById('scanAlgo');
+  if(!sel||!sel.options.length)return;
+  const newIdx=(sel.selectedIndex+d+sel.options.length)%sel.options.length;
+  sel.selectedIndex=newIdx;
+  runScan();
+}
+
 function runScan(){
   const gameId=_scanGame||state.selectedGame;
   const game=getGame(gameId);
@@ -5542,7 +5552,8 @@ function runScan(){
   (pred.main||[]).forEach(n=>{ html+=`<span style="font-weight:700;color:var(--accent)">${n}</span>`; });
   if((pred.bonus||[]).length){ html+=`<span style="color:var(--muted)">|</span>`; (pred.bonus||[]).forEach(n=>{ html+=`<span style="font-weight:700;color:var(--accent2)">${n}</span>`; }); }
   html+=`</div>`;
-  html+=`<button onclick="navigator.clipboard.writeText('${allNums.join(' ')}').then(()=>showToast('📋 Kopyalandı'))" style="margin-top:6px;font-size:.72rem;padding:5px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋 Sayıları Kopyala</button>`;
+  const copyText=`🔍 Tarama — ${game.name} · ${algoName}\n${allNums.join(' ')}`;
+  html+=`<button onclick="navigator.clipboard.writeText(${JSON.stringify(copyText)}).then(()=>showToast('📋 Kopyalandı'))" style="margin-top:6px;font-size:.72rem;padding:5px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋 Sayıları Kopyala</button>`;
   if(lastDraw){
     html+=`<div style="margin-top:12px;font-size:.71rem;padding:8px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border)">`;
     html+=`<span style="color:var(--muted)">Son çekiliş (${lastDraw.date}): </span>`;
