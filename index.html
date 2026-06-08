@@ -2817,7 +2817,7 @@ function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null
   const _matchCount=excludeNums?td.main.filter(n=>excludeNums.has(n)).length+(excludeBonusNums?td.bonus.filter(n=>excludeBonusNums.has(n)).length:0):0;
   const _ticketBg=_matchCount>0?'background:rgba(0,230,118,.07);border-color:rgba(0,230,118,.25);':'';
   const algoLabel=algoId?(ALGOS.find(a=>a.id===algoId)?.name||algoId):'';
-  const copyText=(algoLabel?algoLabel+'\n':'')+td.main.join(' ')+(td.bonus.length?' | '+td.bonus.join(' '):'');
+  const copyText=(algoLabel?algoLabel+'\n':'')+[...td.main,...td.bonus].join(' - ');
   const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'');
   const scoreBadge=score!==null?(()=>{
     const c=score>=75?'#00e676':score>=55?'#ffc400':score>=35?'#ff9100':'#ff5252';
@@ -3908,7 +3908,7 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,fil
       return staticBall(n,game.bonusColor+' special',cls,BSZ);
     }).join(''):'';
     const scoreLabel=actual?`${score}/${total}${r.nearTotal>0?` +${r.nearTotal}≈`:''}`:'-';
-    const copyText=algoName+'\n'+(filterLabel?filterLabel+'\n':'')+r.pred.main.join(' ')+(r.pred.bonus.length?' | '+r.pred.bonus.join(' '):'');
+    const copyText=algoName+'\n'+(filterLabel?filterLabel+'\n':'')+[...r.pred.main,...r.pred.bonus].join(' - ');
     const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n').replace(/\r/g,'');
     const qs=calcTicketScore(r.pred,game);
     const qc=qs>=75?'#00e676':qs>=55?'#ffc400':qs>=35?'#ff9100':'#ff5252';
@@ -3928,14 +3928,8 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,fil
     </div>`;
   }).join('');
 
-  // Toplu kopyalama metni
-  const copyHeader=`${game.emoji} ${game.name} · ${algoName} · ${results.length} Tahmin`+(actual?` · Gerçek (${testDate}): ${actual.nums.join(' ')}${actual.bonus.length?' | '+actual.bonus.join(' '):''}`:'');
-  const copyBody=results.map((r,i)=>{
-    const score=r.mMain+r.mBonus;
-    const line=r.pred.main.join(' ')+(r.pred.bonus.length?' | '+r.pred.bonus.join(' '):'');
-    return `#${i+1} ${line}`+(actual?`  [${score}/${total}${r.nearTotal>0?` +${r.nearTotal}≈`:''}]`:'');
-  }).join('\n');
-  state._btCopyAll=copyHeader+'\n'+copyBody;
+  // Toplu kopyalama metni — standart format (algo adı + her bilet "n - n - n")
+  state._btCopyAll=algoName+'\n'+results.map(r=>[...r.pred.main,...r.pred.bonus].join(' - ')).join('\n');
   const btn=document.getElementById('btCopyAllBtn');if(btn)btn.style.display='inline-flex';
 
   const scoreCls=actual?(bestScore/total>=0.5?'excellent':bestScore/total>=0.3?'good':bestScore/total>=0.15?'fair':'poor'):'poor';
@@ -4512,7 +4506,7 @@ function _renderKolonTicket(k,game,BSZ,aSet,aBSet){
   const total=main.length+bonus.length;
   const matchLabel=aSet?`${matchTotal}/${total}`:'';
   const matchColor=aSet?(matchTotal>=3?'var(--green)':matchTotal>=1?'var(--accent)':'var(--muted)'):'var(--muted)';
-  const copyText=label+'\n'+main.join(' ')+(bonus.length?' | '+bonus.join(' '):'');
+  const copyText=label+'\n'+[...main,...bonus].join(' - ');
   const eq=s=>s.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/\n/g,'\\n');
   const mainHtml=main.map(n=>{
     const cls=aSet?(aSet.has(n)?'matched':(aSet.has(n-1)||aSet.has(n+1))?'near':'unmatched'):'';
@@ -4605,7 +4599,7 @@ function copyOyunNoAll(tabNum){
     if(date){const actual=state.datedDraws.find(d=>d.date===date);if(actual)text+=`Gerçek Çekiliş (${date}): ${actual.nums.join(' ')}${actual.bonus.length?' | '+actual.bonus.join(' '):''}\n`;}
     text+='---\n';
   }
-  text+=state._oyunNoKolonlar.map(k=>k.label+': '+k.main.join(' ')+(k.bonus.length?' | '+k.bonus.join(' '):'')).join('\n');
+  text+=state._oyunNoKolonlar.map(k=>k.label+': '+[...k.main,...k.bonus].join(' - ')).join('\n');
   copyNums(text);
 }
 
