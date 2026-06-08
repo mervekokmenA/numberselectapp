@@ -3719,12 +3719,15 @@ async function runBacktest(){
     if(!filterOn||!actual||(mMain+mBonus)>=btMinM) results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
     if((t+1)%BTBATCH===0) await new Promise(r=>setTimeout(r,0));
   }
-  results.sort((a,b)=>(b.mMain+b.mBonus)-(a.mMain+a.mBonus));
+  // Filtre AÇIK → tarama (eşleşmeye göre sırala). Filtre KAPALI → canlı tahminle birebir aynı (kalite skoruna göre sırala)
+  if(filterOn) results.sort((a,b)=>(b.mMain+b.mBonus)-(a.mMain+a.mBonus));
+  else results.sort((a,b)=>calcTicketScore(b.pred,game)-calcTicketScore(a.pred,game));
   if(filterOn&&!results.length){
     rc.innerHTML=`<div style="padding:20px;text-align:center;color:var(--muted);font-size:.82rem">⚠️ Taramada ${btMinM}+ eşleşme bulunamadı. Farklı tarih veya algoritma deneyin.</div>`;
   } else {
     rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,algoId,prior.length,filterOn,filterLabel);
-    const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
+    // Filtre açıkken en iyi eşleşmeyi, kapalıyken kalite #1'i (canlıda ilk seçeceğin bilet) kaydet
+    const best=filterOn?results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b):results[0];
     const total=best.pred.main.length+best.pred.bonus.length;
     state.btHistory.unshift({game,pred:best.pred,actual,mMain:best.mMain,mBonus:best.mBonus,nearTotal:best.nearTotal,testDate,algoId,prior:prior.length,score:actual?`${best.mMain+best.mBonus}/${total}${best.nearTotal>0?` +${best.nearTotal}≈`:''}`:'—'});
   }
@@ -3861,7 +3864,8 @@ function buildResultHtml(game,pred,actual,mMain,mBonus,nearTotal,testDate,algoId
 function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,filterOn=false,filterLabel=''){
   const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
   const total=results[0].pred.main.length+results[0].pred.bonus.length;
-  const best=results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b);
+  // Filtre açık → en iyi eşleşmeyi vurgula. Kapalı → canlıda ilk seçeceğin bilet (results[0]) referans, cherry-pick yok.
+  const best=filterOn?results.reduce((a,b)=>(a.mMain+a.mBonus)>=(b.mMain+b.mBonus)?a:b):results[0];
   const bestScore=best.mMain+best.mBonus;
   const aSet=actual?new Set(actual.nums):null;
   const aBSet=actual?new Set(actual.bonus):null;
@@ -3936,12 +3940,17 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,fil
   state._btCopyAll=copyHead+'\n'+copyTickets;
   const btn=document.getElementById('btCopyAllBtn');if(btn)btn.style.display='inline-flex';
 
-  const scoreCls=actual?(bestScore/total>=0.5?'excellent':bestScore/total>=0.3?'good':bestScore/total>=0.15?'fair':'poor'):'poor';
+  // Filtre kapalıyken (canlı ile birebir) başlık ortalama eşleşmeyi gösterir, cherry-pick değil
+  const avgMatch=actual?results.reduce((s,r)=>s+r.mMain+r.mBonus,0)/results.length:0;
+  const headScore=actual?(filterOn?`${bestScore}/${total}`:`${avgMatch.toFixed(1)}/${total}`):'—';
+  const headRef=filterOn?bestScore:avgMatch;
+  const headLabel=filterOn?'en iyi eşleşme':`ortalama eşleşme · ${results.length} bilet (canlı ile aynı)`;
+  const scoreCls=actual?(headRef/total>=0.5?'excellent':headRef/total>=0.3?'good':headRef/total>=0.15?'fair':'poor'):'poor';
   return `<div class="bt-result">
     <div class="bt-score-header">
-      <div class="bt-score ${scoreCls}">${actual?`${bestScore}/${total}`:'—'}</div>
+      <div class="bt-score ${scoreCls}">${headScore}</div>
       <div><div class="bt-algo-name">${algoName} · ${results.length} Tahmin</div>
-        <div class="bt-meta">${priorCount} çekiliş üzerinde • en iyi eşleşme</div></div>
+        <div class="bt-meta">${priorCount} çekiliş üzerinde • ${headLabel}</div></div>
     </div>
     <div class="bt-balls-section">
       ${actual?`<div class="bt-section-label" style="padding:0 10px">Gerçek Çekiliş — ${testDate}</div>`:''}
