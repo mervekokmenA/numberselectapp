@@ -5524,8 +5524,13 @@ function runB10Backtest(){
   }).join('');
 
   if(!btRes)return;
+  window._b10BtCopyText=`📊 B10 Geçmiş Test — ${game.name} · ${total} çekiliş · İlk ${pickCount} sayı\n`+
+    results.map(r=>`${r.date}: ${r.picks.join(' ')} → ${r.actual.join(' ')} [${r.matches}/${pickCount}]`).join('\n');
   btRes.innerHTML=statsHtml+rankHtml+tierHtml+`
-    <div style="font-size:.61rem;font-weight:600;color:var(--muted);margin-bottom:4px">Tüm çekilişler — Yeşil = B10 eşleşmesi · Son sütun gerçek sayılar</div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <div style="font-size:.61rem;font-weight:600;color:var(--muted)">Tüm çekilişler — Yeşil = B10 eşleşmesi · Son sütun gerçek sayılar</div>
+      <button onclick="copyB10Bt()" style="margin-left:auto;font-size:.67rem;padding:4px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;white-space:nowrap">📋 Tümünü Kopyala</button>
+    </div>
     <div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:7px">${rowsHtml}</div>`;
 }
 
@@ -5782,11 +5787,11 @@ function runOrtakSayilar(){
   },20);
 }
 
+function copyB10Bt(){
+  navigator.clipboard.writeText(window._b10BtCopyText||'').then(()=>showToast('📋 Kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
+}
 function copyOrtakNums(){
   navigator.clipboard.writeText(window._ortakCopyText||'').then(()=>showToast('📋 Kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
-}
-function copyOrtakGecmis(){
-  navigator.clipboard.writeText(window._ortakGecmisCopyText||'').then(()=>showToast('📋 Kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
 }
 
 function runOrtakGecmis(){
@@ -5843,16 +5848,9 @@ function runOrtakGecmis(){
     }
     if(!rows.length){res.innerHTML='<div class="empty-state">Test satırı oluşturulamadı.</div>';return;}
     const n=rows.length;
-    // Kopyalama metni hazırla
-    const copyLines=rows.map(r=>{
-      const hitMark=r.hitExact.length?`⚡${r.hitExact.join(',')}`:r.hitPm1.length?`±${r.hitPm1.join(',')}`:r.hitB10Only&&r.hitB10Only.length?`📊${r.hitB10Only.join(',')}`:'✗';
-      return `${r.date}: ${r.allPred.slice().sort((a,b)=>a-b).join(' ')} → ${r.actual.join(' ')} [${hitMark}]`;
-    });
-    window._ortakGecmisCopyText=`📅 Ortak Sayılar Geçmiş Testi — ${game.name} · Son ${rows.length} çekiliş\n`+copyLines.join('\n');
-
     let html='';
     // Özet istatistikler
-    html+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;align-items:center">`;
+    html+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">`;
     html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center">`;
     html+=`<div style="font-size:1.1rem;font-weight:800;color:var(--green)">${anyHits}/${n}</div>`;
     html+=`<div style="font-size:.6rem;color:var(--muted)">herhangi isabet</div></div>`;
@@ -5865,7 +5863,6 @@ function runOrtakGecmis(){
     html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center">`;
     html+=`<div style="font-size:1.1rem;font-weight:800;color:var(--text)">${(anyHits/n*100).toFixed(0)}%</div>`;
     html+=`<div style="font-size:.6rem;color:var(--muted)">isabet oranı</div></div>`;
-    html+=`<button onclick="copyOrtakGecmis()" style="margin-left:auto;font-size:.7rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋 Tümünü Kopyala</button>`;
     html+=`</div>`;
     html+=`<div style="font-size:.67rem;color:var(--muted);margin-bottom:10px">${game.emoji} ${game.name} · Son ${n} çekiliş · B10 top ${B10_K} × Dönüşüm top ${TRANS_K}</div>`;
     // Satır tablosu
