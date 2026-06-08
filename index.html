@@ -3928,8 +3928,12 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,fil
     </div>`;
   }).join('');
 
-  // Toplu kopyalama metni — standart format (algo adı + her bilet "n - n - n")
-  state._btCopyAll=algoName+'\n'+results.map(r=>[...r.pred.main,...r.pred.bonus].join(' - ')).join('\n');
+  // Toplu kopyalama metni — geçmiş testte başlığa sonucu ekle
+  const copyTickets=results.map(r=>[...r.pred.main,...r.pred.bonus].join(' - ')).join('\n');
+  const copyHead=actual
+    ? `${game.emoji} ${game.name} · ${algoName} · ${results.length} Tahmin · Gerçek (${testDate}): ${actual.nums.join(' ')}${actual.bonus.length?' | '+actual.bonus.join(' '):''}`
+    : algoName;
+  state._btCopyAll=copyHead+'\n'+copyTickets;
   const btn=document.getElementById('btCopyAllBtn');if(btn)btn.style.display='inline-flex';
 
   const scoreCls=actual?(bestScore/total>=0.5?'excellent':bestScore/total>=0.3?'good':bestScore/total>=0.15?'fair':'poor'):'poor';
