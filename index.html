@@ -1390,7 +1390,7 @@ function initBtGameGrid(){
       <span class="game-range">${g.range}</span>
     </button>`).join('');
 }
-function selectBtGame(id){ state.selectedGame=id; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadBtHistory(); setTimeout(initAlgoGrid,200); }
+function selectBtGame(id){ selectGame(id); }
 function initAlgoGrid(){
   const scores=state.algoPositionScores[state.selectedGame];
   const analyzing=state.algoAnalysisGame===state.selectedGame;
@@ -1449,7 +1449,28 @@ function updateGenFilterLabel(){
   const b6=document.getElementById('btFilter6Label');  if(b6)b6.textContent=tb(6,10);
   const b32=document.getElementById('btFilter5Label2'); if(b32)b32.textContent=tb(3,7);
 }
-function selectGame(id){ state.selectedGame=id; state.drawGameId=null; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initGameGrid(); initBtGameGrid(); loadBtHistory(true); updateGenFilterLabel(); setTimeout(initAlgoGrid,200); }
+function selectGame(id){
+  state.selectedGame=id; state.drawGameId=null; state.genRunCount=0; state.btRunCount=0;
+  updateRunCounters(); initGameGrid(); initBtGameGrid(); loadBtHistory(true); updateGenFilterLabel();
+  setTimeout(initAlgoGrid,200);
+  _syncOtherGameGrids(id);
+}
+function _syncOtherGameGrids(id){
+  // Ortak Sayılar
+  _ortakGame=id; _ortakHighlightGame(id);
+  // Scan sayfası
+  _scanGame=id;
+  const scanGrid=document.getElementById('scanGameGrid');
+  if(scanGrid){
+    scanGrid.querySelectorAll('button').forEach((btn,i)=>{
+      const g=GAMES[i];if(!g)return;
+      const on=g.id===id;
+      btn.style.background=on?'rgba(108,99,255,.2)':'var(--surface2)';
+      btn.style.color=on?'var(--accent)':'var(--muted)';
+      btn.style.borderColor=on?'rgba(108,99,255,.5)':'var(--border)';
+    });
+  }
+}
 function selectAlgo(id){
   state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid();
   const s2=document.getElementById('btAlgo2'); if(s2)s2.value=id;
@@ -5550,11 +5571,7 @@ function _initScanPage(){
       const btn=document.createElement('button');
       btn.textContent=g.emoji+' '+g.name;
       btn.style.cssText='font-size:.7rem;padding:4px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s';
-      btn.onclick=()=>{
-        _scanGame=g.id;
-        grid.querySelectorAll('button').forEach(b=>{ b.style.background='var(--surface2)';b.style.color='var(--muted)';b.style.borderColor='var(--border)'; });
-        btn.style.background='rgba(108,99,255,.2)';btn.style.color='var(--accent)';btn.style.borderColor='rgba(108,99,255,.5)';
-      };
+      btn.onclick=()=>selectGame(g.id);
       if(!_scanGame){_scanGame=g.id;btn.style.background='rgba(108,99,255,.2)';btn.style.color='var(--accent)';btn.style.borderColor='rgba(108,99,255,.5)';}
       grid.appendChild(btn);
     });
@@ -5590,7 +5607,7 @@ function _initOrtakGameGrid(){
     btn.id='ortakGameBtn-'+g.id;
     btn.textContent=g.emoji+' '+g.name;
     btn.style.cssText='font-size:.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s';
-    btn.onclick=()=>{ _ortakGame=g.id; _ortakHighlightGame(g.id); runOrtakSayilar(); };
+    btn.onclick=()=>selectGame(g.id);
     grid.appendChild(btn);
   });
   const first=GAMES[0];
