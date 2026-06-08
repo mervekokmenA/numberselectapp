@@ -5530,7 +5530,7 @@ function runB10Backtest(){
 }
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
-const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','oyunNoSection','b10Section'];
+const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','oyunNoSection','b10Section','ortakSayilarSection'];
 let _scanGame=null;
 
 function showMainPage(id){
@@ -5744,18 +5744,40 @@ function runOrtakSayilar(){
       html+=`</div></div>`;
     }
 
+    // ── Sadece B10 (B10 top 15'te var ama TRANS ile kesişim yok) ───
+    const pm1B10NSet=new Set(pm1Final.map(r=>r.b10n));
+    const b10Only=b10Top.filter(s=>!exactSet.has(s.n)&&!pm1B10NSet.has(s.n));
+    if(b10Only.length){
+      html+=`<div style="margin-bottom:16px">`;
+      html+=`<div style="font-size:.65rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">`;
+      html+=`📊 Sadece B10 — Dönüşüm ile kesişim yok (${b10Only.length} adet)</div>`;
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:8px">`;
+      b10Only.forEach((s,si)=>{
+        const rank=b10Top.indexOf(s)+1;
+        const liftClr=s.lift>=2?'var(--green)':s.lift>=1.4?'var(--accent)':'var(--muted)';
+        html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 12px;text-align:center;opacity:.65">`;
+        html+=`<div style="font-size:1.2rem;font-weight:700;color:var(--text)">${s.n}</div>`;
+        html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:3px">B10 #${rank} · <span style="color:${liftClr}">${(s.lift||1).toFixed(1)}×</span></div>`;
+        html+=`</div>`;
+      });
+      html+=`</div></div>`;
+    }
+
     // ── Özet ────────────────────────────────────────────────────
     const allPredicted=[...exact.map(e=>e.n), ...pm1Final.map(r=>r.transN)];
+    const allB10=[...allPredicted,...b10Only.map(s=>s.n)];
     html+=`<div style="margin-top:4px;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);font-size:.7rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
-    html+=`<span style="color:var(--muted)">🎯 Nihai tahmin listesi:</span>`;
-    allPredicted.sort((a,b)=>a-b).forEach(n=>{
+    html+=`<span style="color:var(--muted)">🎯 Tüm B10 top ${B10_K} (${allB10.length} sayı):</span>`;
+    allB10.sort((a,b)=>a-b).forEach(n=>{
       const isExact=exactSet.has(n);
-      html+=`<span style="font-weight:800;color:${isExact?'var(--green)':'#ffc400'}">${n}</span>`;
+      const isPm1=pm1Final.some(r=>r.transN===n);
+      const clr=isExact?'var(--green)':isPm1?'#ffc400':'var(--muted)';
+      html+=`<span style="font-weight:${(isExact||isPm1)?800:500};color:${clr}">${n}</span>`;
     });
     html+=`<button onclick="copyOrtakNums()" style="margin-left:auto;font-size:.67rem;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋 Kopyala</button>`;
     html+=`</div>`;
 
-    window._ortakCopyText=`🔗 Ortak Sayılar — ${game.name}\n${allPredicted.sort((a,b)=>a-b).join(' ')}`;
+    window._ortakCopyText=`🔗 Ortak Sayılar — ${game.name}\n${allB10.sort((a,b)=>a-b).join(' ')}`;
     document.getElementById('ortakResult').innerHTML=html;
   },20);
 }
@@ -5797,20 +5819,24 @@ function runOrtakGecmis(){
       const exactSet=new Set(exact);
       // ±1 eşleşmeler → tahmin olarak transN kullan
       const pm1Preds=[];
+      const pm1B10Ns=new Set();
       b10Top.forEach(s=>{
         if(exactSet.has(s.n))return;
         [s.n-1,s.n+1].forEach(nb=>{
-          if(nb>=1&&nb<=game.max&&transTopSet.has(nb))pm1Preds.push(nb);
+          if(nb>=1&&nb<=game.max&&transTopSet.has(nb)){pm1Preds.push(nb);pm1B10Ns.add(s.n);}
         });
       });
-      const allPred=[...new Set([...exact,...pm1Preds])];
+      // B10-only (B10 top 15'te var ama TRANS ile hiç kesişim yok)
+      const b10OnlyNums=b10Top.filter(s=>!exactSet.has(s.n)&&!pm1B10Ns.has(s.n)).map(s=>s.n);
+      const allPred=[...new Set([...exact,...pm1Preds,...b10OnlyNums])];
       const hitNums=allPred.filter(n=>actualSet.has(n));
       const hitExact=exact.filter(n=>actualSet.has(n));
       const hitPm1=pm1Preds.filter(n=>actualSet.has(n)&&!exactSet.has(n));
+      const hitB10Only=b10OnlyNums.filter(n=>actualSet.has(n));
       if(hitExact.length)exactHits++;
       if(hitPm1.length)pm1Hits++;
       if(hitNums.length)anyHits++;
-      rows.push({date:actual.date,actual:actual.nums,bonus:actual.bonus||[],exact,pm1:pm1Preds,allPred,hitNums,hitExact,hitPm1});
+      rows.push({date:actual.date,actual:actual.nums,bonus:actual.bonus||[],exact,pm1:pm1Preds,b10Only:b10OnlyNums,allPred,hitNums,hitExact,hitPm1,hitB10Only});
     }
     if(!rows.length){res.innerHTML='<div class="empty-state">Test satırı oluşturulamadı.</div>';return;}
     const n=rows.length;
@@ -5835,19 +5861,22 @@ function runOrtakGecmis(){
     html+=`<div style="display:flex;flex-direction:column;gap:6px">`;
     rows.forEach(r=>{
       const anyHit=r.hitNums.length>0;
-      const bg=r.hitExact.length?'rgba(0,230,118,.07)':r.hitPm1.length?'rgba(255,196,0,.05)':'var(--surface2)';
-      const bc=r.hitExact.length?'rgba(0,230,118,.3)':r.hitPm1.length?'rgba(255,196,0,.25)':'var(--border)';
+      const bg=r.hitExact.length?'rgba(0,230,118,.07)':r.hitPm1.length?'rgba(255,196,0,.05)':(r.hitB10Only&&r.hitB10Only.length)?'rgba(100,181,246,.04)':'var(--surface2)';
+      const bc=r.hitExact.length?'rgba(0,230,118,.3)':r.hitPm1.length?'rgba(255,196,0,.25)':(r.hitB10Only&&r.hitB10Only.length)?'rgba(100,181,246,.2)':'var(--border)';
       html+=`<div style="background:${bg};border:1px solid ${bc};border-radius:8px;padding:8px 12px">`;
       html+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">`;
       html+=`<span style="font-size:.62rem;color:var(--muted);min-width:68px">${r.date}</span>`;
-      // Tahmin
+      // Tahmin — tüm 15 B10 sayısı, tier'a göre renk
+      const b10OnlySet=new Set(r.b10Only||[]);
       html+=`<div style="display:flex;gap:3px;flex-wrap:wrap;flex:1">`;
       r.allPred.sort((a,b)=>a-b).forEach(n=>{
         const isHit=r.hitNums.includes(n);
         const isExact=r.exact.includes(n);
-        const clr=isHit?'var(--green)':isExact?'var(--accent)':'#ffc400';
-        const bg2=isHit?(isExact?'rgba(0,230,118,.25)':'rgba(255,196,0,.2)'):'transparent';
-        html+=`<span style="font-size:.68rem;font-weight:${isHit?'800':'500'};color:${clr};background:${bg2};padding:1px 5px;border-radius:4px">${n}${isExact?'⚡':'±'}</span>`;
+        const isB10Only=b10OnlySet.has(n);
+        const clr=isHit?(isExact?'var(--green)':isB10Only?'#64b5f6':'#ffc400'):(isExact?'var(--accent)':isB10Only?'var(--muted)':'#ffc400');
+        const bg2=isHit?(isExact?'rgba(0,230,118,.25)':isB10Only?'rgba(100,181,246,.2)':'rgba(255,196,0,.2)'):'transparent';
+        const lbl=isExact?'⚡':isB10Only?'':'±';
+        html+=`<span style="font-size:.68rem;font-weight:${isHit?'800':'500'};color:${clr};background:${bg2};padding:1px 5px;border-radius:4px;opacity:${isB10Only&&!isHit?.6:1}">${n}${lbl}</span>`;
       });
       html+=`</div>`;
       // Gerçek sonuç
@@ -5860,9 +5889,11 @@ function runOrtakGecmis(){
       html+=`</div>`;
       html+=`</div>`;
       if(r.hitNums.length){
-        html+=`<div style="font-size:.6rem;color:${r.hitExact.length?'var(--green)':'#ffc400'}">`;
+        const hitClr=r.hitExact.length?'var(--green)':r.hitB10Only&&r.hitB10Only.length&&!r.hitPm1.length?'#64b5f6':'#ffc400';
+        html+=`<div style="font-size:.6rem;color:${hitClr}">`;
         html+=r.hitExact.length?`⚡ Kesin tuttu: ${r.hitExact.join(', ')} `:' ';
-        html+=r.hitPm1.length?`🔸 ±1 tuttu: ${r.hitPm1.join(', ')}`:'';
+        html+=r.hitPm1.length?`🔸 ±1 tuttu: ${r.hitPm1.join(', ')} `:'';
+        html+=(r.hitB10Only&&r.hitB10Only.length)?`📊 B10-only tuttu: ${r.hitB10Only.join(', ')}`:'';
         html+=`</div>`;
       }
       html+=`</div>`;
