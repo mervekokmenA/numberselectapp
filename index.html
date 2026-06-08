@@ -467,7 +467,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <div class="counter-ctrl">
         <button onclick="adjustBtCount(-1)">−</button>
         <input type="number" class="counter-val" id="btCountVal" value="4" min="1" max="50"
-          oninput="state.btCount=Math.max(1,Math.min(50,parseInt(this.value)||1));this.value=state.btCount"
+          oninput="state.btCount=Math.max(1,Math.min(2000,parseInt(this.value)||1));this.value=state.btCount"
           onkeydown="if(event.key==='Enter')updateAlgoScores()">
         <button onclick="adjustBtCount(1)">+</button>
       </div>
@@ -530,7 +530,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <div class="counter-ctrl">
         <button onclick="adjustBtCount2(-1)">−</button>
         <input type="number" class="counter-val" id="btCountVal2" value="4" min="1" max="50"
-          oninput="state.btCount2=Math.max(1,Math.min(50,parseInt(this.value)||1));this.value=state.btCount2"
+          oninput="state.btCount2=Math.max(1,Math.min(2000,parseInt(this.value)||1));this.value=state.btCount2"
           onkeydown="if(event.key==='Enter')updateAlgoScores2()">
         <button onclick="adjustBtCount2(1)">+</button>
       </div>
@@ -567,15 +567,21 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <!-- ═══════════ Ortak Sayılar ═══════════ -->
 <div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="ortakSayilarSection">
   <div class="card">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
-      <div class="card-title" style="margin:0">🔗 Ortak Sayılar — B10 × Dönüşüm Kesişimi</div>
-      <button onclick="runOrtakSayilar()" style="font-size:.72rem;padding:5px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔄 Güncelle</button>
-    </div>
+    <div class="card-title">🔗 Ortak Sayılar — B10 × Dönüşüm Kesişimi</div>
     <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
-      B10 analizinde öne çıkan sayıların aynı zamanda Sayı Dönüşümleri'nde de geçmesi çok güçlü bir sinyal. ±1 fark (ör. B10: 21 → Dön: 20) gerçek sonuca işaret eder.
+      B10 analizinde öne çıkan sayıların Sayı Dönüşümleri'nde de geçmesi güçlü sinyal. ±1 fark (ör. B10: 21 → Dön: 20) gerçek sonuca işaret eder.
     </div>
     <div id="ortakGameGrid" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
-    <div id="ortakResult"><div class="empty-state"><span class="empty-icon">🔗</span>Veri yükleyip "Güncelle"ye basın veya oyun seçin.</div></div>
+    <div class="tabs" style="margin-bottom:10px">
+      <button class="tab-btn active" id="ortakTabBtn-tahmin" onclick="switchOrtakTab('tahmin')">🎯 Tahmin</button>
+      <button class="tab-btn" id="ortakTabBtn-gecmis" onclick="switchOrtakTab('gecmis')">📅 Geçmişle Karşılaştır</button>
+    </div>
+    <div class="tab-panel active" id="ortakTab-tahmin">
+      <div id="ortakResult"><div class="empty-state"><span class="empty-icon">🔗</span>Oyun seçin.</div></div>
+    </div>
+    <div class="tab-panel" id="ortakTab-gecmis">
+      <div id="ortakGecmisResult"><div class="empty-state"><span class="empty-icon">📅</span>Geçmişle Karşılaştır sekmesine geçin.</div></div>
+    </div>
   </div>
 </div>
 
@@ -1595,8 +1601,8 @@ async function analyzeBtAlgoPositions(gameId){
   renderAlgoScorePanel();
 }
 
-function adjustBtCount(d){ state.btCount=Math.max(1,Math.min(50,state.btCount+d)); const el=document.getElementById('btCountVal');if(el)el.value=state.btCount; }
-function adjustBtCount2(d){state.btCount2=Math.max(1,Math.min(50,state.btCount2+d));const el=document.getElementById('btCountVal2');if(el)el.value=state.btCount2;}
+function adjustBtCount(d){ state.btCount=Math.max(1,Math.min(2000,state.btCount+d)); const el=document.getElementById('btCountVal');if(el)el.value=state.btCount; }
+function adjustBtCount2(d){state.btCount2=Math.max(1,Math.min(2000,state.btCount2+d));const el=document.getElementById('btCountVal2');if(el)el.value=state.btCount2;}
 
 // ── Draw schedule (days-of-week: 0=Sun … 6=Sat) ─────────────
 const DRAW_SCHEDULE={sayisal:[1,3,6],super:[0,2,4],sans:[3,0],onnumara:[1,5]};
@@ -5563,6 +5569,17 @@ function _initScanPage(){
 
 // ═══════════ Ortak Sayılar ═══════════════════════════════════
 let _ortakGame=null;
+let _ortakTab='tahmin';
+
+function switchOrtakTab(id){
+  _ortakTab=id;
+  ['tahmin','gecmis'].forEach(t=>{
+    document.getElementById('ortakTabBtn-'+t)?.classList.toggle('active',t===id);
+    document.getElementById('ortakTab-'+t)?.classList.toggle('active',t===id);
+  });
+  if(id==='tahmin') runOrtakSayilar();
+  else runOrtakGecmis();
+}
 
 function _initOrtakGameGrid(){
   const grid=document.getElementById('ortakGameGrid');
@@ -5728,6 +5745,114 @@ function runOrtakSayilar(){
 
 function copyOrtakNums(){
   navigator.clipboard.writeText(window._ortakCopyText||'').then(()=>showToast('📋 Kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
+}
+
+function runOrtakGecmis(){
+  const gameId=_ortakGame||state.selectedGame||GAMES[0].id;
+  const game=getGame(gameId);
+  const res=document.getElementById('ortakGecmisResult');
+  if(!game){res.innerHTML='<div class="empty-state">Oyun bulunamadı.</div>';return;}
+  const draws=_scanGetDraws(gameId);
+  if(draws.length<12){res.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Yeterli veri yok.</div>';return;}
+  res.innerHTML='<div style="font-size:.75rem;color:var(--muted);padding:16px;text-align:center">⏳ Hesaplanıyor...</div>';
+  setTimeout(()=>{
+    const LIMIT=Math.min(30,draws.length-10);
+    const B10_K=15,TRANS_K=30;
+    const rows=[];
+    let exactHits=0,pm1Hits=0,anyHits=0;
+    for(let i=0;i<LIMIT;i++){
+      // i. çekiliş gerçek sonuç; i+1 ve sonrası geçmiş veri
+      const actual=draws[i];
+      const actualSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      const prior=draws.slice(i+1);
+      if(prior.length<10)break;
+      // B10
+      const b10Clean=_b10CleanDraws(prior,game);
+      const b10Scores=buildB10Scores(b10Clean,game,30);
+      const b10Top=b10Scores.slice(0,B10_K);
+      const b10Set=new Set(b10Top.map(s=>s.n));
+      // TRANS (prior'daki en son çekiliş üzerinden)
+      const transVotes=_naTransVotes(prior[0],game.max);
+      const transSorted=Object.entries(transVotes).map(([n,v])=>({n:+n,v})).sort((a,b)=>b.v-a.v);
+      const transTopSet=new Set(transSorted.slice(0,TRANS_K).map(x=>x.n));
+      // Kesin eşleşmeler
+      const exact=b10Top.filter(s=>transTopSet.has(s.n)).map(s=>s.n);
+      const exactSet=new Set(exact);
+      // ±1 eşleşmeler → tahmin olarak transN kullan
+      const pm1Preds=[];
+      b10Top.forEach(s=>{
+        if(exactSet.has(s.n))return;
+        [s.n-1,s.n+1].forEach(nb=>{
+          if(nb>=1&&nb<=game.max&&transTopSet.has(nb))pm1Preds.push(nb);
+        });
+      });
+      const allPred=[...new Set([...exact,...pm1Preds])];
+      const hitNums=allPred.filter(n=>actualSet.has(n));
+      const hitExact=exact.filter(n=>actualSet.has(n));
+      const hitPm1=pm1Preds.filter(n=>actualSet.has(n)&&!exactSet.has(n));
+      if(hitExact.length)exactHits++;
+      if(hitPm1.length)pm1Hits++;
+      if(hitNums.length)anyHits++;
+      rows.push({date:actual.date,actual:actual.nums,bonus:actual.bonus||[],exact,pm1:pm1Preds,allPred,hitNums,hitExact,hitPm1});
+    }
+    if(!rows.length){res.innerHTML='<div class="empty-state">Test satırı oluşturulamadı.</div>';return;}
+    const n=rows.length;
+    let html='';
+    // Özet istatistikler
+    html+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">`;
+    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center">`;
+    html+=`<div style="font-size:1.1rem;font-weight:800;color:var(--green)">${anyHits}/${n}</div>`;
+    html+=`<div style="font-size:.6rem;color:var(--muted)">herhangi isabet</div></div>`;
+    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center">`;
+    html+=`<div style="font-size:1.1rem;font-weight:800;color:var(--green)">${exactHits}/${n}</div>`;
+    html+=`<div style="font-size:.6rem;color:var(--muted)">⚡ kesin eşleşme</div></div>`;
+    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center">`;
+    html+=`<div style="font-size:1.1rem;font-weight:800;color:#ffc400">${pm1Hits}/${n}</div>`;
+    html+=`<div style="font-size:.6rem;color:var(--muted)">🔸 ±1 isabet</div></div>`;
+    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center">`;
+    html+=`<div style="font-size:1.1rem;font-weight:800;color:var(--text)">${(anyHits/n*100).toFixed(0)}%</div>`;
+    html+=`<div style="font-size:.6rem;color:var(--muted)">isabet oranı</div></div>`;
+    html+=`</div>`;
+    html+=`<div style="font-size:.67rem;color:var(--muted);margin-bottom:10px">${game.emoji} ${game.name} · Son ${n} çekiliş · B10 top ${B10_K} × Dönüşüm top ${TRANS_K}</div>`;
+    // Satır tablosu
+    html+=`<div style="display:flex;flex-direction:column;gap:6px">`;
+    rows.forEach(r=>{
+      const anyHit=r.hitNums.length>0;
+      const bg=r.hitExact.length?'rgba(0,230,118,.07)':r.hitPm1.length?'rgba(255,196,0,.05)':'var(--surface2)';
+      const bc=r.hitExact.length?'rgba(0,230,118,.3)':r.hitPm1.length?'rgba(255,196,0,.25)':'var(--border)';
+      html+=`<div style="background:${bg};border:1px solid ${bc};border-radius:8px;padding:8px 12px">`;
+      html+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">`;
+      html+=`<span style="font-size:.62rem;color:var(--muted);min-width:68px">${r.date}</span>`;
+      // Tahmin
+      html+=`<div style="display:flex;gap:3px;flex-wrap:wrap;flex:1">`;
+      r.allPred.sort((a,b)=>a-b).forEach(n=>{
+        const isHit=r.hitNums.includes(n);
+        const isExact=r.exact.includes(n);
+        const clr=isHit?'var(--green)':isExact?'var(--accent)':'#ffc400';
+        const bg2=isHit?(isExact?'rgba(0,230,118,.25)':'rgba(255,196,0,.2)'):'transparent';
+        html+=`<span style="font-size:.68rem;font-weight:${isHit?'800':'500'};color:${clr};background:${bg2};padding:1px 5px;border-radius:4px">${n}${isExact?'⚡':'±'}</span>`;
+      });
+      html+=`</div>`;
+      // Gerçek sonuç
+      html+=`<div style="display:flex;gap:3px;flex-wrap:wrap">`;
+      const predSet=new Set(r.allPred);
+      r.actual.forEach(n=>{
+        const hit=predSet.has(n);
+        html+=`<span style="font-size:.68rem;font-weight:${hit?'800':'400'};color:${hit?'var(--green)':'var(--muted)'}">${n}</span>`;
+      });
+      html+=`</div>`;
+      html+=`</div>`;
+      if(r.hitNums.length){
+        html+=`<div style="font-size:.6rem;color:${r.hitExact.length?'var(--green)':'#ffc400'}">`;
+        html+=r.hitExact.length?`⚡ Kesin tuttu: ${r.hitExact.join(', ')} `:' ';
+        html+=r.hitPm1.length?`🔸 ±1 tuttu: ${r.hitPm1.join(', ')}`:'';
+        html+=`</div>`;
+      }
+      html+=`</div>`;
+    });
+    html+=`</div>`;
+    res.innerHTML=html;
+  },20);
 }
 
 function copyScanNums(){
