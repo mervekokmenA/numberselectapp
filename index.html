@@ -560,6 +560,21 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 </div><!-- /page-backtest -->
 
+<!-- ═══════════ Ortak Sayılar ═══════════ -->
+<div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="ortakSayilarSection">
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:12px">
+      <div class="card-title" style="margin:0">🔗 Ortak Sayılar — B10 × Dönüşüm Kesişimi</div>
+      <button onclick="runOrtakSayilar()" style="font-size:.72rem;padding:5px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔄 Güncelle</button>
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin-bottom:12px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
+      B10 analizinde öne çıkan sayıların aynı zamanda Sayı Dönüşümleri'nde de geçmesi çok güçlü bir sinyal. ±1 fark (ör. B10: 21 → Dön: 20) gerçek sonuca işaret eder.
+    </div>
+    <div id="ortakGameGrid" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <div id="ortakResult"><div class="empty-state"><span class="empty-icon">🔗</span>Veri yükleyip "Güncelle"ye basın veya oyun seçin.</div></div>
+  </div>
+</div>
+
 <!-- ═══════════ NEW: Tekli Sayı Bakımı ile Analiz ═══════════ -->
 <div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="numAnalysisSection">
   <div class="card">
@@ -1775,6 +1790,7 @@ async function loadBtHistory(forceRefresh=false){
     run(updateStats);
     run(renderFreqChart);
     run(renderHotCold);
+    _ortakGame=_deferredId;_ortakHighlightGame(_deferredId);run(runOrtakSayilar);
     const m3panel=document.getElementById('tab-matrix3');
     if(m3panel&&m3panel.classList.contains('active'))try{renderMatrix3();}catch(e){}
     const arTab=document.getElementById('tab-algorank');
@@ -3971,6 +3987,40 @@ function _nextPrime(n){const ip=x=>{if(x<2)return false;for(let i=2;i*i<=x;i++)i
 function _factMod90(n){let f=1;for(let i=2;i<=Math.min(n,20);i++)f=(f*i)%90;return f||90;}
 const _FIBS=[1,1,2,3,5,8,13,21,34,55,89];
 
+// Dönüşüm oylarını hesapla (runNaTransform ve runOrtakSayilar tarafından paylaşılır)
+function _naTransVotes(draw,MAX){
+  const mod=v=>((v%MAX)+MAX)%MAX||MAX;
+  const nums=draw.nums||[];
+  const T=[
+    n=>91-n,
+    n=>{const r=+String(n).split('').reverse().join('');return r>=1&&r<=MAX?r:null;},
+    n=>mod(n*n),
+    n=>mod(n*n*n),
+    n=>n<=45?n+45:n-45,
+    n=>mod(n*(n+1)/2),
+    n=>mod(n+_dsum(n)),
+    n=>{const p=_dprod(n);return p>0?mod(n*p):null;},
+    (n,i)=>mod(n+_FIBS[i%_FIBS.length]),
+    n=>mod(n+9),
+    n=>mod(n+18),
+    n=>_nextPrime(n),
+    n=>_factMod90(_dsum(n)%10||10),
+    n=>{const s=_dsum(n);return mod(s*s);},
+    n=>n<=MAX?100-n:null,
+    n=>mod(2*n+1),
+  ];
+  const votes={};
+  nums.forEach((n,pos)=>{
+    T.forEach(fn=>{
+      const r=fn(n,pos);
+      if(r===null||r===undefined||r<1||r>MAX||!Number.isFinite(r))return;
+      const k=Math.round(r);
+      if(k>=1&&k<=MAX)votes[k]=(votes[k]||0)+1;
+    });
+  });
+  return votes;
+}
+
 function stepNaDraw(d){
   const sel=document.getElementById('naDrawIdx');if(!sel)return;
   const newIdx=Math.max(0,Math.min(sel.options.length-1,+sel.value+d));
@@ -5507,6 +5557,175 @@ function _initScanPage(){
   }
 }
 
+// ═══════════ Ortak Sayılar ═══════════════════════════════════
+let _ortakGame=null;
+
+function _initOrtakGameGrid(){
+  const grid=document.getElementById('ortakGameGrid');
+  if(!grid||grid.dataset.init)return;
+  grid.dataset.init='1';
+  GAMES.forEach(g=>{
+    const btn=document.createElement('button');
+    btn.id='ortakGameBtn-'+g.id;
+    btn.textContent=g.emoji+' '+g.name;
+    btn.style.cssText='font-size:.7rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s';
+    btn.onclick=()=>{ _ortakGame=g.id; _ortakHighlightGame(g.id); runOrtakSayilar(); };
+    grid.appendChild(btn);
+  });
+  const first=GAMES[0];
+  if(first){_ortakGame=first.id;_ortakHighlightGame(first.id);}
+}
+
+function _ortakHighlightGame(id){
+  GAMES.forEach(g=>{
+    const b=document.getElementById('ortakGameBtn-'+g.id);
+    if(!b)return;
+    const on=g.id===id;
+    b.style.background=on?'rgba(108,99,255,.22)':'var(--surface2)';
+    b.style.color=on?'var(--accent)':'var(--muted)';
+    b.style.borderColor=on?'rgba(108,99,255,.5)':'var(--border)';
+  });
+}
+
+function runOrtakSayilar(){
+  _initOrtakGameGrid();
+  const gameId=_ortakGame||state.selectedGame||GAMES[0].id;
+  _ortakGame=gameId;
+  _ortakHighlightGame(gameId);
+  const game=getGame(gameId);
+  const res=document.getElementById('ortakResult');
+  if(!game){res.innerHTML='<div class="empty-state">Oyun bulunamadı.</div>';return;}
+
+  // 1. Draws — doğrudan DRAW_DATA'dan oku
+  const draws=_scanGetDraws(gameId);
+  if(draws.length<10){res.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Yeterli veri yok (min 10 çekiliş).</div>';return;}
+  res.innerHTML='<div style="font-size:.75rem;color:var(--muted);padding:16px;text-align:center">⏳ Hesaplanıyor...</div>';
+
+  setTimeout(()=>{
+    // 2. B10 skoru (top 15)
+    const b10CleanDraws=_b10CleanDraws(draws,game);
+    const b10Scores=buildB10Scores(b10CleanDraws,game,30);
+    const B10_K=15;
+    const b10Top=b10Scores.slice(0,B10_K);
+    const b10Map=new Map(b10Top.map((s,i)=>[ s.n, {rank:i+1,lift:s.lift,conf:s.conf} ]));
+
+    // 3. Dönüşüm oyları — en son çekilişten
+    const lastDraw=draws[0];
+    const transVotes=_naTransVotes(lastDraw,game.max);
+    // Top 30 trans number
+    const transSorted=Object.entries(transVotes).map(([n,v])=>({n:+n,v})).sort((a,b)=>b.v-a.v||a.n-b.n);
+    const transTopSet=new Set(transSorted.slice(0,30).map(x=>x.n));
+
+    // 4. Exact matches: B10 ∩ TRANS
+    const exact=b10Top.filter(s=>transTopSet.has(s.n)).map(s=>({
+      n:s.n, b10Rank:s.rank||b10Top.indexOf(s)+1, b10Lift:s.lift,
+      transVote:transVotes[s.n]||0, type:'exact'
+    }));
+
+    // 5. ±1 matches: B10[n] ve TRANS[n±1] (n tam olarak eşleşmiyor ama komşu)
+    const exactSet=new Set(exact.map(e=>e.n));
+    const pm1=[];
+    b10Top.forEach((s,ri)=>{
+      if(exactSet.has(s.n))return; // exact zaten var
+      [s.n-1,s.n+1].forEach(nb=>{
+        if(nb<1||nb>game.max)return;
+        if(!transTopSet.has(nb))return;
+        pm1.push({
+          b10n:s.n, b10Rank:ri+1, b10Lift:s.lift,
+          transN:nb, transVote:transVotes[nb]||0,
+          diff:nb-s.n, type:'pm1'
+        });
+      });
+    });
+    // Deduplicate ±1: eğer birden fazla B10 sayısı aynı TRANS sayısına işaret ediyorsa en yüksek skorluyu tut
+    const pm1Map=new Map();
+    pm1.forEach(r=>{const k=r.transN;if(!pm1Map.has(k)||r.b10Rank<pm1Map.get(k).b10Rank)pm1Map.set(k,r);});
+    const pm1Final=[...pm1Map.values()].sort((a,b)=>a.b10Rank-b.b10Rank);
+
+    // 6. Render
+    const ballClr='rgba(108,99,255,.4)';
+    const totalSignals=exact.length+pm1Final.length;
+
+    let html='';
+    html+=`<div style="font-size:.69rem;color:var(--muted);margin-bottom:12px">`;
+    html+=`${game.emoji} <strong style="color:var(--text)">${game.name}</strong> · `;
+    html+=`Kaynak: B10 top ${B10_K} + Dönüşüm top 30 · `;
+    html+=`Son çekiliş: <strong style="color:var(--text)">${lastDraw.date} · ${lastDraw.nums.join(' ')}</strong>`;
+    html+=`</div>`;
+
+    if(!totalSignals){
+      html+=`<div style="font-size:.78rem;color:var(--muted);padding:14px;text-align:center">Bu çekiliş için B10 ile Dönüşüm arasında kesişim bulunamadı.</div>`;
+      document.getElementById('ortakResult').innerHTML=html;return;
+    }
+
+    // ── Kesin Eşleşmeler ────────────────────────────────────────
+    if(exact.length){
+      html+=`<div style="margin-bottom:16px">`;
+      html+=`<div style="font-size:.65rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">`;
+      html+=`⚡ Kesin Eşleşme — Her iki sistemde aynı sayı (${exact.length} adet)</div>`;
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:8px">`;
+      exact.forEach(e=>{
+        const liftClr=e.b10Lift>=2?'var(--green)':e.b10Lift>=1.4?'var(--accent)':'var(--text)';
+        html+=`<div style="background:rgba(0,230,118,.12);border:2px solid rgba(0,230,118,.5);border-radius:12px;padding:10px 14px;text-align:center;box-shadow:0 0 12px rgba(0,230,118,.18)">`;
+        html+=`<div style="font-size:1.5rem;font-weight:900;color:var(--green);line-height:1">${e.n}</div>`;
+        html+=`<div style="font-size:.57rem;color:var(--muted);margin-top:4px;line-height:1.6">`;
+        html+=`B10 #${e.b10Rank} · <span style="color:${liftClr}">${(e.b10Lift||1).toFixed(1)}×</span><br>`;
+        html+=`Dön: ${e.transVote} oy</div>`;
+        html+=`</div>`;
+      });
+      html+=`</div></div>`;
+    }
+
+    // ── ±1 Eşleşmeler ───────────────────────────────────────────
+    if(pm1Final.length){
+      html+=`<div style="margin-bottom:16px">`;
+      html+=`<div style="font-size:.65rem;font-weight:700;color:#ffc400;text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">`;
+      html+=`🔸 ±1 Eşleşme — B10 komşusu Dönüşüm'de var (${pm1Final.length} adet)</div>`;
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:10px">`;
+      pm1Final.forEach(r=>{
+        const liftClr=r.b10Lift>=2?'var(--green)':r.b10Lift>=1.4?'var(--accent)':'var(--text)';
+        html+=`<div style="background:rgba(255,196,0,.08);border:1px solid rgba(255,196,0,.35);border-radius:12px;padding:10px 14px">`;
+        html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">`;
+        // B10 sayısı (soluk)
+        html+=`<div style="text-align:center">`;
+        html+=`<div style="font-size:1.1rem;font-weight:700;color:var(--muted);line-height:1">${r.b10n}</div>`;
+        html+=`<div style="font-size:.52rem;color:var(--muted)">B10 #${r.b10Rank}</div>`;
+        html+=`</div>`;
+        // ok
+        html+=`<div style="font-size:.9rem;color:var(--muted)">${r.diff>0?'→':'←'}</div>`;
+        // Dönüşüm sayısı (parlak — tahmin bu)
+        html+=`<div style="text-align:center">`;
+        html+=`<div style="font-size:1.4rem;font-weight:900;color:#ffc400;line-height:1">${r.transN}</div>`;
+        html+=`<div style="font-size:.52rem;color:var(--muted)">🎯 tahmin</div>`;
+        html+=`</div>`;
+        html+=`</div>`;
+        html+=`<div style="font-size:.57rem;color:var(--muted);text-align:center">`;
+        html+=`B10 <span style="color:${liftClr}">${(r.b10Lift||1).toFixed(1)}×</span> · Dön: ${r.transVote} oy</div>`;
+        html+=`</div>`;
+      });
+      html+=`</div></div>`;
+    }
+
+    // ── Özet ────────────────────────────────────────────────────
+    const allPredicted=[...exact.map(e=>e.n), ...pm1Final.map(r=>r.transN)];
+    html+=`<div style="margin-top:4px;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);font-size:.7rem;display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
+    html+=`<span style="color:var(--muted)">🎯 Nihai tahmin listesi:</span>`;
+    allPredicted.sort((a,b)=>a-b).forEach(n=>{
+      const isExact=exactSet.has(n);
+      html+=`<span style="font-weight:800;color:${isExact?'var(--green)':'#ffc400'}">${n}</span>`;
+    });
+    html+=`<button onclick="copyOrtakNums()" style="margin-left:auto;font-size:.67rem;padding:3px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋 Kopyala</button>`;
+    html+=`</div>`;
+
+    window._ortakCopyText=`🔗 Ortak Sayılar — ${game.name}\n${allPredicted.sort((a,b)=>a-b).join(' ')}`;
+    document.getElementById('ortakResult').innerHTML=html;
+  },20);
+}
+
+function copyOrtakNums(){
+  navigator.clipboard.writeText(window._ortakCopyText||'').then(()=>showToast('📋 Kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
+}
+
 function copyScanNums(){
   const t=window._scanCopyText||'';
   navigator.clipboard.writeText(t).then(()=>showToast('📋 Kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
@@ -5639,7 +5858,7 @@ function runScanBacktest(){
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();
 </script>
 
 <!-- ═══════════ GİZLİ ANALİZ SAYFASI ═══════════ -->
