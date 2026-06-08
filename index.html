@@ -472,6 +472,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
         <button onclick="adjustBtCount(1)">+</button>
       </div>
       <span style="font-size:.72rem;color:var(--muted)">grup üret</span>
+      <button id="btCopyAllBtn" onclick="copyBtAll()" style="display:none;margin-left:auto;align-items:center;font-size:.7rem;padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;white-space:nowrap">📋 Tümünü Kopyala</button>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <button class="run-btn" onclick="runBacktest()" style="flex:1">🔬 Geçmiş Testi Çalıştır</button>
@@ -3927,6 +3928,16 @@ function buildMultiResultHtml(game,results,actual,testDate,algoId,priorCount,fil
     </div>`;
   }).join('');
 
+  // Toplu kopyalama metni
+  const copyHeader=`${game.emoji} ${game.name} · ${algoName} · ${results.length} Tahmin`+(actual?` · Gerçek (${testDate}): ${actual.nums.join(' ')}${actual.bonus.length?' | '+actual.bonus.join(' '):''}`:'');
+  const copyBody=results.map((r,i)=>{
+    const score=r.mMain+r.mBonus;
+    const line=r.pred.main.join(' ')+(r.pred.bonus.length?' | '+r.pred.bonus.join(' '):'');
+    return `#${i+1} ${line}`+(actual?`  [${score}/${total}${r.nearTotal>0?` +${r.nearTotal}≈`:''}]`:'');
+  }).join('\n');
+  state._btCopyAll=copyHeader+'\n'+copyBody;
+  const btn=document.getElementById('btCopyAllBtn');if(btn)btn.style.display='inline-flex';
+
   const scoreCls=actual?(bestScore/total>=0.5?'excellent':bestScore/total>=0.3?'good':bestScore/total>=0.15?'fair':'poor'):'poor';
   return `<div class="bt-result">
     <div class="bt-score-header">
@@ -3962,6 +3973,11 @@ function renderBtHistory(){
 // ── Utils ─────────────────────────────────────────────────────
 function copyNums(text){
   navigator.clipboard.writeText(text).then(()=>showToast('📋 Kopyalandı: '+text)).catch(()=>showToast('Sayılar: '+text));
+}
+function copyBtAll(){
+  const t=state._btCopyAll||'';
+  if(!t){showToast('Önce test çalıştırın');return;}
+  navigator.clipboard.writeText(t).then(()=>showToast('📋 Tüm tahminler kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
 }
 function copyB10(numsStr){
   const game=getGame(state.selectedGame);
