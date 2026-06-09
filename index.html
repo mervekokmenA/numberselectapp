@@ -809,6 +809,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
         style="width:64px;font-size:.8rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;text-align:center"
         oninput="this.value=Math.max(1,Math.min(2000,parseInt(this.value)||1))">
       <span style="font-size:.72rem;color:var(--muted)">bilet</span>
+      <button onclick="listelerVeriDurumu()" style="padding:7px 14px;background:rgba(255,193,7,.12);border:1px solid rgba(255,193,7,.4);color:#ffc107;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">📥 Veri Durumu</button>
       <button onclick="listelerRunBacktest()" style="padding:7px 16px;background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.08));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🔬 Geçmiş Testi Çalıştır</button>
       <button onclick="listelerRunNewPred()" style="padding:7px 16px;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.4);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🎯 Yeni Oyun Tahmini</button>
     </div>
@@ -5944,6 +5945,7 @@ function listelerRunBacktest(){
   const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
   const testDate=document.getElementById('listelerDate')?.value;
   if(!testDate){showToast('⚠️ Tarih seçin');return;}
+  if(_listelerHistory.some(h=>h.date===testDate&&h.game.id===gameId)){showToast('⚠️ Bu tarih için zaten bir sütun var');return;}
   const win=document.getElementById('listelerWindow')?.value||'30';
   const n=Math.max(1,Math.min(2000,parseInt(document.getElementById('listelerCount')?.value)||10));
   const draws=_scanGetDraws(gameId);
@@ -5961,6 +5963,41 @@ function listelerRunBacktest(){
   _listelerHistory.unshift({id,date:testDate,actual,tickets,game,algoId,checked:true,greenCells});
   _listelerRecompute();
   _renderListelerCols();
+}
+
+function listelerVeriDurumu(){
+  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
+  const game=getGame(gameId);if(!game)return;
+  const draws=_scanGetDraws(gameId);
+  if(!draws.length){showToast('⚠️ Veri bulunamadı');return;}
+  const sorted=[...draws].sort((a,b)=>a.date<b.date?-1:1);
+  const oldest=sorted[0];const newest=sorted[sorted.length-1];
+  const lastNums=[...(newest.nums||[]),...(newest.bonus||[])].join(' - ');
+  const panel=document.getElementById('listelerVeriPanel');
+  if(panel){
+    const alreadyVisible=panel.style.display!=='none';
+    const sameGame=panel.dataset.game===gameId;
+    if(alreadyVisible&&sameGame){panel.style.display='none';return;}
+  }
+  const html=`<div id="listelerVeriPanel" data-game="${gameId}" style="margin-top:10px;padding:10px 14px;background:rgba(255,193,7,.07);border:1px solid rgba(255,193,7,.3);border-radius:8px;font-size:.78rem;color:var(--text)">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <div>
+        <span style="font-weight:700;color:#ffc107">${game.emoji} ${game.name}</span>
+        <span style="color:var(--muted);margin-left:8px">· ${draws.length} çekiliş yüklü</span>
+      </div>
+      <div style="color:var(--muted);font-size:.72rem">${oldest.date} → ${newest.date}</div>
+    </div>
+    <div style="margin-top:6px;color:var(--text)">
+      <span style="color:var(--muted)">Son çekiliş</span>
+      <span style="font-weight:700;margin:0 6px">${newest.date}:</span>
+      <span style="color:var(--accent)">${lastNums}</span>
+    </div>
+  </div>`;
+  const configCard=document.querySelector('#page-listeler .card');
+  if(!configCard)return;
+  const existing=document.getElementById('listelerVeriPanel');
+  if(existing)existing.remove();
+  configCard.insertAdjacentHTML('beforeend',html);
 }
 
 function listelerRunNewPred(){
