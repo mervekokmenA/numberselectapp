@@ -5887,6 +5887,7 @@ function runOrtakSayilar(){
     html+=`</div>`;
 
     window._ortakCopyText=`🔗 Ortak Sayılar — ${game.name}\n${allB10.sort((a,b)=>a-b).join(' ')}`;
+    window._ortakData={game,lastDraw,exact,pm1Final,b10Only:b10Only.map(s=>({n:s.n,rank:b10Top.indexOf(s)+1,lift:s.lift}))};
     document.getElementById('ortakResult').innerHTML=html;
   },20);
 }
@@ -6093,12 +6094,24 @@ function listelerKontrol(){
   _ortakGame=_listelerGame||state.selectedGame||GAMES[0].id;
   runOrtakSayilar();
   setTimeout(()=>{
-    const txt=window._ortakCopyText||'';
-    const nums=txt.split('\n').slice(1).join(' ').trim().split(/\s+/).filter(Boolean);
-    if(!nums.length){rightEl.innerHTML='<div style="font-size:.72rem;color:var(--muted)">Sonuç bulunamadı.</div>';return;}
-    rightEl.innerHTML='<div style="display:flex;flex-wrap:wrap;gap:5px">'+
-      nums.map(n=>`<span style="font-size:.78rem;font-weight:700;color:var(--accent);background:rgba(108,99,255,.12);border:1px solid rgba(108,99,255,.3);padding:3px 9px;border-radius:8px">${n}</span>`).join('')+
-    '</div>';
+    const d=window._ortakData;
+    if(!d){rightEl.innerHTML='<div style="font-size:.72rem;color:var(--muted)">Sonuç bulunamadı.</div>';return;}
+    const badge=(n,bg,bd,fg,sub)=>`<span style="display:inline-flex;flex-direction:column;align-items:center;font-size:.78rem;font-weight:700;color:${fg};background:${bg};border:1px solid ${bd};padding:3px 9px;border-radius:8px;line-height:1.15">${n}${sub?`<span style="font-size:.5rem;font-weight:500;color:var(--muted);margin-top:1px">${sub}</span>`:''}</span>`;
+    let h=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">Kaynak: B10 top 15 + Dön top 30 · Son: ${d.lastDraw.date} ${d.lastDraw.nums.join(' ')}</div>`;
+    if(d.exact.length){
+      h+=`<div style="font-size:.6rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.6px;margin:6px 0 4px">⚡ Kesin Eşleşme (${d.exact.length})</div>`;
+      h+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`+d.exact.map(e=>badge(e.n,'rgba(0,230,118,.14)','rgba(0,230,118,.45)','var(--green)',`#${e.b10Rank} · ${(e.b10Lift||1).toFixed(1)}× · ${e.transVote}oy`)).join('')+`</div>`;
+    }
+    if(d.pm1Final.length){
+      h+=`<div style="font-size:.6rem;font-weight:700;color:#ffc400;text-transform:uppercase;letter-spacing:.6px;margin:8px 0 4px">🔸 ±1 Eşleşme (${d.pm1Final.length})</div>`;
+      h+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`+d.pm1Final.map(r=>`<span style="display:inline-flex;flex-direction:column;align-items:center;background:rgba(255,196,0,.1);border:1px solid rgba(255,196,0,.4);border-radius:8px;padding:3px 9px;line-height:1.15"><span style="font-size:.78rem;font-weight:700;color:#ffc400"><span style="color:var(--muted);font-weight:500">${r.b10n}${r.diff>0?'→':'←'}</span>${r.transN}</span><span style="font-size:.5rem;color:var(--muted);margin-top:1px">B10 #${r.b10Rank} · ${(r.b10Lift||1).toFixed(1)}× · ${r.transVote}oy</span></span>`).join('')+`</div>`;
+    }
+    if(d.b10Only.length){
+      h+=`<div style="font-size:.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin:8px 0 4px">📊 Sadece B10 (${d.b10Only.length})</div>`;
+      h+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`+d.b10Only.map(s=>badge(s.n,'var(--surface2)','var(--border)','var(--text)',`B10 #${s.rank} · ${(s.lift||1).toFixed(1)}×`)).join('')+`</div>`;
+    }
+    if(!d.exact.length&&!d.pm1Final.length&&!d.b10Only.length){h+=`<div style="font-size:.72rem;color:var(--muted)">Kesişim bulunamadı.</div>`;}
+    rightEl.innerHTML=h;
   },250);
 }
 
