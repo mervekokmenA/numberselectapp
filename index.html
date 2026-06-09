@@ -6210,13 +6210,21 @@ function listelerCopyBulundu(){
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
   const game=getGame(gameId);
   const lines=[`🔎 Bulunan Sayılar — ${game?game.name:gameId}`];
-  // Kırmızı hücrelerden sayılar
+  // Analiz tipi
   if(_listelerNewPred){
-    const _s2=new Set();const redNums=[];
+    const algoName=ALGOS.find(a=>a.id===_listelerNewPred.algoId)?.name||_listelerNewPred.algoId||'—';
+    lines.push(`🧮 Analiz: ${algoName}`);
+  }
+  // Kırmızı hücrelerden sayılar (tekrar sayısıyla)
+  if(_listelerNewPred){
+    const numCnt={};const _s2=new Set();const redNums=[];
     _listelerNewPred.tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
-      if(_listelerRedKeys.has(`${ti}-${pi}`)&&!_s2.has(num)){_s2.add(num);redNums.push(num);}
+      if(_listelerRedKeys.has(`${ti}-${pi}`)){
+        numCnt[num]=(numCnt[num]||0)+1;
+        if(!_s2.has(num)){_s2.add(num);redNums.push(num);}
+      }
     }));
-    lines.push(`🔴 Kırmızı Hücreler: ${redNums.length?redNums.join(' '):'—'}`);
+    lines.push(`🔴 Kırmızı Hücreler: ${redNums.length?redNums.map(n=>n+(numCnt[n]>1?`(${numCnt[n]}×)`:'')).join(' '):'—'}`);
   }
   // Ortak sayılar
   if(window._ortakCopyText){
