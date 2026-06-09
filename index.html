@@ -30,6 +30,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .nav-link{background:none;border:1px solid transparent;color:var(--muted);border-radius:8px;padding:5px 12px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .18s}
 .nav-link:hover{border-color:var(--border);color:var(--text)}
 .nav-link.active{background:rgba(108,99,255,.18);border-color:rgba(108,99,255,.45);color:var(--accent)}
+/* Listeler sayfası */
+.lcell{width:22px;height:18px;font-size:.58rem;display:flex;align-items:center;justify-content:center;background:#fff;color:#222;border:1px solid #ddd;font-weight:600;border-radius:2px;flex-shrink:0;line-height:1}
+.lcell.l-green{background:#43a047;color:#fff;border-color:#2e7d32}
+.lcell.l-red{background:#e53935;color:#fff;border-color:#b71c1c}
+.lrow{display:flex;gap:1px;margin-bottom:1px}
+.listeler-col{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px;flex-shrink:0;min-width:0}
+.listeler-col-new{border:2px solid rgba(108,99,255,.45);background:rgba(108,99,255,.04)}
+.listeler-tickets{overflow-y:auto;max-height:620px}
 /* Pages */
 .app{position:relative;z-index:1;max-width:1920px;margin:0 auto;padding:20px 24px 40px;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
 .col-bt-right{display:flex;flex-direction:column;gap:16px;min-width:0;grid-column:2;grid-row:1}
@@ -312,6 +320,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div class="nav-links">
       <button class="nav-link active" id="navBtn-home" onclick="showMainPage('home')">🏠 Ana Sayfa</button>
       <button class="nav-link" id="navBtn-scan" onclick="showMainPage('scan')">🔍 Tarama</button>
+      <button class="nav-link" id="navBtn-listeler" onclick="showMainPage('listeler')">📋 Listeler</button>
     </div>
   </div>
 </nav>
@@ -778,6 +787,66 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     </div>
 
   </div>
+</div>
+
+<!-- ═══════════ PAGE: LİSTELER ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-listeler">
+
+  <!-- Kontrol paneli -->
+  <div class="card" style="margin-bottom:16px">
+    <div class="card-title">📋 Listeler</div>
+    <div id="listelerGameGrid" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <select id="listelerAlgo" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px;max-width:220px"></select>
+      <select id="listelerDate" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px"></select>
+      <select id="listelerWindow" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px">
+        <option value="30" selected>Son 30</option>
+        <option value="50">Son 50</option>
+        <option value="100">Son 100</option>
+        <option value="all">Tümü</option>
+      </select>
+      <input type="number" id="listelerCount" value="10" min="1" max="2000"
+        style="width:64px;font-size:.8rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;text-align:center"
+        oninput="this.value=Math.max(1,Math.min(2000,parseInt(this.value)||1))">
+      <span style="font-size:.72rem;color:var(--muted)">bilet</span>
+      <button onclick="listelerRunBacktest()" style="padding:7px 16px;background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.08));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🔬 Geçmiş Testi Çalıştır</button>
+      <button onclick="listelerRunNewPred()" style="padding:7px 16px;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.4);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🎯 Yeni Oyun Tahmini</button>
+    </div>
+  </div>
+
+  <!-- Bulunan Sayılar (Kontrol sonrası gösterilir) -->
+  <div id="listelerBulundu" style="display:none;margin-bottom:16px">
+    <div class="card">
+      <div class="card-title">🔎 Bulunan Sayılar</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+        <div>
+          <div style="font-size:.65rem;font-weight:700;color:#ef9a9a;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">🔴 Kırmızı Hücrelerden Sayılar</div>
+          <div id="listelerBulunduLeft"></div>
+        </div>
+        <div>
+          <div style="font-size:.65rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">🔗 Ortak Sayılar (B10 × Dönüşüm)</div>
+          <div id="listelerBulunduRight"><div style="font-size:.72rem;color:var(--muted)">Kontrol butonuna basınca hesaplanır.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sütunlar (yatay kaydırmalı) -->
+  <div style="display:flex;gap:12px;align-items:flex-start;overflow-x:auto;padding-bottom:20px">
+    <!-- Yeni Tahmin sütunu (sabit, her zaman görünür) -->
+    <div class="listeler-col listeler-col-new" style="min-width:150px;position:sticky;left:0;z-index:2">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:4px">
+        <span style="font-size:.68rem;font-weight:700;color:var(--accent);white-space:nowrap">🎯 Yeni Tahmin</span>
+        <button onclick="listelerKontrol()" style="font-size:.62rem;padding:3px 8px;border-radius:6px;border:1px solid rgba(229,57,53,.4);background:rgba(229,57,53,.1);color:#ef9a9a;cursor:pointer;white-space:nowrap">🔍 Kontrol</button>
+      </div>
+      <div id="listelerNewPredTickets" class="listeler-tickets" style="min-height:60px">
+        <div style="font-size:.65rem;color:var(--muted);padding:16px 0;text-align:center;line-height:1.6">Yeni tahmin için<br>butona basın.</div>
+      </div>
+    </div>
+    <!-- Geçmiş sütunları -->
+    <div id="listelerHistoryCols" style="display:flex;gap:12px;flex-wrap:nowrap;align-items:flex-start"></div>
+  </div>
+
 </div>
 
 </div><!-- /app -->
@@ -1458,6 +1527,8 @@ function selectGame(id){
   _syncOtherGameGrids(id);
 }
 function _syncOtherGameGrids(id){
+  // Listeler
+  _listelerGame=id; _listelerHighlightGame(id); _listelerPopulateDates();
   // Ortak Sayılar
   _ortakGame=id; _ortakHighlightGame(id);
   // Scan sayfası
@@ -5568,12 +5639,15 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  const scanEl=document.getElementById('page-scan');
-  if(scanEl)scanEl.style.display=home?'none':'block';
-  ['navBtn-home','navBtn-scan'].forEach(bid=>{
+  ['page-scan','page-listeler'].forEach(pid=>{
+    const suffix=pid.replace('page-','');
+    document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
+  });
+  ['navBtn-home','navBtn-scan','navBtn-listeler'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
-  if(!home)_initScanPage();
+  if(id==='scan')_initScanPage();
+  if(id==='listeler')_initListelerPage();
 }
 
 function _scanGetDraws(gameId){
@@ -5809,6 +5883,211 @@ function runOrtakSayilar(){
     window._ortakCopyText=`🔗 Ortak Sayılar — ${game.name}\n${allB10.sort((a,b)=>a-b).join(' ')}`;
     document.getElementById('ortakResult').innerHTML=html;
   },20);
+}
+
+// ═══════════ Listeler Sayfası ════════════════════════════════
+let _listelerGame=null;
+let _listelerNewPred=null; // {tickets:[{main,bonus}], game, algoId}
+let _listelerHistory=[]; // [{id,date,actual,tickets,game,algoId,checked,greenCells:Set}]
+let _listelerRedKeys=new Set(); // "ti-pi" keys that are red across checked columns
+
+function _initListelerPage(){
+  _listelerGame=_listelerGame||state.selectedGame||GAMES[0].id;
+  const grid=document.getElementById('listelerGameGrid');
+  if(grid&&grid.childNodes.length===0){
+    GAMES.forEach(g=>{
+      const btn=document.createElement('button');
+      btn.style.cssText='padding:5px 12px;border-radius:8px;font-size:.75rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .18s';
+      btn.textContent=g.emoji+' '+g.name;
+      btn.onclick=()=>{_listelerGame=g.id;_listelerHighlightGame(g.id);_listelerPopulateDates();};
+      grid.appendChild(btn);
+    });
+  }
+  _listelerHighlightGame(_listelerGame);
+  _listelerPopulateAlgo();
+  _listelerPopulateDates();
+}
+
+function _listelerHighlightGame(id){
+  const grid=document.getElementById('listelerGameGrid');
+  if(!grid)return;
+  grid.querySelectorAll('button').forEach((btn,i)=>{
+    const g=GAMES[i];if(!g)return;
+    const on=g.id===id;
+    btn.style.background=on?'rgba(108,99,255,.2)':'var(--surface2)';
+    btn.style.color=on?'var(--accent)':'var(--muted)';
+    btn.style.borderColor=on?'rgba(108,99,255,.5)':'var(--border)';
+  });
+}
+
+function _listelerPopulateAlgo(){
+  const sel=document.getElementById('listelerAlgo');
+  if(!sel||sel.options.length>0)return;
+  ALGOS.forEach(a=>{const opt=document.createElement('option');opt.value=a.id;opt.textContent=a.name;sel.appendChild(opt);});
+  sel.value=state.selectedAlgo||ALGOS[0].id;
+}
+
+function _listelerPopulateDates(){
+  const sel=document.getElementById('listelerDate');
+  if(!sel)return;
+  const cur=sel.value;
+  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
+  const draws=_scanGetDraws(gameId);
+  sel.innerHTML='<option value="">— Tarih Seçin —</option>';
+  draws.forEach(d=>{const opt=document.createElement('option');opt.value=d.date;opt.textContent=d.date;sel.appendChild(opt);});
+  if(cur)sel.value=cur;
+}
+
+function listelerRunBacktest(){
+  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
+  const game=getGame(gameId);if(!game)return;
+  const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
+  const testDate=document.getElementById('listelerDate')?.value;
+  if(!testDate){showToast('⚠️ Tarih seçin');return;}
+  const win=document.getElementById('listelerWindow')?.value||'30';
+  const n=Math.max(1,Math.min(2000,parseInt(document.getElementById('listelerCount')?.value)||10));
+  const draws=_scanGetDraws(gameId);
+  let prior=draws.filter(d=>d.date<testDate);
+  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(!prior.length){showToast('⚠️ Yeterli geçmiş veri yok');return;}
+  const actual=draws.find(d=>d.date===testDate)||null;
+  const freq=buildFreq(prior);
+  const tickets=Array.from({length:n},()=>generateNumbers(game,algoId,freq,prior));
+  tickets.sort((a,b)=>calcTicketScore(b,game)-calcTicketScore(a,game));
+  const actualSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):new Set();
+  const greenCells=new Set();
+  tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{if(actualSet.has(num))greenCells.add(`${ti}-${pi}`);}));
+  const id=Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+  _listelerHistory.unshift({id,date:testDate,actual,tickets,game,algoId,checked:true,greenCells});
+  _listelerRecompute();
+  _renderListelerCols();
+}
+
+function listelerRunNewPred(){
+  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
+  const game=getGame(gameId);if(!game)return;
+  const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
+  const n=Math.max(1,Math.min(2000,parseInt(document.getElementById('listelerCount')?.value)||10));
+  const draws=_scanGetDraws(gameId);
+  if(!draws.length){showToast('⚠️ Veri yok');return;}
+  const win=document.getElementById('listelerWindow')?.value||'30';
+  const prior=win==='all'?draws:draws.slice(0,Math.min(parseInt(win),draws.length));
+  const freq=buildFreq(prior);
+  const tickets=Array.from({length:n},()=>generateNumbers(game,algoId,freq,prior));
+  tickets.sort((a,b)=>calcTicketScore(b,game)-calcTicketScore(a,game));
+  _listelerNewPred={tickets,game,algoId};
+  _listelerRedKeys=new Set();
+  document.getElementById('listelerBulundu').style.display='none';
+  _renderListelerNewPred();
+}
+
+function _listelerRecompute(){
+  const checked=_listelerHistory.filter(h=>h.checked);
+  const cnt={};
+  checked.forEach(col=>col.greenCells.forEach(k=>{cnt[k]=(cnt[k]||0)+1;}));
+  _listelerRedKeys=new Set(Object.entries(cnt).filter(([,v])=>v>=2).map(([k])=>k));
+}
+
+function listelerToggleCheck(id){
+  const col=_listelerHistory.find(h=>h.id===id);
+  if(col){col.checked=!col.checked;_listelerRecompute();_renderListelerCols();}
+}
+
+function listelerRemoveCol(id){
+  _listelerHistory=_listelerHistory.filter(h=>h.id!==id);
+  _listelerRecompute();
+  _renderListelerCols();
+}
+
+function listelerKontrol(){
+  if(!_listelerNewPred){showToast('⚠️ Önce yeni tahmin yapın');return;}
+  _listelerRecompute();
+  _renderListelerNewPred();
+  // Bulunan sayılar — sol: kırmızı hücrelerden sayılar
+  const tickets=_listelerNewPred.tickets;
+  const numCnt={};
+  tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
+    if(_listelerRedKeys.has(`${ti}-${pi}`))numCnt[num]=(numCnt[num]||0)+1;
+  }));
+  const sorted=Object.entries(numCnt).sort((a,b)=>b[1]-a[1]||a[0]-b[0]);
+  let leftHtml='';
+  if(!sorted.length){
+    leftHtml='<div style="font-size:.72rem;color:var(--muted)">Kırmızı hücre bulunamadı — önce geçmiş sütunları ekleyin ve checkbox işaretleyin.</div>';
+  } else {
+    leftHtml='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+    sorted.forEach(([num,cnt])=>{
+      leftHtml+=`<span style="font-size:.78rem;font-weight:700;color:var(--text);background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.35);padding:4px 10px;border-radius:8px">${num}${cnt>1?` <span style="font-size:.6rem;color:var(--muted);font-weight:400">(${cnt}×)</span>`:''}</span>`;
+    });
+    leftHtml+='</div>';
+  }
+  const bulEl=document.getElementById('listelerBulundu');
+  bulEl.style.display='block';
+  document.getElementById('listelerBulunduLeft').innerHTML=leftHtml;
+  // Sağ: Ortak Sayılar — mevcut runOrtakSayilar'ı kullan, sonra kopyala
+  const rightEl=document.getElementById('listelerBulunduRight');
+  rightEl.innerHTML='<div style="font-size:.72rem;color:var(--muted)">⏳ Hesaplanıyor...</div>';
+  _ortakGame=_listelerGame||state.selectedGame||GAMES[0].id;
+  runOrtakSayilar();
+  setTimeout(()=>{const src=document.getElementById('ortakResult');if(src&&rightEl)rightEl.innerHTML=src.innerHTML;},250);
+}
+
+function _renderListelerNewPred(){
+  const container=document.getElementById('listelerNewPredTickets');
+  if(!container)return;
+  if(!_listelerNewPred){
+    container.innerHTML='<div style="font-size:.65rem;color:var(--muted);padding:16px 0;text-align:center;line-height:1.6">Yeni tahmin için<br>butona basın.</div>';
+    return;
+  }
+  const {tickets}=_listelerNewPred;
+  let html='';
+  tickets.forEach((t,ti)=>{
+    const nums=[...t.main,...t.bonus];
+    html+='<div class="lrow">';
+    nums.forEach((n,pi)=>{
+      const cls=_listelerRedKeys.has(`${ti}-${pi}`)?'lcell l-red':'lcell';
+      html+=`<div class="${cls}">${n}</div>`;
+    });
+    html+='</div>';
+  });
+  container.innerHTML=html;
+}
+
+function _renderListelerCols(){
+  const container=document.getElementById('listelerHistoryCols');
+  if(!container)return;
+  container.innerHTML='';
+  _listelerHistory.forEach(col=>{
+    const div=document.createElement('div');
+    div.className='listeler-col';
+    div.id='lcol-'+col.id;
+    const actualNums=col.actual?[...(col.actual.nums||[]),...(col.actual.bonus||[])]:[];
+    let hdr=`<div style="display:flex;align-items:center;gap:4px;margin-bottom:6px">`;
+    hdr+=`<input type="checkbox" ${col.checked?'checked':''} onchange="listelerToggleCheck('${col.id}')" style="cursor:pointer;flex-shrink:0">`;
+    hdr+=`<span style="font-size:.62rem;color:var(--text);font-weight:700;flex:1">${col.date}</span>`;
+    hdr+=`<button onclick="listelerRemoveCol('${col.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.82rem;padding:0 2px;line-height:1;flex-shrink:0">✕</button>`;
+    hdr+=`</div>`;
+    if(actualNums.length){
+      hdr+=`<div style="font-size:.58rem;color:var(--green);margin-bottom:5px;flex-wrap:wrap;display:flex;gap:2px">`;
+      actualNums.forEach(n=>{hdr+=`<span style="font-weight:700">${n}</span>`;});
+      hdr+=`</div>`;
+    }
+    let tickHtml='';
+    col.tickets.forEach((t,ti)=>{
+      const nums=[...t.main,...t.bonus];
+      tickHtml+='<div class="lrow">';
+      nums.forEach((n,pi)=>{
+        const key=`${ti}-${pi}`;
+        const isGreen=col.greenCells.has(key);
+        const isRed=col.checked&&_listelerRedKeys.has(key);
+        tickHtml+=`<div class="lcell${isRed?' l-red':isGreen?' l-green':''}">${n}</div>`;
+      });
+      tickHtml+='</div>';
+    });
+    div.innerHTML=hdr+`<div class="listeler-tickets">${tickHtml}</div>`;
+    container.appendChild(div);
+  });
+  // Yeni tahmin sütununu da yeniden çiz (kırmızı hücreler değişmiş olabilir)
+  _renderListelerNewPred();
 }
 
 function copyB10Bt(){
