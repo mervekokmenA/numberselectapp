@@ -1949,6 +1949,74 @@ function pickUnique(pool,count,weights){
   return result;
 }
 
+// Pro Ensemble setup cache — reuses expensive vote/co-occurrence/sum-range data
+// across calls that share the same draws/freq references (e.g. batch ticket gen).
+let _peSetupLast=null;
+function _peGetProensembleSetup(game,freqOverride,drawsOverride){
+  const peDrawsSrc=drawsOverride||state.allDatedDraws||state.datedDraws||[];
+  if(_peSetupLast&&_peSetupLast.gameId===game.id&&_peSetupLast.drawsSrc===peDrawsSrc&&_peSetupLast.freqRef===(freqOverride||null)&&_peSetupLast.perfRef===(state.algoPerf&&state.algoPerf[game.id])){
+    return _peSetupLast.data;
+  }
+  const pePerf=state.algoPerf&&state.algoPerf[game.id];
+  const peExclude=new Set(['proensemble','random']);
+  let peTopAlgos;
+  if(pePerf){
+    peTopAlgos=ALGOS.filter(a=>!peExclude.has(a.id)&&pePerf[a.id]&&pePerf[a.id].avg>0)
+      .sort((a,b)=>(pePerf[b.id]?.avg||0)-(pePerf[a.id]?.avg||0)).slice(0,6);
+  }else{
+    peTopAlgos=ALGOS.filter(a=>['dateshift','excelblend','delta','sislcg','starv2','hot'].includes(a.id));
+  }
+  if(!peTopAlgos.length)peTopAlgos=ALGOS.filter(a=>a.id==='sislcg');
+  const peDraws=peDrawsSrc.slice(0,Math.min(200,peDrawsSrc.length));
+  const pePosFreq=Array.from({length:game.count},()=>new Float32Array(game.max+1));
+  peDraws.forEach(d=>{
+    const ns=(Array.isArray(d)?d:(d.nums||[])).slice().sort((a,b)=>a-b).slice(0,game.count);
+    ns.forEach((n,i)=>{if(n>=1&&n<=game.max)pePosFreq[i][n]++;});
+  });
+  const pePosSum=new Float32Array(game.max+1);
+  pePosFreq.forEach(pf=>{
+    let tot=0;for(let i=0;i<pf.length;i++)tot+=pf[i];
+    if(tot>0){const inv=1/tot;for(let n=1;n<=game.max;n++)pePosSum[n]+=pf[n]*inv;}
+  });
+  const peCo={};
+  peDraws.slice(0,50).forEach((d,i)=>{
+    const w=Math.pow(0.92,i);
+    const ns=(Array.isArray(d)?d:(d.nums||[])).slice(0,game.count);
+    for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){
+      const k=Math.min(ns[a],ns[b])+'_'+Math.max(ns[a],ns[b]);
+      peCo[k]=(peCo[k]||0)+w;
+    }
+  });
+  const peLastSeen=new Int32Array(game.max+1).fill(999);
+  peDraws.slice(0,60).forEach((d,i)=>{
+    (Array.isArray(d)?d:(d.nums||[])).forEach(n=>{if(n>=1&&n<=game.max&&peLastSeen[n]===999)peLastSeen[n]=i;});
+  });
+  const peAvgGap=peDraws.length/game.max;
+  const peVotes=new Float32Array(game.max+1);
+  const PE_SIMS=12;
+  for(const algo of peTopAlgos){
+    const algoW=pePerf?(pePerf[algo.id]?.avg||0.5):1;
+    for(let s=0;s<PE_SIMS;s++){
+      try{
+        const t=generateNumbers(game,algo.id,freqOverride,drawsOverride);
+        t.main.forEach(n=>{if(n>=1&&n<=game.max)peVotes[n]+=algoW;});
+      }catch(e){}
+    }
+  }
+  const posMul=peTopAlgos.length*PE_SIMS*0.12;
+  for(let n=1;n<=game.max;n++){
+    peVotes[n]+=pePosSum[n]*posMul;
+    const gap=peLastSeen[n]===999?60:peLastSeen[n];
+    if(gap>peAvgGap*1.5)peVotes[n]*=1+Math.min(1,(gap-peAvgGap)/peAvgGap*0.4);
+  }
+  const peSums=peDraws.map(d=>(Array.isArray(d)?d:(d.nums||[])).slice(0,game.count).reduce((s,v)=>s+v,0)).filter(s=>s>0).sort((a,b)=>a-b);
+  const peSumLo=peSums[Math.floor(peSums.length*0.18)]||(game.max+1)*game.count*0.3;
+  const peSumHi=peSums[Math.floor(peSums.length*0.82)]||(game.max+1)*game.count*0.7;
+  const data={peVotes,peCo,peSumLo,peSumHi};
+  _peSetupLast={gameId:game.id,drawsSrc:peDrawsSrc,freqRef:freqOverride||null,perfRef:pePerf,data};
+  return data;
+}
+
 function generateNumbers(game,algo,freqOverride,drawsOverride){
   const freq=freqOverride||state.frequency;
   const hasHist=Object.keys(freq).length>0;
@@ -2167,119 +2235,59 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       bonusNums=smartBonus();
       break;}
     case 'proensemble':{
-      // ── 1. Determine top algos by retrotest (or sensible default set) ──
-      const peGameId=game.id;
-      const pePerf=state.algoPerf&&state.algoPerf[peGameId];
-      let peTopAlgos;
-      const peExclude=new Set(['proensemble','random']);
-      if(pePerf){
-        peTopAlgos=ALGOS.filter(a=>!peExclude.has(a.id)&&pePerf[a.id]&&pePerf[a.id].avg>0)
-          .sort((a,b)=>(pePerf[b.id]?.avg||0)-(pePerf[a.id]?.avg||0)).slice(0,6);
-      }else{
-        peTopAlgos=ALGOS.filter(a=>['dateshift','excelblend','delta','sislcg','starv2','hot'].includes(a.id));
-      }
-      if(!peTopAlgos.length)peTopAlgos=ALGOS.filter(a=>a.id==='sislcg');
+      const peSetup=_peGetProensembleSetup(game,freqOverride,drawsOverride);
+      const peVotes=peSetup.peVotes,peCo=peSetup.peCo,peSumLo=peSetup.peSumLo,peSumHi=peSetup.peSumHi;
 
-      // ── 2. Position-specific historical frequency ──
-      const peDrawsSrc=drawsOverride||state.allDatedDraws||state.datedDraws||[];
-      const peDraws=peDrawsSrc.slice(0,Math.min(200,peDrawsSrc.length));
-      const pePosFreq=Array.from({length:game.count},()=>new Float32Array(game.max+1));
-      peDraws.forEach(d=>{
-        const ns=(Array.isArray(d)?d:(d.nums||[])).slice().sort((a,b)=>a-b).slice(0,game.count);
-        ns.forEach((n,i)=>{if(n>=1&&n<=game.max)pePosFreq[i][n]++;});
-      });
-      const pePosNorm=pePosFreq.map(pf=>{const tot=pf.reduce((s,v)=>s+v,0)||1;return pf.map(v=>v/tot);});
-
-      // ── 3. Co-occurrence (last 50 draws, recency-weighted) ──
-      const peCo={};
-      peDraws.slice(0,50).forEach((d,i)=>{
-        const w=Math.pow(0.92,i);
-        const ns=(Array.isArray(d)?d:(d.nums||[])).slice(0,game.count);
-        for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){
-          const k=Math.min(ns[a],ns[b])+'_'+Math.max(ns[a],ns[b]);
-          peCo[k]=(peCo[k]||0)+w;
-        }
-      });
-
-      // ── 4. Gap/due bonus: numbers not seen recently get weight boost ──
-      const peLastSeen=new Int32Array(game.max+1).fill(999);
-      peDraws.slice(0,60).forEach((d,i)=>{
-        (Array.isArray(d)?d:(d.nums||[])).forEach(n=>{if(n>=1&&n<=game.max&&peLastSeen[n]===999)peLastSeen[n]=i;});
-      });
-      const peAvgGap=peDraws.length/game.max;
-
-      // ── 5. Run top algos N times each, collect weighted votes ──
-      const peVotes=new Float32Array(game.max+1);
-      const PE_SIMS=30;
-      for(const algo of peTopAlgos){
-        const algoW=pePerf?(pePerf[algo.id]?.avg||0.5):1;
-        for(let s=0;s<PE_SIMS;s++){
-          try{
-            const t=generateNumbers(game,algo.id,freqOverride,drawsOverride);
-            t.main.forEach(n=>{if(n>=1&&n<=game.max)peVotes[n]+=algoW;});
-          }catch(e){}
-        }
-      }
-
-      // ── 6. Blend with position prior + gap bonus ──
-      for(let n=1;n<=game.max;n++){
-        // Position prior: sum across all positions (broad signal)
-        let posScore=0;
-        for(let p=0;p<game.count;p++)posScore+=pePosNorm[p][n];
-        peVotes[n]+=posScore*peTopAlgos.length*PE_SIMS*0.12;
-        // Gap bonus
-        const gap=peLastSeen[n]===999?60:peLastSeen[n];
-        if(gap>peAvgGap*1.5)peVotes[n]*=1+Math.min(1,(gap-peAvgGap)/peAvgGap*0.4);
-      }
-
-      // ── 7. Greedy pick with co-occurrence synergy ──
+      // ── Greedy pick with co-occurrence synergy ──
       const peSel=[],peUsed=new Set();
-      // Historical sum range for constraint
-      const peSums=peDraws.map(d=>(Array.isArray(d)?d:(d.nums||[])).slice(0,game.count).reduce((s,v)=>s+v,0)).filter(s=>s>0).sort((a,b)=>a-b);
-      const peSumLo=peSums[Math.floor(peSums.length*0.18)]||(game.max+1)*game.count*0.3;
-      const peSumHi=peSums[Math.floor(peSums.length*0.82)]||(game.max+1)*game.count*0.7;
-
+      let peSelSum=0;
       for(let pick=0;pick<game.count;pick++){
-        const remaining=peSumHi-peSel.reduce((s,v)=>s+v,0);
         const needed=game.count-pick;
+        const minSpread=needed-1;
+        const maxSpread=game.max*(needed-1);
         let bestN=-1,bestScore=-Infinity;
         for(let n=1;n<=game.max;n++){
           if(peUsed.has(n))continue;
-          // Sum-range feasibility check
-          const projMin=peSel.reduce((s,v)=>s+v,0)+n+(needed-1);
-          const projMax=peSel.reduce((s,v)=>s+v,0)+n+(game.max*(needed-1));
+          const projMin=peSelSum+n+minSpread;
+          const projMax=peSelSum+n+maxSpread;
           if(projMax<peSumLo||projMin>peSumHi)continue;
           let score=peVotes[n];
-          // Co-occurrence boost with already selected
-          for(const sel of peSel){const k=Math.min(n,sel)+'_'+Math.max(n,sel);score+=(peCo[k]||0)*0.6;}
+          for(let si=0;si<peSel.length;si++){
+            const sel=peSel[si];
+            const k=(n<sel?n+'_'+sel:sel+'_'+n);
+            const v=peCo[k];if(v)score+=v*0.6;
+          }
           if(score>bestScore){bestScore=score;bestN=n;}
         }
-        if(bestN===-1){// fallback: drop sum constraint
+        if(bestN===-1){
           for(let n=1;n<=game.max;n++){if(!peUsed.has(n)&&(bestN===-1||peVotes[n]>bestScore)){bestScore=peVotes[n];bestN=n;}}
         }
-        if(bestN>0){peSel.push(bestN);peUsed.add(bestN);}
+        if(bestN>0){peSel.push(bestN);peUsed.add(bestN);peSelSum+=bestN;}
       }
 
-      // ── 8. One-pass swap improvement (SA-lite) ──
+      // ── SA-lite swap (random candidate sampling) ──
       const peFitness=S=>{
-        let f=S.reduce((s,n)=>s+peVotes[n],0);
+        let f=0;for(let i=0;i<S.length;i++)f+=peVotes[S[i]];
         for(let i=0;i<S.length;i++)for(let j=i+1;j<S.length;j++){
-          const k=Math.min(S[i],S[j])+'_'+Math.max(S[i],S[j]);f+=(peCo[k]||0)*0.6;
+          const a=S[i],b=S[j],k=(a<b?a+'_'+b:b+'_'+a);
+          const v=peCo[k];if(v)f+=v*0.6;
         }
         return f;
       };
-      let peCur=[...peSel],peCurFit=peFitness(peCur);
-      for(let iter=0;iter<200;iter++){
+      let peCur=peSel.slice(),peCurFit=peFitness(peCur);
+      const SA_ITERS=100;
+      for(let iter=0;iter<SA_ITERS;iter++){
         const oi=Math.floor(Math.random()*game.count);
-        const candidates=[];
-        for(let n=1;n<=game.max;n++){if(!peUsed.has(n)||n===peCur[oi])candidates.push(n);}
-        if(!candidates.length)continue;
-        const newN=candidates[Math.floor(Math.random()*candidates.length)];
-        const nS=[...peCur];nS[oi]=newN;
-        const nf=peFitness(nS);
-        const T=0.3*Math.pow(0.01/0.3,iter/200);
+        let newN,tries=0;
+        do{newN=1+Math.floor(Math.random()*game.max);tries++;}while(tries<25&&peUsed.has(newN)&&newN!==peCur[oi]);
+        if(peUsed.has(newN)&&newN!==peCur[oi])continue;
+        const oldN=peCur[oi];peCur[oi]=newN;
+        const nf=peFitness(peCur);
+        const T=0.3*Math.pow(0.01/0.3,iter/SA_ITERS);
         if(nf>peCurFit||Math.random()<Math.exp((nf-peCurFit)/T)){
-          peUsed.delete(peCur[oi]);peUsed.add(newN);peCur=nS;peCurFit=nf;
+          peUsed.delete(oldN);peUsed.add(newN);peCurFit=nf;
+        }else{
+          peCur[oi]=oldN;
         }
       }
       mainNums=peCur.sort((a,b)=>a-b);bonusNums=smartBonus();
