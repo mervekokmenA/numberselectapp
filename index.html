@@ -6047,10 +6047,15 @@ function listelerKontrol(){
   // Bulunan sayılar — sol: kırmızı hücrelerden sayılar
   const tickets=_listelerNewPred.tickets;
   const numCnt={};
+  const numOrder=[];
+  const _seen=new Set();
   tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
-    if(_listelerRedKeys.has(`${ti}-${pi}`))numCnt[num]=(numCnt[num]||0)+1;
+    if(_listelerRedKeys.has(`${ti}-${pi}`)){
+      numCnt[num]=(numCnt[num]||0)+1;
+      if(!_seen.has(num)){_seen.add(num);numOrder.push(num);}
+    }
   }));
-  const sorted=Object.entries(numCnt).sort((a,b)=>b[1]-a[1]||a[0]-b[0]);
+  const sorted=numOrder.map(n=>[String(n),numCnt[n]]);
   let leftHtml='';
   if(!sorted.length){
     leftHtml='<div style="font-size:.72rem;color:var(--muted)">Kırmızı hücre bulunamadı — önce geçmiş sütunları ekleyin ve checkbox işaretleyin.</div>';
@@ -6163,11 +6168,10 @@ function listelerCopyBulundu(){
   const lines=[`🔎 Bulunan Sayılar — ${game?game.name:gameId}`];
   // Kırmızı hücrelerden sayılar
   if(_listelerNewPred){
-    const numCnt={};
+    const numCnt={};const _s2=new Set();const redNums=[];
     _listelerNewPred.tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
-      if(_listelerRedKeys.has(`${ti}-${pi}`))numCnt[num]=(numCnt[num]||0)+1;
+      if(_listelerRedKeys.has(`${ti}-${pi}`)){numCnt[num]=(numCnt[num]||0)+1;if(!_s2.has(num)){_s2.add(num);redNums.push(num);}}
     }));
-    const redNums=Object.keys(numCnt).sort((a,b)=>numCnt[b]-numCnt[a]||a-b);
     lines.push(`🔴 Kırmızı Hücreler: ${redNums.length?redNums.join(' '):'—'}`);
   }
   // Ortak sayılar
