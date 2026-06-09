@@ -6026,7 +6026,8 @@ function _listelerRecompute(){
   const checked=_listelerHistory.filter(h=>h.checked);
   const cnt={};
   checked.forEach(col=>col.greenCells.forEach(k=>{cnt[k]=(cnt[k]||0)+1;}));
-  _listelerRedKeys=new Set(Object.entries(cnt).filter(([,v])=>v>=2).map(([k])=>k));
+  const total=checked.length;
+  _listelerRedKeys=total>=2?new Set(Object.entries(cnt).filter(([,v])=>v>=total).map(([k])=>k)):new Set();
 }
 
 function listelerToggleCheck(id){
@@ -6131,8 +6132,7 @@ function _renderListelerCols(){
       nums.forEach((n,pi)=>{
         const key=`${ti}-${pi}`;
         const isGreen=col.greenCells.has(key);
-        const isRed=col.checked&&_listelerRedKeys.has(key);
-        tickHtml+=`<div class="lcell${isGreen?' l-green':isRed?' l-red':''}">${n}</div>`;
+        tickHtml+=`<div class="lcell${isGreen?' l-green':''}">${n}</div>`;
       });
       tickHtml+='</div>';
     });
