@@ -5041,9 +5041,12 @@ function gizliTestEt(){
   if(res)res.innerHTML=summaryHtml+rows;
 }
 function gizliKopyalaHepsi(){
-  const labels='ABCDEF';
-  const text=_gizliLastColumns.map(({col,guc},i)=>`${i+1}) ${col.map((v,j)=>labels[j]+':'+v).join('  ')}  güç:${guc}`).join('\n');
-  copyNums(text);
+  if(!_gizliLastColumns||!_gizliLastColumns.length){showToast('⚠️ Kopyalanacak kolon yok');return;}
+  const labels='ABCDEFGHIJKLMNOP';
+  const text=_gizliLastColumns.map(({col,guc},i)=>`${i+1}) ${col.map((v,j)=>(labels[j]||String(j+1))+':'+v).join('  ')}  güç:${guc}`).join('\n');
+  navigator.clipboard.writeText(text).then(()=>showToast('📋 Kopyalandı')).catch(()=>{
+    showToast('Kopyalanamadı — metin: '+text.slice(0,40));
+  });
 }
 
 // ── Şablon Analizi UI ─────────────────────────────────────────
