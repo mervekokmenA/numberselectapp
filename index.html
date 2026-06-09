@@ -6043,9 +6043,8 @@ function _listelerRecompute(){
   // Count how many checked columns each POSITION ti-pi was green (matched actual)
   const cnt={};
   checked.forEach(col=>col.greenCells.forEach(k=>{cnt[k]=(cnt[k]||0)+1;}));
-  // Red = position was green in ALL checked columns
-  const total=checked.length;
-  _listelerRedKeys=new Set(Object.entries(cnt).filter(([,v])=>v>=total).map(([k])=>k));
+  // Red = position was green in at least 2 checked columns
+  _listelerRedKeys=new Set(Object.entries(cnt).filter(([,v])=>v>=2).map(([k])=>k));
 }
 
 function listelerToggleCheck(id){
@@ -6151,7 +6150,8 @@ function _renderListelerCols(){
       nums.forEach((n,pi)=>{
         const key=`${ti}-${pi}`;
         const isGreen=col.greenCells.has(key);
-        tickHtml+=`<div class="lcell${isGreen?' l-green':''}">${n}</div>`;
+        const isRed=isGreen&&_listelerRedKeys.has(key);
+        tickHtml+=`<div class="lcell${isRed?' l-red':isGreen?' l-green':''}">${n}</div>`;
       });
       tickHtml+='</div>';
     });
