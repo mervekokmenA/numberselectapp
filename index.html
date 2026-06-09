@@ -385,13 +385,9 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
   <div class="card">
     <div class="tabs">
-      <button class="tab-btn"        onclick="switchTab('matrix3')">🔢 Matrix 3</button>
       <button class="tab-btn"        onclick="switchTab('algorank')">📊 Algo Rankı</button>
       <button class="tab-btn"        onclick="switchTab('stats')">📈 İstatistikler</button>
       <button class="tab-btn active" onclick="switchTab('hotcold')">🔥 Sıcak &amp; Soğuk</button>
-    </div>
-    <div class="tab-panel" id="tab-matrix3">
-      <div id="matrix3Panel"><div class="empty-state"><span class="empty-icon">🔢</span>Veri yükleyince analiz başlar.</div></div>
     </div>
     <div class="tab-panel" id="tab-algorank">
       <div id="algoRankPanel"><div class="empty-state"><span class="empty-icon">📊</span>Veri yükleyince analiz başlar.</div></div>
@@ -1909,8 +1905,6 @@ async function loadBtHistory(forceRefresh=false){
     run(renderFreqChart);
     run(renderHotCold);
     _ortakGame=_deferredId;_ortakHighlightGame(_deferredId);run(runOrtakSayilar);
-    const m3panel=document.getElementById('tab-matrix3');
-    if(m3panel&&m3panel.classList.contains('active'))try{renderMatrix3();}catch(e){}
     const arTab=document.getElementById('tab-algorank');
     if(arTab&&arTab.classList.contains('active'))try{runAlgoRank();}catch(e){}
     analyzeAlgoPositions(_deferredId);
@@ -1936,7 +1930,8 @@ function parsePastDraws(){
   state.frequency=freq;
   status.className='parse-status success';
   status.textContent=`✅ ${draws.length} çekiliş yüklendi. ${Object.keys(freq).length} tekil sayı bulundu.`;
-  updateStats(); renderFreqChart(); renderHotCold(); renderMatrix3();
+  updateStats(); renderFreqChart(); renderHotCold();
+  if(document.getElementById('gizliSayfa')?.style.display==='block')try{_sablonRender();}catch(e){}
 }
 
 // ── Number generation ────────────────────────────────────────
@@ -3185,10 +3180,9 @@ function renderHotCold(){
 
 // ── Tabs ──────────────────────────────────────────────────────
 function switchTab(name){
-  const names=['matrix3','algorank','stats','hotcold'];
+  const names=['algorank','stats','hotcold'];
   document.querySelectorAll('.tab-btn').forEach((b,i)=>b.classList.toggle('active',names[i]===name));
   document.querySelectorAll('.tab-panel').forEach(p=>p.classList.toggle('active',p.id==='tab-'+name));
-  if(name==='matrix3')renderMatrix3();
   if(name==='algorank')renderAlgoRank();
 }
 
@@ -3317,152 +3311,150 @@ function _nextDrawDate(gameId,afterDateStr){
   return null;
 }
 
-function renderMatrix3(){
-  const panel=document.getElementById('matrix3Panel');
-  if(!panel)return;
-  if(state.drawGameId&&state.drawGameId!==state.selectedGame){panel.innerHTML='<div class="empty-state"><span class="empty-icon">⏳</span>Veri yükleniyor...</div>';return;}
-  const draws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
-  if(!draws||!draws.length){panel.innerHTML='<div class="empty-state"><span class="empty-icon">🔢</span>Önce veri yükleyin.</div>';return;}
-  const ALPHA='ABCDEFGHIJKLMNOP';
-  const analyzeDrawM3=draw=>{
-    const nums=[...draw.nums].sort((a,b)=>a-b).slice(0,getGame().count);
-    const n=nums.length;
-    const ns=[];let s=0;
-    for(let i=0;i<n;i++){s+=nums[i];ns.push(s);}
-    const nst=[];let nstS=0;
-    for(let i=1;i<n;i++){nstS+=ns[i];if(i>=2)nst.push(nstS);}
-    const matches=[];const numSet=new Set(nums);
-    for(let i=1;i<n-1;i++){
-      for(let off=-2;off<=2;off++){
-        const target=ns[i]+off;
-        if(target>=1&&numSet.has(target)){const pos=nums.indexOf(target);if(pos>i)matches.push({lbl:'NS'+ALPHA.slice(0,i+1),val:ns[i],match:target,off,pos});}
-      }
-    }
-    return{draw,nums,ns,nst,matches};
-  };
-  const recent=draws.slice(0,4);
-  const analyzed=recent.map(analyzeDrawM3);
-  // Collect offset frequency from last 4 for prediction hint
-  const offFreq={};
-  analyzed.forEach(d=>d.matches.forEach(m=>{offFreq[m.off]=(offFreq[m.off]||0)+1;}));
-  const bestOff=Object.entries(offFreq).sort((a,b)=>b[1]-a[1])[0];
-  const predOff=bestOff?parseInt(bestOff[0]):0;
-  const near=analyzed.filter(d=>d.matches.length>0).length;
-  // Gelecek çekiliş projeksiyonu: son çekilişin NS/NST değerlerinin mod sonuçları
-  const lastDraw=draws[0];
-  let projHtml='';
-  if(lastDraw){
-    const gmax=getGame().max;
-    const lnums=[...lastDraw.nums].sort((a,b)=>a-b).slice(0,getGame().count);
-    const lns=[];let ls=0;lnums.forEach(v=>{ls+=v;lns.push(ls);});
-    const lnst=[];let lnstS=0;
-    for(let i=1;i<lnums.length;i++){lnstS+=lns[i];if(i>=2)lnst.push(lnstS);}
-    const ALPHA2='ABCDEFGHIJKLMNOP';
-    const candidates=new Set();
-    const rows=[...lns.slice(1).map((v,i)=>({lbl:`NS${ALPHA2.slice(0,i+2)}`,val:v})),...lnst.map((v,k)=>({lbl:`NST${k+1}`,val:v}))];
-    const rowsHtml=rows.map(({lbl,val})=>{
-      const m=((val%gmax)+gmax)%gmax||gmax;
-      if(m>=1&&m<=gmax)candidates.add(m);
-      return `<span style="white-space:nowrap;font-family:monospace;font-size:.62rem;background:rgba(255,255,255,.04);border-radius:4px;padding:1px 6px"><span style="color:var(--muted)">${lbl}</span><span style="color:rgba(255,255,255,.25)"> == </span><span style="color:var(--accent);font-weight:700">${m}</span></span>`;
-    }).join('');
-    const candArr=[...candidates].sort((a,b)=>a-b);
-    const nextDate=_nextDrawDate(state.selectedGame||getGame().id,lastDraw.date);
-    const _trnow=new Date(Date.now()+3*3600*1000);
-    const _todayTR=_trnow.toISOString().slice(0,10);
-    const _trHour=_trnow.getUTCHours();
-    let nextDateLabel=nextDate||'';
-    if(nextDate){
-      if(nextDate<_todayTR)nextDateLabel=`${nextDate} <span style="color:#ff9100">(geçti)</span>`;
-      else if(nextDate===_todayTR)nextDateLabel=_trHour>=22?`${nextDate} <span style="color:var(--green)">(bu gece çekildi)</span>`:`${nextDate} <span style="color:#ffc400">(bu akşam)</span>`;
-      else nextDateLabel=`<span style="color:var(--accent)">${nextDate}</span>`;
-    }
-    projHtml=`<div style="background:linear-gradient(135deg,rgba(100,120,255,.08),rgba(100,120,255,.03));border:1px solid rgba(100,120,255,.35);border-radius:10px;padding:10px 12px;margin-bottom:10px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-        <span style="font-size:.75rem;font-weight:700;color:var(--accent)">🎯 Gelecek Oyun Projeksiyonu${nextDate?` · ${nextDateLabel}`:''}</span>
-        <button class="copy-btn" onclick="renderMatrix3()" style="padding:2px 8px;font-size:.65rem">↺ Yenile</button>
-      </div>
-      <div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">Baz: ${lastDraw.date} çekilişi · NS/NST → mod ${gmax} → aday sayılar</div>
-      <div style="display:flex;flex-wrap:wrap;gap:4px 6px;line-height:1.9">${rowsHtml}</div>
-      <div style="margin-top:8px;padding-top:6px;border-top:1px solid rgba(100,120,255,.25)">
-        <div style="font-size:.6rem;color:var(--muted);margin-bottom:5px">Gelecek çekiliş aday sayıları:</div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px">${candArr.map(v=>`<span style="background:rgba(100,120,255,.2);border:1px solid rgba(100,120,255,.45);border-radius:6px;padding:3px 9px;font-size:.78rem;font-weight:700;color:var(--accent)">${v}</span>`).join('')}</div>
-      </div>
-    </div>`;
-  }
-  let html=`<div style="font-size:.65rem;color:var(--muted);margin-bottom:8px;line-height:1.6">NS<strong>AB</strong>=A+B &nbsp;·&nbsp; NS<strong>ABC</strong>=A+B+C &nbsp;·&nbsp; NST1=NSAB+NSABC &nbsp;·&nbsp; Yeşil = mod eşleşmesi<br><span style="color:rgba(255,255,255,.3)">Son 4 çekiliş analizi + yeni oyun projeksiyonu</span></div>
-  ${projHtml}
-  <div style="font-size:.62rem;font-weight:600;color:var(--muted);margin:6px 0 5px;padding-left:2px">▸ Son 4 Çekiliş</div>`;
-  analyzed.forEach(({draw,nums,ns,nst,matches})=>{
-    const n=nums.length;
-    const matchNums=new Set(matches.map(m=>m.match));
-    const has=matches.length>0;
-    const wrapSpan=(content,style)=>`<span style="white-space:nowrap;${style}">${content}</span>`;
-    const numsHtml=nums.map((v,i)=>wrapSpan(`${ALPHA[i]}:${v}`,matchNums.has(v)?'color:var(--green);font-weight:800':'color:var(--text)')).join(' ');
-    // Mod row: NS and NST values mod game.max, highlight when result is a drawn number
-    const gameMax=getGame().max;
-    const numSet=new Set(nums);
-    const nsMods=ns.slice(1).map((v,i)=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;const hit=numSet.has(m);return wrapSpan(`NS${ALPHA.slice(0,i+2)}==${m}`,hit?'color:var(--green);font-weight:700':'color:rgba(255,255,255,.3)');});
-    const nstMods=nst.map((v,k)=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;const hit=numSet.has(m);return wrapSpan(`NST${k+1}==${m}`,hit?'color:var(--green);font-weight:700':'color:rgba(255,255,255,.3)');});
-    const modHits=[...ns.slice(1),...nst].some(v=>{const m=((v%gameMax)+gameMax)%gameMax||gameMax;return numSet.has(m);});
-    const candNums=[...new Set([...ns.slice(1),...nst].map(v=>((v%gameMax)+gameMax)%gameMax||gameMax))].sort((a,b)=>a-b);
-    const candHtml=candNums.map(m=>wrapSpan(m,numSet.has(m)?'color:var(--green);font-weight:800':'color:var(--text)')).join(' ');
-    const mHtml=matches.length?`<div style="font-size:.6rem;color:var(--green);margin-top:3px;word-break:break-word">✓ ${matches.map(m=>`NS${ALPHA.slice(0,m.pos)}(${m.val})${m.off?`${m.off>0?'+':''}${m.off}`:''}=${m.match}`).join(' · ')}</div>`:'';
-    const hasBorder=has||modHits;
-    html+=`<div style="background:var(--surface2);border:1px solid ${hasBorder?'rgba(0,230,118,.3)':'var(--border)'};border-radius:8px;padding:7px 10px;margin-bottom:6px${hasBorder?';background:rgba(0,230,118,.04)':''}">
-      <div style="display:flex;justify-content:space-between;margin-bottom:4px">
-        <span style="font-size:.63rem;color:var(--muted)">${draw.date}</span>
-        ${has?'<span style="font-size:.58rem;color:var(--green)">✓ örtüşme</span>':modHits?'<span style="font-size:.58rem;color:var(--green)">✓ mod örtüşme</span>':''}
-      </div>
-      <div style="font-family:monospace;font-size:.72rem;margin-bottom:5px;display:flex;flex-wrap:wrap;gap:4px 8px">${numsHtml}</div>
-      <div style="font-family:monospace;font-size:.6rem;display:flex;flex-wrap:wrap;gap:2px 8px;line-height:1.8">${[...nsMods,...nstMods].join(' ')}</div>
-      <div style="font-family:monospace;font-size:.72rem;margin-top:4px;padding:3px 6px;background:rgba(255,255,255,.04);border-radius:5px;display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center"><span style="font-size:.55rem;color:var(--muted);flex-shrink:0">aday:</span>${candHtml}</div>
-      ${mHtml}
-    </div>`;
-  });
-  panel.innerHTML=html;
+// ══════════════════════════════════════════════════════════════
+// MATEMATIKSEL ŞABLON ANALİZİ  (gizli sayfa modülü)
+// NS  = ardışık toplam zinciri (NSA, NSAB, ..., NSABCDEF)
+// NST = NS zincirinin ardışık toplamı (NST1..NSTn)
+// XS  = bonusla birlikte sıralanmış 8'li zincir (varsa)
+// XST = XS zincirinin ardışık toplamı
+// ══════════════════════════════════════════════════════════════
+const _ALPHA='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+function _sablonChain(sortedNums){
+  const ns=[];let s=0;
+  for(let i=0;i<sortedNums.length;i++){s+=sortedNums[i];ns.push(s);}
+  const nst=[];let nstS=0;
+  for(let i=1;i<ns.length;i++){nstS+=ns[i];if(i>=2)nst.push(nstS);}
+  return {ns,nst};
 }
 
-function generateMatrix3Ticket(predOff){
-  const el=document.getElementById('m3PredResult');
-  if(!el)return;
-  const game=getGame();
-  const freq=state.frequency||{};
-  const pool=Array.from({length:game.max},(_,i)=>i+1);
-  const weights=pool.map(n=>Math.max(freq[n]||0,0.1));
-  const pickWeighted=(exclude)=>{
-    const avail=pool.filter(n=>!exclude.has(n));
-    const w=avail.map(n=>weights[n-1]);
-    const tot=w.reduce((a,b)=>a+b,0);
-    let r=Math.random()*tot;
-    for(let i=0;i<avail.length;i++){r-=w[i];if(r<=0)return avail[i];}
-    return avail[avail.length-1];
+function _sablonExtract(draw,game){
+  const mainSorted=[...(draw.nums||[])].sort((a,b)=>a-b);
+  const all=[...(draw.nums||[]),...(draw.bonus||[])].sort((a,b)=>a-b);
+  const main=_sablonChain(mainSorted);
+  const ext=(draw.bonus&&draw.bonus.length)?_sablonChain(all):null;
+  return {
+    date:draw.date||'',
+    mainSorted,allSorted:all,
+    ns:main.ns,nst:main.nst,
+    xs:ext?ext.ns:null,xst:ext?ext.nst:null,
+    bonus:draw.bonus||[],
+    game
   };
-  const used=new Set();
-  const nums=[];
-  // Pick A (1st)
-  const A=pickWeighted(used);used.add(A);nums.push(A);
-  // Pick B (2nd)
-  const B=pickWeighted(used);used.add(B);nums.push(B);
-  // Try C = A+B + predOff
-  const Ctarget=A+B+predOff;
-  if(Ctarget>=1&&Ctarget<=game.max&&!used.has(Ctarget)){
-    used.add(Ctarget);nums.push(Ctarget);
-  } else {
-    const C=pickWeighted(used);used.add(C);nums.push(C);
+}
+
+// Decade-class adayları: V'nin mod-100 değerinden başlayarak ±10 katlarıyla
+// oyun aralığına düşen tüm sayılar. (Örn V=268, max=90 → {8,18,28,38,48,58,68,78,88})
+function _sablonDecadeCandidates(V,gameMax){
+  const base=((V%100)+100)%100;
+  const ones=base%10;
+  const out=[];
+  for(let n=ones===0?10:ones;n<=gameMax;n+=10)out.push(n);
+  return out;
+}
+
+// Bir V değerinin bir N sayısını "vurma" yolları + ağırlıkları.
+//   exact (V===N)            →  10 puan
+//   mod100 (V%100===N)        →   6 puan ("200'lü versiyonu")
+//   mod-gameMax (V%max===N)   →   4 puan
+//   decade-class (sameOnes,kat→ kat=1:3 / 2:2 / 3:1)
+//   ±k offset (k=1..5)        →   max(0,3-k)  (ufak sapmalar)
+function _sablonHitWeight(V,N,gameMax){
+  if(V===N)return {kind:'exact',w:10};
+  const m100=((V%100)+100)%100;
+  if(m100===N)return {kind:'mod100',w:6};
+  const mmax=((V%gameMax)+gameMax)%gameMax||gameMax;
+  if(mmax===N&&N>=1&&N<=gameMax)return {kind:'mod-max',w:4};
+  if(V%10===N%10){
+    const baseSameOnes=m100%10===0?10:m100%10;
+    const diff=Math.abs(N-(m100%10===0?(N%10):m100));
+    const tens=Math.round(diff/10);
+    if(tens>0&&tens<=8)return {kind:'decade·'+tens,w:Math.max(0,4-tens)};
   }
-  // Fill remaining
-  while(nums.length<game.count){const n=pickWeighted(used);used.add(n);nums.push(n);}
-  nums.sort((a,b)=>a-b);
-  // Verify pattern applied
-  const AB=nums[0]+nums[1];const patternApplied=(AB+predOff===nums[2]);
-  const ballsHtml=nums.map(n=>staticBall(n,game.mainColor,'',mobileBSZ())).join('');
-  el.innerHTML=`<div class="ticket" style="--ball-size:${mobileBSZ()};margin-top:4px${patternApplied?';border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.04)':''}">
-    <span class="ticket-idx" style="font-size:.5rem;color:var(--green);text-align:center">M3</span>
-    <div class="balls-row" style="margin:0;flex:1;justify-content:flex-start;flex-wrap:wrap">${ballsHtml}</div>
-  </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-top:4px">
-    ${patternApplied?`<span style="color:var(--green)">✓ NSAB=${AB}${predOff>=0?'+':''}${predOff}=${nums[2]} uygulandı</span>`:'<span style="color:var(--muted)">Hedef aralık dışı, frekans ağırlıklı üretildi</span>'}
-  </div>`;
+  for(let k=1;k<=5;k++){
+    if(V+k===N||V-k===N)return {kind:'±'+k,w:Math.max(0,3-k)};
+  }
+  return null;
+}
+
+// Tüm NS+NST+XS+XST değerlerinin liste hâli (etiketle birlikte).
+function _sablonAllValues(extracted){
+  const out=[];
+  const n=extracted.mainSorted.length;
+  extracted.ns.forEach((v,i)=>{
+    if(i===0)return; // NSA tek başına trivial
+    out.push({lbl:'NS'+_ALPHA.slice(0,i+1),val:v,kind:'NS'});
+  });
+  extracted.nst.forEach((v,k)=>out.push({lbl:'NST'+(k+1),val:v,kind:'NST'}));
+  if(extracted.xs){
+    extracted.xs.forEach((v,i)=>{
+      if(i===0)return;
+      out.push({lbl:'XS'+_ALPHA.slice(0,i+1),val:v,kind:'XS'});
+    });
+    extracted.xst.forEach((v,k)=>out.push({lbl:'XST'+(k+1),val:v,kind:'XST'}));
+  }
+  return out;
+}
+
+// Bir çekilişte tespit edilen şablonlar (her sayıyı vuran NS/NST kanıtları).
+function _sablonDetect(extracted){
+  const numSet=new Set([...extracted.mainSorted,...(extracted.bonus||[])]);
+  const vals=_sablonAllValues(extracted);
+  const gameMax=extracted.game.max;
+  const hits=[];
+  for(const v of vals){
+    for(const n of numSet){
+      const w=_sablonHitWeight(v.val,n,gameMax);
+      if(w)hits.push({val:v.val,lbl:v.lbl,kind:v.kind,num:n,...w});
+    }
+  }
+  return hits;
+}
+
+// Bir önceki çekilişten (lastDraw) sonraki çekiliş için aday sayı skorları.
+// Her NS/NST/XS/XST değeri için decade-class, mod100, mod-max ve direkt
+// vurguladığı tüm sayılara puan dağıtır.
+function _sablonScoreNext(lastDraw,game){
+  const ext=_sablonExtract(lastDraw,game);
+  const vals=_sablonAllValues(ext);
+  const score=new Float32Array(game.max+1);
+  const detail={};
+  const lastSet=new Set([...(lastDraw.nums||[]),...(lastDraw.bonus||[])]);
+  for(const v of vals){
+    for(let n=1;n<=game.max;n++){
+      const w=_sablonHitWeight(v.val,n,game.max);
+      if(!w)continue;
+      // Son çekilişin sayıları cezalandırılır (genelde tekrarlanmaz)
+      const mult=lastSet.has(n)?0.45:1;
+      score[n]+=w.w*mult;
+      const key=`${n}`;
+      if(!detail[key])detail[key]=[];
+      detail[key].push({lbl:v.lbl,val:v.val,kind:w.kind,w:w.w});
+    }
+  }
+  return {score,detail,ext,vals};
+}
+
+// Şablon tipinin geçmişteki vuruş frekansını hesaplar.
+// Her geçmiş çekiliş için: çekilişten önceki çekilişin _sablonScoreNext
+// sonuçlarındaki top-K aday gerçekte kaç tane vurdu?
+function _sablonBacktestTopK(draws,game,K,limit){
+  const N=Math.min(limit||80,draws.length-1);
+  let hitTotal=0,trials=0;
+  const histo=new Array(K+1).fill(0);
+  for(let i=0;i<N;i++){
+    const actual=draws[i];
+    const base=draws[i+1];if(!base||!base.nums)continue;
+    const {score}=_sablonScoreNext(base,game);
+    const ranked=[];
+    for(let n=1;n<=game.max;n++)ranked.push({n,s:score[n]});
+    ranked.sort((a,b)=>b.s-a.s);
+    const top=new Set(ranked.slice(0,K).map(x=>x.n));
+    const actSet=new Set(actual.nums||[]);
+    let hit=0;for(const n of actSet)if(top.has(n))hit++;
+    histo[Math.min(hit,K)]++;hitTotal+=hit;trials++;
+  }
+  return {trials,hitTotal,avg:trials?hitTotal/trials:0,histo,K};
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -3493,7 +3485,7 @@ function parseDatedDraws(){
   status.textContent=`✅ ${draws.length} tarihli çekiliş yüklendi (en yeni: ${draws[0].date}).`;
   updateBtDateOptions();
   initNaSection();
-  renderMatrix3();
+  if(document.getElementById('gizliSayfa')?.style.display==='block')try{_sablonRender();}catch(e){}
 }
 
 function updateBtDateOptions(){
@@ -4732,6 +4724,7 @@ function openGizliSayfa(){
   _gizliRenderInputs();
   gizliArsivTemizle();
   gizliTestInit();
+  try{_sablonRender();}catch(e){}
 }
 function closeGizliSayfa(){
   const el=document.getElementById('gizliSayfa');
@@ -4758,6 +4751,7 @@ function _gizliSetGame(gameId){
   _gizliRenderInputs();
   gizliArsivTemizle();
   gizliTestInit();
+  try{_sablonRender();}catch(e){}
 }
 function _gizliRenderGameSelector(){
   document.querySelectorAll('.gz-game-btn').forEach(b=>{
@@ -5052,7 +5046,335 @@ function gizliKopyalaHepsi(){
   copyNums(text);
 }
 
-// ── B10 Analizi ───────────────────────────────────────────────
+// ── Şablon Analizi UI ─────────────────────────────────────────
+let _sablonView='last';
+let _sablonBtK=15;
+function _sablonViewSwitch(view){
+  _sablonView=view;
+  ['last','next','history','backtest','banko'].forEach(v=>{
+    const b=document.getElementById('sablonView'+v.charAt(0).toUpperCase()+v.slice(1));
+    if(!b)return;
+    if(v===view){b.style.background='rgba(255,196,0,.18)';b.style.borderColor='rgba(255,196,0,.4)';b.style.color='#ffc400';}
+    else{b.style.background='rgba(255,255,255,.04)';b.style.borderColor='var(--border)';b.style.color='var(--muted)';}
+  });
+  _sablonRender();
+}
+
+function _sablonGetDraws(){
+  const id=_gizliSelectedGame||'super';
+  if(state.allDatedDraws&&state.allDatedDraws.length&&state.drawGameId===id)return state.allDatedDraws;
+  return _gizliGetDraws();
+}
+
+function _sablonRender(){
+  const panel=document.getElementById('sablonPanel');
+  if(!panel)return;
+  const game=_gizliCurrentGame();
+  const draws=_sablonGetDraws();
+  if(!draws||!draws.length){panel.innerHTML='<div class="empty-state"><span class="empty-icon">🔢</span>Veri bulunamadı.</div>';return;}
+  if(_sablonView==='last')return _sablonRenderLast(panel,draws,game);
+  if(_sablonView==='next')return _sablonRenderNext(panel,draws,game);
+  if(_sablonView==='history')return _sablonRenderHistory(panel,draws,game);
+  if(_sablonView==='backtest')return _sablonRenderBacktest(panel,draws,game);
+  if(_sablonView==='banko')return _sablonRenderBanko(panel,draws,game);
+}
+
+function _sablonChip(lbl,val,extra){
+  return `<span style="display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:6px;padding:2px 7px;font-family:monospace;font-size:.62rem;white-space:nowrap"><span style="color:var(--muted)">${lbl}</span><span style="color:#ffc400;font-weight:700">${val}</span>${extra||''}</span>`;
+}
+
+function _sablonNumBadge(n,strong,colorOverride){
+  const c=colorOverride||(strong?'var(--green)':'var(--text)');
+  const bg=strong?'rgba(0,230,118,.12)':'rgba(255,255,255,.04)';
+  const br=strong?'rgba(0,230,118,.35)':'var(--border)';
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;padding:2px 7px;border-radius:14px;background:${bg};border:1px solid ${br};color:${c};font-size:.68rem;font-weight:700;font-family:monospace">${n}</span>`;
+}
+
+function _sablonHitLine(hit){
+  const colors={exact:'#00e676',mod100:'#ffc400',['mod-max']:'#818cf8'};
+  const col=colors[hit.kind]||'#ff9100';
+  return `<span style="display:inline-flex;align-items:center;gap:3px;padding:1px 7px;border-radius:5px;background:rgba(255,255,255,.03);border:1px solid var(--border);font-family:monospace;font-size:.6rem"><span style="color:var(--muted)">${hit.lbl}=${hit.val}</span><span style="color:${col};font-weight:700">→${hit.num}</span><span style="color:rgba(255,255,255,.4);font-size:.55rem">(${hit.kind})</span></span>`;
+}
+
+function _sablonRenderLast(panel,draws,game){
+  const lastDraw=draws[0];
+  const ext=_sablonExtract(lastDraw,game);
+  const numSet=new Set([...ext.mainSorted,...(ext.bonus||[])]);
+  const hits=_sablonDetect(ext);
+  const hitByNum={};hits.forEach(h=>{if(!hitByNum[h.num])hitByNum[h.num]=[];hitByNum[h.num].push(h);});
+  let html='';
+  html+=`<div style="background:rgba(255,196,0,.05);border:1px solid rgba(255,196,0,.2);border-radius:8px;padding:9px 11px;margin-bottom:10px">`;
+  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">📅 ${lastDraw.date} · ${game.emoji} ${game.name}</div>`;
+  html+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">`;
+  ext.mainSorted.forEach((v,i)=>{const lbl=_ALPHA[i];const h=(hitByNum[v]||[]).length;
+    html+=`<div style="display:flex;flex-direction:column;align-items:center;padding:4px 8px;background:rgba(255,255,255,.04);border:1px solid ${h>0?'rgba(0,230,118,.4)':'var(--border)'};border-radius:7px"><span style="font-size:.5rem;color:var(--muted);font-weight:700">${lbl}</span><span style="font-size:.85rem;font-weight:800;color:${h>0?'var(--green)':'var(--text)'};font-family:monospace">${v}</span>${h>0?`<span style="font-size:.5rem;color:var(--green)">✓${h}</span>`:''}</div>`;});
+  if(ext.bonus.length){
+    html+=`<div style="display:flex;align-items:center;color:var(--muted);font-size:.85rem;padding:0 4px">|</div>`;
+    ext.bonus.forEach(v=>{const h=(hitByNum[v]||[]).length;html+=`<div style="display:flex;flex-direction:column;align-items:center;padding:4px 8px;background:rgba(255,101,132,.05);border:1px solid ${h>0?'rgba(0,230,118,.4)':'rgba(255,101,132,.3)'};border-radius:7px"><span style="font-size:.5rem;color:rgba(255,101,132,.7);font-weight:700">Bn</span><span style="font-size:.85rem;font-weight:800;color:${h>0?'var(--green)':'#ff6584'};font-family:monospace">${v}</span>${h>0?`<span style="font-size:.5rem;color:var(--green)">✓${h}</span>`:''}</div>`;});
+  }
+  html+=`</div></div>`;
+
+  // NS / NST table
+  html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:8px 0 5px;letter-spacing:.5px">▸ NS Zinciri</div>`;
+  html+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">`;
+  ext.ns.forEach((v,i)=>{
+    if(i===0)return;
+    const lbl='NS'+_ALPHA.slice(0,i+1);
+    const directHit=numSet.has(v);
+    const mod100=((v%100)+100)%100;
+    const mod100Hit=numSet.has(mod100);
+    const mmax=((v%game.max)+game.max)%game.max||game.max;
+    const modMaxHit=numSet.has(mmax);
+    const extra=[directHit&&`<span style="color:var(--green);font-size:.55rem">★direkt</span>`,mod100Hit&&`<span style="color:#ffc400;font-size:.55rem">→${mod100}</span>`,!mod100Hit&&modMaxHit&&`<span style="color:#818cf8;font-size:.55rem">%${mmax}</span>`].filter(Boolean).join(' ');
+    html+=_sablonChip(lbl,v,extra?'<span style="margin-left:4px">'+extra+'</span>':'');
+  });
+  html+=`</div>`;
+  html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:8px 0 5px;letter-spacing:.5px">▸ NST Zinciri</div>`;
+  html+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">`;
+  ext.nst.forEach((v,k)=>{
+    const lbl='NST'+(k+1);
+    const directHit=numSet.has(v);
+    const mod100=((v%100)+100)%100;const mod100Hit=numSet.has(mod100);
+    const mmax=((v%game.max)+game.max)%game.max||game.max;const modMaxHit=numSet.has(mmax);
+    const extra=[directHit&&`<span style="color:var(--green);font-size:.55rem">★direkt</span>`,mod100Hit&&`<span style="color:#ffc400;font-size:.55rem">→${mod100}</span>`,!mod100Hit&&modMaxHit&&`<span style="color:#818cf8;font-size:.55rem">%${mmax}</span>`].filter(Boolean).join(' ');
+    html+=_sablonChip(lbl,v,extra?'<span style="margin-left:4px">'+extra+'</span>':'');
+  });
+  html+=`</div>`;
+  if(ext.xs){
+    html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:8px 0 5px;letter-spacing:.5px">▸ XS Zinciri (bonusla)</div>`;
+    html+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">`;
+    ext.xs.forEach((v,i)=>{
+      if(i===0)return;
+      const lbl='XS'+_ALPHA.slice(0,i+1);
+      const directHit=numSet.has(v);
+      const mod100=((v%100)+100)%100;const mod100Hit=numSet.has(mod100);
+      const mmax=((v%game.max)+game.max)%game.max||game.max;const modMaxHit=numSet.has(mmax);
+      const extra=[directHit&&`<span style="color:var(--green);font-size:.55rem">★direkt</span>`,mod100Hit&&`<span style="color:#ffc400;font-size:.55rem">→${mod100}</span>`,!mod100Hit&&modMaxHit&&`<span style="color:#818cf8;font-size:.55rem">%${mmax}</span>`].filter(Boolean).join(' ');
+      html+=_sablonChip(lbl,v,extra?'<span style="margin-left:4px">'+extra+'</span>':'');
+    });
+    html+=`</div>`;
+    html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:8px 0 5px;letter-spacing:.5px">▸ XST Zinciri</div>`;
+    html+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">`;
+    ext.xst.forEach((v,k)=>{
+      const lbl='XST'+(k+1);
+      const directHit=numSet.has(v);
+      const mod100=((v%100)+100)%100;const mod100Hit=numSet.has(mod100);
+      const mmax=((v%game.max)+game.max)%game.max||game.max;const modMaxHit=numSet.has(mmax);
+      const extra=[directHit&&`<span style="color:var(--green);font-size:.55rem">★direkt</span>`,mod100Hit&&`<span style="color:#ffc400;font-size:.55rem">→${mod100}</span>`,!mod100Hit&&modMaxHit&&`<span style="color:#818cf8;font-size:.55rem">%${mmax}</span>`].filter(Boolean).join(' ');
+      html+=_sablonChip(lbl,v,extra?'<span style="margin-left:4px">'+extra+'</span>':'');
+    });
+    html+=`</div>`;
+  }
+
+  // Şablon kanıtları sayı başına
+  if(Object.keys(hitByNum).length){
+    html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:10px 0 5px;letter-spacing:.5px">▸ Sayı Başına Şablon Kanıtları</div>`;
+    const sortedNums=Object.keys(hitByNum).map(Number).sort((a,b)=>a-b);
+    sortedNums.forEach(n=>{
+      const arr=hitByNum[n].sort((a,b)=>b.w-a.w);
+      html+=`<div style="display:flex;gap:6px;align-items:flex-start;padding:5px 7px;background:rgba(0,230,118,.03);border:1px solid rgba(0,230,118,.18);border-radius:7px;margin-bottom:4px">`;
+      html+=`<div style="flex-shrink:0">${_sablonNumBadge(n,true)}</div>`;
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:3px;flex:1">${arr.map(_sablonHitLine).join('')}</div>`;
+      html+=`</div>`;
+    });
+  }else{
+    html+=`<div style="font-size:.65rem;color:var(--muted);padding:8px;text-align:center">Bu çekilişte tanımlı şablon vuruşu bulunamadı.</div>`;
+  }
+  panel.innerHTML=html;
+}
+
+function _sablonRenderNext(panel,draws,game){
+  const lastDraw=draws[0];
+  const {score,detail,ext,vals}=_sablonScoreNext(lastDraw,game);
+  // Rank candidates
+  const ranked=[];
+  for(let n=1;n<=game.max;n++)ranked.push({n,s:score[n],evid:detail[n]||[]});
+  ranked.sort((a,b)=>b.s-a.s);
+  const topN=ranked.slice(0,Math.min(20,game.max));
+  const maxS=topN[0]?.s||1;
+  let html='';
+  html+=`<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.25);border-radius:8px;padding:9px 11px;margin-bottom:10px">`;
+  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Baz: ${lastDraw.date} · NS+NST${ext.xs?'+XS+XST':''} zincirleri → decade-class · mod-100 · mod-${game.max} taraması</div>`;
+  html+=`<div style="font-size:.66rem;color:var(--text);font-weight:700;margin-bottom:6px">🎯 En Güçlü ${topN.length} Aday (skor sırasıyla)</div>`;
+  html+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`;
+  topN.forEach(({n,s})=>{
+    const ratio=s/maxS;
+    const color=ratio>0.85?'#00e676':ratio>0.6?'#ffc400':ratio>0.35?'#818cf8':'var(--muted)';
+    const bg=ratio>0.85?'rgba(0,230,118,.15)':ratio>0.6?'rgba(255,196,0,.13)':ratio>0.35?'rgba(129,140,248,.13)':'rgba(255,255,255,.05)';
+    html+=`<div style="display:flex;flex-direction:column;align-items:center;padding:5px 9px;border-radius:8px;background:${bg};border:1px solid ${color}"><span style="font-size:.95rem;font-weight:800;color:${color};font-family:monospace">${n}</span><span style="font-size:.55rem;color:var(--muted)">${s.toFixed(1)}</span></div>`;
+  });
+  html+=`</div></div>`;
+
+  // Detail per top number
+  html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:6px 0 5px;letter-spacing:.5px">▸ En İyi 10 Adayın Kanıt Detayı</div>`;
+  topN.slice(0,10).forEach(({n,s,evid})=>{
+    const top5=evid.sort((a,b)=>b.w-a.w).slice(0,8);
+    html+=`<div style="display:flex;gap:6px;align-items:flex-start;padding:5px 7px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:7px;margin-bottom:4px">`;
+    html+=`<div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;min-width:40px">${_sablonNumBadge(n,s>maxS*0.5)}<span style="font-size:.55rem;color:var(--muted);margin-top:2px">${s.toFixed(1)}</span></div>`;
+    html+=`<div style="display:flex;flex-wrap:wrap;gap:3px;flex:1">${top5.map(e=>`<span style="display:inline-flex;gap:3px;padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.04);font-family:monospace;font-size:.58rem"><span style="color:var(--muted)">${e.lbl}=${e.val}</span><span style="color:#ffc400">${e.kind}</span><span style="color:rgba(255,255,255,.4)">+${e.w}</span></span>`).join('')}</div>`;
+    html+=`</div>`;
+  });
+
+  // Copy button
+  const topCount=Math.min(game.count*3,15);
+  const top=ranked.slice(0,topCount).map(x=>x.n).sort((a,b)=>a-b);
+  html+=`<button onclick="navigator.clipboard.writeText('${top.join(' ')}').then(()=>showToast('📋 Kopyalandı')).catch(()=>showToast('Kopyalanamadı'))" style="margin-top:8px;background:rgba(255,196,0,.12);border:1px solid rgba(255,196,0,.3);color:#ffc400;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">📋 Top ${topCount} Aday Kopyala</button>`;
+  panel.innerHTML=html;
+}
+
+function _sablonRenderHistory(panel,draws,game){
+  const recent=draws.slice(0,Math.min(20,draws.length));
+  let html='';
+  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Son ${recent.length} çekilişin her birinde NS/NST/XS/XST değerlerinin sayıları nasıl vurduğu.</div>`;
+  recent.forEach(d=>{
+    const ext=_sablonExtract(d,game);
+    const numSet=new Set([...ext.mainSorted,...(ext.bonus||[])]);
+    const hits=_sablonDetect(ext);
+    const byNum={};hits.forEach(h=>{if(!byNum[h.num])byNum[h.num]=[];byNum[h.num].push(h);});
+    const hitCount=Object.keys(byNum).length;
+    const has=hitCount>0;
+    html+=`<div style="background:${has?'rgba(0,230,118,.03)':'var(--surface2)'};border:1px solid ${has?'rgba(0,230,118,.25)':'var(--border)'};border-radius:8px;padding:7px 10px;margin-bottom:6px">`;
+    html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px">`;
+    html+=`<span style="font-size:.62rem;color:var(--muted);font-weight:700">${d.date||'—'}</span>`;
+    html+=`<span style="font-size:.58rem;color:${has?'var(--green)':'var(--muted)'};font-weight:700">${has?`✓ ${hitCount} sayı vuruldu`:'— vuruş yok'}</span>`;
+    html+=`</div>`;
+    html+=`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px">`;
+    ext.mainSorted.forEach(v=>{const h=byNum[v]?.length||0;html+=_sablonNumBadge(v,h>0);});
+    if(ext.bonus.length){html+=`<span style="color:var(--muted);font-size:.7rem;padding:0 3px">|</span>`;ext.bonus.forEach(v=>{const h=byNum[v]?.length||0;html+=_sablonNumBadge(v,h>0,h>0?undefined:'#ff6584');});}
+    html+=`</div>`;
+    if(has){
+      const lines=Object.keys(byNum).map(Number).sort((a,b)=>a-b).map(n=>{
+        const arr=byNum[n].sort((a,b)=>b.w-a.w).slice(0,3);
+        return `<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap"><strong style="color:var(--green);min-width:24px;font-family:monospace">${n}</strong>${arr.map(_sablonHitLine).join('')}</div>`;
+      }).join('');
+      html+=`<div style="display:flex;flex-direction:column;gap:3px;padding-top:4px;border-top:1px solid rgba(255,255,255,.06)">${lines}</div>`;
+    }
+    html+=`</div>`;
+  });
+  panel.innerHTML=html;
+}
+
+function _sablonRenderBacktest(panel,draws,game){
+  let html='';
+  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px;padding:7px 10px;background:rgba(255,255,255,.03);border-radius:6px">Her geçmiş çekiliş için: çekilişten önceki çekilişin NS/NST şablonlarından <em>top-K</em> aday seçildi, gerçekleşen çekilişte kaç tanesi vurdu? Beklenen (rastgele) vuruş ≈ <strong>${game.count}·K/${game.max}</strong> = <strong>${(game.count*_sablonBtK/game.max).toFixed(2)}</strong>.</div>`;
+  html+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">`;
+  [5,10,15,20,30].forEach(k=>{
+    const act=k===_sablonBtK;
+    html+=`<button onclick="_sablonBtK=${k};_sablonRender()" style="background:${act?'rgba(255,196,0,.2)':'rgba(255,255,255,.04)'};border:1px solid ${act?'rgba(255,196,0,.4)':'var(--border)'};color:${act?'#ffc400':'var(--muted)'};border-radius:6px;padding:4px 10px;cursor:pointer;font-size:.65rem;font-weight:700">K=${k}</button>`;
+  });
+  html+=`</div>`;
+  const limit=Math.min(120,draws.length-1);
+  const r=_sablonBacktestTopK(draws,game,_sablonBtK,limit);
+  const expected=game.count*_sablonBtK/game.max;
+  const lift=r.avg/expected;
+  html+=`<div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.2);border-radius:8px;padding:9px 11px;margin-bottom:10px">`;
+  html+=`<div style="font-size:.7rem;color:var(--text);font-weight:700;margin-bottom:6px">Sonuç (Top ${_sablonBtK} aday · ${r.trials} test)</div>`;
+  html+=`<div style="display:flex;gap:8px;flex-wrap:wrap">`;
+  html+=`<div style="flex:1;min-width:90px;padding:6px 9px;background:rgba(255,255,255,.03);border-radius:6px"><div style="font-size:.55rem;color:var(--muted)">Ortalama Vuruş</div><div style="font-size:1.05rem;font-weight:800;color:#00e676;font-family:monospace">${r.avg.toFixed(2)}</div></div>`;
+  html+=`<div style="flex:1;min-width:90px;padding:6px 9px;background:rgba(255,255,255,.03);border-radius:6px"><div style="font-size:.55rem;color:var(--muted)">Beklenen</div><div style="font-size:1.05rem;font-weight:800;color:var(--muted);font-family:monospace">${expected.toFixed(2)}</div></div>`;
+  html+=`<div style="flex:1;min-width:90px;padding:6px 9px;background:rgba(255,255,255,.03);border-radius:6px"><div style="font-size:.55rem;color:var(--muted)">Lift (×)</div><div style="font-size:1.05rem;font-weight:800;color:${lift>1.2?'#00e676':lift>1?'#ffc400':'#ff6584'};font-family:monospace">${lift.toFixed(2)}×</div></div>`;
+  html+=`</div></div>`;
+  // Histogram
+  html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin-bottom:5px">▸ Vuruş Dağılımı</div>`;
+  const maxC=Math.max(...r.histo,1);
+  html+=`<div style="display:flex;align-items:flex-end;gap:4px;height:90px;padding:4px 0;border-bottom:1px solid var(--border)">`;
+  r.histo.forEach((c,i)=>{
+    const h=Math.round(c/maxC*84);
+    html+=`<div style="display:flex;flex-direction:column;align-items:center;flex:1"><div style="font-size:.55rem;color:var(--muted);margin-bottom:2px">${c}</div><div style="width:100%;background:linear-gradient(to top,${i>0?'#ffc400':'rgba(255,255,255,.1)'},${i>1?'#00e676':'rgba(255,255,255,.05)'});height:${Math.max(1,h)}px;border-radius:3px 3px 0 0"></div><div style="font-size:.55rem;color:var(--muted);margin-top:2px;font-weight:700">${i}</div></div>`;
+  });
+  html+=`</div>`;
+  html+=`<div style="font-size:.55rem;color:var(--muted);text-align:center;margin-top:3px">x ekseni: tek bir testte vuran sayı adedi · y ekseni: bu sonucu yakalayan test sayısı</div>`;
+  panel.innerHTML=html;
+}
+
+function _sablonRenderBanko(panel,draws,game){
+  const cnt=game.count;
+  let html='';
+  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px;padding:7px 10px;background:rgba(255,255,255,.03);border-radius:6px">2-3 banko sayısı girin; sistem son çekilişin NS/NST zincirlerinden ve banko değerlerinden yola çıkarak şablonu tamamlayan en güçlü adayları gösterir. Banko sayıları tüm zincirin başına sokulup yeni NS değerleri hesaplanır.</div>`;
+  html+=`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">`;
+  for(let i=0;i<Math.min(cnt-1,4);i++){
+    html+=`<div style="display:flex;flex-direction:column;align-items:center"><label style="font-size:.55rem;color:var(--muted);margin-bottom:2px">Banko ${i+1}</label><input id="_sBk${i}" type="text" inputmode="decimal" style="width:50px;font-size:.85rem;text-align:center;padding:4px 6px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px"></div>`;
+  }
+  html+=`<button onclick="_sablonRunBanko()" style="background:rgba(255,196,0,.15);border:1px solid rgba(255,196,0,.4);color:#ffc400;border-radius:7px;padding:7px 14px;cursor:pointer;font-size:.72rem;font-weight:700;margin-top:14px">🔬 Şablon Çıkar</button>`;
+  html+=`</div>`;
+  html+=`<div id="_sablonBankoOut" style="font-size:.7rem"></div>`;
+  panel.innerHTML=html;
+}
+
+function _sablonRunBanko(){
+  const game=_gizliCurrentGame();
+  const draws=_sablonGetDraws();
+  const out=document.getElementById('_sablonBankoOut');
+  if(!out)return;
+  const bankos=[];
+  for(let i=0;i<6;i++){
+    const inp=document.getElementById('_sBk'+i);if(!inp)break;
+    const v=parseInt(inp.value);
+    if(v>=1&&v<=game.max)bankos.push(v);
+  }
+  if(bankos.length<1){out.innerHTML='<div style="color:#ff6584;font-size:.7rem;padding:8px">⚠️ En az 1 banko girin</div>';return;}
+  bankos.sort((a,b)=>a-b);
+  const lastDraw=draws[0];
+  const {score:baseScore,ext}=_sablonScoreNext(lastDraw,game);
+  // Add banko-driven NS chain (treating bankos as the beginning of next draw)
+  const bScore=new Float32Array(game.max+1);
+  const need=game.count-bankos.length;
+  if(need<=0){out.innerHTML='<div style="color:var(--muted);font-size:.7rem;padding:8px">Banko sayısı çekiliş kolonunu doldurdu, ek aday gerekmez.</div>';return;}
+  const baseSum=bankos.reduce((a,b)=>a+b,0);
+  // For each candidate n that could be the next sorted slot, compute resulting NS values
+  // and check if they hit existing draw numbers or match historical pattern frequencies.
+  // Combined scoring: baseScore (last draw's pattern) + banko-completion synergy.
+  for(let n=1;n<=game.max;n++){
+    if(bankos.includes(n)){bScore[n]=-1;continue;}
+    // synergy: candidate's NS with each banko
+    let syn=0;
+    for(const b of bankos){
+      const pair=b+n;
+      const ones=pair%10;
+      // Check if pair's ones matches any number in last draw (decade pattern)
+      for(const m of [...ext.mainSorted,...(ext.bonus||[])])if(m%10===ones)syn+=1.5;
+      if(pair%100===n||pair%100===b)syn+=2;
+    }
+    // Decade class match with any banko
+    let dec=0;
+    for(const b of bankos)if(b%10===n%10)dec+=1;
+    bScore[n]=baseScore[n]+syn+dec*0.7;
+  }
+  const ranked=[];
+  for(let n=1;n<=game.max;n++)if(bScore[n]>=0)ranked.push({n,s:bScore[n]});
+  ranked.sort((a,b)=>b.s-a.s);
+  const topN=ranked.slice(0,Math.min(need*4,16));
+  const maxS=topN[0]?.s||1;
+  let html=`<div style="background:rgba(255,196,0,.05);border:1px solid rgba(255,196,0,.2);border-radius:7px;padding:8px 10px;margin-bottom:8px">`;
+  html+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">Banko: ${bankos.map(b=>`<strong style="color:#ffd700">${b}</strong>`).join(' ')} · ${need} adet daha gerek</div>`;
+  html+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`;
+  topN.forEach(({n,s})=>{
+    const ratio=s/maxS;
+    const color=ratio>0.8?'#00e676':ratio>0.55?'#ffc400':'#818cf8';
+    const bg=ratio>0.8?'rgba(0,230,118,.13)':ratio>0.55?'rgba(255,196,0,.11)':'rgba(129,140,248,.1)';
+    html+=`<div style="display:flex;flex-direction:column;align-items:center;padding:5px 9px;border-radius:7px;background:${bg};border:1px solid ${color}"><span style="font-size:.95rem;font-weight:800;color:${color};font-family:monospace">${n}</span><span style="font-size:.5rem;color:var(--muted)">${s.toFixed(1)}</span></div>`;
+  });
+  html+=`</div></div>`;
+  // Suggested combined columns (each: bankos + top-need candidates rotated)
+  html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:8px 0 5px;letter-spacing:.5px">▸ Önerilen Kolonlar (${need} ek aday)</div>`;
+  const numCols=Math.min(6,Math.floor(topN.length/Math.max(1,need)));
+  const cols=[];
+  for(let c=0;c<numCols;c++){
+    const cands=topN.slice(c*need,c*need+need).map(x=>x.n);
+    if(cands.length<need)continue;
+    const col=[...bankos,...cands].sort((a,b)=>a-b);
+    cols.push(col);
+  }
+  if(!cols.length){
+    cols.push([...bankos,...topN.slice(0,need).map(x=>x.n)].sort((a,b)=>a-b));
+  }
+  cols.forEach((col,i)=>{
+    html+=`<div style="display:flex;gap:4px;align-items:center;padding:5px 7px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:7px;margin-bottom:4px"><span style="font-size:.6rem;color:var(--muted);min-width:24px">#${i+1}</span>`;
+    col.forEach(n=>{const isB=bankos.includes(n);html+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;padding:2px 7px;border-radius:14px;background:${isB?'rgba(255,215,0,.18)':'rgba(0,230,118,.12)'};border:1px solid ${isB?'rgba(255,215,0,.5)':'rgba(0,230,118,.35)'};color:${isB?'#ffd700':'var(--green)'};font-size:.7rem;font-weight:700;font-family:monospace">${n}</span>`;});
+    html+=`</div>`;
+  });
+  out.innerHTML=html;
+}
 function switchB10Tab(name){
   ['tahmin','backtest'].forEach(t=>{
     document.getElementById('b10TabBtn-'+t)?.classList.toggle('active',t===name);
@@ -6603,6 +6925,28 @@ initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats(
    </div>
    <div id="gizliTestActual" style="padding:8px 10px;background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.12);border-radius:8px;min-height:36px;margin-bottom:8px"></div>
    <div id="gizliTestResult" style="max-height:420px;overflow-y:auto"></div>
+  </div>
+
+  <!-- Matematiksel Şablon Analizi -->
+  <div style="background:var(--surface);border:1px solid rgba(255,196,0,.25);border-radius:12px;padding:14px;margin-top:14px">
+   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:.88rem;font-weight:800;background:linear-gradient(135deg,#ffd700,#ff6584);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">🔢 Matematiksel Şablon Analizi</div>
+    <button onclick="_sablonRender()" style="background:rgba(255,196,0,.12);border:1px solid rgba(255,196,0,.3);color:#ffc400;border-radius:7px;padding:4px 11px;cursor:pointer;font-size:.7rem;font-weight:700">↺ Yenile</button>
+   </div>
+   <div style="font-size:.62rem;color:var(--muted);line-height:1.65;margin-bottom:10px;padding:7px 10px;background:rgba(255,255,255,.03);border-radius:6px">
+    <strong style="color:var(--text)">NS</strong> = sıralı sayıların ardışık toplamı (NSA, NSAB, NSABC, ...).<br>
+    <strong style="color:var(--text)">NST</strong> = NS değerlerinin ardışık toplamı (NST1, NST2, ...).<br>
+    <strong style="color:var(--text)">XS / XST</strong> = bonusla birlikte 7-8 sayının versionu.<br>
+    Bir <em>V</em> değeri bir <em>N</em> sayısını <strong style="color:#ffc400">vurur</strong> şu yollardan biriyle: doğrudan (V=N), mod-100 (V'nin 200'lü versionu N), mod-max, decade-class (V'nin 70'li/80'li versionu N), küçük sapma (±1..±5).
+   </div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <button onclick="_sablonViewSwitch('last')" id="sablonViewLast" style="background:rgba(255,196,0,.18);border:1px solid rgba(255,196,0,.4);color:#ffc400;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">📅 Son Çekiliş</button>
+    <button onclick="_sablonViewSwitch('next')" id="sablonViewNext" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">🎯 Sonraki Çekiliş Adayları</button>
+    <button onclick="_sablonViewSwitch('history')" id="sablonViewHistory" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">📜 Geçmiş Vuruşlar</button>
+    <button onclick="_sablonViewSwitch('backtest')" id="sablonViewBacktest" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">🔬 Top-K Geri Test</button>
+    <button onclick="_sablonViewSwitch('banko')" id="sablonViewBanko" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">🎰 Banko + Şablon</button>
+   </div>
+   <div id="sablonPanel" style="font-size:.72rem"></div>
   </div>
 
  </div>
