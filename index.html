@@ -6065,15 +6065,6 @@ function listelerToggleCheck(id){
   if(col){col.checked=!col.checked;_listelerRecompute();_renderListelerCols();}
 }
 
-function listelerMoveCol(id,dir){
-  const i=_listelerHistory.findIndex(h=>h.id===id);
-  if(i<0)return;
-  const j=i+dir;
-  if(j<0||j>=_listelerHistory.length)return;
-  const tmp=_listelerHistory[i];_listelerHistory[i]=_listelerHistory[j];_listelerHistory[j]=tmp;
-  _renderListelerCols();
-}
-
 function listelerRemoveCol(id){
   _listelerHistory=_listelerHistory.filter(h=>h.id!==id);
   _listelerRecompute();
@@ -6167,14 +6158,9 @@ function _renderListelerCols(){
     div.className='listeler-col';
     div.id='lcol-'+col.id;
     const actualNums=col.actual?[...(col.actual.nums||[]),...(col.actual.bonus||[])]:[];
-    const ci=_listelerHistory.indexOf(col);
-    const isFirst=ci===0,isLast=ci===_listelerHistory.length-1;
-    const btnStyle='background:none;border:none;cursor:pointer;padding:0 1px;line-height:1;flex-shrink:0;font-size:.7rem;';
     let hdr=`<div style="display:flex;align-items:center;gap:4px;margin-bottom:6px">`;
     hdr+=`<input type="checkbox" ${col.checked?'checked':''} onchange="listelerToggleCheck('${col.id}')" style="cursor:pointer;flex-shrink:0">`;
     hdr+=`<span style="font-size:.62rem;color:var(--text);font-weight:700;flex:1">${col.date}</span>`;
-    hdr+=`<button onclick="listelerMoveCol('${col.id}',-1)" style="${btnStyle}color:${isFirst?'rgba(180,180,180,.25)':'var(--muted)'}" ${isFirst?'disabled':''}>◀</button>`;
-    hdr+=`<button onclick="listelerMoveCol('${col.id}',1)" style="${btnStyle}color:${isLast?'rgba(180,180,180,.25)':'var(--muted)'}" ${isLast?'disabled':''}>▶</button>`;
     hdr+=`<button onclick="listelerRemoveCol('${col.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.82rem;padding:0 2px;line-height:1;flex-shrink:0">✕</button>`;
     hdr+=`</div>`;
     if(actualNums.length){
