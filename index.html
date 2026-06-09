@@ -823,11 +823,14 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div class="card">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px">
         <div class="card-title" style="margin-bottom:0">🔎 Bulunan Sayılar</div>
-        <button onclick="listelerCopyBulundu()" style="padding:5px 12px;background:rgba(120,120,120,.13);border:1px solid rgba(180,180,180,.3);color:var(--muted);border-radius:8px;cursor:pointer;font-size:.72rem;font-weight:700;flex-shrink:0">📋 Kopyala</button>
+        <button onclick="listelerCopyBulundu()" style="padding:5px 12px;background:rgba(120,120,120,.13);border:1px solid rgba(180,180,180,.3);color:var(--muted);border-radius:8px;cursor:pointer;font-size:.72rem;font-weight:700;flex-shrink:0">📋 Tümünü Kopyala</button>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
         <div>
-          <div style="font-size:.65rem;font-weight:700;color:#ef9a9a;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">🔴 Kırmızı Hücrelerden Sayılar</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div style="font-size:.65rem;font-weight:700;color:#ef9a9a;text-transform:uppercase;letter-spacing:.8px">🔴 Kırmızı Hücrelerden Sayılar</div>
+            <button onclick="listelerCopyKirmizi()" style="padding:3px 9px;background:rgba(239,154,154,.1);border:1px solid rgba(239,154,154,.3);color:#ef9a9a;border-radius:6px;cursor:pointer;font-size:.65rem;font-weight:700;flex-shrink:0">📋 Kopyala</button>
+          </div>
           <div id="listelerBulunduLeft"></div>
         </div>
         <div>
@@ -6241,6 +6244,19 @@ function listelerCopyBulundu(){
   }
   if(lines.length<=1){showToast('⚠️ Önce Kontrol butonuna basın');return;}
   navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('📋 Kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
+}
+
+function listelerCopyKirmizi(){
+  if(!_listelerNewPred||!_listelerRedKeys.size){showToast('⚠️ Kırmızı hücre yok');return;}
+  const numCnt={};const _s2=new Set();const redNums=[];
+  _listelerNewPred.tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
+    if(_listelerRedKeys.has(`${ti}-${pi}`)){
+      numCnt[num]=(numCnt[num]||0)+1;
+      if(!_s2.has(num)){_s2.add(num);redNums.push(num);}
+    }
+  }));
+  const text=redNums.length?redNums.map(n=>n+(numCnt[n]>1?`(${numCnt[n]}×)`:'')).join(' '):'—';
+  navigator.clipboard.writeText(text).then(()=>showToast('📋 Kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
 }
 
 function copyB10Bt(){
