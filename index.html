@@ -35,6 +35,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .lcell.l-green{background:#43a047;color:#fff;border-color:#2e7d32}
 .lcell.l-red{background:#e53935;color:#fff;border-color:#b71c1c}
 .lrow{display:flex;gap:1px;margin-bottom:1px}
+.lrow-num{width:13px;font-size:.5rem;color:var(--muted);display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;padding-right:1px;line-height:1;opacity:.55}
 .listeler-col{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px;flex-shrink:0;min-width:0}
 .listeler-col-new{border:2px solid rgba(108,99,255,.45);background:rgba(108,99,255,.04)}
 .listeler-tickets{overflow-y:auto;max-height:620px}
@@ -5892,9 +5893,23 @@ function runOrtakSayilar(){
 
 // ═══════════ Listeler Sayfası ════════════════════════════════
 let _listelerGame=null;
-let _listelerNewPred=null; // {tickets:[{main,bonus}], game, algoId}
-let _listelerHistory=[]; // [{id,date,actual,tickets,game,algoId,checked,greenCells:Set}]
-let _listelerRedKeys=new Set(); // "ti-pi" keys that are red across checked columns
+let _listelerNewPred=null;
+let _listelerHistory=[];
+let _listelerRedKeys=new Set();
+let _lScrollLock=false;
+function _listelerAttachScrollSync(){
+  const els=document.querySelectorAll('.listeler-tickets');
+  els.forEach(el=>{
+    el.onscroll=null;
+    el.addEventListener('scroll',()=>{
+      if(_lScrollLock)return;
+      _lScrollLock=true;
+      const top=el.scrollTop;
+      document.querySelectorAll('.listeler-tickets').forEach(o=>{if(o!==el)o.scrollTop=top;});
+      _lScrollLock=false;
+    },{passive:true});
+  });
+}
 
 function _initListelerPage(){
   _listelerGame=_listelerGame||state.selectedGame||GAMES[0].id;
@@ -6025,16 +6040,12 @@ function listelerRunNewPred(){
 function _listelerRecompute(){
   const checked=_listelerHistory.filter(h=>h.checked);
   if(checked.length<2){_listelerRedKeys=new Set();return;}
-  // Count how many checked columns each NUMBER appeared green (matched actual) in
-  const numCnt={};
-  checked.forEach(col=>{
-    const greenNums=new Set();
-    col.tickets.forEach((t,ti)=>{const nums=[...t.main,...t.bonus];nums.forEach((num,pi)=>{if(col.greenCells.has(`${ti}-${pi}`))greenNums.add(num);});});
-    greenNums.forEach(n=>{numCnt[n]=(numCnt[n]||0)+1;});
-  });
-  // Red = number was green in ALL checked columns
+  // Count how many checked columns each POSITION ti-pi was green (matched actual)
+  const cnt={};
+  checked.forEach(col=>col.greenCells.forEach(k=>{cnt[k]=(cnt[k]||0)+1;}));
+  // Red = position was green in ALL checked columns
   const total=checked.length;
-  _listelerRedKeys=new Set(Object.keys(numCnt).filter(n=>numCnt[n]>=total).map(Number));
+  _listelerRedKeys=new Set(Object.entries(cnt).filter(([,v])=>v>=total).map(([k])=>k));
 }
 
 function listelerToggleCheck(id){
@@ -6057,8 +6068,8 @@ function listelerKontrol(){
   const numCnt={};
   const numOrder=[];
   const _seen=new Set();
-  tickets.forEach(t=>[...t.main,...t.bonus].forEach(num=>{
-    if(_listelerRedKeys.has(num)){
+  tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
+    if(_listelerRedKeys.has(`${ti}-${pi}`)){
       numCnt[num]=(numCnt[num]||0)+1;
       if(!_seen.has(num)){_seen.add(num);numOrder.push(num);}
     }
@@ -6103,14 +6114,15 @@ function _renderListelerNewPred(){
   let html='';
   tickets.forEach((t,ti)=>{
     const nums=[...t.main,...t.bonus];
-    html+='<div class="lrow">';
+    html+=`<div class="lrow"><div class="lrow-num">${ti+1}</div>`;
     nums.forEach((n,pi)=>{
-      const cls=_listelerRedKeys.has(n)?'lcell l-red':'lcell';
+      const cls=_listelerRedKeys.has(`${ti}-${pi}`)?'lcell l-red':'lcell';
       html+=`<div class="${cls}">${n}</div>`;
     });
     html+='</div>';
   });
   container.innerHTML=html;
+  _listelerAttachScrollSync();
 }
 
 function _renderListelerCols(){
@@ -6135,11 +6147,12 @@ function _renderListelerCols(){
     let tickHtml='';
     col.tickets.forEach((t,ti)=>{
       const nums=[...t.main,...t.bonus];
-      tickHtml+='<div class="lrow">';
+      tickHtml+=`<div class="lrow"><div class="lrow-num">${ti+1}</div>`;
       nums.forEach((n,pi)=>{
         const key=`${ti}-${pi}`;
         const isGreen=col.greenCells.has(key);
-        const isRed=isGreen&&_listelerRedKeys.has(n);
+        // Red in history: position is cross-column AND green in this column too
+        const isRed=isGreen&&_listelerRedKeys.has(key);
         tickHtml+=`<div class="lcell${isRed?' l-red':isGreen?' l-green':''}">${n}</div>`;
       });
       tickHtml+='</div>';
@@ -6147,7 +6160,6 @@ function _renderListelerCols(){
     div.innerHTML=hdr+`<div class="listeler-tickets">${tickHtml}</div>`;
     container.appendChild(div);
   });
-  // Yeni tahmin sütununu da yeniden çiz (kırmızı hücreler değişmiş olabilir)
   _renderListelerNewPred();
 }
 
@@ -6177,8 +6189,8 @@ function listelerCopyBulundu(){
   // Kırmızı hücrelerden sayılar
   if(_listelerNewPred){
     const _s2=new Set();const redNums=[];
-    _listelerNewPred.tickets.forEach(t=>[...t.main,...t.bonus].forEach(num=>{
-      if(_listelerRedKeys.has(num)&&!_s2.has(num)){_s2.add(num);redNums.push(num);}
+    _listelerNewPred.tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
+      if(_listelerRedKeys.has(`${ti}-${pi}`)&&!_s2.has(num)){_s2.add(num);redNums.push(num);}
     }));
     lines.push(`🔴 Kırmızı Hücreler: ${redNums.length?redNums.join(' '):'—'}`);
   }
