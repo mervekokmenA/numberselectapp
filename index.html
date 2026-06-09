@@ -34,6 +34,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .lcell{width:22px;height:18px;font-size:.58rem;display:flex;align-items:center;justify-content:center;background:#fff;color:#222;border:1px solid #ddd;font-weight:600;border-radius:2px;flex-shrink:0;line-height:1}
 .lcell.l-green{background:#43a047;color:#fff;border-color:#2e7d32}
 .lcell.l-red{background:#e53935;color:#fff;border-color:#b71c1c}
+.lcell.l-pink{background:#ffd6e0;color:#c2185b;border-color:#f48fb1}
 .lrow{display:flex;gap:1px;margin-bottom:1px}
 .lrow-num{width:18px;font-size:.58rem;color:var(--accent);display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;padding-right:2px;line-height:1;font-weight:600;opacity:.75}
 .listeler-col{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px;flex-shrink:0;min-width:0}
@@ -6791,12 +6792,16 @@ function _renderListelerCols(){
     let tickHtml='';
     col.tickets.forEach((t,ti)=>{
       const nums=[...t.main,...t.bonus];
+      // Count green cells in this row for this column
+      const rowGreenCount=nums.reduce((c,_,pi)=>c+(col.greenCells.has(`${ti}-${pi}`)?1:0),0);
+      const rowHot=rowGreenCount>=3;
       tickHtml+=`<div class="lrow"><div class="lrow-num">${ti+1}</div>`;
       nums.forEach((n,pi)=>{
         const key=`${ti}-${pi}`;
         const isGreen=col.greenCells.has(key);
         const isRed=isGreen&&_listelerRedKeys.has(key);
-        tickHtml+=`<div class="lcell${isRed?' l-red':isGreen?' l-green':''}">${n}</div>`;
+        const isPink=rowHot&&!isGreen&&!isRed;
+        tickHtml+=`<div class="lcell${isRed?' l-red':isGreen?' l-green':isPink?' l-pink':''}">${n}</div>`;
       });
       tickHtml+='</div>';
     });
