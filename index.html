@@ -747,7 +747,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
           </div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-size:.72rem;color:var(--muted);min-width:70px">Algoritma:</span>
-            <select id="scanAlgo" onchange="runScan()" style="flex:1;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+            <select id="scanAlgo" onchange="runScan(true)" style="flex:1;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
             <button onclick="stepScanAlgo(-1)" title="Önceki algoritma" style="flex-shrink:0;padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.82rem;line-height:1">▲</button>
             <button onclick="stepScanAlgo(1)"  title="Sonraki algoritma" style="flex-shrink:0;padding:5px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.82rem;line-height:1">▼</button>
           </div>
@@ -759,6 +759,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
               <option value="100">Son 100</option>
               <option value="999" selected>Tümü</option>
             </select>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:.72rem;color:var(--muted);min-width:70px">Hedef:</span>
+            <input type="date" id="scanTargetDate" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px">
+            <button onclick="document.getElementById('scanTargetDate').value=_predNextDrawDate(_scanGame||state.selectedGame)||''" title="Otomatik hesapla" style="font-size:.7rem;padding:4px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">↻</button>
           </div>
         </div>
         <button onclick="runScan()" style="width:100%;padding:11px;background:linear-gradient(135deg,rgba(108,99,255,.3),rgba(255,101,132,.15));border:1px solid rgba(108,99,255,.55);color:var(--accent);border-radius:10px;cursor:pointer;font-size:.88rem;font-weight:700;margin-bottom:14px">🔍 Analiz Et — Sayı Grubunu Göster</button>
@@ -813,6 +818,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <span style="font-size:.72rem;color:var(--muted)">bilet</span>
       <button onclick="listelerVeriDurumu()" style="padding:7px 14px;background:rgba(255,193,7,.12);border:1px solid rgba(255,193,7,.4);color:#ffc107;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">📥 Veri Durumu</button>
       <button onclick="listelerRunBacktest()" style="padding:7px 16px;background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.08));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🔬 Geçmiş Testi Çalıştır</button>
+      <input type="date" id="listelerPredDate" title="Yeni tahmin hedef tarihi" style="font-size:.72rem;background:var(--surface2);border:1px solid rgba(108,99,255,.35);color:var(--text);border-radius:6px;padding:5px 8px;max-width:130px">
       <button onclick="listelerRunNewPred()" style="padding:7px 16px;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.4);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🎯 Yeni Oyun Tahmini</button>
       <button onclick="listelerCopyAll()" style="padding:7px 14px;background:rgba(120,120,120,.13);border:1px solid rgba(180,180,180,.3);color:var(--muted);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">📋 Tümünü Kopyala</button>
       <button onclick="listelerClearAll()" style="padding:7px 14px;background:rgba(229,57,53,.1);border:1px solid rgba(229,57,53,.4);color:#ef9a9a;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🗑️ Tümünü Temizle</button>
@@ -5027,6 +5033,9 @@ function _syncOtherGameGrids(id){
       btn.style.borderColor=on?'rgba(108,99,255,.5)':'var(--border)';
     });
   }
+  const nd=_predNextDrawDate(id)||'';
+  const sdt=document.getElementById('scanTargetDate');if(sdt)sdt.value=nd;
+  const lpdt=document.getElementById('listelerPredDate');if(lpdt)lpdt.value=nd;
 }
 function selectAlgo(id){
   state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid();
@@ -9550,6 +9559,11 @@ function _initScanPage(){
     sel.dataset.init='1';
     ALGOS.forEach(a=>{sel.innerHTML+=`<option value="${a.id}">${a.name}</option>`;});
   }
+  // Pre-fill target date
+  const sdt=document.getElementById('scanTargetDate');
+  if(sdt&&!sdt.value){const gid=_scanGame||state.selectedGame;if(gid)sdt.value=_predNextDrawDate(gid)||'';}
+  const lpdt=document.getElementById('listelerPredDate');
+  if(lpdt&&!lpdt.value){const gid=_listelerGame||state.selectedGame;if(gid)lpdt.value=_predNextDrawDate(gid)||'';}
 }
 
 // ═══════════ Ortak Sayılar ═══════════════════════════════════
@@ -9902,7 +9916,8 @@ function listelerRunNewPred(){
   _listelerRedKeys=new Set();
   document.getElementById('listelerBulundu').style.display='none';
   _renderListelerNewPred();
-  _predRecord(gameId,ALGOS.find(a=>a.id===algoId)?.name||algoId,tickets);
+  const td=document.getElementById('listelerPredDate')?.value||_predNextDrawDate(gameId);
+  _predRecord(gameId,ALGOS.find(a=>a.id===algoId)?.name||algoId,tickets,{targetDate:td||null});
 }
 
 function _listelerRecompute(){
@@ -10490,10 +10505,10 @@ function stepScanAlgo(d){
   if(!sel||!sel.options.length)return;
   const newIdx=(sel.selectedIndex+d+sel.options.length)%sel.options.length;
   sel.selectedIndex=newIdx;
-  runScan();
+  runScan(true);
 }
 
-function runScan(){
+function runScan(noRecord){
   const gameId=_scanGame||state.selectedGame;
   const game=getGame(gameId);
   if(!game){showToast('Oyun seçin');return;}
@@ -10509,7 +10524,7 @@ function runScan(){
   try{pred=generateNumbers(game,algoId,freq,prior);}catch(e){res.innerHTML='<div class="empty-state">Algoritma hatası: '+e.message+'</div>';return;}
   const allNums=[...(pred.main||[]),...(pred.bonus||[])];
   const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
-  _predRecord(gameId,algoName,[pred]);
+  if(!noRecord){const td=document.getElementById('scanTargetDate')?.value||_predNextDrawDate(gameId);_predRecord(gameId,algoName,[pred],{targetDate:td||null});}
   // Ball renderer
   const ballHtml=(nums,bonus)=>{
     let h='<div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0">';
