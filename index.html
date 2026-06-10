@@ -10247,7 +10247,7 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn){
   const gmax=game.max;
   const numScore=new Array(gmax+1).fill(0);
 
-  // Sinyal 1: Kırmızı (çapraz kolon) — en güçlü
+  // Sinyal 1: Kırmızı (çapraz kolon) — en güçlü +5
   const redNums=new Set();
   if(_listelerNewPred){
     _listelerNewPred.tickets.forEach((t,ti)=>{
@@ -10257,7 +10257,7 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn){
     });
   }
 
-  // Sinyal 2: Geçmiş kolonlarda yeşil frekansı
+  // Sinyal 2: Geçmiş kolonlarda yeşil frekansı +3
   const greenFreq=new Array(gmax+1).fill(0);
   const checkedCols=_listelerHistory.filter(c=>c.checked);
   checkedCols.forEach(col=>{
@@ -10268,7 +10268,7 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn){
   const nCols=checkedCols.length||1;
   for(let n=1;n<=gmax;n++)numScore[n]+=(greenFreq[n]/nCols)*3;
 
-  // Sinyal 3: EWF (son çekilişlerden üstel ağırlıklı frekans)
+  // Sinyal 3: EWF üstel ağırlıklı frekans +1.5
   const draws=_scanGetDraws(gameId);
   if(draws.length>0){
     const ewf=buildEWF(draws,gmax,0.85);
@@ -10276,17 +10276,65 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn){
     if(maxEWF>0){for(let n=1;n<=gmax;n++)numScore[n]+=((ewf[n]||0)/maxEWF)*1.5;}
   }
 
-  // Sinyal 4: Mevcut tahmin varlığı (küçük bonus)
+  // Sinyal 4: Mevcut tahmin varlığı +0.3
   if(_listelerNewPred){
     _listelerNewPred.tickets.forEach(t=>[...t.main,...t.bonus].forEach(n=>{numScore[n]+=0.3;}));
   }
 
-  // ── BÖLÜM A: Mevcut biletleri 4+ güvene göre sırala ──────────
-  let confHtml='<div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">📊 Mevcut Biletlerde 4+ Güven Sıralaması</div>';
+  // Sinyal 5: NS/NST Zincir skoru +2.5 (YENİ)
+  const nsNums=new Set();
+  if(draws.length>0){
+    try{
+      const {score:ns}=_sablonScoreNext(draws[0],game);
+      const maxNS=Math.max(...ns.slice(1),1);
+      for(let n=1;n<=gmax;n++){
+        const s=(ns[n]||0)/maxNS*2.5;
+        numScore[n]+=s;
+        if(s>=1.5)nsNums.add(n);
+      }
+    }catch(e){}
+  }
+
+  // Sinyal 6: Gecikme skoru +1.5 (YENİ)
+  const delayNums=new Set();
+  if(draws.length>0){
+    const delay=new Float32Array(gmax+1);
+    for(let n=1;n<=gmax;n++){const i=draws.findIndex(d=>[...d.nums,...(d.bonus||[])].includes(n));delay[n]=i===-1?draws.length:i;}
+    const maxD=Math.max(...delay.slice(1),1);
+    for(let n=1;n<=gmax;n++){const s=delay[n]/maxD*1.5;numScore[n]+=s;if(delay[n]>=6)delayNums.add(n);}
+  }
+
+  // ── TOP 15 HEDEF SAYI ─────────────────────────────────────────
+  const ranked=[];
+  for(let n=1;n<=gmax;n++)if(numScore[n]>0)ranked.push({n,s:numScore[n]});
+  ranked.sort((a,b)=>b.s-a.s);
+  const top15=ranked.slice(0,15);
+  const maxTop=top15[0]?.s||1;
+
+  // ── BÖLÜM A: Mevcut biletleri güvene göre sırala ──────────────
+  let confHtml=`<div style="margin-bottom:12px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px">`;
+  confHtml+=`<div style="font-size:.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:8px">🏆 Top 15 Hedef Sayı</div>`;
+  confHtml+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`;
+  top15.forEach(({n,s})=>{
+    const pct=Math.round(s/maxTop*100);
+    const isR=redNums.has(n),isG=greenFreq[n]>0,isNS=nsNums.has(n),isD=delayNums.has(n);
+    const bg=isR?'rgba(229,57,53,.25)':isNS&&isG?'rgba(0,200,100,.18)':isNS?'rgba(129,140,248,.22)':isG?'rgba(67,160,71,.2)':isD?'rgba(255,196,0,.15)':'rgba(255,255,255,.07)';
+    const bd=isR?'rgba(229,57,53,.55)':isNS&&isG?'rgba(0,200,100,.45)':isNS?'rgba(129,140,248,.5)':isG?'rgba(67,160,71,.45)':isD?'rgba(255,196,0,.4)':'rgba(255,255,255,.12)';
+    const cl=isR?'#ef9a9a':isNS&&isG?'var(--green)':isNS?'var(--accent)':isG?'#81c784':isD?'#ffc400':'var(--muted)';
+    confHtml+=`<span title="${pct}p" style="display:inline-flex;flex-direction:column;align-items:center;background:${bg};border:1px solid ${bd};border-radius:6px;padding:3px 6px;cursor:default">
+      <span style="font-size:.7rem;font-weight:800;color:${cl};font-family:monospace">${n}</span>
+      <span style="font-size:.42rem;color:var(--muted);line-height:1;margin-top:1px">${pct}p</span>
+    </span>`;
+  });
+  confHtml+=`</div>`;
+  confHtml+=`<div style="font-size:.54rem;color:var(--muted);margin-top:7px;line-height:1.6">🔴 kırmızı · 🟣 NS zincir · 🟢 NS+tarihsel · 📗 tarihsel · 🟡 gecikme</div>`;
+  confHtml+=`</div>`;
+
+  confHtml+=`<div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">📊 Mevcut Biletlerde Güven Sıralaması</div>`;
   if(_listelerNewPred&&_listelerNewPred.tickets.length>0){
     const tScores=_listelerNewPred.tickets.map((t,ti)=>{
       const nums=[...t.main,...t.bonus];
-      return{ti,score:nums.reduce((s,n)=>s+numScore[n],0),redCnt:nums.filter(n=>redNums.has(n)).length,gCnt:nums.filter(n=>greenFreq[n]>0).length,nums};
+      return{ti,score:nums.reduce((s,n)=>s+numScore[n],0),redCnt:nums.filter(n=>redNums.has(n)).length,gCnt:nums.filter(n=>greenFreq[n]>0).length,nsCnt:nums.filter(n=>nsNums.has(n)).length,nums};
     });
     const maxS=Math.max(...tScores.map(t=>t.score),0.001);
     const sorted=[...tScores].sort((a,b)=>b.score-a.score).slice(0,6);
@@ -10294,24 +10342,23 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn){
       const pct=Math.round(t.score/maxS*100);
       const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':`${rank+1}.`;
       const spans=t.nums.map(n=>{
-        const isR=redNums.has(n),isG=!isR&&greenFreq[n]>0;
-        return`<span style="${isR?'color:#ef9a9a;font-weight:800':isG?'color:#81c784;font-weight:700':'color:rgba(255,255,255,.4)'}">${n}</span>`;
+        const isR=redNums.has(n),isNS=!isR&&nsNums.has(n),isG=!isR&&!isNS&&greenFreq[n]>0;
+        return`<span style="${isR?'color:#ef9a9a;font-weight:800':isNS?'color:var(--accent);font-weight:700':isG?'color:#81c784;font-weight:700':'color:rgba(255,255,255,.35)'}">${n}</span>`;
       }).join(' ');
-      return`<div style="margin-bottom:7px;padding:7px 10px;background:rgba(255,255,255,.03);border:1px solid ${rank===0?'rgba(129,140,248,.35)':'rgba(255,255,255,.07)'};border-radius:8px">
-        <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
-          <span style="font-size:.72rem;min-width:18px">${medal}</span>
-          <span style="font-size:.62rem;color:var(--text);font-weight:700;min-width:52px">Bilet #${t.ti+1}</span>
-          <div style="flex:1;height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden">
-            <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,rgba(129,140,248,.85),rgba(255,101,132,.65));border-radius:3px"></div>
-          </div>
-          <span style="font-size:.62rem;color:var(--accent);font-weight:700;min-width:22px">${pct}</span>
-          ${t.redCnt>0?`<span style="font-size:.56rem;background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);color:#ef9a9a;border-radius:4px;padding:1px 5px">🔴${t.redCnt}</span>`:''}
-          ${t.gCnt>0?`<span style="font-size:.56rem;background:rgba(67,160,71,.12);border:1px solid rgba(67,160,71,.25);color:#81c784;border-radius:4px;padding:1px 5px">📗${t.gCnt}</span>`:''}
+      return`<div style="margin-bottom:6px;padding:6px 10px;background:rgba(255,255,255,.03);border:1px solid ${rank===0?'rgba(129,140,248,.35)':'rgba(255,255,255,.07)'};border-radius:8px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <span style="font-size:.7rem;min-width:18px">${medal}</span>
+          <span style="font-size:.6rem;color:var(--text);font-weight:700;min-width:48px">Bilet #${t.ti+1}</span>
+          <div style="flex:1;height:4px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,rgba(129,140,248,.85),rgba(255,101,132,.65));border-radius:3px"></div></div>
+          <span style="font-size:.6rem;color:var(--accent);font-weight:700;min-width:20px">${pct}</span>
+          ${t.redCnt>0?`<span style="font-size:.54rem;background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);color:#ef9a9a;border-radius:4px;padding:1px 4px">🔴${t.redCnt}</span>`:''}
+          ${t.nsCnt>0?`<span style="font-size:.54rem;background:rgba(129,140,248,.12);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:4px;padding:1px 4px">🔗${t.nsCnt}</span>`:''}
+          ${t.gCnt>0?`<span style="font-size:.54rem;background:rgba(67,160,71,.1);border:1px solid rgba(67,160,71,.25);color:#81c784;border-radius:4px;padding:1px 4px">📗${t.gCnt}</span>`:''}
         </div>
-        <div style="font-size:.64rem;font-family:monospace;display:flex;gap:4px;flex-wrap:wrap;padding:0 25px">${spans}</div>
+        <div style="font-size:.63rem;font-family:monospace;display:flex;gap:3px;flex-wrap:wrap;padding:0 24px">${spans}</div>
       </div>`;
     }).join('');
-    confHtml+=`<div style="font-size:.56rem;color:var(--muted);margin-top:4px;line-height:1.5">🔴 = kırmızı (tüm kolonlarda çıktı) · 📗 = geçmişte isabet · Puan = ağırlıklı sinyal toplamı</div>`;
+    confHtml+=`<div style="font-size:.54rem;color:var(--muted);margin-top:4px;line-height:1.6">🔴 kırmızı · 🔗 NS zincir · 📗 tarihsel isabet</div>`;
   } else {
     confHtml+='<div style="font-size:.7rem;color:var(--muted);padding:12px;background:rgba(255,255,255,.03);border-radius:8px">Yeni Oyun Tahmini çalıştırdıktan sonra güven analizi yapılır.</div>';
   }
@@ -10319,24 +10366,24 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn){
   // ── BÖLÜM B: AI nihai 3 bilet ────────────────────────────────
   const aiTickets=_listelerGenAiTickets(game,gmax,numScore);
   aiTickets.forEach(t=>_predRecord(gameId,'🧠 AI',[t]));
-  let finalHtml=`<div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">🎯 AI Nihai 3 Bilet Tahmini</div>`;
-  finalHtml+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:10px;line-height:1.5">Kırmızı = çapraz sinyal · Yeşil = tarihsel isabet · Mor = EWF seçimi</div>`;
+  let finalHtml=`<div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px">🎯 AI Nihai 3 Bilet</div>`;
+  finalHtml+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:10px;line-height:1.6">🔴 kırmızı · 🟢 tarihsel · 🟣 NS zincir · ⏳ gecikme · ◻ diğer</div>`;
   aiTickets.forEach((t,idx)=>{
     const allN=[...t.main,...t.bonus];
     let spans='';
     allN.forEach((n,i)=>{
-      if(t.bonus.length>0&&i===t.main.length)spans+='<span style="color:rgba(255,255,255,.2);margin:0 2px;font-size:.9rem">|</span>';
-      const isR=redNums.has(n),isG=!isR&&greenFreq[n]>0;
-      const bg=isR?'background:#e53935;color:#fff':isG?'background:#43a047;color:#fff':'background:rgba(129,140,248,.15);color:var(--accent)';
+      if(t.bonus.length>0&&i===t.main.length)spans+='<span style="color:rgba(255,255,255,.2);margin:0 2px">|</span>';
+      const isR=redNums.has(n),isG=!isR&&greenFreq[n]>0,isNS=!isR&&!isG&&nsNums.has(n),isD=!isR&&!isG&&!isNS&&delayNums.has(n);
+      const bg=isR?'background:rgba(229,57,53,.8);color:#fff':isG?'background:rgba(67,160,71,.75);color:#fff':isNS?'background:rgba(129,140,248,.6);color:#fff':isD?'background:rgba(255,196,0,.45);color:#222':'background:rgba(255,255,255,.1);color:rgba(255,255,255,.7)';
       spans+=`<span style="${bg};padding:3px 7px;border-radius:5px;font-weight:700;font-family:monospace;font-size:.8rem">${n}</span>`;
     });
     const conf=allN.reduce((s,n)=>s+numScore[n],0);
-    finalHtml+=`<div style="margin-bottom:10px;padding:10px 12px;background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.2);border-radius:9px">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">
+    finalHtml+=`<div style="margin-bottom:9px;padding:9px 11px;background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.2);border-radius:9px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
         <span style="font-size:.62rem;font-weight:700;color:var(--accent)">AI Bilet ${idx+1}</span>
-        <span style="font-size:.57rem;color:var(--muted)">Güven: ${conf.toFixed(1)}</span>
+        <span style="font-size:.55rem;color:var(--muted)">Güven: ${conf.toFixed(1)}</span>
       </div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${spans}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${spans}</div>
     </div>`;
   });
   window._listelerAiCopyText=aiTickets.map((t,i)=>`AI Bilet ${i+1}: ${[...t.main,...t.bonus].join(' - ')}`).join('\n');
@@ -10352,14 +10399,22 @@ function _listelerGenAiTickets(game,gmax,numScore){
   const count=game.count,bCount=game.bonusCount,bMax=game.bonusMax||0;
   const tickets=[],used=new Array(gmax+1).fill(0);
   for(let ti=0;ti<3;ti++){
+    // Diversity penalty grows with reuse; also add small balance nudge
     const adj=[];
-    for(let n=1;n<=gmax;n++)adj.push([n,numScore[n]-used[n]*1.8]);
+    const mid=Math.floor(gmax/2);
+    for(let n=1;n<=gmax;n++){
+      // Soft low/high balance: nudge whichever half is underrepresented in tickets so far
+      const low=tickets.flatMap(t=>t.main).filter(x=>x<=mid).length;
+      const high=tickets.flatMap(t=>t.main).filter(x=>x>mid).length;
+      const balance=n<=mid?(high>low?0.15:-0.15):(low>high?0.15:-0.15);
+      adj.push([n,numScore[n]-used[n]*2.5+balance]);
+    }
     adj.sort((a,b)=>b[1]-a[1]);
     const main=adj.slice(0,count).map(([n])=>n).sort((a,b)=>a-b);
     const bonus=[];
     if(bCount>0&&bMax>0){
       const bp=[];
-      for(let n=1;n<=bMax;n++)if(!main.includes(n))bp.push([n,numScore[n]-used[n]*1.8]);
+      for(let n=1;n<=bMax;n++)if(!main.includes(n))bp.push([n,numScore[n]-used[n]*2.5]);
       bp.sort((a,b)=>b[1]-a[1]);
       for(let i=ti;i<bp.length&&bonus.length<bCount;i++)bonus.push(bp[i][0]);
       bonus.sort((a,b)=>a-b);
