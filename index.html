@@ -10675,7 +10675,12 @@ function openPredNotes(){
 }
 function closePredNotes(){const el=document.getElementById('predNotesOverlay');if(el)el.style.display='none';}
 function clearPredNotes(){if(!confirm('Tüm geçmiş denemeler silinsin mi?'))return;_predNotes=[];_predSave();_predUpdateBadge();_predRenderNotes();}
-function _predNumSpan(n,hit){return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;padding:2px 5px;border-radius:5px;background:${hit?'rgba(0,230,118,.18)':'rgba(255,255,255,.05)'};border:1px solid ${hit?'rgba(0,230,118,.45)':'rgba(255,255,255,.1)'};color:${hit?'var(--green)':'var(--text)'};font-size:.72rem;font-weight:${hit?'800':'600'};font-family:monospace">${n}</span>`;}
+function _predNumSpan(n,hit,near){
+  const bg=hit?'rgba(0,230,118,.18)':near?'rgba(255,152,0,.18)':'rgba(255,255,255,.05)';
+  const bd=hit?'rgba(0,230,118,.45)':near?'rgba(255,152,0,.5)':'rgba(255,255,255,.1)';
+  const cl=hit?'var(--green)':near?'#ff9800':'var(--text)';
+  return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;padding:2px 5px;border-radius:5px;background:${bg};border:1px solid ${bd};color:${cl};font-size:.72rem;font-weight:${hit||near?'800':'600'};font-family:monospace">${n}</span>`;
+}
 function _predEditDate(i,val){
   if(!_predNotes[i])return;
   _predNotes[i].targetDate=val||null;
@@ -10688,14 +10693,15 @@ function _predRenderNotes(){
   if(!_predNotes.length){el.innerHTML='<div style="text-align:center;padding:36px 20px;color:var(--muted);font-size:.85rem">Henüz kayıtlı deneme yok.<br><span style="font-size:.72rem">Tarama veya Listeler sayfasında bilet oluşturunca otomatik kaydedilir.</span></div>';return;}
   el.innerHTML=_predNotes.map((e,i)=>{
     const actSet=new Set([...(e.actualNums||[]),...(e.actualBonus||[])]);
+    const allPredNums=new Set(e.tickets.flatMap(t=>[...(t.main||[]),...(t.bonus||[])]));
     const ticketRows=e.tickets.map((t,ti)=>{
-      const mainHtml=(t.main||[]).map(n=>_predNumSpan(n,actSet.has(n))).join('');
-      const bonusHtml=(t.bonus||[]).length?'<span style="color:rgba(255,255,255,.2);margin:0 3px">|</span>'+(t.bonus||[]).map(n=>_predNumSpan(n,actSet.has(n))).join(''):'';
+      const mainHtml=(t.main||[]).map(n=>_predNumSpan(n,actSet.has(n),!actSet.has(n)&&(actSet.has(n-1)||actSet.has(n+1)))).join('');
+      const bonusHtml=(t.bonus||[]).length?'<span style="color:rgba(255,255,255,.2);margin:0 3px">|</span>'+(t.bonus||[]).map(n=>_predNumSpan(n,actSet.has(n),!actSet.has(n)&&(actSet.has(n-1)||actSet.has(n+1)))).join(''):'';
       const hitCount=[...(t.main||[]),...(t.bonus||[])].filter(n=>actSet.has(n)).length;
       return`<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.54rem;color:var(--muted);min-width:14px">${ti+1}.</span>${mainHtml}${bonusHtml}${e.actualDate?`<span style="font-size:.58rem;color:${hitCount>=3?'var(--green)':hitCount>=1?'#ffc400':'rgba(255,255,255,.2)'};margin-left:4px;font-weight:700">${hitCount>0?'✓'+hitCount:''}</span>`:''}</div>`;
     }).join('');
     const actualRow=e.actualDate
-      ?`<div style="margin-top:8px;padding:7px 10px;background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.18);border-radius:7px"><div style="font-size:.54rem;color:var(--muted);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Gerçek Sonuç · ${e.actualDate}</div><div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap">${(e.actualNums||[]).map(n=>{const hit=e.tickets.some(t=>[...(t.main||[]),...(t.bonus||[])].includes(n));return _predNumSpan(n,hit);}).join('')}${(e.actualBonus||[]).length?'<span style="color:rgba(255,255,255,.2);margin:0 2px">|</span>'+(e.actualBonus||[]).map(n=>{const hit=e.tickets.some(t=>[...(t.main||[]),...(t.bonus||[])].includes(n));return _predNumSpan(n,hit);}).join(''):''}</div></div>`
+      ?`<div style="margin-top:8px;padding:7px 10px;background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.18);border-radius:7px"><div style="font-size:.54rem;color:var(--muted);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Gerçek Sonuç · ${e.actualDate}</div><div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap">${(e.actualNums||[]).map(n=>{const hit=e.tickets.some(t=>[...(t.main||[]),...(t.bonus||[])].includes(n));const near=!hit&&(allPredNums.has(n-1)||allPredNums.has(n+1));return _predNumSpan(n,hit,near);}).join('')}${(e.actualBonus||[]).length?'<span style="color:rgba(255,255,255,.2);margin:0 2px">|</span>'+(e.actualBonus||[]).map(n=>{const hit=e.tickets.some(t=>[...(t.main||[]),...(t.bonus||[])].includes(n));const near=!hit&&(allPredNums.has(n-1)||allPredNums.has(n+1));return _predNumSpan(n,hit,near);}).join(''):''}</div></div>`
       :`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;flex-wrap:wrap"><span style="font-size:.6rem;color:var(--muted);font-style:italic">⏳ Hedef:</span><input type="date" value="${e.targetDate||''}" onchange="_predEditDate(${i},this.value)" style="font-size:.62rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:2px 6px;cursor:pointer"></div>`;
     return`<div style="padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:rgba(255,255,255,.02)"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:8px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="font-size:.8rem;font-weight:800;color:var(--text)">${e.gameEmoji} ${e.gameName}</span><span style="font-size:.62rem;padding:2px 8px;border-radius:12px;background:rgba(129,140,248,.15);color:var(--accent);font-weight:700">${e.algoName}</span></div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span style="font-size:.58rem;color:var(--muted)">${e.ts}</span><button onclick="event.stopPropagation();_predNotes.splice(${i},1);_predSave();_predUpdateBadge();_predRenderNotes()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem;padding:0 2px;line-height:1">✕</button></div></div>${ticketRows}${actualRow}</div>`;
   }).join('');
