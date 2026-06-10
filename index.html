@@ -6828,20 +6828,96 @@ function listelerClearAll(){
 function listelerCopyAll(){
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
   const game=getGame(gameId);
-  const lines=[];
-  if(_listelerNewPred){
-    const algoName=(ALGOS.find(a=>a.id===_listelerNewPred.algoId)||{name:_listelerNewPred.algoId}).name;
-    lines.push(`🎯 Yeni Tahmin — ${game?game.name:gameId} · ${algoName}`);
-    _listelerNewPred.tickets.forEach(t=>{lines.push([...t.main,...t.bonus].join(' - '));});
+  const cols=[];
+  if(_listelerNewPred)cols.push({type:'new',data:_listelerNewPred});
+  _listelerHistory.forEach(col=>cols.push({type:'hist',data:col}));
+  if(!cols.length){showToast('⚠️ Kopyalanacak veri yok');return;}
+  const firstT=cols[0].data.tickets[0];
+  const numCount=firstT?[...firstT.main,...firstT.bonus].length:6;
+  const ticketCount=cols[0].data.tickets.length;
+  function getCellStyle(col,ti,pi){
+    if(col.type==='new'){
+      return _listelerRedKeys.has(`${ti}-${pi}`)
+        ?'background:#e53935;color:#fff':'background:#ffffff;color:#222222';
+    }
+    const c=col.data;
+    const nums=[...c.tickets[ti].main,...c.tickets[ti].bonus];
+    const rowGreenCount=nums.reduce((cnt,_,p)=>cnt+(c.greenCells.has(`${ti}-${p}`)?1:0),0);
+    const rowHot=rowGreenCount>=3;
+    const key=`${ti}-${pi}`;
+    const isGreen=c.greenCells.has(key);
+    const isRed=isGreen&&_listelerRedKeys.has(key);
+    const isPink=rowHot&&!isGreen;
+    if(isRed)return'background:#e53935;color:#fff';
+    if(isGreen)return'background:#43a047;color:#fff';
+    if(isPink)return'background:#ffd6e0;color:#c2185b';
+    return'background:#ffffff;color:#222222';
   }
-  _listelerHistory.forEach(col=>{
-    const algoName=(ALGOS.find(a=>a.id===col.algoId)||{name:col.algoId}).name;
-    const actualStr=col.actual?` → Gerçek: ${[...(col.actual.nums||[]),...(col.actual.bonus||[])].join(' ')}`:'';
-    lines.push(`\n📅 ${col.date}${actualStr} · ${algoName}`);
-    col.tickets.forEach(t=>{lines.push([...t.main,...t.bonus].join(' - '));});
+  const td='border:1px solid #ccc;padding:2px 5px;text-align:center;font-size:11px;font-weight:600;min-width:22px';
+  const sep='<td style="width:6px;border:none;background:#eeeeee"></td>';
+  let html='<table style="border-collapse:collapse;font-family:Arial,sans-serif">';
+  // Header row
+  html+='<tr>';
+  cols.forEach((col,ci)=>{
+    if(ci>0)html+=sep;
+    const algoName=(ALGOS.find(a=>a.id===col.data.algoId)||{name:col.data.algoId||'—'}).name;
+    const label=col.type==='new'
+      ?`Yeni Tahmin — ${game?game.name:gameId} · ${algoName}`
+      :`${col.data.date} · ${algoName}`;
+    html+=`<td colspan="${numCount+1}" style="${td};background:#263238;color:#ffffff;font-weight:700;text-align:left;padding:3px 6px">${label}</td>`;
   });
-  if(!lines.length){showToast('⚠️ Kopyalanacak veri yok');return;}
-  navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('📋 Tümü kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
+  html+='</tr>';
+  // Actual numbers row
+  html+='<tr>';
+  cols.forEach((col,ci)=>{
+    if(ci>0)html+=sep;
+    if(col.type==='new'){
+      html+=`<td colspan="${numCount+1}" style="${td};color:#999;font-size:10px">—</td>`;
+    }else{
+      const actualNums=col.data.actual?[...(col.data.actual.nums||[]),...(col.data.actual.bonus||[])]:[];
+      html+=`<td colspan="${numCount+1}" style="${td};color:#2e7d32;font-weight:700">${actualNums.length?actualNums.join('  '):'—'}</td>`;
+    }
+  });
+  html+='</tr>';
+  // Ticket rows
+  for(let ti=0;ti<ticketCount;ti++){
+    html+='<tr>';
+    cols.forEach((col,ci)=>{
+      if(ci>0)html+=sep;
+      const tickets=col.data.tickets;
+      if(!tickets[ti]){html+=`<td colspan="${numCount+1}"></td>`;return;}
+      const nums=[...tickets[ti].main,...tickets[ti].bonus];
+      html+=`<td style="${td};background:#f5f5f5;color:#888888;font-size:10px">${ti+1}</td>`;
+      nums.forEach((n,pi)=>{
+        html+=`<td style="${td};${getCellStyle(col,ti,pi)}">${n}</td>`;
+      });
+    });
+    html+='</tr>';
+  }
+  html+='</table>';
+  // Plain text fallback
+  const plainLines=[];
+  cols.forEach(col=>{
+    const algoName=(ALGOS.find(a=>a.id===col.data.algoId)||{name:col.data.algoId||'—'}).name;
+    if(col.type==='new'){plainLines.push(`Yeni Tahmin — ${algoName}`);}
+    else{
+      const actualStr=col.data.actual?` → ${[...(col.data.actual.nums||[]),...(col.data.actual.bonus||[])].join(' ')}`:'';
+      plainLines.push(`${col.data.date}${actualStr} · ${algoName}`);
+    }
+    col.data.tickets.forEach((t,ti)=>{plainLines.push(`${ti+1}. ${[...t.main,...t.bonus].join(' - ')}`);});
+    plainLines.push('');
+  });
+  const plainText=plainLines.join('\n');
+  try{
+    navigator.clipboard.write([new ClipboardItem({
+      'text/html':new Blob([html],{type:'text/html'}),
+      'text/plain':new Blob([plainText],{type:'text/plain'})
+    })]).then(()=>showToast('📋 Tümü kopyalandı (renkli)')).catch(()=>{
+      navigator.clipboard.writeText(plainText).then(()=>showToast('📋 Tümü kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
+    });
+  }catch(e){
+    navigator.clipboard.writeText(plainText).then(()=>showToast('📋 Tümü kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
+  }
 }
 
 function listelerCopyBulundu(){
