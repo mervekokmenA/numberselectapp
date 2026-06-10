@@ -8211,7 +8211,7 @@ function openGizliSayfa(){
   gizliArsivTemizle();
   gizliTestInit();
   try{_sablonRender();}catch(e){}
-  document.getElementById('gizliPageKolon').style.display='';
+  _gizliSwitchTab('kolon');
 }
 function closeGizliSayfa(){
   const el=document.getElementById('gizliSayfa');
@@ -8891,7 +8891,13 @@ function _sablonRunBanko(){
   out.innerHTML=html;
 }
 function _gizliSwitchTab(tab){
-  document.getElementById('gizliPageKolon').style.display='';
+  ['kolon','mpr'].forEach(t=>{
+    const pg=document.getElementById('gizliPage'+{kolon:'Kolon',mpr:'MpR'}[t]);
+    if(pg)pg.style.display=t===tab?'':'none';
+    const btn=document.getElementById('gizliTab'+{kolon:'Kolon',mpr:'MpR'}[t]);
+    if(btn){const on=t===tab;btn.style.background=on?'rgba(129,140,248,.18)':'rgba(255,255,255,.06)';btn.style.borderColor=on?'rgba(129,140,248,.5)':'var(--border)';btn.style.color=on?'var(--accent)':'var(--muted)';}
+  });
+  if(tab==='mpr'&&!document.getElementById('mpRDateSel')?.options.length)_mpRInitDateSel();
 }
 
 function switchB10Tab(name){
@@ -10694,6 +10700,187 @@ function _predRenderNotes(){
     return`<div style="padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:rgba(255,255,255,.02)"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:8px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="font-size:.8rem;font-weight:800;color:var(--text)">${e.gameEmoji} ${e.gameName}</span><span style="font-size:.62rem;padding:2px 8px;border-radius:12px;background:rgba(129,140,248,.15);color:var(--accent);font-weight:700">${e.algoName}</span></div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span style="font-size:.58rem;color:var(--muted)">${e.ts}</span><button onclick="event.stopPropagation();_predNotes.splice(${i},1);_predSave();_predUpdateBadge();_predRenderNotes()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem;padding:0 2px;line-height:1">✕</button></div></div>${ticketRows}${actualRow}</div>`;
   }).join('');
 }
+
+// ══════════════════════════════════════════════════════════════
+// MP RASTGELE — Kupon Havuzu Analizi
+// ══════════════════════════════════════════════════════════════
+let _mpRGame=null;
+function _mpRSetGame(id){
+  _mpRGame=id;
+  document.querySelectorAll('.mpr-game-btn').forEach(b=>{
+    const on=b.dataset.game===id;
+    b.style.background=on?'rgba(129,140,248,.25)':'rgba(255,255,255,.06)';
+    b.style.borderColor=on?'rgba(129,140,248,.55)':'var(--border)';
+    b.style.color=on?'var(--accent)':'var(--muted)';
+  });
+  _mpRInitDateSel();
+}
+function _mpRGetDraws(){
+  const gid=_mpRGame||_gizliSelectedGame||'super';
+  const raw=DRAW_DATA[gid]||'';const draws=[];
+  raw.split('\n').forEach(line=>{
+    const dm=line.match(/^(\d{4}-\d{2}-\d{2})/);if(!dm)return;
+    const date=dm[1],rest=line.slice(date.length),parts=rest.split('|');
+    const nums=(parts[0].match(/\d+/g)||[]).map(Number);
+    const bonus=parts[1]?(parts[1].match(/\d+/g)||[]).map(Number):[];
+    if(nums.length>=1)draws.push({date,nums,bonus});
+  });
+  return draws.sort((a,b)=>b.date.localeCompare(a.date));
+}
+function _mpRInitDateSel(){
+  const sel=document.getElementById('mpRDateSel');if(!sel)return;
+  const draws=_mpRGetDraws();
+  sel.innerHTML='<option value="">— Tarih seç —</option>';
+  draws.forEach(d=>{sel.innerHTML+=`<option value="${d.date}">${d.date}</option>`;});
+  if(!_mpRGame){
+    const gid=_gizliSelectedGame||'super';_mpRGame=gid;
+    document.querySelectorAll('.mpr-game-btn').forEach(b=>{
+      const on=b.dataset.game===gid;
+      b.style.background=on?'rgba(129,140,248,.25)':'rgba(255,255,255,.06)';
+      b.style.borderColor=on?'rgba(129,140,248,.55)':'var(--border)';
+      b.style.color=on?'var(--accent)':'var(--muted)';
+    });
+  }
+}
+function _mpRParseTickets(){
+  const txt=document.getElementById('mpRInput')?.value||'';
+  const game=getGame(_mpRGame||'super');const tickets=[];
+  txt.split('\n').forEach((line,li)=>{
+    line=line.trim();if(!line)return;
+    let main=[],bonus=[];
+    if(line.includes('|')){
+      const p=line.split('|');
+      main=(p[0].match(/\d+/g)||[]).map(Number);
+      bonus=(p[1]?.match(/\d+/g)||[]).map(Number);
+    }else{
+      const nums=(line.match(/\d+/g)||[]).map(Number);
+      main=nums.slice(0,game.count);
+      bonus=game.bonusCount>0?nums.slice(game.count,game.count+game.bonusCount):[];
+    }
+    if(main.length>0)tickets.push({main,bonus,idx:li});
+  });
+  return tickets;
+}
+function _mpRNumSpan(n,hit){
+  return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:22px;padding:0 4px;border-radius:5px;background:${hit?'rgba(0,230,118,.2)':'rgba(255,255,255,.05)'};border:1px solid ${hit?'rgba(0,230,118,.5)':'rgba(255,255,255,.1)'};color:${hit?'var(--green)':'var(--text)'};font-size:.67rem;font-weight:${hit?'800':'500'};font-family:monospace">${n}</span>`;
+}
+function _mpRRun(){
+  const tickets=_mpRParseTickets();
+  if(!tickets.length){showToast('⚠️ Kupon giriniz');return;}
+  const dateVal=document.getElementById('mpRDateSel')?.value;
+  if(!dateVal){showToast('⚠️ Çekiliş tarihi seçiniz');return;}
+  const gid=_mpRGame||_gizliSelectedGame||'super';
+  const game=getGame(gid);const draws=_mpRGetDraws();
+  const actual=draws.find(d=>d.date===dateVal);
+  if(!actual){showToast('⚠️ Bu tarihe ait çekiliş yok');return;}
+  const prior=draws.filter(d=>d.date<dateVal);
+  if(prior.length<5){showToast('⚠️ Yeterli geçmiş veri yok');return;}
+  const actSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+  // Annotate with hits
+  const ann=tickets.map(t=>{
+    const all=[...(t.main||[]),...(t.bonus||[])];
+    const hits=all.filter(n=>actSet.has(n));
+    return{...t,hits,hitCount:hits.length};
+  });
+  // ── Method 1: Frekans ──────────────────────────────────
+  const freq=buildFreq(prior);const maxF=Math.max(...Object.values(freq),1);
+  const mFreq=[...ann].map(t=>{
+    const s=t.main.reduce((a,n)=>a+(freq[n]||0)/maxF,0)/t.main.length*100;
+    return{...t,mScore:+s.toFixed(1)};
+  }).sort((a,b)=>b.mScore-a.mScore||b.hitCount-a.hitCount);
+  // ── Method 2: NS Zincir ────────────────────────────────
+  let mChain=null;
+  try{
+    const {score:cs}=_sablonScoreNext(prior[0],game);
+    const maxC=Math.max(...cs,1);
+    mChain=[...ann].map(t=>{
+      const s=t.main.reduce((a,n)=>a+(cs[n]||0)/maxC,0)/t.main.length*100;
+      return{...t,mScore:+s.toFixed(1)};
+    }).sort((a,b)=>b.mScore-a.mScore||b.hitCount-a.hitCount);
+  }catch(e){}
+  // ── Method 3: Gecikme ──────────────────────────────────
+  const delay={};
+  for(let n=1;n<=game.max;n++){const i=prior.findIndex(d=>[...d.nums,...(d.bonus||[])].includes(n));delay[n]=i===-1?prior.length:i;}
+  const mDelay=[...ann].map(t=>{
+    const s=t.main.reduce((a,n)=>a+(delay[n]||0),0);
+    return{...t,mScore:s};
+  }).sort((a,b)=>b.mScore-a.mScore||b.hitCount-a.hitCount);
+  // ── Method 4: Taze Sayı ────────────────────────────────
+  const rec=new Set();prior.slice(0,4).forEach(d=>[...d.nums,...(d.bonus||[])].forEach(n=>rec.add(n)));
+  const mFresh=[...ann].map(t=>{
+    const s=t.main.filter(n=>!rec.has(n)).length;
+    return{...t,mScore:s};
+  }).sort((a,b)=>b.mScore-a.mScore||b.hitCount-a.hitCount);
+  // ── Method 5: Karma ────────────────────────────────────
+  const normArr=(arr,key)=>{const mn=Math.min(...arr.map(x=>x[key]));const mx=Math.max(...arr.map(x=>x[key]));const rng=mx-mn||1;return arr.map(x=>({idx:x.idx,v:(x[key]-mn)/rng}));};
+  const nF=normArr(mFreq,'mScore');const nD=normArr(mDelay,'mScore');const nR=normArr(mFresh,'mScore');const nC=mChain?normArr(mChain,'mScore'):nF;
+  const mKarma=[...ann].map(t=>{
+    const f=nF.find(x=>x.idx===t.idx)?.v||0;const d=nD.find(x=>x.idx===t.idx)?.v||0;const r=nR.find(x=>x.idx===t.idx)?.v||0;const c=nC.find(x=>x.idx===t.idx)?.v||0;
+    return{...t,mScore:+((f*0.25+d*0.3+r*0.2+c*0.25)*100).toFixed(1)};
+  }).sort((a,b)=>b.mScore-a.mScore||b.hitCount-a.hitCount);
+  // Render
+  const methods=[
+    {name:'🔢 Frekans Skoru',desc:'Son çekilişlerde en sık çıkan sayılara sahip kuponları öne çıkarır',data:mFreq,unit:'%'},
+    mChain?{name:'🔗 NS Zincir',desc:'Gizli sayfanın şablon analizi — NS/NST zincirinden türetilen aday sayı skorları',data:mChain,unit:'%'}:null,
+    {name:'⏳ Gecikme',desc:'Uzun süredir çıkmamış (bekleme süresi uzun) sayılara sahip kuponlar',data:mDelay,unit:'bk'},
+    {name:'🌱 Taze Sayı',desc:'Son 4 çekilişte çıkmamış sayılara sahip kuponlar — tekrar kaçınma',data:mFresh,unit:'taze'},
+    {name:'⚖️ Karma',desc:'Frekans + Gecikme + Taze + NS Zincir yöntemlerinin ağırlıklı kombinasyonu',data:mKarma,unit:'p'},
+  ].filter(Boolean);
+  _mpRRenderResults(ann,actual,actSet,methods);
+}
+function _mpRRenderResults(ann,actual,actSet,methods){
+  const el=document.getElementById('mpRResults');if(!el)return;
+  const byHits=[...ann].sort((a,b)=>b.hitCount-a.hitCount);
+  let html='';
+  // Actual draw
+  html+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.28);border-radius:10px;padding:11px 14px;margin-bottom:10px">`;
+  html+=`<div style="font-size:.58rem;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.6px;margin-bottom:7px">Gerçek Sonuç · ${actual.date}</div>`;
+  html+=`<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">`;
+  (actual.nums||[]).forEach(n=>{html+=`<span style="display:inline-flex;align-items:center;justify-content:center;width:29px;height:29px;border-radius:50%;background:rgba(0,230,118,.25);border:2px solid rgba(0,230,118,.65);color:var(--green);font-size:.75rem;font-weight:800;font-family:monospace">${n}</span>`;});
+  if((actual.bonus||[]).length){html+=`<span style="color:rgba(255,255,255,.2);margin:0 3px">|</span>`;(actual.bonus||[]).forEach(n=>{html+=`<span style="display:inline-flex;align-items:center;justify-content:center;width:29px;height:29px;border-radius:50%;background:rgba(255,196,0,.2);border:2px solid rgba(255,196,0,.55);color:#ffd700;font-size:.75rem;font-weight:800;font-family:monospace">${n}</span>`;});}
+  html+=`</div></div>`;
+  // Overview table
+  html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">`;
+  html+=`<div style="font-size:.78rem;font-weight:800;color:var(--text);margin-bottom:10px">📋 Kupon Özeti — Eşleşmeye Göre</div>`;
+  byHits.forEach((t,rank)=>{
+    const orig=ann.findIndex(x=>x.idx===t.idx)+1;
+    const medal=rank===0?'🥇':rank===1?'🥈':rank===2?'🥉':'';
+    html+=`<div style="display:flex;align-items:center;gap:5px;padding:4px 7px;border-radius:5px;margin-bottom:3px;background:${rank===0?'rgba(0,230,118,.07)':rank===1?'rgba(255,196,0,.05)':rank===2?'rgba(108,99,255,.05)':'transparent'}">`;
+    html+=`<span style="font-size:.6rem;color:var(--muted);min-width:22px">${medal||('#'+orig)}</span>`;
+    html+=`<div style="display:flex;gap:2px;flex-wrap:wrap;flex:1">`;
+    (t.main||[]).forEach(n=>{html+=_mpRNumSpan(n,actSet.has(n));});
+    if((t.bonus||[]).length){html+=`<span style="color:rgba(255,255,255,.2);margin:0 2px">|</span>`;(t.bonus||[]).forEach(n=>{html+=_mpRNumSpan(n,actSet.has(n));});}
+    html+=`</div>`;
+    html+=`<span style="font-size:.72rem;font-weight:800;min-width:26px;text-align:right;color:${t.hitCount>=3?'var(--green)':t.hitCount>=2?'#ffc400':t.hitCount>=1?'var(--accent)':'var(--muted)'}">${t.hitCount}</span>`;
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  // Method cards
+  html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:10px">`;
+  methods.forEach(m=>{
+    html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px">`;
+    html+=`<div style="font-size:.8rem;font-weight:800;color:var(--text);margin-bottom:3px">${m.name}</div>`;
+    html+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:10px;line-height:1.55">${m.desc}</div>`;
+    m.data.slice(0,3).forEach((t,ri)=>{
+      const orig=ann.findIndex(x=>x.idx===t.idx)+1;
+      html+=`<div style="border:1px solid ${ri===0?'rgba(255,196,0,.3)':'rgba(255,255,255,.1)'};border-radius:7px;padding:5px 8px;margin-bottom:5px;background:${ri===0?'rgba(255,196,0,.06)':'rgba(255,255,255,.02)'}">`;
+      html+=`<div style="display:flex;align-items:center;gap:4px;margin-bottom:5px">`;
+      html+=`<span style="font-size:.56rem;color:var(--muted)">Kupon ${orig}</span>`;
+      html+=`<span style="font-size:.56rem;color:var(--accent);margin-left:auto">${t.mScore}${m.unit==='%'?'%':m.unit==='bk'?' bk':m.unit==='taze'?' taze':' p'}</span>`;
+      html+=`</div>`;
+      html+=`<div style="display:flex;gap:2px;flex-wrap:wrap">`;
+      (t.main||[]).forEach(n=>{html+=_mpRNumSpan(n,actSet.has(n));});
+      if((t.bonus||[]).length){html+=`<span style="color:rgba(255,255,255,.2);margin:0 2px">|</span>`;(t.bonus||[]).forEach(n=>{html+=_mpRNumSpan(n,actSet.has(n));});}
+      html+=`</div>`;
+      const hc=t.hitCount;
+      html+=`<div style="font-size:.58rem;margin-top:4px;color:${hc>=3?'var(--green)':hc>=2?'#ffc400':hc>=1?'var(--accent)':'var(--muted)'}">→ ${hc} eşleşme${hc>=2?' ✓':''}</div>`;
+      html+=`</div>`;
+    });
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  el.innerHTML=html;
+}
 </script>
 
 <!-- ═══════════ GİZLİ ANALİZ SAYFASI ═══════════ -->
@@ -10711,6 +10898,7 @@ function _predRenderNotes(){
   <!-- İç menü -->
   <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px">
    <button id="gizliTabKolon" onclick="_gizliSwitchTab('kolon')" style="padding:6px 16px;border-radius:8px;cursor:pointer;font-size:.75rem;font-weight:700;border:1px solid rgba(129,140,248,.5);background:rgba(129,140,248,.18);color:var(--accent)">🔬 Kolon Analizi</button>
+   <button id="gizliTabMpR" onclick="_gizliSwitchTab('mpr')" style="padding:6px 16px;border-radius:8px;cursor:pointer;font-size:.75rem;font-weight:700;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">🎫 MP Rastgele</button>
   </div>
 
   <!-- === SAYFA: Kolon Analizi === -->
@@ -10822,6 +11010,29 @@ function _predRenderNotes(){
   </div>
 
   </div><!-- /gizliPageKolon -->
+
+  <!-- === SAYFA: MP Rastgele === -->
+  <div id="gizliPageMpR" style="display:none">
+   <!-- Game selector -->
+   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+    <button class="mpr-game-btn" data-game="sayisal" onclick="_mpRSetGame('sayisal')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">🔵 Sayısal Loto</button>
+    <button class="mpr-game-btn" data-game="super" onclick="_mpRSetGame('super')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">⭐ Süper Loto</button>
+    <button class="mpr-game-btn" data-game="sans" onclick="_mpRSetGame('sans')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">🔴 Şans Topu</button>
+    <button class="mpr-game-btn" data-game="onnumara" onclick="_mpRSetGame('onnumara')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">🟢 On Numara</button>
+   </div>
+   <!-- Input card -->
+   <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
+    <div style="font-size:.82rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 Kupon Listesi</div>
+    <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Her satıra bir kupon. Sayıları boşlukla ayır; bonus sayısını <code style="background:rgba(255,255,255,.08);padding:1px 4px;border-radius:3px">|</code> ile ayır (opsiyonel).<br>Örnek: <code style="background:rgba(255,255,255,.08);padding:1px 4px;border-radius:3px">19 27 56 69 70 78 | 69</code></div>
+    <textarea id="mpRInput" rows="11" placeholder="19 27 56 69 70 78 | 69&#10;17 22 28 39 69 83 | 21&#10;8 34 43 54 58 75 | 36&#10;..." style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;line-height:1.8;outline:none"></textarea>
+    <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
+     <label style="font-size:.72rem;color:var(--muted)">Çekiliş:</label>
+     <select id="mpRDateSel" style="font-size:.75rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"><option value="">— Tarih seç —</option></select>
+     <button onclick="_mpRRun()" style="padding:7px 20px;background:linear-gradient(135deg,rgba(129,140,248,.3),rgba(255,101,132,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.82rem;font-weight:700">🔍 Analiz Et</button>
+    </div>
+   </div>
+   <div id="mpRResults"></div>
+  </div><!-- /gizliPageMpR -->
 
  </div>
 </div>
