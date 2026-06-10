@@ -10637,7 +10637,9 @@ function _predNextDrawDate(gameId){
   const sch={sayisal:[1,3,6],super:[2,4,0],sans:[3,0],onnumara:[1,5]};
   const days=sch[gameId]||[];
   const today=new Date();
-  for(let i=1;i<=7;i++){const d=new Date(today);d.setDate(d.getDate()+i);if(days.includes(d.getDay()))return d.toISOString().slice(0,10);}
+  const draws=_scanGetDraws(gameId);
+  const existingDates=new Set(draws.map(d=>d.date));
+  for(let i=0;i<=14;i++){const d=new Date(today);d.setDate(d.getDate()+i);const ds=d.toISOString().slice(0,10);if(days.includes(d.getDay())&&!existingDates.has(ds))return ds;}
   return null;
 }
 function _predRecord(gameId,algoName,tickets,opts){
