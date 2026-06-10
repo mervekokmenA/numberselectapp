@@ -736,7 +736,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <!-- Left: Tahmin -->
     <div>
       <div class="card">
-        <div class="card-title">🔍 Sayı Grubu Tarama</div>
+        <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0"><span>🔍 Sayı Grubu Tarama</span><button onclick="openPredNotes()" style="position:relative;padding:5px 9px;border-radius:7px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:var(--muted);cursor:pointer;font-size:.85rem;line-height:1;flex-shrink:0" title="Geçmiş Denemeler">👁<span class="pred-notes-badge" style="display:none;position:absolute;top:-5px;right:-5px;font-size:.48rem;font-weight:800;background:#ef5350;color:#fff;border-radius:8px;padding:1px 4px;min-width:14px;text-align:center;line-height:1.6">0</span></button></div>
         <div style="font-size:.74rem;color:var(--muted);margin-bottom:14px;padding:8px 12px;background:var(--surface2);border-radius:8px;border:1px solid var(--border)">
           Bilet üretmeden analiz — seçili algoritma ile sayı grubu oluştur, geçmiş ile karşılaştır.
         </div>
@@ -816,6 +816,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button onclick="listelerRunNewPred()" style="padding:7px 16px;background:rgba(108,99,255,.15);border:1px solid rgba(108,99,255,.4);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🎯 Yeni Oyun Tahmini</button>
       <button onclick="listelerCopyAll()" style="padding:7px 14px;background:rgba(120,120,120,.13);border:1px solid rgba(180,180,180,.3);color:var(--muted);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">📋 Tümünü Kopyala</button>
       <button onclick="listelerClearAll()" style="padding:7px 14px;background:rgba(229,57,53,.1);border:1px solid rgba(229,57,53,.4);color:#ef9a9a;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🗑️ Tümünü Temizle</button>
+      <button onclick="openPredNotes()" style="position:relative;padding:7px 11px;border-radius:8px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.05);color:var(--muted);cursor:pointer;font-size:.88rem;line-height:1;flex-shrink:0" title="Geçmiş Denemeler">👁<span class="pred-notes-badge" style="display:none;position:absolute;top:-5px;right:-5px;font-size:.48rem;font-weight:800;background:#ef5350;color:#fff;border-radius:8px;padding:1px 4px;min-width:14px;text-align:center;line-height:1.6">0</span></button>
     </div>
   </div>
 
@@ -9847,6 +9848,7 @@ function listelerRunBacktest(){
   _listelerHistory.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
   _listelerRecompute();
   _renderListelerCols();
+  _predRecord(gameId,ALGOS.find(a=>a.id===algoId)?.name||algoId,tickets,{targetDate:testDate,actualDate:actual?testDate:null,actualNums:actual?.nums||null,actualBonus:actual?.bonus||null});
 }
 
 function listelerVeriDurumu(){
@@ -9900,6 +9902,7 @@ function listelerRunNewPred(){
   _listelerRedKeys=new Set();
   document.getElementById('listelerBulundu').style.display='none';
   _renderListelerNewPred();
+  _predRecord(gameId,ALGOS.find(a=>a.id===algoId)?.name||algoId,tickets);
 }
 
 function _listelerRecompute(){
@@ -10295,6 +10298,7 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn){
 
   // ── BÖLÜM B: AI nihai 3 bilet ────────────────────────────────
   const aiTickets=_listelerGenAiTickets(game,gmax,numScore);
+  _predRecord(gameId,'🧠 AI',aiTickets);
   let finalHtml=`<div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:8px;text-transform:uppercase;letter-spacing:.8px">🎯 AI Nihai 3 Bilet Tahmini</div>`;
   finalHtml+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:10px;line-height:1.5">Kırmızı = çapraz sinyal · Yeşil = tarihsel isabet · Mor = EWF seçimi</div>`;
   aiTickets.forEach((t,idx)=>{
@@ -10505,6 +10509,7 @@ function runScan(){
   try{pred=generateNumbers(game,algoId,freq,prior);}catch(e){res.innerHTML='<div class="empty-state">Algoritma hatası: '+e.message+'</div>';return;}
   const allNums=[...(pred.main||[]),...(pred.bonus||[])];
   const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
+  _predRecord(gameId,algoName,[pred]);
   // Ball renderer
   const ballHtml=(nums,bonus)=>{
     let h='<div style="display:flex;flex-wrap:wrap;gap:10px;margin:10px 0">';
@@ -10609,6 +10614,63 @@ function runScanBacktest(){
 })();
 loadDrawCaches();
 initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();
+
+// ══════════════════════════════════════════════════════════════
+// PREDICTION NOTES (Geçmiş Denemeler)
+// ══════════════════════════════════════════════════════════════
+let _predNotes=JSON.parse(localStorage.getItem('_predNotes')||'[]');
+function _predSave(){try{localStorage.setItem('_predNotes',JSON.stringify(_predNotes));}catch(e){}}
+function _predNextDrawDate(gameId){
+  const sch={sayisal:[1,3,6],super:[2,4,0],sans:[3,0],onnumara:[1,5]};
+  const days=sch[gameId]||[];
+  const today=new Date();
+  for(let i=1;i<=7;i++){const d=new Date(today);d.setDate(d.getDate()+i);if(days.includes(d.getDay()))return d.toISOString().slice(0,10);}
+  return null;
+}
+function _predRecord(gameId,algoName,tickets,opts){
+  opts=opts||{};
+  const game=getGame(gameId);
+  const targetDate=opts.targetDate||_predNextDrawDate(gameId);
+  let actualDate=opts.actualDate||null,actualNums=opts.actualNums||null,actualBonus=opts.actualBonus||null;
+  if(!actualDate&&targetDate){const draws=_scanGetDraws(gameId);const actual=draws.find(d=>d.date===targetDate);if(actual){actualDate=targetDate;actualNums=[...(actual.nums||[])];actualBonus=[...(actual.bonus||[])];}}
+  _predNotes.unshift({id:Date.now(),ts:new Date().toLocaleString('tr-TR'),gameId,gameName:game?.name||gameId,gameEmoji:game?.emoji||'',algoName,tickets:tickets.map(t=>({main:[...(t.main||[])],bonus:[...(t.bonus||[])]})),targetDate,actualDate,actualNums,actualBonus});
+  if(_predNotes.length>300)_predNotes.length=300;
+  _predSave();_predUpdateBadge();
+  showToast('📒 Kaydedildi');
+}
+function _predCheckActuals(){
+  _predNotes.forEach(e=>{if(e.targetDate&&!e.actualDate){const draws=_scanGetDraws(e.gameId);const actual=draws.find(d=>d.date===e.targetDate);if(actual){e.actualDate=e.targetDate;e.actualNums=[...(actual.nums||[])];e.actualBonus=[...(actual.bonus||[])];}}});
+  _predSave();
+}
+function _predUpdateBadge(){
+  const n=_predNotes.length;
+  document.querySelectorAll('.pred-notes-badge').forEach(b=>{b.textContent=n>99?'99+':String(n);b.style.display=n>0?'inline-flex':'none';});
+}
+function openPredNotes(){
+  _predCheckActuals();
+  const el=document.getElementById('predNotesOverlay');
+  if(el){el.style.display='flex';_predRenderNotes();}
+}
+function closePredNotes(){const el=document.getElementById('predNotesOverlay');if(el)el.style.display='none';}
+function clearPredNotes(){if(!confirm('Tüm geçmiş denemeler silinsin mi?'))return;_predNotes=[];_predSave();_predUpdateBadge();_predRenderNotes();}
+function _predNumSpan(n,hit){return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;padding:2px 5px;border-radius:5px;background:${hit?'rgba(0,230,118,.18)':'rgba(255,255,255,.05)'};border:1px solid ${hit?'rgba(0,230,118,.45)':'rgba(255,255,255,.1)'};color:${hit?'var(--green)':'var(--text)'};font-size:.72rem;font-weight:${hit?'800':'600'};font-family:monospace">${n}</span>`;}
+function _predRenderNotes(){
+  const el=document.getElementById('predNotesList');if(!el)return;
+  if(!_predNotes.length){el.innerHTML='<div style="text-align:center;padding:36px 20px;color:var(--muted);font-size:.85rem">Henüz kayıtlı deneme yok.<br><span style="font-size:.72rem">Tarama veya Listeler sayfasında bilet oluşturunca otomatik kaydedilir.</span></div>';return;}
+  el.innerHTML=_predNotes.map((e,i)=>{
+    const actSet=new Set([...(e.actualNums||[]),...(e.actualBonus||[])]);
+    const ticketRows=e.tickets.map((t,ti)=>{
+      const mainHtml=(t.main||[]).map(n=>_predNumSpan(n,actSet.has(n))).join('');
+      const bonusHtml=(t.bonus||[]).length?'<span style="color:rgba(255,255,255,.2);margin:0 3px">|</span>'+(t.bonus||[]).map(n=>_predNumSpan(n,actSet.has(n))).join(''):'';
+      const hitCount=[...(t.main||[]),...(t.bonus||[])].filter(n=>actSet.has(n)).length;
+      return`<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.54rem;color:var(--muted);min-width:14px">${ti+1}.</span>${mainHtml}${bonusHtml}${e.actualDate?`<span style="font-size:.58rem;color:${hitCount>=3?'var(--green)':hitCount>=1?'#ffc400':'rgba(255,255,255,.2)'};margin-left:4px;font-weight:700">${hitCount>0?'✓'+hitCount:''}</span>`:''}</div>`;
+    }).join('');
+    const actualRow=e.actualDate
+      ?`<div style="margin-top:8px;padding:7px 10px;background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.18);border-radius:7px"><div style="font-size:.54rem;color:var(--muted);margin-bottom:5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px">Gerçek Sonuç · ${e.actualDate}</div><div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap">${(e.actualNums||[]).map(n=>{const hit=e.tickets.some(t=>[...(t.main||[]),...(t.bonus||[])].includes(n));return _predNumSpan(n,hit);}).join('')}${(e.actualBonus||[]).length?'<span style="color:rgba(255,255,255,.2);margin:0 2px">|</span>'+(e.actualBonus||[]).map(n=>{const hit=e.tickets.some(t=>[...(t.main||[]),...(t.bonus||[])].includes(n));return _predNumSpan(n,hit);}).join(''):''}</div></div>`
+      :`<div style="font-size:.6rem;color:var(--muted);padding:5px 0;font-style:italic">⏳ Sonuç bekleniyor${e.targetDate?' ('+e.targetDate+')':''}</div>`;
+    return`<div style="padding:12px 14px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px;background:rgba(255,255,255,.02)"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;gap:8px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap"><span style="font-size:.8rem;font-weight:800;color:var(--text)">${e.gameEmoji} ${e.gameName}</span><span style="font-size:.62rem;padding:2px 8px;border-radius:12px;background:rgba(129,140,248,.15);color:var(--accent);font-weight:700">${e.algoName}</span></div><div style="display:flex;align-items:center;gap:8px;flex-shrink:0"><span style="font-size:.58rem;color:var(--muted)">${e.ts}</span><button onclick="event.stopPropagation();_predNotes.splice(${i},1);_predSave();_predUpdateBadge();_predRenderNotes()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.8rem;padding:0 2px;line-height:1">✕</button></div></div>${ticketRows}${actualRow}</div>`;
+  }).join('');
+}
 </script>
 
 <!-- ═══════════ GİZLİ ANALİZ SAYFASI ═══════════ -->
@@ -10741,5 +10803,18 @@ initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats(
  </div>
 </div>
 
+<!-- Prediction Notes Popup -->
+<div id="predNotesOverlay" onclick="if(event.target===this)closePredNotes()" style="display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.68);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto">
+  <div style="width:min(720px,95vw);background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;position:relative;margin:auto">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">
+      <div style="font-size:1rem;font-weight:800;color:var(--text)">📒 Geçmiş Denemeler</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="clearPredNotes()" style="font-size:.7rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(229,57,53,.4);background:rgba(229,57,53,.08);color:#ef9a9a;cursor:pointer">🗑️ Temizle</button>
+        <button onclick="closePredNotes()" style="font-size:.85rem;width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
+      </div>
+    </div>
+    <div id="predNotesList"></div>
+  </div>
+</div>
 </body>
 </html>
