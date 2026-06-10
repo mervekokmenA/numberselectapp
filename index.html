@@ -4913,7 +4913,7 @@ onnumara:`2026-06-08 1 6 11 14 21 23 29 31 35 37 40 45 46 47 49 53 54 56 69 72 7
 
 // ── State ────────────────────────────────────────────────────
 const state = {
-  selectedGame:'super', selectedAlgo:'proensemble',
+  selectedGame:(()=>{const d=new Date().getDay();return{0:'super',1:'sayisal',2:'super',3:'sayisal',4:'super',5:'sayisal',6:'sayisal'}[d]||'super';})(), selectedAlgo:'proensemble',
   ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
@@ -8688,10 +8688,10 @@ function _sablonRenderNext(panel,draws,game){
 
   // Detail per top number
   html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:6px 0 5px;letter-spacing:.5px">▸ En İyi 10 Adayın Kanıt Detayı</div>`;
-  topN.slice(0,10).forEach(({n,s,evid})=>{
+  topN.slice(0,10).forEach(({n,s,evid},rankIdx)=>{
     const top5=evid.sort((a,b)=>b.w-a.w).slice(0,8);
     html+=`<div style="display:flex;gap:6px;align-items:flex-start;padding:5px 7px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:7px;margin-bottom:4px">`;
-    html+=`<div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;min-width:40px">${_sablonNumBadge(n,s>maxS*0.5)}<span style="font-size:.55rem;color:var(--muted);margin-top:2px">${s.toFixed(1)}</span></div>`;
+    html+=`<div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;min-width:40px"><span style="font-size:.5rem;color:var(--accent);font-weight:800;background:rgba(129,140,248,.18);border-radius:3px;padding:1px 4px;margin-bottom:2px;line-height:1.4">#${rankIdx+1}</span>${_sablonNumBadge(n,s>maxS*0.5)}<span style="font-size:.55rem;color:var(--muted);margin-top:2px">${s.toFixed(1)}</span></div>`;
     html+=`<div style="display:flex;flex-wrap:wrap;gap:3px;flex:1">${top5.map(e=>`<span style="display:inline-flex;gap:3px;padding:1px 6px;border-radius:5px;background:rgba(255,255,255,.04);font-family:monospace;font-size:.58rem"><span style="color:var(--muted)">${e.lbl}=${e.val}</span><span style="color:#ffc400">${e.kind}</span><span style="color:rgba(255,255,255,.4)">+${e.w}</span></span>`).join('')}</div>`;
     html+=`</div>`;
   });
@@ -8705,9 +8705,14 @@ function _sablonRenderNext(panel,draws,game){
 
 function _sablonRenderHistory(panel,draws,game){
   const recent=draws.slice(0,Math.min(20,draws.length));
+  // Compute top-10 rank map from the latest draw for rank badges on draw numbers
+  const {score:_hcs}=_sablonScoreNext(draws[0],game);
+  const _hcr=[];for(let n=1;n<=game.max;n++)_hcr.push({n,s:_hcs[n]});
+  _hcr.sort((a,b)=>b.s-a.s);
+  const _hRankMap={};_hcr.slice(0,10).forEach(({n},i)=>{_hRankMap[n]=i+1;});
   let html='';
-  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Son ${recent.length} çekilişin her birinde NS/NST/XS/XST değerlerinin sayıları nasıl vurduğu.</div>`;
-  recent.forEach(d=>{
+  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Son ${recent.length} çekilişin her birinde NS/NST/XS/XST değerlerinin sayıları nasıl vurduğu. <span style="color:var(--accent)">#N</span> = güncel top-10 aday sırası.</div>`;
+  recent.forEach((d,i)=>{
     const ext=_sablonExtract(d,game);
     const numSet=new Set([...ext.mainSorted,...(ext.bonus||[])]);
     const hits=_sablonDetect(ext);
@@ -8720,8 +8725,18 @@ function _sablonRenderHistory(panel,draws,game){
     html+=`<span style="font-size:.58rem;color:${has?'var(--green)':'var(--muted)'};font-weight:700">${has?`✓ ${hitCount} sayı vuruldu`:'— vuruş yok'}</span>`;
     html+=`</div>`;
     html+=`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-bottom:4px">`;
-    ext.mainSorted.forEach(v=>{const h=byNum[v]?.length||0;html+=_sablonNumBadge(v,h>0);});
-    if(ext.bonus.length){html+=`<span style="color:var(--muted);font-size:.7rem;padding:0 3px">|</span>`;ext.bonus.forEach(v=>{const h=byNum[v]?.length||0;html+=_sablonNumBadge(v,h>0,h>0?undefined:'#ff6584');});}
+    ext.mainSorted.forEach(v=>{
+      const h=byNum[v]?.length||0;const rank=_hRankMap[v];
+      if(rank){html+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:0"><span style="font-size:.42rem;color:var(--accent);font-weight:800;background:rgba(129,140,248,.2);border-radius:3px;padding:0 3px;line-height:1.5">#${rank}</span>${_sablonNumBadge(v,h>0)}</span>`;}
+      else{html+=_sablonNumBadge(v,h>0);}
+    });
+    if(ext.bonus.length){
+      html+=`<span style="color:var(--muted);font-size:.7rem;padding:0 3px">|</span>`;
+      ext.bonus.forEach(v=>{const h=byNum[v]?.length||0;const rank=_hRankMap[v];
+        if(rank){html+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:0"><span style="font-size:.42rem;color:var(--accent);font-weight:800;background:rgba(129,140,248,.2);border-radius:3px;padding:0 3px;line-height:1.5">#${rank}</span>${_sablonNumBadge(v,h>0,h>0?undefined:'#ff6584')}</span>`;}
+        else{html+=_sablonNumBadge(v,h>0,h>0?undefined:'#ff6584');}
+      });
+    }
     html+=`</div>`;
     if(has){
       const lines=Object.keys(byNum).map(Number).sort((a,b)=>a-b).map(n=>{
@@ -8729,6 +8744,16 @@ function _sablonRenderHistory(panel,draws,game){
         return `<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap"><strong style="color:var(--green);min-width:24px;font-family:monospace">${n}</strong>${arr.map(_sablonHitLine).join('')}</div>`;
       }).join('');
       html+=`<div style="display:flex;flex-direction:column;gap:3px;padding-top:4px;border-top:1px solid rgba(255,255,255,.06)">${lines}</div>`;
+    }
+    // Candidate numbers predicted before this draw (from previous draw's analysis)
+    if(i+1<draws.length){
+      const {score:psc}=_sablonScoreNext(draws[i+1],game);
+      const pr=[];for(let n=1;n<=game.max;n++)pr.push({n,s:psc[n]});
+      pr.sort((a,b)=>b.s-a.s);
+      const topC=pr.slice(0,20).map(x=>x.n);
+      html+=`<div style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(255,255,255,.06);font-size:.58rem;line-height:1.8"><span style="color:var(--muted);font-size:.52rem;margin-right:4px">📐 adaylar:</span>`;
+      html+=topC.map(n=>{const hit=numSet.has(n);return`<span style="color:${hit?'var(--green)':'rgba(255,255,255,.3)'};font-weight:${hit?'700':'400'}">${n}</span>`;}).join('<span style="color:rgba(255,255,255,.1)">, </span>');
+      html+=`</div>`;
     }
     html+=`</div>`;
   });
