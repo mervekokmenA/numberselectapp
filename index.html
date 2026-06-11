@@ -885,6 +885,16 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 </div>
 
+<div id="nextDrawPredSection" style="grid-column:1/-1;margin-top:0;min-width:0">
+ <div class="card">
+  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+   <span>🔮 Sonraki Çekiliş Tahmin Grubu</span>
+   <button onclick="_nextDrawPredict()" style="font-size:.68rem;padding:4px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">↺ Hesapla</button>
+  </div>
+  <div id="nextDrawPredResult" style="min-height:60px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.75rem">Hesapla butonuna basın.</div>
+ </div>
+</div>
+
 </div><!-- /app -->
 <div id="toast"></div>
 
@@ -5039,6 +5049,7 @@ function _syncOtherGameGrids(id){
   const nd=_predNextDrawDate(id)||'';
   const sdt=document.getElementById('scanTargetDate');if(sdt)sdt.value=nd;
   const lpdt=document.getElementById('listelerPredDate');if(lpdt)lpdt.value=nd;
+  setTimeout(_nextDrawPredict,0);
 }
 function selectAlgo(id){
   state.selectedAlgo=id; state.genRunCount=0; state.btRunCount=0; updateRunCounters(); initAlgoGrid();
@@ -9513,7 +9524,7 @@ function runB10Backtest(){
 }
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
-const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','oyunNoSection','b10Section','ortakSayilarSection'];
+const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','oyunNoSection','b10Section','ortakSayilarSection','nextDrawPredSection'];
 let _scanGame=null;
 
 function showMainPage(id){
@@ -10690,7 +10701,7 @@ function runScanBacktest(){
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();setTimeout(_nextDrawPredict,300);
 
 // ══════════════════════════════════════════════════════════════
 // PREDICTION NOTES (Geçmiş Denemeler)
@@ -10970,6 +10981,68 @@ function _mpRRenderResults(ann,actual,actSet,methods){
   });
   html+=`</div>`;
   el.innerHTML=html;
+}
+
+// ═══════════ Sonraki Çekiliş Tahmin Grubu ═══════════════════
+function _nextDrawPredict(){
+  const gameId=state.selectedGame;
+  const game=getGame(gameId);
+  const el=document.getElementById('nextDrawPredResult');
+  if(!el||!game)return;
+  const draws=_scanGetDraws(gameId);
+  if(draws.length<5){el.innerHTML='<div style="color:var(--muted);font-size:.75rem;text-align:center;padding:16px">Yeterli çekiliş verisi yok</div>';return;}
+  const gmax=game.max,cnt=game.count;
+  const score=new Float32Array(gmax+1);
+  // Sinyal 1: Ağırlıklı frekans (40%)
+  const ewf=buildEWF(draws,gmax,0.08);
+  const maxEwf=Math.max(...ewf.slice(1),1);
+  for(let n=1;n<=gmax;n++)score[n]+=(ewf[n]||0)/maxEwf*40;
+  // Sinyal 2: NS/NST zincir skoru (35%)
+  try{
+    const{score:ns}=_sablonScoreNext(draws[0],game);
+    const maxNS=Math.max(...ns.slice(1),1);
+    for(let n=1;n<=gmax;n++)score[n]+=(ns[n]||0)/maxNS*35;
+  }catch(e){}
+  // Sinyal 3: Gecikme / çıkmayan sayılar (25%)
+  for(let n=1;n<=gmax;n++){
+    const i=draws.findIndex(d=>[...(d.nums||[]),...(d.bonus||[])].includes(n));
+    score[n]+=(i===-1?draws.length:i)/draws.length*25;
+  }
+  // Sırala
+  const ranked=Array.from({length:gmax},(_,i)=>i+1).sort((a,b)=>score[b]-score[a]);
+  const mainNums=ranked.slice(0,cnt).sort((a,b)=>a-b);
+  const altNums=ranked.slice(cnt,cnt+Math.ceil(cnt/2)).sort((a,b)=>a-b);
+  // Bonus tahmini
+  let bonusHtml='';
+  if((game.bonusCount||0)>0){
+    const bmax=game.bonusMax||game.max;
+    const bsc=new Float32Array(bmax+1);
+    draws.forEach((d,i)=>{const w=Math.exp(-0.08*i);(d.bonus||[]).forEach(n=>{if(n<=bmax)bsc[n]+=w;});});
+    const maxB=Math.max(...bsc.slice(1),1);
+    const bRanked=Array.from({length:bmax},(_,i)=>i+1).sort((a,b)=>bsc[b]-bsc[a]);
+    const bPred=bRanked.slice(0,game.bonusCount).sort((a,b)=>a-b);
+    bonusHtml=`<span style="color:rgba(255,255,255,.2);margin:0 4px;align-self:center">|</span>`+bPred.map(n=>_ndpSpan(n,'bonus')).join('');
+  }
+  const nextDate=_predNextDrawDate(gameId);
+  let html=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">`;
+  html+=`<span style="font-size:.72rem;color:var(--muted)">${game.emoji} ${game.name}</span>`;
+  html+=`<span style="font-size:.72rem;color:var(--accent);font-weight:700">${nextDate||'—'}</span>`;
+  html+=`<span style="font-size:.6rem;color:rgba(255,255,255,.25);margin-left:auto">Frekans ×40 · NS Zincir ×35 · Gecikme ×25</span>`;
+  html+=`</div>`;
+  html+=`<div style="margin-bottom:12px">`;
+  html+=`<div style="font-size:.62rem;font-weight:800;color:var(--green);margin-bottom:7px;letter-spacing:.05em">🟢 TAHMİN GRUBU</div>`;
+  html+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${mainNums.map(n=>_ndpSpan(n,'main')).join('')}${bonusHtml}</div>`;
+  html+=`</div>`;
+  html+=`<div>`;
+  html+=`<div style="font-size:.62rem;font-weight:800;color:#ffc400;margin-bottom:7px;letter-spacing:.05em">🟡 ALTERNATİF</div>`;
+  html+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${altNums.map(n=>_ndpSpan(n,'alt')).join('')}</div>`;
+  html+=`</div>`;
+  el.innerHTML=html;
+}
+function _ndpSpan(n,tier){
+  const cfg={main:{bg:'rgba(0,230,118,.18)',bd:'rgba(0,230,118,.5)',cl:'var(--green)'},alt:{bg:'rgba(255,196,0,.12)',bd:'rgba(255,196,0,.4)',cl:'#ffc400'},bonus:{bg:'rgba(129,140,248,.18)',bd:'rgba(129,140,248,.5)',cl:'var(--accent)'}};
+  const c=cfg[tier]||cfg.main;
+  return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:30px;padding:0 5px;border-radius:8px;background:${c.bg};border:1px solid ${c.bd};color:${c.cl};font-size:.82rem;font-weight:800;font-family:monospace">${n}</span>`;
 }
 </script>
 
