@@ -10731,6 +10731,33 @@ function openPredNotes(){
 }
 function closePredNotes(){const el=document.getElementById('predNotesOverlay');if(el)el.style.display='none';}
 function clearPredNotes(){if(!confirm('Tüm geçmiş denemeler silinsin mi?'))return;_predNotes=[];_predSave();_predUpdateBadge();_predRenderNotes();}
+function _predExport(){
+  if(!_predNotes.length){showToast('⚠️ Yedeklenecek veri yok');return;}
+  const blob=new Blob([JSON.stringify(_predNotes,null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='tahmin-notlari-'+new Date().toISOString().slice(0,10)+'.json';
+  a.click();URL.revokeObjectURL(a.href);
+  showToast('✅ '+_predNotes.length+' kayıt indirildi');
+}
+function _predImportTrigger(){document.getElementById('predImportFile').value='';document.getElementById('predImportFile').click();}
+function _predImport(input){
+  const file=input.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!Array.isArray(data))throw new Error('Geçersiz format');
+      const existing=new Set(_predNotes.map(n=>n.id));
+      const newOnes=data.filter(n=>n.id&&!existing.has(n.id));
+      _predNotes.unshift(...newOnes);
+      if(_predNotes.length>5000)_predNotes.length=5000;
+      _predSave();_predUpdateBadge();_predRenderNotes();
+      showToast('✅ '+newOnes.length+' yeni kayıt eklendi');
+    }catch(err){showToast('⚠️ Dosya okunamadı');}
+  };
+  reader.readAsText(file);
+}
 function _predNumSpan(n,hit,near){
   const bg=hit?'rgba(0,230,118,.18)':near?'rgba(255,152,0,.18)':'rgba(255,255,255,.05)';
   const bd=hit?'rgba(0,230,118,.45)':near?'rgba(255,152,0,.5)':'rgba(255,255,255,.1)';
@@ -11103,7 +11130,10 @@ function _mpRRenderResults(ann,actual,actSet,methods){
   <div style="width:min(720px,95vw);background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:20px;position:relative;margin:auto">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:12px;border-bottom:1px solid var(--border)">
       <div style="font-size:1rem;font-weight:800;color:var(--text)">📒 Geçmiş Denemeler</div>
-      <div style="display:flex;gap:8px;align-items:center">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button onclick="_predExport()" style="font-size:.7rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,230,118,.35);background:rgba(0,230,118,.08);color:#69f0ae;cursor:pointer">⬇️ Yedekle</button>
+        <button onclick="_predImportTrigger()" style="font-size:.7rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(129,140,248,.35);background:rgba(129,140,248,.08);color:var(--accent);cursor:pointer">⬆️ Geri Yükle</button>
+        <input type="file" id="predImportFile" accept=".json" style="display:none" onchange="_predImport(this)">
         <button onclick="clearPredNotes()" style="font-size:.7rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(229,57,53,.4);background:rgba(229,57,53,.08);color:#ef9a9a;cursor:pointer">🗑️ Temizle</button>
         <button onclick="closePredNotes()" style="font-size:.85rem;width:26px;height:26px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0">✕</button>
       </div>
