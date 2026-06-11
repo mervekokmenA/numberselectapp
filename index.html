@@ -9552,12 +9552,13 @@ function _initScanPage(){
   const grid=document.getElementById('scanGameGrid');
   if(grid&&!grid.dataset.init){
     grid.dataset.init='1';
+    if(!_scanGame)_scanGame=state.selectedGame||GAMES[0].id;
     GAMES.forEach(g=>{
       const btn=document.createElement('button');
       btn.textContent=g.emoji+' '+g.name;
       btn.style.cssText='font-size:.7rem;padding:4px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s';
       btn.onclick=()=>selectGame(g.id);
-      if(!_scanGame){_scanGame=g.id;btn.style.background='rgba(108,99,255,.2)';btn.style.color='var(--accent)';btn.style.borderColor='rgba(108,99,255,.5)';}
+      if(g.id===_scanGame){btn.style.background='rgba(108,99,255,.2)';btn.style.color='var(--accent)';btn.style.borderColor='rgba(108,99,255,.5)';}
       grid.appendChild(btn);
     });
   }
@@ -9600,8 +9601,8 @@ function _initOrtakGameGrid(){
     btn.onclick=()=>selectGame(g.id);
     grid.appendChild(btn);
   });
-  const first=GAMES[0];
-  if(first){_ortakGame=first.id;_ortakHighlightGame(first.id);}
+  _ortakGame=_ortakGame||state.selectedGame||GAMES[0].id;
+  _ortakHighlightGame(_ortakGame);
 }
 
 function _ortakHighlightGame(id){
