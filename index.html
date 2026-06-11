@@ -8207,7 +8207,11 @@ function openGizliSayfa(){
   _gizliSelectedGame=state.selectedGame||'super';
   el.style.display='block';
   _gizliRenderGameSelector();
-  _mpRInitDateSel();
+  _gizliRenderInputs();
+  gizliArsivTemizle();
+  gizliTestInit();
+  try{_sablonRender();}catch(e){}
+  _gizliSwitchTab('kolon');
 }
 function closeGizliSayfa(){
   const el=document.getElementById('gizliSayfa');
@@ -8893,7 +8897,7 @@ function _gizliSwitchTab(tab){
     const btn=document.getElementById('gizliTab'+{kolon:'Kolon',mpr:'MpR'}[t]);
     if(btn){const on=t===tab;btn.style.background=on?'rgba(129,140,248,.18)':'rgba(255,255,255,.06)';btn.style.borderColor=on?'rgba(129,140,248,.5)':'var(--border)';btn.style.color=on?'var(--accent)':'var(--muted)';}
   });
-  if(tab==='mpr')_mpRInitDateSel();
+  if(tab==='mpr'&&!document.getElementById('mpRDateSel')?.options.length)_mpRInitDateSel();
 }
 
 function switchB10Tab(name){
@@ -10761,8 +10765,19 @@ function _predRenderNotes(){
 // ══════════════════════════════════════════════════════════════
 // MP RASTGELE — Kupon Havuzu Analizi
 // ══════════════════════════════════════════════════════════════
+let _mpRGame=null;
+function _mpRSetGame(id){
+  _mpRGame=id;
+  document.querySelectorAll('.mpr-game-btn').forEach(b=>{
+    const on=b.dataset.game===id;
+    b.style.background=on?'rgba(129,140,248,.25)':'rgba(255,255,255,.06)';
+    b.style.borderColor=on?'rgba(129,140,248,.55)':'var(--border)';
+    b.style.color=on?'var(--accent)':'var(--muted)';
+  });
+  _mpRInitDateSel();
+}
 function _mpRGetDraws(){
-  const gid=_gizliSelectedGame||'super';
+  const gid=_mpRGame||_gizliSelectedGame||'super';
   const raw=DRAW_DATA[gid]||'';const draws=[];
   raw.split('\n').forEach(line=>{
     const dm=line.match(/^(\d{4}-\d{2}-\d{2})/);if(!dm)return;
@@ -10778,10 +10793,19 @@ function _mpRInitDateSel(){
   const draws=_mpRGetDraws();
   sel.innerHTML='<option value="">— Tarih seç —</option>';
   draws.forEach(d=>{sel.innerHTML+=`<option value="${d.date}">${d.date}</option>`;});
+  if(!_mpRGame){
+    const gid=_gizliSelectedGame||'super';_mpRGame=gid;
+    document.querySelectorAll('.mpr-game-btn').forEach(b=>{
+      const on=b.dataset.game===gid;
+      b.style.background=on?'rgba(129,140,248,.25)':'rgba(255,255,255,.06)';
+      b.style.borderColor=on?'rgba(129,140,248,.55)':'var(--border)';
+      b.style.color=on?'var(--accent)':'var(--muted)';
+    });
+  }
 }
 function _mpRParseTickets(){
   const txt=document.getElementById('mpRInput')?.value||'';
-  const game=getGame(_gizliSelectedGame||'super');const tickets=[];
+  const game=getGame(_mpRGame||'super');const tickets=[];
   txt.split('\n').forEach((line,li)=>{
     line=line.trim();if(!line)return;
     let main=[],bonus=[];
@@ -10806,7 +10830,7 @@ function _mpRRun(){
   if(!tickets.length){showToast('⚠️ Kupon giriniz');return;}
   const dateVal=document.getElementById('mpRDateSel')?.value;
   if(!dateVal){showToast('⚠️ Çekiliş tarihi seçiniz');return;}
-  const gid=_gizliSelectedGame||'super';
+  const gid=_mpRGame||_gizliSelectedGame||'super';
   const game=getGame(gid);const draws=_mpRGetDraws();
   const actual=draws.find(d=>d.date===dateVal);
   if(!actual){showToast('⚠️ Bu tarihe ait çekiliş yok');return;}
@@ -10932,8 +10956,131 @@ function _mpRRenderResults(ann,actual,actSet,methods){
    <button onclick="closeGizliSayfa()" style="background:rgba(255,82,82,.15);border:1px solid rgba(255,82,82,.35);color:#ff5252;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:.78rem;font-weight:700">✕ Kapat</button>
   </div>
 
+  <!-- İç menü -->
+  <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px">
+   <button id="gizliTabKolon" onclick="_gizliSwitchTab('kolon')" style="padding:6px 16px;border-radius:8px;cursor:pointer;font-size:.75rem;font-weight:700;border:1px solid rgba(129,140,248,.5);background:rgba(129,140,248,.18);color:var(--accent)">🔬 Kolon Analizi</button>
+   <button id="gizliTabMpR" onclick="_gizliSwitchTab('mpr')" style="padding:6px 16px;border-radius:8px;cursor:pointer;font-size:.75rem;font-weight:700;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">🎫 MP Rastgele</button>
+  </div>
+
+  <!-- === SAYFA: Kolon Analizi === -->
+  <div id="gizliPageKolon">
+   <button class="gz-game-btn" data-game="sayisal" onclick="_gizliSetGame('sayisal')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">Sayısal Loto</button>
+   <button class="gz-game-btn" data-game="super" onclick="_gizliSetGame('super')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">Süper Loto</button>
+   <button class="gz-game-btn" data-game="sans" onclick="_gizliSetGame('sans')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">Şans Topu</button>
+   <button class="gz-game-btn" data-game="onnumara" onclick="_gizliSetGame('onnumara')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">On Numara</button>
+  </div>
+
+  <!-- Adım kılavuzu -->
+  <div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;font-size:.65rem;color:var(--muted);line-height:2">
+   <span style="color:var(--accent);font-weight:800">1.</span> Oyun seç &nbsp;→&nbsp;
+   <span style="color:var(--accent);font-weight:800">2.</span> Beklenti gir (isteğe bağlı) &nbsp;→&nbsp;
+   <span style="color:var(--accent);font-weight:800">3.</span> Banko say. gir (isteğe bağlı) &nbsp;→&nbsp;
+   <span style="color:var(--accent);font-weight:800">4.</span> <strong style="color:var(--accent)">TARA</strong> (arşiv kur) &nbsp;→&nbsp;
+   <span style="color:var(--accent);font-weight:800">5a.</span> <strong style="color:var(--accent)">MODEL UYGULA</strong> (güncel kolon üret) &nbsp;veya&nbsp;
+   <span style="color:var(--accent);font-weight:800">5b.</span> Geçmiş Testte tarih seç → <strong style="color:var(--green)">Test Et</strong> (o tarihe ait geçmiş çekiliş üzerinde dene)
+  </div>
+
+  <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+   <div id="gizliArchiveStatus" style="font-size:.7rem;color:var(--muted)">Arşiv boş — önce TARA yapın</div>
+   <div style="display:flex;gap:7px;flex-wrap:wrap">
+    <button onclick="gizliArsivTemizle()" style="background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);color:#ff7070;border-radius:7px;padding:4px 10px;cursor:pointer;font-size:.7rem">Arsivi Temizle</button>
+    <button onclick="gizliTara()" style="background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.25);color:var(--green);border-radius:7px;padding:4px 10px;cursor:pointer;font-size:.7rem">Arsivi Yeniden Hesapla</button>
+   </div>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:10px">
+   <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:rgba(129,140,248,.2);color:var(--accent);font-size:.65rem;font-weight:800;flex-shrink:0">2</span>
+    <div style="font-size:.8rem;font-weight:700;color:var(--text)">Beklenti — Onluk Aralık Filtresi</div>
+   </div>
+   <div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Her pozisyon için beklediğin onluk aralığı gir (örn. <strong>3</strong> = 30–39). Boş bırakırsan o pozisyon filtrelenmez.</div>
+   <div style="display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <div id="gizliBeklentiInputs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+    <label style="display:flex;align-items:center;gap:5px;font-size:.7rem;color:var(--muted);cursor:pointer;padding-bottom:4px">
+     <input type="checkbox" id="gizliHarftenChk" checked style="accent-color:var(--accent);width:14px;height:14px">
+     Hartten Bağımsız
+    </label>
+   </div>
+   <div id="gizliBeklentiHint" style="font-size:.62rem;color:var(--muted);min-height:14px;margin-bottom:10px;padding:4px 8px;background:rgba(255,255,255,.03);border-radius:5px"></div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button onclick="gizliTara()" style="background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.4);color:var(--accent);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem;font-weight:700">④ TARA</button>
+    <button onclick="gizliTemizle()" style="background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem">TEMİZLE</button>
+    <button onclick="gizliModelAra()" style="background:rgba(255,196,0,.12);border:1px solid rgba(255,196,0,.3);color:#ffc400;border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem;font-weight:700">MODEL ARA</button>
+    <button onclick="gizliModelUygula()" style="background:linear-gradient(135deg,rgba(129,140,248,.28),rgba(255,101,132,.18));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem;font-weight:700">⑤ MODEL UYGULA</button>
+   </div>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid rgba(255,215,0,.2);border-radius:12px;padding:14px;margin-bottom:10px">
+   <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+    <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:rgba(255,215,0,.2);color:#ffd700;font-size:.65rem;font-weight:800;flex-shrink:0">3</span>
+    <div style="font-size:.8rem;font-weight:700;color:#ffd700">Banko — Kesin Beklenen Sayılar</div>
+   </div>
+   <div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Gelmesini kesin beklediğin sayıları yaz. Bu sayılar üretilen her kolonda mutlaka yer alır.</div>
+   <div id="gizliBankoInputs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  </div>
+
+  <div id="gizliModelAraResult" style="display:none;background:var(--surface);border:1px solid rgba(255,196,0,.22);border-radius:10px;padding:12px;margin-bottom:10px"></div>
+
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px">
+   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <div style="font-size:.8rem;font-weight:700;color:var(--text)">Model Uygulama / Örnek Kolonlar</div>
+    <button onclick="gizliKopyalaHepsi()" id="gizliKopyaBtn" style="display:none;background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:.65rem">📋 Kopyala</button>
+   </div>
+   <div id="gizliKolonlar" style="max-height:440px;overflow-y:auto"><div class="empty-state"><span class="empty-icon">📊</span>Beklenti ve banko sayıları girin, MODEL UYGULA'ya basın.</div></div>
+  </div>
+
+  <!-- Geçmiş Test -->
+  <div style="background:var(--surface);border:1px solid rgba(0,230,118,.2);border-radius:12px;padding:14px;margin-top:10px">
+   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+    <span style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:rgba(0,230,118,.2);color:var(--green);font-size:.65rem;font-weight:800;flex-shrink:0">5b</span>
+    <div style="font-size:.8rem;font-weight:700;color:var(--text)">Geçmiş Test — Modeli Geri Doğrula</div>
+   </div>
+   <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;line-height:1.5;padding:6px 9px;background:rgba(0,230,118,.03);border-radius:6px">Seçilen tarihe ait çekilişi test et: o tarih <strong>öncesindeki</strong> verilerle arşiv kurulur, beklenti + banko ayarların uygulanır, üretilen kolonlar gerçek sonuçla karşılaştırılır. <span style="color:var(--green)">Yeşil = eşleşen sayı.</span></div>
+   <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+    <select id="gizliTestDate" onchange="gizliTestDateChanged()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 10px;font-size:.78rem;flex:1;min-width:140px">
+     <option value="">— Tarih seçin —</option>
+    </select>
+    <button onclick="gizliTestStepDate(1)" style="background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:.8rem" title="Daha eski">◀</button>
+    <button onclick="gizliTestStepDate(-1)" style="background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;font-size:.8rem" title="Daha yeni">▶</button>
+    <button onclick="gizliTestEt()" style="background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.1));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem;font-weight:700">🔬 Test Et</button>
+   </div>
+   <div id="gizliTestActual" style="padding:8px 10px;background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.12);border-radius:8px;min-height:36px;margin-bottom:8px"></div>
+   <div id="gizliTestResult" style="max-height:420px;overflow-y:auto"></div>
+  </div>
+
+  <!-- Matematiksel Şablon Analizi -->
+  <div style="background:var(--surface);border:1px solid rgba(255,196,0,.25);border-radius:12px;padding:14px;margin-top:14px">
+   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-wrap:wrap;gap:8px">
+    <div style="font-size:.88rem;font-weight:800;background:linear-gradient(135deg,#ffd700,#ff6584);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">🔢 Matematiksel Şablon Analizi</div>
+    <button onclick="_sablonRender()" style="background:rgba(255,196,0,.12);border:1px solid rgba(255,196,0,.3);color:#ffc400;border-radius:7px;padding:4px 11px;cursor:pointer;font-size:.7rem;font-weight:700">↺ Yenile</button>
+   </div>
+   <div style="font-size:.62rem;color:var(--muted);line-height:1.65;margin-bottom:10px;padding:7px 10px;background:rgba(255,255,255,.03);border-radius:6px">
+    <strong style="color:var(--text)">NS</strong> = sıralı sayıların ardışık toplamı (NSA, NSAB, NSABC, ...).<br>
+    <strong style="color:var(--text)">NST</strong> = NS değerlerinin ardışık toplamı (NST1, NST2, ...).<br>
+    <strong style="color:var(--text)">XS / XST</strong> = bonusla birlikte 7-8 sayının versionu.<br>
+    Bir <em>V</em> değeri bir <em>N</em> sayısını <strong style="color:#ffc400">vurur</strong> şu yollardan biriyle: doğrudan (V=N), mod-100 (V'nin 200'lü versionu N), mod-max, decade-class (V'nin 70'li/80'li versionu N), küçük sapma (±1..±5).
+   </div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+    <button onclick="_sablonViewSwitch('last')" id="sablonViewLast" style="background:rgba(255,196,0,.18);border:1px solid rgba(255,196,0,.4);color:#ffc400;border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">📅 Son Çekiliş</button>
+    <button onclick="_sablonViewSwitch('next')" id="sablonViewNext" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">🎯 Sonraki Çekiliş Adayları</button>
+    <button onclick="_sablonViewSwitch('history')" id="sablonViewHistory" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">📜 Geçmiş Vuruşlar</button>
+    <button onclick="_sablonViewSwitch('backtest')" id="sablonViewBacktest" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">🔬 Top-K Geri Test</button>
+    <button onclick="_sablonViewSwitch('banko')" id="sablonViewBanko" style="background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">🎰 Banko + Şablon</button>
+   </div>
+   <div id="sablonPanel" style="font-size:.72rem"></div>
+  </div>
+
+  </div><!-- /gizliPageKolon -->
+
   <!-- === SAYFA: MP Rastgele === -->
-  <div id="gizliPageMpR">
+  <div id="gizliPageMpR" style="display:none">
+   <!-- Game selector -->
+   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+    <button class="mpr-game-btn" data-game="sayisal" onclick="_mpRSetGame('sayisal')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">🔵 Sayısal Loto</button>
+    <button class="mpr-game-btn" data-game="super" onclick="_mpRSetGame('super')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">⭐ Süper Loto</button>
+    <button class="mpr-game-btn" data-game="sans" onclick="_mpRSetGame('sans')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">🔴 Şans Topu</button>
+    <button class="mpr-game-btn" data-game="onnumara" onclick="_mpRSetGame('onnumara')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">🟢 On Numara</button>
+   </div>
    <!-- Input card -->
    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
     <div style="font-size:.82rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 Kupon Listesi</div>
