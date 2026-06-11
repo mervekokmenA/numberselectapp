@@ -8897,7 +8897,7 @@ function _gizliSwitchTab(tab){
     const btn=document.getElementById('gizliTab'+{kolon:'Kolon',mpr:'MpR'}[t]);
     if(btn){const on=t===tab;btn.style.background=on?'rgba(129,140,248,.18)':'rgba(255,255,255,.06)';btn.style.borderColor=on?'rgba(129,140,248,.5)':'var(--border)';btn.style.color=on?'var(--accent)':'var(--muted)';}
   });
-  if(tab==='mpr'&&!document.getElementById('mpRDateSel')?.options.length)_mpRInitDateSel();
+  if(tab==='mpr')_mpRInitDateSel();
 }
 
 function switchB10Tab(name){
@@ -10765,19 +10765,8 @@ function _predRenderNotes(){
 // ══════════════════════════════════════════════════════════════
 // MP RASTGELE — Kupon Havuzu Analizi
 // ══════════════════════════════════════════════════════════════
-let _mpRGame=null;
-function _mpRSetGame(id){
-  _mpRGame=id;
-  document.querySelectorAll('.mpr-game-btn').forEach(b=>{
-    const on=b.dataset.game===id;
-    b.style.background=on?'rgba(129,140,248,.25)':'rgba(255,255,255,.06)';
-    b.style.borderColor=on?'rgba(129,140,248,.55)':'var(--border)';
-    b.style.color=on?'var(--accent)':'var(--muted)';
-  });
-  _mpRInitDateSel();
-}
 function _mpRGetDraws(){
-  const gid=_mpRGame||_gizliSelectedGame||'super';
+  const gid=_gizliSelectedGame||'super';
   const raw=DRAW_DATA[gid]||'';const draws=[];
   raw.split('\n').forEach(line=>{
     const dm=line.match(/^(\d{4}-\d{2}-\d{2})/);if(!dm)return;
@@ -10793,19 +10782,10 @@ function _mpRInitDateSel(){
   const draws=_mpRGetDraws();
   sel.innerHTML='<option value="">— Tarih seç —</option>';
   draws.forEach(d=>{sel.innerHTML+=`<option value="${d.date}">${d.date}</option>`;});
-  if(!_mpRGame){
-    const gid=_gizliSelectedGame||'super';_mpRGame=gid;
-    document.querySelectorAll('.mpr-game-btn').forEach(b=>{
-      const on=b.dataset.game===gid;
-      b.style.background=on?'rgba(129,140,248,.25)':'rgba(255,255,255,.06)';
-      b.style.borderColor=on?'rgba(129,140,248,.55)':'var(--border)';
-      b.style.color=on?'var(--accent)':'var(--muted)';
-    });
-  }
 }
 function _mpRParseTickets(){
   const txt=document.getElementById('mpRInput')?.value||'';
-  const game=getGame(_mpRGame||'super');const tickets=[];
+  const game=getGame(_gizliSelectedGame||'super');const tickets=[];
   txt.split('\n').forEach((line,li)=>{
     line=line.trim();if(!line)return;
     let main=[],bonus=[];
@@ -10830,7 +10810,7 @@ function _mpRRun(){
   if(!tickets.length){showToast('⚠️ Kupon giriniz');return;}
   const dateVal=document.getElementById('mpRDateSel')?.value;
   if(!dateVal){showToast('⚠️ Çekiliş tarihi seçiniz');return;}
-  const gid=_mpRGame||_gizliSelectedGame||'super';
+  const gid=_gizliSelectedGame||'super';
   const game=getGame(gid);const draws=_mpRGetDraws();
   const actual=draws.find(d=>d.date===dateVal);
   if(!actual){showToast('⚠️ Bu tarihe ait çekiliş yok');return;}
@@ -11074,13 +11054,6 @@ function _mpRRenderResults(ann,actual,actSet,methods){
 
   <!-- === SAYFA: MP Rastgele === -->
   <div id="gizliPageMpR" style="display:none">
-   <!-- Game selector -->
-   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-    <button class="mpr-game-btn" data-game="sayisal" onclick="_mpRSetGame('sayisal')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">🔵 Sayısal Loto</button>
-    <button class="mpr-game-btn" data-game="super" onclick="_mpRSetGame('super')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">⭐ Süper Loto</button>
-    <button class="mpr-game-btn" data-game="sans" onclick="_mpRSetGame('sans')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">🔴 Şans Topu</button>
-    <button class="mpr-game-btn" data-game="onnumara" onclick="_mpRSetGame('onnumara')" style="border-radius:8px;padding:5px 13px;cursor:pointer;font-size:.75rem;border:1px solid var(--border);background:rgba(255,255,255,.06);color:var(--muted)">🟢 On Numara</button>
-   </div>
    <!-- Input card -->
    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;margin-bottom:12px">
     <div style="font-size:.82rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 Kupon Listesi</div>
