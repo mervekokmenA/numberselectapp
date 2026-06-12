@@ -10248,19 +10248,30 @@ function listelerCopyAll(){
     html+='</tr>';
   }
   html+='</table>';
-  // Plain text fallback
-  const plainLines=[];
-  cols.forEach(col=>{
+  // Plain text: TSV format — columns side-by-side via tabs (Excel/Sheets friendly)
+  const maxTickets=Math.max(...cols.map(col=>col.data.tickets.length));
+  const tsvRows=[];
+  // Header row
+  tsvRows.push(cols.map(col=>{
     const algoName=(ALGOS.find(a=>a.id===col.data.algoId)||{name:col.data.algoId||'—'}).name;
-    if(col.type==='new'){plainLines.push(`Yeni Tahmin — ${algoName}`);}
-    else{
-      const actualStr=col.data.actual?` → ${[...(col.data.actual.nums||[]),...(col.data.actual.bonus||[])].join(' ')}`:'';
-      plainLines.push(`${col.data.date}${actualStr} · ${algoName}`);
-    }
-    col.data.tickets.forEach((t,ti)=>{plainLines.push(`${ti+1}. ${[...t.main,...t.bonus].join(' - ')}`);});
-    plainLines.push('');
-  });
-  const plainText=plainLines.join('\n');
+    if(col.type==='new')return`Yeni Tahmin — ${game?game.name:gameId} · ${algoName}`;
+    return`${col.data.date} · ${algoName}`;
+  }).join('\t\t'));
+  // Actual draw row
+  tsvRows.push(cols.map(col=>{
+    if(col.type==='new')return'—';
+    const a=col.data.actual?[...(col.data.actual.nums||[]),...(col.data.actual.bonus||[])]:[];
+    return a.length?'→ '+a.join(' '):'—';
+  }).join('\t\t'));
+  // Ticket rows
+  for(let ti=0;ti<maxTickets;ti++){
+    tsvRows.push(cols.map(col=>{
+      const t=col.data.tickets[ti];
+      if(!t)return'';
+      return(ti+1)+'. '+[...t.main,...t.bonus].join(' ');
+    }).join('\t\t'));
+  }
+  const plainText=tsvRows.join('\n');
   try{
     navigator.clipboard.write([new ClipboardItem({
       'text/html':new Blob([html],{type:'text/html'}),
