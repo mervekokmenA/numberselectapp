@@ -10937,7 +10937,7 @@ function _mpRRun(){
   const tickets=_mpRParseTickets();
   if(!tickets.length){showToast('⚠️ Kupon giriniz');return;}
   const dateVal=document.getElementById('mpRDateSel')?.value;
-  if(!dateVal){showToast('⚠️ Çekiliş tarihi seçiniz');return;}
+  if(!dateVal){_mpRRunPrediction();return;}
   const gid=_mpRGame||_gizliSelectedGame||'super';
   const game=getGame(gid);const draws=_mpRGetDraws();
   const actual=draws.find(d=>d.date===dateVal);
@@ -11045,6 +11045,124 @@ function _mpRRenderResults(ann,actual,actSet,methods){
       html+=`<div style="font-size:.58rem;margin-top:4px;color:${hc>=3?'var(--green)':hc>=2?'#8a6200':hc>=1?'var(--accent)':'var(--muted)'}">→ ${hc} eşleşme${hc>=2?' ✓':''}</div>`;
       html+=`</div>`;
     });
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  el.innerHTML=html;
+}
+function _mpRClear(){
+  const inp=document.getElementById('mpRInput');
+  if(inp)inp.value='';
+  const res=document.getElementById('mpRResults');
+  if(res)res.innerHTML='';
+  const sel=document.getElementById('mpRDateSel');
+  if(sel)sel.value='';
+}
+function _mpRAutoDetectGame(tickets){
+  if(!tickets.length)return _mpRGame||_gizliSelectedGame||'super';
+  if(_mpRGame)return _mpRGame;
+  const allNums=tickets.flatMap(t=>[...t.main,...t.bonus]);
+  const maxN=Math.max(...allNums);
+  const avgCount=tickets.reduce((s,t)=>s+t.main.length,0)/tickets.length;
+  if(avgCount>=9)return'onnumara';
+  if(maxN<=49)return'sayisal';
+  if(maxN<=54)return'sans';
+  return'super';
+}
+function _mpRRunPrediction(){
+  const gid=_mpRAutoDetectGame(_mpRParseTickets());
+  const _origGame=_mpRGame;_mpRGame=gid;
+  const tickets=_mpRParseTickets();
+  _mpRGame=_origGame;
+  if(!tickets.length){showToast('⚠️ Kupon giriniz');return;}
+  const game=getGame(gid);
+  const draws=_mpRGetDrawsFor(gid);
+  if(draws.length<5){showToast('⚠️ Yeterli geçmiş veri yok');return;}
+  // Coverage: how many tickets contain each number
+  const cov={};
+  tickets.forEach(t=>[...t.main,...t.bonus].forEach(n=>{cov[n]=(cov[n]||0)+1;}));
+  const allNums=Object.keys(cov).map(Number).sort((a,b)=>a-b);
+  // Frequency
+  const freq=buildFreq(draws);const maxF=Math.max(...Object.values(freq),1);
+  // Delay
+  const delay={};
+  for(let n=1;n<=game.max;n++){const i=draws.findIndex(d=>[...d.nums,...(d.bonus||[])].includes(n));delay[n]=i===-1?draws.length:i;}
+  const maxD=Math.max(...allNums.map(n=>delay[n]||0),1);
+  // NS chain
+  let chainSc={};
+  try{const{score:cs}=_sablonScoreNext(draws[0],game);const mcx=Math.max(...cs,1);allNums.forEach(n=>{chainSc[n]=(cs[n]||0)/mcx;});}catch(e){allNums.forEach(n=>{chainSc[n]=0;});}
+  const maxC=Math.max(...Object.values(cov),1);
+  // Score each number
+  const scored=allNums.map(n=>{
+    const f=(freq[n]||0)/maxF,d=(delay[n]||0)/maxD,c=(cov[n]||0)/maxC,ns=chainSc[n]||0;
+    return{n,combined:+(f*0.25+d*0.3+c*0.2+ns*0.25).toFixed(4),f,d,c,ns,coverage:cov[n],delay:delay[n]||0,freq:freq[n]||0};
+  }).sort((a,b)=>b.combined-a.combined);
+  _mpRRenderPrediction(tickets,scored,game,gid,draws.length);
+}
+function _mpRGetDrawsFor(gid){
+  const raw=DRAW_DATA[gid]||'';const draws=[];
+  raw.split('\n').forEach(line=>{
+    const dm=line.match(/^(\d{4}-\d{2}-\d{2})/);if(!dm)return;
+    const date=dm[1],rest=line.slice(date.length),parts=rest.split('|');
+    const nums=(parts[0].match(/\d+/g)||[]).map(Number);
+    const bonus=parts[1]?(parts[1].match(/\d+/g)||[]).map(Number):[];
+    if(nums.length>=1)draws.push({date,nums,bonus});
+  });
+  return draws.sort((a,b)=>b.date.localeCompare(a.date));
+}
+function _mpRRenderPrediction(tickets,scored,game,gid,totalDraws){
+  const el=document.getElementById('mpRResults');if(!el)return;
+  const topNums=new Set(scored.slice(0,game.count).map(x=>x.n));
+  const numSpan=(n,top)=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;padding:0 4px;border-radius:5px;background:${top?'rgba(0,230,118,.22)':'rgba(0,0,0,.05)'};border:1px solid ${top?'rgba(0,230,118,.55)':'rgba(0,0,0,.08)'};color:${top?'var(--green)':'var(--text)'};font-size:.68rem;font-weight:${top?'800':'500'};font-family:monospace">${n}</span>`;
+  const pct=v=>Math.round(v*100);
+  let html='';
+  // Mode banner
+  html+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
+  html+=`<div style="font-size:.78rem;font-weight:800;color:var(--accent)">🎯 Tahmin Modu</div>`;
+  html+=`<div style="font-size:.65rem;color:var(--muted)">${game.emoji} ${game.name} · ${tickets.length} kupon · ${scored.length} benzersiz sayı · ${totalDraws} çekiliş arşivi</div>`;
+  html+=`</div>`;
+  // Top candidate numbers
+  html+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:12px 14px;margin-bottom:10px">`;
+  html+=`<div style="font-size:.75rem;font-weight:800;color:var(--green);margin-bottom:8px">🏆 En Yüksek Skorlu ${game.count} Sayı</div>`;
+  html+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">`;
+  scored.slice(0,game.count).forEach(x=>{html+=numSpan(x.n,true);});
+  html+=`</div>`;
+  html+=`<div style="font-size:.58rem;color:var(--muted)">Karma skor: Gecikme×0.30 · Frekans×0.25 · NS Zincir×0.25 · Kupon Yoğunluğu×0.20</div>`;
+  html+=`</div>`;
+  // Full score table
+  html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">`;
+  html+=`<div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:8px">📊 Tüm Aday Sayılar — Skor Tablosu</div>`;
+  html+=`<div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr 1fr auto;gap:4px 8px;font-size:.6rem;color:var(--muted);margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid var(--border)">`;
+  html+=`<span>Sayı</span><span>Gecikme</span><span>Frekans</span><span>NS</span><span>Yoğunluk</span><span>Karma</span>`;
+  html+=`</div>`;
+  scored.forEach((x,i)=>{
+    const top=topNums.has(x.n);
+    html+=`<div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr 1fr auto;gap:4px 8px;align-items:center;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.04);background:${top?'rgba(0,230,118,.04)':''}">`;
+    html+=`<span style="font-size:.7rem;font-weight:${top?'800':'600'};color:${top?'var(--green)':'var(--text)'};font-family:monospace;min-width:24px">${x.n}</span>`;
+    html+=`<div style="height:7px;border-radius:3px;background:rgba(129,140,248,.18);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:3px;background:rgba(129,140,248,.6);width:${pct(x.d)}%"></div></div>`;
+    html+=`<div style="height:7px;border-radius:3px;background:rgba(0,230,118,.12);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:3px;background:rgba(0,230,118,.6);width:${pct(x.f)}%"></div></div>`;
+    html+=`<div style="height:7px;border-radius:3px;background:rgba(255,193,7,.12);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:3px;background:rgba(255,193,7,.7);width:${pct(x.ns)}%"></div></div>`;
+    html+=`<div style="height:7px;border-radius:3px;background:rgba(224,64,95,.12);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:3px;background:rgba(224,64,95,.55);width:${pct(x.c)}%"></div></div>`;
+    html+=`<span style="font-size:.62rem;font-weight:700;color:${top?'var(--green)':'var(--muted)'};font-family:monospace;text-align:right">${(x.combined*100).toFixed(1)}</span>`;
+    html+=`</div>`;
+  });
+  html+=`</div>`;
+  // Ticket ranking by top-number coverage
+  html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">`;
+  html+=`<div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:8px">🎫 Kuponlar — Önerilen Sayı Örtüşmesi</div>`;
+  const ranked=[...tickets].map(t=>{
+    const overlap=t.main.filter(n=>topNums.has(n)).length;
+    return{...t,overlap};
+  }).sort((a,b)=>b.overlap-a.overlap||a.idx-b.idx);
+  ranked.forEach((t,ri)=>{
+    const medal=ri===0?'🥇':ri===1?'🥈':ri===2?'🥉':'';
+    html+=`<div style="display:flex;align-items:center;gap:5px;padding:4px 7px;border-radius:5px;margin-bottom:3px;background:${ri===0?'rgba(0,230,118,.07)':ri<=2?'rgba(0,150,58,.03)':'transparent'}">`;
+    html+=`<span style="font-size:.6rem;color:var(--muted);min-width:22px">${medal||('#'+(t.idx+1))}</span>`;
+    html+=`<div style="display:flex;gap:2px;flex-wrap:wrap;flex:1">`;
+    t.main.forEach(n=>{html+=numSpan(n,topNums.has(n));});
+    if(t.bonus.length){html+=`<span style="color:rgba(0,0,0,.12);margin:0 2px">|</span>`;t.bonus.forEach(n=>{html+=numSpan(n,topNums.has(n));});}
+    html+=`</div>`;
+    html+=`<span style="font-size:.72rem;font-weight:800;min-width:20px;text-align:right;color:${t.overlap>=3?'var(--green)':t.overlap>=2?'#8a6200':t.overlap>=1?'var(--accent)':'var(--muted)'}">${t.overlap}</span>`;
     html+=`</div>`;
   });
   html+=`</div>`;
@@ -11425,9 +11543,10 @@ function _ndpSpan(n,tier){
     <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Her satıra bir kupon. Sayıları boşlukla ayır; bonus sayısını <code style="background:rgba(0,0,0,.08);padding:1px 4px;border-radius:3px">|</code> ile ayır (opsiyonel).<br>Örnek: <code style="background:rgba(0,0,0,.08);padding:1px 4px;border-radius:3px">19 27 56 69 70 78 | 69</code></div>
     <textarea id="mpRInput" rows="11" placeholder="19 27 56 69 70 78 | 69&#10;17 22 28 39 69 83 | 21&#10;8 34 43 54 58 75 | 36&#10;..." style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;line-height:1.8;outline:none"></textarea>
     <div style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap">
-     <label style="font-size:.72rem;color:var(--muted)">Çekiliş:</label>
-     <select id="mpRDateSel" style="font-size:.75rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"><option value="">— Tarih seç —</option></select>
+     <label style="font-size:.72rem;color:var(--muted)">Çekiliş <span style="opacity:.6">(opsiyonel)</span>:</label>
+     <select id="mpRDateSel" style="font-size:.75rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"><option value="">— Tahmin modu —</option></select>
      <button onclick="_mpRRun()" style="padding:7px 20px;background:linear-gradient(135deg,rgba(129,140,248,.3),rgba(255,101,132,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.82rem;font-weight:700">🔍 Analiz Et</button>
+     <button onclick="_mpRClear()" style="padding:7px 14px;background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);color:#cc2222;border-radius:8px;cursor:pointer;font-size:.82rem">🗑️ Temizle</button>
     </div>
    </div>
    <div id="mpRResults"></div>
