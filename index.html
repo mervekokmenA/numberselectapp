@@ -11105,10 +11105,16 @@ function _kazananRender(){
     const bd=isConfirmed?'1px solid rgba(255,193,7,.22)':isUserMarked?'1px solid rgba(0,230,118,.18)':'1px solid transparent';
     const numsHtml=(d.nums||[]).map(n=>numSpan(n,isConfirmed)).join('');
     const bonusHtml=(d.bonus||[]).length?`<span style="color:rgba(255,255,255,.2);margin:0 3px">|</span>`+(d.bonus||[]).map(bonusSpan).join(''):'';
-    const badge=isConfirmed?`<span title="Büyük ikramiye doğrulandı" style="font-size:.65rem;margin-left:2px">🏆</span>`:'';
-    html+=`<div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px;background:${bg};border:${bd};margin-bottom:2px">`;
-    html+=`<input type="checkbox" ${isUserMarked?'checked':''} onchange="_kazananToggleMark('${gameId}','${d.date}')" style="width:15px;height:15px;flex-shrink:0;accent-color:#69f0ae;cursor:pointer">`;
-    html+=`<span style="font-size:.7rem;font-weight:${isWin?700:400};color:${isWin?'var(--text)':'var(--muted)'};font-family:monospace;flex-shrink:0">${d.date}${badge}</span>`;
+    // Left icon: checkbox for win rows, neutral dot for context rows
+    const leftIcon=isCtxRow
+      ?`<span style="width:15px;height:15px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;color:rgba(255,255,255,.2)">·</span>`
+      :`<input type="checkbox" ${isUserMarked?'checked':''} onchange="_kazananToggleMark('${gameId}','${d.date}')" style="width:15px;height:15px;flex-shrink:0;accent-color:#69f0ae;cursor:pointer">`;
+    // Badge in its own fixed-width cell to keep numbers aligned
+    const badgeCell=`<span style="width:18px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:.72rem">${isConfirmed?'🏆':''}</span>`;
+    html+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;background:${bg};border:${bd};margin-bottom:2px">`;
+    html+=leftIcon;
+    html+=`<span style="font-size:.7rem;font-weight:${isWin?700:400};color:${isWin?'var(--text)':'var(--muted)'};font-family:monospace;flex-shrink:0;min-width:82px">${d.date}</span>`;
+    html+=badgeCell;
     html+=`<div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">${numsHtml}${bonusHtml}</div>`;
     html+=`</div>`;
     prevIdx=i;
