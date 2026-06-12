@@ -323,6 +323,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link active" id="navBtn-home" onclick="showMainPage('home')">🏠 Ana Sayfa</button>
       <button class="nav-link" id="navBtn-scan" onclick="showMainPage('scan')">🔍 Tarama</button>
       <button class="nav-link" id="navBtn-listeler" onclick="showMainPage('listeler')">📋 Listeler</button>
+      <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Geçmiş Kazanan</button>
     </div>
   </div>
 </nav>
@@ -892,6 +893,30 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_nextDrawPredict()" style="font-size:.68rem;padding:4px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">↺ Hesapla</button>
   </div>
   <div id="nextDrawPredResult" style="min-height:60px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:.75rem">Hesapla butonuna basın.</div>
+ </div>
+</div>
+
+<!-- ═══════════ PAGE: GEÇMİŞ KAZANAN ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-kazanan">
+ <div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px">
+   <div class="card-title" style="margin-bottom:0">🏆 Geçmiş Kazanan</div>
+   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+    <label style="font-size:.72rem;color:var(--muted)">Bağlam ±</label>
+    <input type="number" id="kznCtxInput" min="0" max="100" value="0" onchange="_kazananSetCtx(this.value)" style="width:58px;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:.78rem;text-align:center;outline:none">
+    <span style="font-size:.65rem;color:var(--muted)">çekiliş</span>
+   </div>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+   <button id="kznGameBtn-sans"     onclick="_kazananSetGame('sans')"     style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">🔴 Şans Topu</button>
+   <button id="kznGameBtn-super"    onclick="_kazananSetGame('super')"    style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">⭐ Süper Loto</button>
+   <button id="kznGameBtn-sayisal"  onclick="_kazananSetGame('sayisal')"  style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">🔵 Sayısal Loto</button>
+   <button id="kznGameBtn-onnumara" onclick="_kazananSetGame('onnumara')" style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">🟢 On Numara</button>
+  </div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:6px 10px;background:rgba(255,255,255,.03);border-radius:6px;line-height:1.7">
+   Büyük ikramiyenin kazanıldığı çekilişleri soldaki kutucukla işaretle. Bağlam değeri girersen işaretli çekilişin ± kadar öncesi ve sonrası da listelenir.
+  </div>
+  <div id="kznList" style="max-height:640px;overflow-y:auto"></div>
  </div>
 </div>
 
@@ -9533,15 +9558,16 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
   if(id==='listeler')_initListelerPage();
+  if(id==='kazanan')_initKazananPage();
 }
 
 function _scanGetDraws(gameId){
@@ -10981,6 +11007,73 @@ function _mpRRenderResults(ann,actual,actSet,methods){
   });
   html+=`</div>`;
   el.innerHTML=html;
+}
+
+// ═══════════ Geçmiş Kazanan ══════════════════════════════════
+let _kazananGame=null;
+let _kazananCtx=0;
+let _kazananMarks=JSON.parse(localStorage.getItem('_kazananMarks')||'{}');
+function _kazananSaveMarks(){try{localStorage.setItem('_kazananMarks',JSON.stringify(_kazananMarks));}catch(e){}}
+function _initKazananPage(){
+  if(!_kazananGame)_kazananGame=state.selectedGame||GAMES[0].id;
+  _kazananHighlightGame(_kazananGame);
+  _kazananRender();
+}
+function _kazananSetGame(id){_kazananGame=id;_kazananHighlightGame(id);_kazananRender();}
+function _kazananHighlightGame(id){
+  GAMES.forEach(g=>{
+    const btn=document.getElementById('kznGameBtn-'+g.id);if(!btn)return;
+    const on=g.id===id;
+    btn.style.background=on?'rgba(108,99,255,.22)':'var(--surface2)';
+    btn.style.color=on?'var(--accent)':'var(--muted)';
+    btn.style.borderColor=on?'rgba(108,99,255,.5)':'var(--border)';
+  });
+}
+function _kazananToggleMark(gameId,date){
+  if(!_kazananMarks[gameId])_kazananMarks[gameId]={};
+  if(_kazananMarks[gameId][date])delete _kazananMarks[gameId][date];
+  else _kazananMarks[gameId][date]=1;
+  _kazananSaveMarks();_kazananRender();
+}
+function _kazananSetCtx(val){
+  _kazananCtx=Math.max(0,parseInt(val)||0);
+  const inp=document.getElementById('kznCtxInput');if(inp)inp.value=_kazananCtx;
+  _kazananRender();
+}
+function _kazananRender(){
+  const el=document.getElementById('kznList');if(!el)return;
+  const gameId=_kazananGame||state.selectedGame||GAMES[0].id;
+  const draws=_scanGetDraws(gameId);
+  const marks=_kazananMarks[gameId]||{};
+  const markedDates=new Set(Object.keys(marks));
+  const ctx=_kazananCtx;
+  if(!draws.length){el.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);font-size:.78rem">Bu oyun için veri yok</div>';return;}
+  // Which indices to show
+  let showIdx=null;
+  if(ctx>0&&markedDates.size>0){
+    showIdx=new Set();
+    draws.forEach((d,i)=>{if(markedDates.has(d.date)){for(let j=Math.max(0,i-ctx);j<=Math.min(draws.length-1,i+ctx);j++)showIdx.add(j);}});
+  }
+  const numSpan=(n,marked)=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 3px;border-radius:5px;background:${marked?'rgba(0,230,118,.15)':'rgba(255,255,255,.06)'};color:${marked?'var(--green)':'var(--text)'};font-size:.72rem;font-weight:${marked?800:500};font-family:monospace">${n}</span>`;
+  const bonusSpan=n=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 3px;border-radius:5px;background:rgba(129,140,248,.12);color:var(--accent);font-size:.72rem;font-weight:500;font-family:monospace">${n}</span>`;
+  let html='';
+  let prevIdx=-2;
+  draws.forEach((d,i)=>{
+    if(showIdx&&!showIdx.has(i))return;
+    const isMarked=markedDates.has(d.date);
+    if(showIdx&&i>prevIdx+1&&html!=='')html+=`<div style="text-align:center;padding:4px 0;color:rgba(255,255,255,.18);font-size:.62rem;letter-spacing:.1em">· · ·</div>`;
+    const bg=isMarked?'rgba(0,230,118,.07)':showIdx?'rgba(108,99,255,.04)':'transparent';
+    const bd=isMarked?'1px solid rgba(0,230,118,.2)':'1px solid transparent';
+    const numsHtml=(d.nums||[]).map(n=>numSpan(n,isMarked)).join('');
+    const bonusHtml=(d.bonus||[]).length?`<span style="color:rgba(255,255,255,.2);margin:0 3px">|</span>`+(d.bonus||[]).map(bonusSpan).join(''):'';
+    html+=`<div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px;background:${bg};border:${bd};margin-bottom:2px">`;
+    html+=`<input type="checkbox" ${isMarked?'checked':''} onchange="_kazananToggleMark('${gameId}','${d.date}')" style="width:15px;height:15px;flex-shrink:0;accent-color:#69f0ae;cursor:pointer">`;
+    html+=`<span style="font-size:.7rem;font-weight:${isMarked?700:400};color:${isMarked?'var(--text)':'var(--muted)'};font-family:monospace;flex-shrink:0;min-width:82px">${d.date}</span>`;
+    html+=`<div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">${numsHtml}${bonusHtml}</div>`;
+    html+=`</div>`;
+    prevIdx=i;
+  });
+  el.innerHTML=html||'<div style="text-align:center;padding:24px;color:var(--muted);font-size:.78rem">Gösterilecek çekiliş yok</div>';
 }
 
 // ═══════════ Sonraki Çekiliş Tahmin Grubu ═══════════════════
