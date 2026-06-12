@@ -8244,7 +8244,11 @@ function openGizliSayfa(){
   const el=document.getElementById('gizliSayfa');
   if(!el)return;
   _gizliSelectedGame=state.selectedGame||'super';
-  el.style.display='block';
+  el.style.left='50%';el.style.top='50%';
+  el.style.transform='translate(-50%,-50%)';
+  if(!el.style.width||el.style.width==='')el.style.width='700px';
+  if(!el.style.height||el.style.height==='')el.style.height='580px';
+  el.style.display='flex';
   _gizliRenderGameSelector();
   _gizliRenderInputs();
   gizliArsivTemizle();
@@ -8256,6 +8260,42 @@ function closeGizliSayfa(){
   const el=document.getElementById('gizliSayfa');
   if(el)el.style.display='none';
 }
+let _gizliDragState=null,_gizliResizeState=null;
+function _gizliStartDrag(e){
+  if(e.target.closest('button'))return;
+  const el=document.getElementById('gizliSayfa');
+  const r=el.getBoundingClientRect();
+  _gizliDragState={sx:e.clientX,sy:e.clientY,sl:r.left,st:r.top};
+  e.preventDefault();
+}
+function _gizliStartResize(e,dir){
+  const el=document.getElementById('gizliSayfa');
+  const r=el.getBoundingClientRect();
+  _gizliResizeState={dir,sx:e.clientX,sy:e.clientY,sl:r.left,st:r.top,sw:r.width,sh:r.height};
+  e.preventDefault();e.stopPropagation();
+}
+document.addEventListener('mousemove',function(e){
+  if(_gizliDragState){
+    const el=document.getElementById('gizliSayfa');
+    const dx=e.clientX-_gizliDragState.sx,dy=e.clientY-_gizliDragState.sy;
+    let nl=_gizliDragState.sl+dx,nt=_gizliDragState.st+dy;
+    nl=Math.max(0,Math.min(nl,window.innerWidth-el.offsetWidth));
+    nt=Math.max(0,Math.min(nt,window.innerHeight-el.offsetHeight));
+    el.style.left=nl+'px';el.style.top=nt+'px';el.style.transform='none';
+  }
+  if(_gizliResizeState){
+    const el=document.getElementById('gizliSayfa');
+    const s=_gizliResizeState,dx=e.clientX-s.sx,dy=e.clientY-s.sy;
+    let nw=s.sw,nh=s.sh,nl=s.sl,nt=s.st;
+    if(s.dir.includes('e'))nw=Math.max(400,s.sw+dx);
+    if(s.dir.includes('s'))nh=Math.max(300,s.sh+dy);
+    if(s.dir.includes('w')){nw=Math.max(400,s.sw-dx);nl=s.sl+s.sw-nw;}
+    if(s.dir.includes('n')){nh=Math.max(300,s.sh-dy);nt=s.st+s.sh-nh;}
+    el.style.width=nw+'px';el.style.height=nh+'px';
+    el.style.left=nl+'px';el.style.top=nt+'px';el.style.transform='none';
+  }
+});
+document.addEventListener('mouseup',function(){_gizliDragState=null;_gizliResizeState=null;});
 function _gizliCurrentGame(){return getGame(_gizliSelectedGame||'super');}
 function _gizliPositionCount(){return Math.min(_gizliCurrentGame().count,6);}
 function _gizliGetDraws(){
@@ -11243,16 +11283,17 @@ function _ndpSpan(n,tier){
 </script>
 
 <!-- ═══════════ GİZLİ ANALİZ SAYFASI ═══════════ -->
-<div id="gizliSayfa" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(8,10,20,.20);overflow-y:auto;padding:16px 10px">
- <div style="max-width:680px;margin:0 auto;background:var(--surface);border-radius:16px;padding:18px 16px;box-shadow:0 4px 24px rgba(0,0,0,.12)">
-
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+<div id="gizliSayfa" style="display:none;position:fixed;z-index:9999;width:700px;height:580px;left:50%;top:50%;transform:translate(-50%,-50%);background:var(--surface);border-radius:16px;box-shadow:0 8px 40px rgba(0,0,0,.28);border:1px solid var(--border);overflow:hidden;flex-direction:column">
+ <div id="gizliDragHandle" onmousedown="_gizliStartDrag(event)" style="cursor:move;padding:13px 16px 10px;background:var(--surface);border-bottom:1px solid var(--border);flex-shrink:0;user-select:none;-webkit-user-select:none">
+  <div style="display:flex;justify-content:space-between;align-items:center">
    <div>
     <div style="font-size:1.05rem;font-weight:800;background:linear-gradient(135deg,#b8860b,#5248d4);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text" id="gizliPageTitle">🔬 Gelişmiş Kolon Analizi</div>
     <div style="font-size:.63rem;color:var(--muted)" id="gizliPageSub">Arşiv tabanlı beklenti modeli</div>
    </div>
    <button onclick="closeGizliSayfa()" style="background:rgba(255,82,82,.15);border:1px solid rgba(255,82,82,.35);color:#cc2222;border-radius:8px;padding:5px 14px;cursor:pointer;font-size:.78rem;font-weight:700">✕ Kapat</button>
   </div>
+ </div>
+ <div style="flex:1;overflow-y:auto;padding:14px 16px">
 
   <!-- İç menü -->
   <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:10px">
@@ -11391,8 +11432,11 @@ function _ndpSpan(n,tier){
    </div>
    <div id="mpRResults"></div>
   </div><!-- /gizliPageMpR -->
-
- </div>
+ </div><!-- /scrollable -->
+ <div onmousedown="_gizliStartResize(event,'nw')" style="position:absolute;top:0;left:0;width:16px;height:16px;cursor:nw-resize;z-index:2"></div>
+ <div onmousedown="_gizliStartResize(event,'ne')" style="position:absolute;top:0;right:0;width:16px;height:16px;cursor:ne-resize;z-index:2"></div>
+ <div onmousedown="_gizliStartResize(event,'sw')" style="position:absolute;bottom:0;left:0;width:16px;height:16px;cursor:sw-resize;z-index:2"></div>
+ <div onmousedown="_gizliStartResize(event,'se')" style="position:absolute;bottom:0;right:0;width:16px;height:16px;cursor:se-resize;z-index:2"></div>
 </div>
 
 <!-- Prediction Notes Popup -->
