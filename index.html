@@ -10256,32 +10256,37 @@ function listelerCopyAll(){
     const algoName=(ALGOS.find(a=>a.id===col.data.algoId)||{name:col.data.algoId||'—'}).name;
     if(col.type==='new')return`Yeni Tahmin — ${game?game.name:gameId} · ${algoName}`;
     return`${col.data.date} · ${algoName}`;
-  }).join('\t\t'));
+  }).join('\t'));
   // Actual draw row
   tsvRows.push(cols.map(col=>{
-    if(col.type==='new')return'—';
+    if(col.type==='new')return'';
     const a=col.data.actual?[...(col.data.actual.nums||[]),...(col.data.actual.bonus||[])]:[];
-    return a.length?'→ '+a.join(' '):'—';
-  }).join('\t\t'));
+    return a.length?a.join(' '):'';
+  }).join('\t'));
   // Ticket rows
   for(let ti=0;ti<maxTickets;ti++){
     tsvRows.push(cols.map(col=>{
       const t=col.data.tickets[ti];
       if(!t)return'';
-      return(ti+1)+'. '+[...t.main,...t.bonus].join(' ');
-    }).join('\t\t'));
+      return[...t.main,...t.bonus].join(' ');
+    }).join('\t'));
   }
   const plainText=tsvRows.join('\n');
-  try{
-    navigator.clipboard.write([new ClipboardItem({
-      'text/html':new Blob([html],{type:'text/html'}),
-      'text/plain':new Blob([plainText],{type:'text/plain'})
-    })]).then(()=>showToast('📋 Tümü kopyalandı (renkli)')).catch(()=>{
-      navigator.clipboard.writeText(plainText).then(()=>showToast('📋 Tümü kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
-    });
-  }catch(e){
-    navigator.clipboard.writeText(plainText).then(()=>showToast('📋 Tümü kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
-  }
+  _listelerClipCopy(plainText);
+}
+function _listelerClipCopy(text){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text)
+      .then(()=>showToast('📋 Kopyalandı'))
+      .catch(()=>_listelerExecCopy(text));
+  }else{_listelerExecCopy(text);}
+}
+function _listelerExecCopy(text){
+  const ta=document.createElement('textarea');
+  ta.value=text;ta.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
+  document.body.appendChild(ta);ta.focus();ta.select();
+  try{document.execCommand('copy');showToast('📋 Kopyalandı');}catch(e){showToast('⚠️ Kopyalanamadı');}
+  document.body.removeChild(ta);
 }
 
 function listelerCopyBulundu(){
