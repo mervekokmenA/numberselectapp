@@ -11067,42 +11067,48 @@ function _kazananRender(){
   const allWins=new Set([...Object.keys(confirmed),...Object.keys(userMarks)]);
   const ctx=_kazananCtx;
   if(!draws.length){el.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);font-size:.78rem">Bu oyun için veri yok</div>';return;}
+  // showIdx: which draw indices to render
   let showIdx=null;
+  const markedSet=new Set(Object.keys(userMarks));
+  const confirmedSet=new Set(Object.keys(confirmed));
   if(!_kazananShowAll){
-    if(allWins.size===0){
-      el.innerHTML='<div style="text-align:center;padding:32px;color:var(--muted);font-size:.78rem;line-height:2">Bu oyun için işaretli kazanan yok.<br><span style="font-size:.7rem;opacity:.7">Tüm Çekilişler butonuyla göz atıp işaret ekleyebilirsin.</span></div>';
-      return;
-    }
-    showIdx=new Set();
-    draws.forEach((d,i)=>{
-      if(allWins.has(d.date)){
-        for(let j=Math.max(0,i-ctx);j<=Math.min(draws.length-1,i+ctx);j++)showIdx.add(j);
+    if(ctx>0&&markedSet.size>0){
+      // Context mode: only marked rows ± ctx draws around them
+      showIdx=new Set();
+      draws.forEach((d,i)=>{
+        if(markedSet.has(d.date)){
+          for(let j=Math.max(0,i-ctx);j<=Math.min(draws.length-1,i+ctx);j++)showIdx.add(j);
+        }
+      });
+    } else {
+      // Default: show only confirmed jackpot rows (+ user-marked)
+      showIdx=new Set();
+      draws.forEach((d,i)=>{if(confirmedSet.has(d.date)||markedSet.has(d.date))showIdx.add(i);});
+      if(showIdx.size===0){
+        el.innerHTML='<div style="text-align:center;padding:32px;color:var(--muted);font-size:.78rem;line-height:2">Bu oyun için işaretli kazanan yok.<br><span style="font-size:.7rem;opacity:.7">Tüm Çekilişler butonuyla göz atıp işaret ekleyebilirsin.</span></div>';
+        return;
       }
-    });
+    }
   }
-  const numSpan=(n,win)=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 3px;border-radius:5px;background:${win?'rgba(255,193,7,.18)':'rgba(255,255,255,.06)'};color:${win?'#ffc107':'var(--text)'};font-size:.72rem;font-weight:${win?800:500};font-family:monospace">${n}</span>`;
-  const numSpanUser=(n,win)=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 3px;border-radius:5px;background:${win?'rgba(0,230,118,.15)':'rgba(255,255,255,.06)'};color:${win?'var(--green)':'var(--text)'};font-size:.72rem;font-weight:${win?800:500};font-family:monospace">${n}</span>`;
+  const numSpan=(n,gold)=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 3px;border-radius:5px;background:${gold?'rgba(255,193,7,.18)':'rgba(255,255,255,.06)'};color:${gold?'#ffc107':'var(--text)'};font-size:.72rem;font-weight:${gold?800:500};font-family:monospace">${n}</span>`;
   const bonusSpan=n=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 3px;border-radius:5px;background:rgba(129,140,248,.12);color:var(--accent);font-size:.72rem;font-weight:500;font-family:monospace">${n}</span>`;
   let html='';
   let prevIdx=-2;
   draws.forEach((d,i)=>{
     if(showIdx&&!showIdx.has(i))return;
-    const isConfirmed=!!confirmed[d.date];
-    const isUserMarked=!!userMarks[d.date];
+    const isConfirmed=confirmedSet.has(d.date);
+    const isUserMarked=markedSet.has(d.date);
     const isWin=isConfirmed||isUserMarked;
-    const isCtxRow=showIdx&&!allWins.has(d.date);
+    const isCtxRow=!isWin;
     if(showIdx&&i>prevIdx+1&&html!=='')html+=`<div style="text-align:center;padding:4px 0;color:rgba(255,255,255,.18);font-size:.62rem;letter-spacing:.1em">· · ·</div>`;
     const bg=isConfirmed?'rgba(255,193,7,.06)':isUserMarked?'rgba(0,230,118,.06)':isCtxRow?'rgba(108,99,255,.03)':'transparent';
     const bd=isConfirmed?'1px solid rgba(255,193,7,.22)':isUserMarked?'1px solid rgba(0,230,118,.18)':'1px solid transparent';
-    const makeSpan=isConfirmed?n=>numSpan(n,true):isUserMarked?n=>numSpanUser(n,true):n=>numSpan(n,false);
-    const numsHtml=(d.nums||[]).map(n=>makeSpan(n)).join('');
+    const numsHtml=(d.nums||[]).map(n=>numSpan(n,isConfirmed)).join('');
     const bonusHtml=(d.bonus||[]).length?`<span style="color:rgba(255,255,255,.2);margin:0 3px">|</span>`+(d.bonus||[]).map(bonusSpan).join(''):'';
-    const leftIcon=isConfirmed
-      ?`<span title="Büyük ikramiye doğrulandı" style="width:15px;height:15px;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;font-size:.9rem">🏆</span>`
-      :`<input type="checkbox" ${isUserMarked?'checked':''} onchange="_kazananToggleMark('${gameId}','${d.date}')" style="width:15px;height:15px;flex-shrink:0;accent-color:#69f0ae;cursor:pointer">`;
+    const badge=isConfirmed?`<span title="Büyük ikramiye doğrulandı" style="font-size:.65rem;margin-left:2px">🏆</span>`:'';
     html+=`<div style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px;background:${bg};border:${bd};margin-bottom:2px">`;
-    html+=leftIcon;
-    html+=`<span style="font-size:.7rem;font-weight:${isWin?700:400};color:${isWin?'var(--text)':'var(--muted)'};font-family:monospace;flex-shrink:0;min-width:82px">${d.date}</span>`;
+    html+=`<input type="checkbox" ${isUserMarked?'checked':''} onchange="_kazananToggleMark('${gameId}','${d.date}')" style="width:15px;height:15px;flex-shrink:0;accent-color:#69f0ae;cursor:pointer">`;
+    html+=`<span style="font-size:.7rem;font-weight:${isWin?700:400};color:${isWin?'var(--text)':'var(--muted)'};font-family:monospace;flex-shrink:0">${d.date}${badge}</span>`;
     html+=`<div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center">${numsHtml}${bonusHtml}</div>`;
     html+=`</div>`;
     prevIdx=i;
