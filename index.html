@@ -6938,7 +6938,10 @@ function _sablonDetect(extracted){
 // Bir önceki çekilişten (lastDraw) sonraki çekiliş için aday sayı skorları.
 // Her NS/NST/XS/XST değeri için decade-class, mod100, mod-max ve direkt
 // vurguladığı tüm sayılara puan dağıtır.
+const _sablonScoreNextCache={};
 function _sablonScoreNext(lastDraw,game){
+  const _ck=(game.name||'')+'|'+(lastDraw.date||'');
+  if(_ck&&_sablonScoreNextCache[_ck])return _sablonScoreNextCache[_ck];
   const ext=_sablonExtract(lastDraw,game);
   const vals=_sablonAllValues(ext);
   const score=new Float32Array(game.max+1);
@@ -6948,7 +6951,6 @@ function _sablonScoreNext(lastDraw,game){
     for(let n=1;n<=game.max;n++){
       const w=_sablonHitWeight(v.val,n,game.max);
       if(!w)continue;
-      // Son çekilişin sayıları cezalandırılır (genelde tekrarlanmaz)
       const mult=lastSet.has(n)?0.45:1;
       score[n]+=w.w*mult;
       const key=`${n}`;
@@ -6956,7 +6958,9 @@ function _sablonScoreNext(lastDraw,game){
       detail[key].push({lbl:v.lbl,val:v.val,kind:w.kind,w:w.w});
     }
   }
-  return {score,detail,ext,vals};
+  const res={score,detail,ext,vals};
+  if(_ck)_sablonScoreNextCache[_ck]=res;
+  return res;
 }
 
 // Şablon tipinin geçmişteki vuruş frekansını hesaplar.
@@ -8253,7 +8257,8 @@ function openGizliSayfa(){
   _gizliRenderInputs();
   gizliArsivTemizle();
   gizliTestInit();
-  try{_sablonRender();}catch(e){}
+  clearTimeout(_gizliSablonTimer);
+  _gizliSablonTimer=setTimeout(()=>{try{_sablonRender();}catch(e){}},60);
   _gizliSwitchTab('kolon');
 }
 function closeGizliSayfa(){
@@ -8311,13 +8316,15 @@ function _gizliGetDraws(){
   draws.sort((a,b)=>b.date.localeCompare(a.date));
   return draws;
 }
+let _gizliSablonTimer=null;
 function _gizliSetGame(gameId){
   _gizliSelectedGame=gameId;
   _gizliRenderGameSelector();
   _gizliRenderInputs();
   gizliArsivTemizle();
   gizliTestInit();
-  try{_sablonRender();}catch(e){}
+  clearTimeout(_gizliSablonTimer);
+  _gizliSablonTimer=setTimeout(()=>{try{_sablonRender();}catch(e){}},60);
 }
 function _gizliRenderGameSelector(){
   document.querySelectorAll('.gz-game-btn').forEach(b=>{
@@ -8500,13 +8507,22 @@ function gizliModelUygula(){
   if(btn)btn.style.display='inline-block';
   showToast(`✅ ${top30.length} kolon üretildi`);
 }
+const _gizliTestDateHTML={};
 function gizliTestInit(){
-  const draws=_gizliGetDraws();
+  const gid=_gizliSelectedGame||'super';
   const sel=document.getElementById('gizliTestDate');
   if(!sel)return;
+  if(_gizliTestDateHTML[gid]){
+    sel.innerHTML=_gizliTestDateHTML[gid];
+    if(sel.options.length>1){sel.selectedIndex=1;gizliTestDateChanged();}
+    return;
+  }
+  const draws=_gizliGetDraws();
   if(!draws||!draws.length){sel.innerHTML='<option value="">— Veri yok —</option>';return;}
   const sorted=[...draws].sort((a,b)=>b.date.localeCompare(a.date));
-  sel.innerHTML='<option value="">— Tarih seçin —</option>'+sorted.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
+  const html='<option value="">— Tarih seçin —</option>'+sorted.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
+  _gizliTestDateHTML[gid]=html;
+  sel.innerHTML=html;
   if(sorted.length){sel.value=sorted[0].date;gizliTestDateChanged();}
 }
 function gizliTestDateChanged(){
@@ -10896,11 +10912,9 @@ function _mpRGetDraws(){
   });
   return draws.sort((a,b)=>b.date.localeCompare(a.date));
 }
+const _mpRDateSelHTML={};
 function _mpRInitDateSel(){
   const sel=document.getElementById('mpRDateSel');if(!sel)return;
-  const draws=_mpRGetDraws();
-  sel.innerHTML='<option value="">— Tarih seç —</option>';
-  draws.forEach(d=>{sel.innerHTML+=`<option value="${d.date}">${d.date}</option>`;});
   if(!_mpRGame){
     const gid=_gizliSelectedGame||'super';_mpRGame=gid;
     document.querySelectorAll('.mpr-game-btn').forEach(b=>{
@@ -10910,6 +10924,12 @@ function _mpRInitDateSel(){
       b.style.color=on?'var(--accent)':'var(--muted)';
     });
   }
+  const gid=_mpRGame||_gizliSelectedGame||'super';
+  if(_mpRDateSelHTML[gid]){sel.innerHTML=_mpRDateSelHTML[gid];return;}
+  const draws=_mpRGetDrawsFor(gid);
+  const html='<option value="">— Tahmin modu —</option>'+draws.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
+  _mpRDateSelHTML[gid]=html;
+  sel.innerHTML=html;
 }
 function _mpRParseTickets(){
   const txt=document.getElementById('mpRInput')?.value||'';
@@ -11110,6 +11130,15 @@ function _mpRGetDrawsFor(gid){
   });
   return draws.sort((a,b)=>b.date.localeCompare(a.date));
 }
+function _mpRCopy(text){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>showToast('✅ Kopyalandı'),()=>{_mpRCopyFallback(text);});
+  }else{_mpRCopyFallback(text);}
+}
+function _mpRCopyFallback(text){
+  const t=document.createElement('textarea');t.value=text;t.style.position='fixed';t.style.opacity='0';
+  document.body.appendChild(t);t.select();try{document.execCommand('copy');showToast('✅ Kopyalandı');}catch(e){}document.body.removeChild(t);
+}
 function _mpRRenderPrediction(tickets,scored,game,gid,totalDraws){
   const el=document.getElementById('mpRResults');if(!el)return;
   const topNums=new Set(scored.slice(0,game.count).map(x=>x.n));
@@ -11122,10 +11151,15 @@ function _mpRRenderPrediction(tickets,scored,game,gid,totalDraws){
   html+=`<div style="font-size:.65rem;color:var(--muted)">${game.emoji} ${game.name} · ${tickets.length} kupon · ${scored.length} benzersiz sayı · ${totalDraws} çekiliş arşivi</div>`;
   html+=`</div>`;
   // Top candidate numbers
+  const topNumsArr=scored.slice(0,game.count).map(x=>x.n).sort((a,b)=>a-b);
+  const topNumsTxt=topNumsArr.join(' ');
   html+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:12px 14px;margin-bottom:10px">`;
-  html+=`<div style="font-size:.75rem;font-weight:800;color:var(--green);margin-bottom:8px">🏆 En Yüksek Skorlu ${game.count} Sayı</div>`;
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
+  html+=`<div style="font-size:.75rem;font-weight:800;color:var(--green)">🏆 En Yüksek Skorlu ${game.count} Sayı</div>`;
+  html+=`<button onclick="_mpRCopy('${topNumsTxt}')" style="background:rgba(0,150,58,.1);border:1px solid rgba(0,150,58,.3);color:var(--green);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.65rem;font-weight:700">📋 Kopyala</button>`;
+  html+=`</div>`;
   html+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">`;
-  scored.slice(0,game.count).forEach(x=>{html+=numSpan(x.n,true);});
+  topNumsArr.forEach(n=>{html+=numSpan(n,true);});
   html+=`</div>`;
   html+=`<div style="font-size:.58rem;color:var(--muted)">Karma skor: Gecikme×0.30 · Frekans×0.25 · NS Zincir×0.25 · Kupon Yoğunluğu×0.20</div>`;
   html+=`</div>`;
@@ -11156,6 +11190,7 @@ function _mpRRenderPrediction(tickets,scored,game,gid,totalDraws){
   }).sort((a,b)=>b.overlap-a.overlap||a.idx-b.idx);
   ranked.forEach((t,ri)=>{
     const medal=ri===0?'🥇':ri===1?'🥈':ri===2?'🥉':'';
+    const ticketTxt=t.main.join(' ')+(t.bonus.length?' | '+t.bonus.join(' '):'');
     html+=`<div style="display:flex;align-items:center;gap:5px;padding:4px 7px;border-radius:5px;margin-bottom:3px;background:${ri===0?'rgba(0,230,118,.07)':ri<=2?'rgba(0,150,58,.03)':'transparent'}">`;
     html+=`<span style="font-size:.6rem;color:var(--muted);min-width:22px">${medal||('#'+(t.idx+1))}</span>`;
     html+=`<div style="display:flex;gap:2px;flex-wrap:wrap;flex:1">`;
@@ -11163,6 +11198,7 @@ function _mpRRenderPrediction(tickets,scored,game,gid,totalDraws){
     if(t.bonus.length){html+=`<span style="color:rgba(0,0,0,.12);margin:0 2px">|</span>`;t.bonus.forEach(n=>{html+=numSpan(n,topNums.has(n));});}
     html+=`</div>`;
     html+=`<span style="font-size:.72rem;font-weight:800;min-width:20px;text-align:right;color:${t.overlap>=3?'var(--green)':t.overlap>=2?'#8a6200':t.overlap>=1?'var(--accent)':'var(--muted)'}">${t.overlap}</span>`;
+    html+=`<button onclick="_mpRCopy('${ticketTxt.replace(/'/g,"\\'")}');event.stopPropagation()" style="background:transparent;border:1px solid rgba(0,0,0,.1);color:var(--muted);border-radius:5px;padding:1px 5px;cursor:pointer;font-size:.55rem;flex-shrink:0" title="Kopyala">📋</button>`;
     html+=`</div>`;
   });
   html+=`</div>`;
