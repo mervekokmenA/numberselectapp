@@ -9922,7 +9922,12 @@ function _kbRunBilet(){
   // Ticket ranking with per-ticket copy (+ hit count in backtest)
   const rankedForDisplay=actual?[...ranked].map(t=>({...t,hitCount:t.nums.filter(n=>actSet.has(n)).length})).sort((a,b)=>b.hitCount-a.hitCount||b.strong-a.strong||b.top-a.top):ranked;
   const rankTitle=actual?'🎫 Kolon Sıralaması (eşleşmeye göre)':'🎫 Kolon Sıralaması (banko örtüşmesine göre)';
-  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px"><div style="font-size:.72rem;font-weight:800;margin-bottom:9px">${rankTitle}</div>`;
+  const allTicketsCopy=rankedForDisplay.map((t,ri)=>`${ri+1}. ${t.nums.join(' ')}`).join('\n');
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800">${rankTitle}</div>`;
+  h+=`<button onclick="_kbCopy(${JSON.stringify(allTicketsCopy)})" style="background:rgba(0,0,0,.05);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.62rem">📋 Tümünü Kopyala</button>`;
+  h+=`</div>`;
   rankedForDisplay.forEach((t,ri)=>{
     const medal=ri===0?'🥇':ri===1?'🥈':ri===2?'🥉':('#'+(t.idx+1));
     const tCopy=t.nums.join(' ');
