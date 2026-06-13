@@ -321,6 +321,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-scan" onclick="showMainPage('scan')">🔍 Tarama</button>
       <button class="nav-link" id="navBtn-listeler" onclick="showMainPage('listeler')">📋 Listeler</button>
       <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Geçmiş Kazanan</button>
+      <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı Bakış</button>
     </div>
   </div>
 </nav>
@@ -913,6 +914,27 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    🏆 işaretli = büyük ikramiye kazanıldığı doğrulanmış çekiliş. Kutucukla kendi işaretlerini ekleyebilirsin. Bağlam değeri girersen kazanan çekilişin ± kadar öncesi ve sonrası da listelenir.
   </div>
   <div id="kznList"></div>
+ </div>
+</div>
+
+<!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-kapsamli">
+ <div class="card">
+  <div class="card-title">🧭 Kapsamlı Bakış</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">6 bağımsız analiz yöntemini (frekans · üstel frekans · gecikme · eş-görünüm · şablon zinciri · Bayes momentum) tek bir konsensüs motorunda birleştirir. Yöntem ağırlıkları geçmiş isabete göre otomatik ayarlanır; <strong>banko adayları</strong> birden çok yöntemin aynı anda öne çıkardığı sayılardır.</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+   <button class="kb-game-btn" data-game="sayisal"  onclick="_kbSetGame('sayisal')"  style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔵 Sayısal Loto</button>
+   <button class="kb-game-btn" data-game="super"    onclick="_kbSetGame('super')"    style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">⭐ Süper Loto</button>
+   <button class="kb-game-btn" data-game="sans"     onclick="_kbSetGame('sans')"     style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔴 Şans Topu</button>
+   <button class="kb-game-btn" data-game="onnumara" onclick="_kbSetGame('onnumara')" style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🟢 On Numara</button>
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:12px">
+   <button class="kb-mode-btn" data-mode="banko"   onclick="_kbSetMode('banko')"   style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🎯 Banko & Konsensüs</button>
+   <button class="kb-mode-btn" data-mode="test"    onclick="_kbSetMode('test')"    style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🔬 Geri Test</button>
+   <button class="kb-mode-btn" data-mode="bilet"   onclick="_kbSetMode('bilet')"   style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🎫 Bilet Testi</button>
+   <button class="kb-mode-btn" data-mode="kazanan" onclick="_kbSetMode('kazanan')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🏆 Kazanan Bilet</button>
+  </div>
+  <div id="kbContent"></div>
  </div>
 </div>
 
@@ -9602,6 +9624,266 @@ function runB10Backtest(){
     <div style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:7px">${newPredRow}${rowsHtml}</div>`;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// KAPSAMLI BAKIŞ — Bütüncül Konsensüs & Banko Motoru
+// 6 bağımsız yöntemi (frekans, üstel frekans, gecikme, eş-görünüm,
+// şablon zinciri, Bayes momentum) walk-forward lift ile ağırlıklandırıp
+// tek konsensüs sıralaması + banko aday listesi üretir.
+// ═══════════════════════════════════════════════════════════════
+let _kbGame='sayisal',_kbMode='banko',_kbBtRounds=50;
+const _kbDrawCache={},_kbCalCache={};
+const _KB_METHODS=[
+  {id:'freq',  name:'Frekans',        icon:'📊'},
+  {id:'ewf',   name:'Üstel Frekans',  icon:'📈'},
+  {id:'delay', name:'Gecikme',        icon:'⏳'},
+  {id:'pair',  name:'Eş-görünüm',     icon:'🔗'},
+  {id:'sablon',name:'Şablon Zinciri', icon:'🔢'},
+  {id:'bayes', name:'Bayes Momentum', icon:'🎲'},
+];
+const _KB_MICON={};_KB_METHODS.forEach(m=>_KB_MICON[m.id]=m.icon);
+
+// Kazanan bilet — 08/06/2026 Çılgın Sayısal Loto · Adana/Yüreğir · 1.110.362.664 TL
+const _KB_WIN={
+  game:'sayisal',date:'2026-06-08',jackpot:1110362664,yer:'Adana / Yüreğir',
+  columns:[[12,27,32,47,58,63],[1,4,6,12,13,16],[7,13,18,27,33,58],[16,22,28,34,40,46],[28,30,39,48,55,68],[42,47,52,57,62,67]],
+  winIdx:4
+};
+
+function _kbGetDraws(gid){
+  if(_kbDrawCache[gid])return _kbDrawCache[gid];
+  const raw=DRAW_DATA[gid]||'',draws=[];
+  raw.split('\n').forEach(line=>{
+    const dm=line.match(/^(\d{4}-\d{2}-\d{2})/);if(!dm)return;
+    const date=dm[1],parts=line.slice(date.length).split('|');
+    const nums=(parts[0].match(/\d+/g)||[]).map(Number);
+    const bonus=parts[1]?(parts[1].match(/\d+/g)||[]).map(Number):[];
+    if(nums.length>=1)draws.push({date,nums,bonus});
+  });
+  draws.sort((a,b)=>b.date.localeCompare(a.date));
+  _kbDrawCache[gid]=draws;return draws;
+}
+
+function _kbSignals(draws,game){
+  const max=game.max,cnt=Math.min(game.count,7);
+  const freq=buildFreq(draws);
+  const ewf=buildEWF(draws,max);
+  const delay={};
+  for(let n=1;n<=max;n++){let idx=-1;for(let i=0;i<draws.length;i++){const d=draws[i];if(d.nums.includes(n)||(d.bonus&&d.bonus.includes(n))){idx=i;break;}}delay[n]=idx===-1?draws.length:idx;}
+  const pair=_b10SigPair(draws,max);
+  let sablon={};
+  try{const r=_sablonScoreNext(draws[0],game);for(let n=1;n<=max;n++)sablon[n]=r.score[n]||0;}catch(e){for(let n=1;n<=max;n++)sablon[n]=0;}
+  const bayes=_b10SigBB(draws,max,cnt);
+  return {freq,ewf,delay,pair,sablon,bayes};
+}
+
+function _kbCalibrate(draws,game){
+  const key=game.id+'|'+draws.length;
+  if(_kbCalCache[key])return _kbCalCache[key];
+  const max=game.max,cnt=Math.min(game.count,7),N=_KB_METHODS.length;
+  const V=Math.min(40,Math.max(10,Math.floor(draws.length*0.3)));
+  const topK=Math.max(cnt,Math.round(max*0.18));
+  const sumL={};_KB_METHODS.forEach(m=>sumL[m.id]=0);let valid=0;
+  for(let t=0;t<V;t++){
+    const prior=draws.slice(t+1);if(prior.length<15)break;
+    const actual=new Set(draws[t].nums.filter(n=>n>=1&&n<=max));if(actual.size<2)continue;
+    const rbase=actual.size/max;            // doğru rastgele beklenti (precision@topK)
+    const sig=_kbSignals(prior,game);
+    _KB_METHODS.forEach(m=>{
+      const nf=_b10Norm(sig[m.id],max),ranked=[];
+      for(let n=1;n<=max;n++)ranked.push([n,nf[n]]);
+      ranked.sort((a,b)=>b[1]-a[1]);
+      sumL[m.id]+=(ranked.slice(0,topK).filter(([n])=>actual.has(n)).length/topK)-rbase;
+    });
+    valid++;
+  }
+  const rl={};_KB_METHODS.forEach(m=>rl[m.id]=valid?sumL[m.id]/valid:0);
+  let mean=0;_KB_METHODS.forEach(m=>mean+=rl[m.id]);mean/=N;
+  let sd2=0;_KB_METHODS.forEach(m=>sd2+=(rl[m.id]-mean)**2);
+  const sd=Math.sqrt(sd2/N)||1e-6;
+  // ılımlı softmax + uniform shrinkage → tek yöntem domine etmesin, gerçek konsensüs
+  const sw={};let sum=0;
+  _KB_METHODS.forEach(m=>{let v=Math.exp(1.1*((rl[m.id]-mean)/sd));if(rl[m.id]<0)v*=0.5;v=Math.max(v,1e-3);sw[m.id]=v;sum+=v;});
+  const w={};_KB_METHODS.forEach(m=>w[m.id]=0.5/N+0.5*(sw[m.id]/sum));
+  const res={weights:w,lift:rl,valid,topK};
+  _kbCalCache[key]=res;return res;
+}
+
+function _kbConsensusFromSig(sig,game,cal){
+  const max=game.max,cnt=Math.min(game.count,7);
+  const nf={};_KB_METHODS.forEach(m=>nf[m.id]=_b10Norm(sig[m.id],max));
+  const topTierK=cnt+Math.round(max*0.10),topSets={};
+  _KB_METHODS.forEach(m=>{
+    const ranked=[];for(let n=1;n<=max;n++)ranked.push([n,nf[m.id][n]]);
+    ranked.sort((a,b)=>b[1]-a[1]);
+    topSets[m.id]=new Set(ranked.slice(0,topTierK).map(x=>x[0]));
+  });
+  const rows=[];
+  for(let n=1;n<=max;n++){
+    let cons=0;const parts={};let support=0;const supBy=[];
+    _KB_METHODS.forEach(m=>{parts[m.id]=nf[m.id][n];cons+=cal.weights[m.id]*nf[m.id][n];if(topSets[m.id].has(n)){support++;supBy.push(m.id);}});
+    rows.push({n,cons,parts,support,supBy});
+  }
+  rows.sort((a,b)=>b.cons-a.cons||b.support-a.support);
+  const mx=rows[0]?.cons||1;rows.forEach(r=>r.consN=mx>0?r.cons/mx:0);
+  return rows;
+}
+function _kbConsensus(draws,game,cal){return _kbConsensusFromSig(_kbSignals(draws,game),game,cal);}
+
+function _kbBacktest(draws,game,cal,rounds){
+  const max=game.max,cnt=Math.min(game.count,7),bankoK=cnt;
+  const R=Math.min(rounds||40,draws.length-20);
+  let consHit=0,trials=0,actSum=0,strongHit=0,strongTot=0;
+  const mHit={};_KB_METHODS.forEach(m=>mHit[m.id]=0);
+  for(let t=0;t<R;t++){
+    const prior=draws.slice(t+1);if(prior.length<15)break;
+    const actual=new Set(draws[t].nums.filter(n=>n>=1&&n<=max));if(actual.size<2)continue;
+    const sig=_kbSignals(prior,game);
+    const rows=_kbConsensusFromSig(sig,game,cal);
+    consHit+=rows.slice(0,bankoK).filter(r=>actual.has(r.n)).length;
+    rows.filter(r=>r.support>=3).slice(0,cnt).forEach(r=>{strongTot++;if(actual.has(r.n))strongHit++;});
+    _KB_METHODS.forEach(m=>{
+      const nf=_b10Norm(sig[m.id],max),ranked=[];
+      for(let n=1;n<=max;n++)ranked.push([n,nf[n]]);
+      ranked.sort((a,b)=>b[1]-a[1]);
+      mHit[m.id]+=ranked.slice(0,bankoK).filter(([n])=>actual.has(n)).length;
+    });
+    actSum+=actual.size;trials++;
+  }
+  const avgAct=trials?actSum/trials:cnt,base=bankoK*avgAct/max;
+  const mAvg={};_KB_METHODS.forEach(m=>mAvg[m.id]=trials?mHit[m.id]/trials:0);
+  return {trials,consAvg:trials?consHit/trials:0,mAvg,base,bankoK,
+    strongPrec:strongTot?strongHit/strongTot:0,strongHit,strongTot,strongPerDraw:trials?strongTot/trials:0};
+}
+
+// ── KB yardımcılar ─────────────────────────────────────────────
+function _kbBadge(n,strong,sub){
+  const bg=strong?'rgba(0,230,118,.2)':'rgba(0,0,0,.05)',bd=strong?'rgba(0,230,118,.55)':'rgba(0,0,0,.1)',cl=strong?'var(--green)':'var(--text)';
+  return `<span style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:34px;padding:3px 5px;border-radius:8px;background:${bg};border:1px solid ${bd};color:${cl};font-family:monospace"><span style="font-size:.82rem;font-weight:800">${n}</span>${sub?`<span style="font-size:.5rem;color:var(--muted);font-weight:600">${sub}</span>`:''}</span>`;
+}
+function _kbColRepeats(cols){const c={};cols.forEach(col=>[...new Set(col)].forEach(n=>c[n]=(c[n]||0)+1));return Object.entries(c).filter(([n,x])=>x>=2).map(([n,x])=>({n:+n,c:x})).sort((a,b)=>b.c-a.c||a.n-b.n);}
+function _kbArith(col){const s=[...col].sort((a,b)=>a-b);if(s.length<3)return null;const d=s[1]-s[0];if(d<=0)return null;return s.every((v,i)=>i===0||v-s[i-1]===d)?d:null;}
+function _kbFmtTL(v){return v?'₺'+v.toLocaleString('tr-TR'):'—';}
+function _kbCopy(text){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(()=>showToast('📋 Kopyalandı'),()=>_kbCopyFb(text));}else _kbCopyFb(text);}
+function _kbCopyFb(text){const t=document.createElement('textarea');t.value=text;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();try{document.execCommand('copy');showToast('📋 Kopyalandı');}catch(e){}document.body.removeChild(t);}
+function _kbParseTickets(){const txt=document.getElementById('kbBiletInput')?.value||'',tickets=[];txt.split('\n').forEach((line,li)=>{line=line.trim();if(!line)return;const nums=(line.match(/\d+/g)||[]).map(Number);if(nums.length)tickets.push({nums,idx:li});});return tickets;}
+
+// ── KB render ──────────────────────────────────────────────────
+function _kbInit(){_kbRender();}
+function _kbSetGame(g){_kbGame=g;_kbRender();}
+function _kbSetMode(m){_kbMode=m;_kbRender();}
+function _kbRender(){
+  document.querySelectorAll('.kb-game-btn').forEach(b=>{const on=b.dataset.game===_kbGame;b.style.background=on?'rgba(129,140,248,.25)':'var(--surface2)';b.style.borderColor=on?'rgba(129,140,248,.55)':'var(--border)';b.style.color=on?'var(--accent)':'var(--muted)';b.style.fontWeight=on?'700':'400';});
+  document.querySelectorAll('.kb-mode-btn').forEach(b=>{const on=b.dataset.mode===_kbMode;b.style.background=on?'rgba(0,150,58,.15)':'var(--surface2)';b.style.borderColor=on?'rgba(0,150,58,.4)':'var(--border)';b.style.color=on?'var(--green)':'var(--muted)';b.style.fontWeight=on?'800':'600';});
+  const el=document.getElementById('kbContent');if(!el)return;
+  el.innerHTML='<div style="padding:30px;text-align:center;color:var(--muted);font-size:.8rem">⏳ Hesaplanıyor…</div>';
+  setTimeout(()=>{
+    try{
+      if(_kbMode==='banko')el.innerHTML=_kbRenderBanko();
+      else if(_kbMode==='test')el.innerHTML=_kbRenderTest();
+      else if(_kbMode==='bilet')el.innerHTML=_kbRenderBilet();
+      else if(_kbMode==='kazanan')el.innerHTML=_kbRenderKazanan();
+    }catch(e){el.innerHTML='<div style="padding:20px;color:#cc2222;font-size:.75rem">Hata: '+e.message+'</div>';}
+  },40);
+}
+
+function _kbRenderBanko(){
+  const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame);
+  if(draws.length<20)return '<div class="empty-state"><span class="empty-icon">📭</span>Yeterli veri yok.</div>';
+  const cal=_kbCalibrate(draws,game),rows=_kbConsensus(draws,game,cal),cnt=Math.min(game.count,7);
+  const strong=rows.filter(r=>r.support>=3),bankoList=(strong.length?strong:rows).slice(0,Math.max(cnt+2,8));
+  let h='';
+  h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:11px 14px;margin-bottom:12px"><div style="font-size:.8rem;font-weight:800;color:var(--accent)">🎯 ${game.emoji} ${game.name} — Banko Konsensüsü</div><div style="font-size:.62rem;color:var(--muted);margin-top:3px">${draws.length} çekiliş · ${_KB_METHODS.length} yöntem · walk-forward kalibrasyon (${cal.valid} tur)</div></div>`;
+  h+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px"><div style="font-size:.78rem;font-weight:800;color:var(--green)">🔒 En Güçlü Banko Adayları</div><button onclick="_kbCopy('${bankoList.slice(0,cnt).map(r=>r.n).sort((a,b)=>a-b).join(' ')}')" style="background:rgba(0,150,58,.1);border:1px solid rgba(0,150,58,.3);color:var(--green);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.65rem;font-weight:700">📋 Kopyala</button></div><div style="font-size:.6rem;color:var(--muted);margin-bottom:9px">Birden çok bağımsız yöntemin aynı anda öne çıkardığı sayılar. Alt rakam = kaç yöntemin desteklediği (0–6).</div><div style="display:flex;gap:6px;flex-wrap:wrap">${bankoList.map(r=>_kbBadge(r.n,r.support>=3,r.support+'/6')).join('')}</div></div>`;
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:9px">📊 Konsensüs Sıralaması</div>`;
+  rows.slice(0,18).forEach((r,i)=>{
+    const icons=r.supBy.map(id=>_KB_MICON[id]).join('');
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.04)"><span style="font-size:.6rem;color:var(--muted);min-width:18px">${i+1}</span><span style="font-size:.85rem;font-weight:800;font-family:monospace;color:${r.support>=3?'var(--green)':'var(--text)'};min-width:26px">${r.n}</span><div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.05);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;background:linear-gradient(90deg,rgba(129,140,248,.6),rgba(0,230,118,.6));width:${Math.round(r.consN*100)}%"></div></div><span style="font-size:.6rem;min-width:78px;text-align:right;letter-spacing:1px">${icons||'—'}</span><span style="font-size:.58rem;color:var(--muted);min-width:24px;text-align:right">${r.support}/6</span></div>`;
+  });
+  h+=`</div>`;
+  const sortedM=[..._KB_METHODS].sort((a,b)=>cal.lift[b.id]-cal.lift[a.id]);
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:4px">⚖️ Yöntem Ağırlıkları</div><div style="font-size:.58rem;color:var(--muted);margin-bottom:9px">Her yöntemin geçmiş isabet katkısına (lift) göre otomatik ağırlığı. Negatif lift = rastgeleden kötü → ağırlık kısılır.</div>`;
+  sortedM.forEach(m=>{const w=cal.weights[m.id],lift=cal.lift[m.id];h+=`<div style="display:flex;align-items:center;gap:8px;padding:3px 0"><span style="font-size:.66rem;min-width:122px">${m.icon} ${m.name}</span><div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.05);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;background:rgba(129,140,248,.6);width:${Math.round(w*100)}%"></div></div><span style="font-size:.62rem;color:var(--accent);min-width:36px;text-align:right;font-weight:700">${Math.round(w*100)}%</span><span style="font-size:.56rem;color:${lift>=0?'var(--green)':'#cc2222'};min-width:52px;text-align:right">lift ${lift>=0?'+':''}${(lift*100).toFixed(1)}%</span></div>`;});
+  h+=`</div>`;
+  return h;
+}
+
+function _kbRenderTest(){
+  const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame);
+  if(draws.length<30)return '<div class="empty-state"><span class="empty-icon">📭</span>Geri test için yeterli veri yok.</div>';
+  const cal=_kbCalibrate(draws,game),bt=_kbBacktest(draws,game,cal,_kbBtRounds),cnt=Math.min(game.count,7);
+  const lift=bt.base>0?bt.consAvg/bt.base:0;
+  let h='';
+  h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:11px 14px;margin-bottom:12px"><div style="font-size:.8rem;font-weight:800;color:var(--accent)">🔬 Geri Test — ${game.emoji} ${game.name}</div><div style="font-size:.62rem;color:var(--muted);margin-top:3px">Her geçmiş çekiliş için, o tarihten önceki verilerle konsensüs kuruldu ve en üst ${cnt} aday gerçek sonuçla karşılaştırıldı.</div></div>`;
+  h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">`;
+  [30,50,80].forEach(r=>{const on=r===_kbBtRounds;h+=`<button onclick="_kbBtRounds=${r};_kbRender()" style="background:${on?'rgba(0,150,58,.15)':'var(--surface2)'};border:1px solid ${on?'rgba(0,150,58,.4)':'var(--border)'};color:${on?'var(--green)':'var(--muted)'};border-radius:7px;padding:5px 13px;cursor:pointer;font-size:.7rem;font-weight:700">Son ${r}</button>`;});
+  h+=`</div>`;
+  h+=`<div class="b10-tahmin-grid" style="margin-bottom:12px"><div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Konsensüs ort. isabet (üst ${cnt})</div><div style="font-size:1.6rem;font-weight:800;color:var(--green)">${bt.consAvg.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">rastgele ≈ ${bt.base.toFixed(2)}</div></div><div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Kazanç (lift)</div><div style="font-size:1.6rem;font-weight:800;color:var(--accent)">${lift.toFixed(2)}×</div><div style="font-size:.58rem;color:var(--muted)">${bt.trials} tur test</div></div></div>`;
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:6px">🔒 Güçlü Banko İsabeti (≥3 yöntem)</div><div style="font-size:.64rem;color:var(--muted);line-height:1.6">Çekiliş başına ~${bt.strongPerDraw.toFixed(1)} güçlü banko adayı üretildi; bunların <strong style="color:var(--green)">%${Math.round(bt.strongPrec*100)}</strong>'i gerçekten çıktı (${bt.strongHit}/${bt.strongTot}). Rastgele beklenti ≈ %${Math.round(cnt/game.max*100)}.</div></div>`;
+  const sortedM=[..._KB_METHODS].map(m=>({...m,avg:bt.mAvg[m.id]})).sort((a,b)=>b.avg-a.avg);
+  const maxAvg=Math.max(bt.consAvg,...sortedM.map(m=>m.avg),bt.base)||1;
+  const mk=(label,avg,col)=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0"><span style="font-size:.66rem;min-width:140px">${label}</span><div style="flex:1;height:9px;border-radius:4px;background:rgba(0,0,0,.05);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;background:${col};width:${Math.round(avg/maxAvg*100)}%"></div></div><span style="font-size:.62rem;font-weight:700;min-width:34px;text-align:right">${avg.toFixed(2)}</span></div>`;
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px"><div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:9px">📊 Yöntem Karşılaştırması (üst ${cnt} isabet ort.)</div>`;
+  h+=mk('🎯 <strong>KONSENSÜS</strong>',bt.consAvg,'linear-gradient(90deg,rgba(129,140,248,.7),rgba(0,230,118,.7))');
+  sortedM.forEach(m=>{h+=mk(m.icon+' '+m.name,m.avg,'rgba(129,140,248,.5)');});
+  h+=mk('🎲 rastgele',bt.base,'rgba(0,0,0,.2)');
+  h+=`</div>`;
+  return h;
+}
+
+function _kbRenderBilet(){
+  const game=getGame(_kbGame);
+  let h='';
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 Bilet Testi — ${game.emoji} ${game.name}</div><div style="font-size:.6rem;color:var(--muted);margin-bottom:8px">Her satıra bir kolon yaz (boşlukla ayrılmış sayılar). Kolonlar konsensüs banko adaylarıyla örtüşmelerine göre sıralanır.</div><textarea id="kbBiletInput" rows="8" placeholder="12 27 32 47 58 63&#10;1 4 6 12 13 16&#10;28 30 39 48 55 68&#10;..." style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;line-height:1.8;outline:none"></textarea><div style="display:flex;gap:8px;margin-top:9px"><button onclick="_kbRunBilet()" style="padding:7px 18px;background:linear-gradient(135deg,rgba(129,140,248,.3),rgba(0,230,118,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:700">🔍 Analiz Et</button><button onclick="document.getElementById('kbBiletInput').value='';document.getElementById('kbBiletResult').innerHTML=''" style="padding:7px 14px;background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);color:#cc2222;border-radius:8px;cursor:pointer;font-size:.8rem">🗑️ Temizle</button></div></div><div id="kbBiletResult"></div>`;
+  return h;
+}
+function _kbRunBilet(){
+  const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame),tickets=_kbParseTickets(),res=document.getElementById('kbBiletResult');
+  if(!res)return;
+  if(!tickets.length){showToast('⚠️ Kolon giriniz');return;}
+  const cal=_kbCalibrate(draws,game),rows=_kbConsensus(draws,game,cal),cnt=Math.min(game.count,7);
+  const topSet=new Set(rows.slice(0,cnt+4).map(r=>r.n)),strongSet=new Set(rows.filter(r=>r.support>=3).map(r=>r.n));
+  const consMap={};rows.forEach((r,i)=>consMap[r.n]={rank:i+1,support:r.support,consN:r.consN});
+  const ranked=tickets.map(t=>{const top=t.nums.filter(n=>topSet.has(n)).length,strong=t.nums.filter(n=>strongSet.has(n)).length,score=t.nums.reduce((a,n)=>a+(consMap[n]?consMap[n].consN:0),0);return {...t,top,strong,score};}).sort((a,b)=>b.strong-a.strong||b.top-a.top||b.score-a.score);
+  let h='';
+  h+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:11px 14px;margin-bottom:10px"><div style="font-size:.68rem;font-weight:800;color:var(--green);margin-bottom:6px">🔒 Referans Banko Seti</div><div style="display:flex;gap:5px;flex-wrap:wrap">${[...strongSet].sort((a,b)=>a-b).map(n=>_kbBadge(n,true,consMap[n].support+'/6')).join('')||'<span style="font-size:.65rem;color:var(--muted)">güçlü banko yok</span>'}</div></div>`;
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px"><div style="font-size:.72rem;font-weight:800;margin-bottom:9px">🎫 Kolon Sıralaması (banko örtüşmesine göre)</div>`;
+  ranked.forEach((t,ri)=>{
+    const medal=ri===0?'🥇':ri===1?'🥈':ri===2?'🥉':('#'+(t.idx+1));
+    h+=`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.04)"><span style="font-size:.6rem;color:var(--muted);min-width:24px">${medal}</span><div style="display:flex;gap:3px;flex-wrap:wrap;flex:1">`;
+    t.nums.forEach(n=>{const st=strongSet.has(n),tp=topSet.has(n);h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;border-radius:5px;background:${st?'rgba(0,230,118,.22)':tp?'rgba(129,140,248,.15)':'rgba(0,0,0,.05)'};border:1px solid ${st?'rgba(0,230,118,.5)':tp?'rgba(129,140,248,.35)':'rgba(0,0,0,.08)'};color:${st?'var(--green)':tp?'var(--accent)':'var(--text)'};font-size:.68rem;font-weight:${st||tp?'800':'500'};font-family:monospace">${n}</span>`;});
+    h+=`</div><span style="font-size:.62rem;font-weight:800;color:var(--green);min-width:54px;text-align:right">${t.strong}🔒 ${t.top}🎯</span></div>`;
+  });
+  h+=`</div>`;
+  res.innerHTML=h;
+}
+
+function _kbRenderKazanan(){
+  const W=_KB_WIN,game=getGame(W.game),draws=_kbGetDraws(W.game),prior=draws.filter(d=>d.date<W.date),winCol=W.columns[W.winIdx],cnt=Math.min(game.count,7);
+  let h='';
+  h+=`<div style="background:linear-gradient(135deg,rgba(224,64,95,.08),rgba(184,134,11,.08));border:1px solid rgba(224,64,95,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.85rem;font-weight:800;color:var(--accent2)">🏆 Kazanan Bilet İncelemesi</div><div style="font-size:.66rem;color:var(--muted);margin-top:4px">${game.emoji} Çılgın Sayısal Loto · ${W.date} · ${W.yer} · <strong style="color:var(--text)">${_kbFmtTL(W.jackpot)}</strong></div></div>`;
+  const repeats=_kbColRepeats(W.columns),repSet=new Map(repeats.map(r=>[r.n,r.c]));
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.72rem;font-weight:800;margin-bottom:4px">🎫 Biletin 6 Kolonu</div><div style="font-size:.58rem;color:var(--muted);margin-bottom:9px">Kazanan kolon yeşil. <span style="color:#8a6200">Sarı</span> = kolonlar arası tekrar eden (oyuncunun banko) sayıları. Aritmetik diziler sağda.</div>`;
+  W.columns.forEach((col,ci)=>{
+    const win=ci===W.winIdx,ar=_kbArith(col);
+    h+=`<div style="display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:7px;margin-bottom:4px;background:${win?'rgba(0,230,118,.08)':'transparent'};border:1px solid ${win?'rgba(0,230,118,.35)':'transparent'}"><span style="font-size:.56rem;color:var(--muted);min-width:62px">${win?'✅ KAZANAN':'Kolon '+(ci+1)}</span><div style="display:flex;gap:3px;flex-wrap:wrap;flex:1">`;
+    [...col].sort((a,b)=>a-b).forEach(n=>{const rep=repSet.has(n);h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;border-radius:5px;background:${win?'rgba(0,230,118,.18)':rep?'rgba(184,134,11,.16)':'rgba(0,0,0,.05)'};border:1px solid ${win?'rgba(0,230,118,.45)':rep?'rgba(184,134,11,.4)':'rgba(0,0,0,.08)'};color:${win?'var(--green)':rep?'#8a6200':'var(--text)'};font-size:.68rem;font-weight:${win||rep?'800':'500'};font-family:monospace"${rep?` title="${repSet.get(n)} kolonda tekrar"`:''}>${n}</span>`;});
+    h+=`</div>${ar!==null?`<span style="font-size:.55rem;color:var(--accent);white-space:nowrap">+${ar} dizi</span>`:''}</div>`;
+  });
+  h+=`</div>`;
+  const winRepeated=repeats.filter(r=>winCol.includes(r.n));
+  h+=`<div style="background:rgba(184,134,11,.06);border:1px solid rgba(184,134,11,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.72rem;font-weight:800;color:#8a6200;margin-bottom:6px">🔑 Oyuncunun Banko Mantığı</div><div style="font-size:.62rem;color:var(--muted);line-height:1.7">Oyuncu ${repeats.length} sayıyı birden çok kolona yaymış (banko stratejisi): ${repeats.map(r=>`<strong style="color:var(--text)">${r.n}</strong>(${r.c}×)`).join(', ')}.<br>Bunlardan kazanan kolonda çıkan: ${winRepeated.length?winRepeated.map(r=>`<strong style="color:var(--green)">${r.n}</strong>`).join(', '):'—'}. Kolon 6 ise tam <strong style="color:var(--accent)">+5 aritmetik dizi</strong> (42·47·52·57·62·67).</div></div>`;
+  if(prior.length>=20){
+    const cal=_kbCalibrate(prior,game),rows=_kbConsensus(prior,game,cal),rankMap={};
+    rows.forEach((r,i)=>rankMap[r.n]={rank:i+1,support:r.support});
+    const topSet=new Set(rows.slice(0,cnt+4).map(r=>r.n)),strongSet=new Set(rows.filter(r=>r.support>=3).map(r=>r.n));
+    const winSorted=[...winCol].sort((a,b)=>a-b),hitTop=winSorted.filter(n=>topSet.has(n)),hitStrong=winSorted.filter(n=>strongSet.has(n));
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px"><div style="font-size:.72rem;font-weight:800;margin-bottom:4px">🔬 Model, Çekilişten Önce Ne Derdi?</div><div style="font-size:.58rem;color:var(--muted);margin-bottom:9px">${W.date} öncesi ${prior.length} çekilişle konsensüs kuruldu. Kazanan 6 sayının model sıralamasındaki yeri:</div>`;
+    winSorted.forEach(n=>{const rm=rankMap[n]||{rank:'—',support:0},inTop=topSet.has(n),inStrong=strongSet.has(n);h+=`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.04)"><span style="font-size:.82rem;font-weight:800;font-family:monospace;color:${inStrong?'var(--green)':inTop?'var(--accent)':'var(--text)'};min-width:28px">${n}</span><span style="font-size:.62rem;color:var(--muted);flex:1">model sırası: <strong style="color:var(--text)">${rm.rank}.</strong> · destek ${rm.support}/6</span><span style="font-size:.56rem;color:${inStrong?'var(--green)':inTop?'var(--accent)':'var(--muted)'}">${inStrong?'🔒 güçlü banko':inTop?'🎯 üst aday':'—'}</span></div>`;});
+    h+=`<div style="margin-top:9px;padding:8px 10px;background:rgba(0,230,118,.05);border-radius:7px;font-size:.63rem;color:var(--muted);line-height:1.6">Model, üst ${cnt+4} adayı kazanan 6 sayının <strong style="color:var(--green)">${hitTop.length}</strong> tanesini önceden işaret ederdi (${hitTop.join(', ')||'—'}); bunların <strong style="color:var(--green)">${hitStrong.length}</strong> tanesi güçlü banko seviyesindeydi (${hitStrong.join(', ')||'—'}).</div></div>`;
+  }
+  return h;
+}
+
 // ═══════════ Tarama Sayfası ═══════════════════════════════
 const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','oyunNoSection','b10Section','ortakSayilarSection','nextDrawPredSection'];
 let _scanGame=null;
@@ -9612,16 +9894,17 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan','page-kapsamli'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
   if(id==='listeler')_initListelerPage();
   if(id==='kazanan')_initKazananPage();
+  if(id==='kapsamli')_kbInit();
 }
 
 function _scanGetDraws(gameId){
