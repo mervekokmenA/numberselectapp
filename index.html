@@ -9833,7 +9833,8 @@ function _kbRenderTest(){
 function _kbRenderBilet(){
   const game=getGame(_kbGame);
   let h='';
-  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 Bilet Testi — ${game.emoji} ${game.name}</div><div style="font-size:.6rem;color:var(--muted);margin-bottom:8px">Her satıra bir kolon yaz (boşlukla ayrılmış sayılar). Kolonlar konsensüs banko adaylarıyla örtüşmelerine göre sıralanır.</div><textarea id="kbBiletInput" rows="8" placeholder="12 27 32 47 58 63&#10;1 4 6 12 13 16&#10;28 30 39 48 55 68&#10;..." style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;line-height:1.8;outline:none"></textarea><div style="display:flex;gap:8px;margin-top:9px"><button onclick="_kbRunBilet()" style="padding:7px 18px;background:linear-gradient(135deg,rgba(129,140,248,.3),rgba(0,230,118,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:700">🔍 Analiz Et</button><button onclick="document.getElementById('kbBiletInput').value='';document.getElementById('kbBiletResult').innerHTML=''" style="padding:7px 14px;background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);color:#cc2222;border-radius:8px;cursor:pointer;font-size:.8rem">🗑️ Temizle</button></div></div><div id="kbBiletResult"></div>`;
+  h+=`<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.2);border-radius:10px;padding:9px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="font-size:.7rem;font-weight:800;color:var(--accent)">🎯 Tahmin Modu</span><span style="font-size:.62rem;color:var(--muted)">Tüm geçmiş çekiliş verisi kullanılarak bir sonraki çekiliş için konsensüs hesaplanır. Sistemin verdiği kolonu buraya yapıştır, en güçlü sayıları bul.</span></div>`;
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 Bilet Testi — ${game.emoji} ${game.name}</div><div style="font-size:.6rem;color:var(--muted);margin-bottom:8px">Her satıra bir kolon gir (boşlukla ayrılmış sayılar). Kolonlar KB banko adaylarıyla örtüşmelerine göre sıralanır, her sayı kopyalanabilir.</div><textarea id="kbBiletInput" rows="8" placeholder="12 27 32 47 58 63&#10;1 4 6 12 13 16&#10;28 30 39 48 55 68&#10;..." style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;line-height:1.8;outline:none"></textarea><div style="display:flex;gap:8px;margin-top:9px"><button onclick="_kbRunBilet()" style="padding:7px 18px;background:linear-gradient(135deg,rgba(129,140,248,.3),rgba(0,230,118,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:700">🔍 Analiz Et</button><button onclick="document.getElementById('kbBiletInput').value='';document.getElementById('kbBiletResult').innerHTML=''" style="padding:7px 14px;background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);color:#cc2222;border-radius:8px;cursor:pointer;font-size:.8rem">🗑️ Temizle</button></div></div><div id="kbBiletResult"></div>`;
   return h;
 }
 function _kbRunBilet(){
@@ -9853,11 +9854,23 @@ function _kbRunBilet(){
   const poolTopSet=new Set(poolRows.slice(0,cnt).map(r=>r.n));
   const ranked=tickets.map(t=>{const top=t.nums.filter(n=>topSet.has(n)).length,strong=t.nums.filter(n=>strongSet.has(n)).length,score=t.nums.reduce((a,n)=>a+(consMap[n]?consMap[n].consN:0),0);return {...t,top,strong,score};}).sort((a,b)=>b.strong-a.strong||b.top-a.top||b.score-a.score);
   let h='';
-  // Global banko ref
-  h+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:11px 14px;margin-bottom:10px"><div style="font-size:.68rem;font-weight:800;color:var(--green);margin-bottom:6px">🔒 Global KB Banko Seti (tüm sayılar)</div><div style="display:flex;gap:5px;flex-wrap:wrap">${[...strongSet].sort((a,b)=>a-b).map(n=>_kbBadge(n,true,consMap[n].support+'/6')).join('')||'<span style="font-size:.65rem;color:var(--muted)">güçlü banko yok</span>'}</div></div>`;
-  // Pool-specific banko
+  // Global banko ref with copy
+  const globalBankoArr=[...strongSet].sort((a,b)=>a-b);
+  const globalBankoCopy=`KB Banko Adayları (Global)\\n${globalBankoArr.join(' ')}`;
+  h+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:11px 14px;margin-bottom:10px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
+  h+=`<div style="font-size:.68rem;font-weight:800;color:var(--green)">🔒 Global KB Banko Seti (tüm sayılar)</div>`;
+  if(globalBankoArr.length)h+=`<button onclick="_kbCopy('${globalBankoCopy}')" style="background:rgba(0,150,58,.1);border:1px solid rgba(0,150,58,.3);color:var(--green);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.62rem;font-weight:700">📋 Kopyala</button>`;
+  h+=`</div><div style="display:flex;gap:5px;flex-wrap:wrap">${globalBankoArr.map(n=>_kbBadge(n,true,consMap[n].support+'/6')).join('')||'<span style="font-size:.65rem;color:var(--muted)">güçlü banko yok</span>'}</div></div>`;
+  // Pool-specific banko with copy
   if(poolStrongSet.size){
-    h+=`<div style="background:rgba(0,150,58,.05);border:1px solid rgba(0,150,58,.28);border-radius:10px;padding:11px 14px;margin-bottom:10px"><div style="font-size:.68rem;font-weight:800;color:var(--green);margin-bottom:6px">🎯 Havuzdaki KB Banko Adayları</div><div style="display:flex;gap:5px;flex-wrap:wrap">`;
+    const poolBankoArr=poolRows.filter(r=>poolStrongSet.has(r.n)).map(r=>r.n);
+    const poolBankoCopy=`KB Banko Adayları (Havuzdan)\\n${poolBankoArr.join(' ')}`;
+    h+=`<div style="background:rgba(0,150,58,.05);border:1px solid rgba(0,150,58,.28);border-radius:10px;padding:11px 14px;margin-bottom:10px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
+    h+=`<div style="font-size:.68rem;font-weight:800;color:var(--green)">🎯 Havuzdaki KB Banko Adayları</div>`;
+    h+=`<button onclick="_kbCopy('${poolBankoCopy}')" style="background:rgba(0,150,58,.1);border:1px solid rgba(0,150,58,.3);color:var(--green);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.62rem;font-weight:700">📋 Kopyala</button>`;
+    h+=`</div><div style="display:flex;gap:5px;flex-wrap:wrap">`;
     poolRows.filter(r=>poolStrongSet.has(r.n)).forEach(r=>{
       h+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:4px 6px;border-radius:8px;background:rgba(0,230,118,.18);border:1px solid rgba(0,230,118,.5);font-family:monospace">`;
       h+=`<span style="font-size:.8rem;font-weight:800;color:var(--green)">${r.n}</span>`;
@@ -9866,17 +9879,25 @@ function _kbRunBilet(){
     });
     h+=`</div></div>`;
   }
-  // Ticket ranking
+  // Ticket ranking with per-ticket copy
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px"><div style="font-size:.72rem;font-weight:800;margin-bottom:9px">🎫 Kolon Sıralaması (banko örtüşmesine göre)</div>`;
   ranked.forEach((t,ri)=>{
     const medal=ri===0?'🥇':ri===1?'🥈':ri===2?'🥉':('#'+(t.idx+1));
+    const tCopy=t.nums.join(' ');
     h+=`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.04)"><span style="font-size:.6rem;color:var(--muted);min-width:24px">${medal}</span><div style="display:flex;gap:3px;flex-wrap:wrap;flex:1">`;
     t.nums.forEach(n=>{const st=strongSet.has(n),tp=topSet.has(n);h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;border-radius:5px;background:${st?'rgba(0,230,118,.22)':tp?'rgba(129,140,248,.15)':'rgba(0,0,0,.05)'};border:1px solid ${st?'rgba(0,230,118,.5)':tp?'rgba(129,140,248,.35)':'rgba(0,0,0,.08)'};color:${st?'var(--green)':tp?'var(--accent)':'var(--text)'};font-size:.68rem;font-weight:${st||tp?'800':'500'};font-family:monospace">${n}</span>`;});
-    h+=`</div><span style="font-size:.62rem;font-weight:800;color:var(--green);min-width:54px;text-align:right">${t.strong}🔒 ${t.top}🎯</span></div>`;
+    h+=`</div><span style="font-size:.62rem;font-weight:800;color:var(--green);min-width:54px;text-align:right">${t.strong}🔒 ${t.top}🎯</span>`;
+    h+=`<button onclick="_kbCopy('${tCopy}');event.stopPropagation()" style="background:transparent;border:1px solid rgba(0,0,0,.1);color:var(--muted);border-radius:5px;padding:1px 5px;cursor:pointer;font-size:.55rem;flex-shrink:0">📋</button>`;
+    h+=`</div>`;
   });
   h+=`</div>`;
-  // Pool number KB ranking
-  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px"><div style="font-size:.72rem;font-weight:800;margin-bottom:8px">📊 Havuz Sayıları — KB Sıralaması</div>`;
+  // Pool number KB ranking with top-N copy
+  const topPoolCopy=`KB Top ${cnt} Sayı (Havuzdan)\\n${poolRows.slice(0,cnt).map(r=>r.n).sort((a,b)=>a-b).join(' ')}`;
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800">📊 Havuz Sayıları — KB Sıralaması</div>`;
+  h+=`<button onclick="_kbCopy('${topPoolCopy}')" style="background:rgba(0,0,0,.05);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.62rem">📋 Top ${cnt}</button>`;
+  h+=`</div>`;
   h+=`<div style="display:grid;grid-template-columns:auto auto 1fr auto auto;gap:3px 8px;font-size:.58rem;color:var(--muted);margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--border)">`;
   h+=`<span>#KB</span><span>Sayı</span><span>Konsensüs</span><span>Destek</span><span>Kupon</span></div>`;
   poolRows.forEach(x=>{
