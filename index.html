@@ -9780,7 +9780,7 @@ function _kbRender(){
     try{
       if(_kbMode==='banko')el.innerHTML=_kbRenderBanko();
       else if(_kbMode==='test')el.innerHTML=_kbRenderTest();
-      else if(_kbMode==='bilet')el.innerHTML=_kbRenderBilet();
+      else if(_kbMode==='bilet'){el.innerHTML=_kbRenderBilet();_kbBiletInitDateSel();}
       else if(_kbMode==='kazanan')el.innerHTML=_kbRenderKazanan();
     }catch(e){el.innerHTML='<div style="padding:20px;color:#cc2222;font-size:.75rem">Hata: '+e.message+'</div>';}
   },40);
@@ -9830,17 +9830,40 @@ function _kbRenderTest(){
   return h;
 }
 
+const _kbBiletDateHTML={};
+function _kbBiletInitDateSel(){
+  const sel=document.getElementById('kbBiletDateSel');if(!sel)return;
+  if(_kbBiletDateHTML[_kbGame]){sel.innerHTML=_kbBiletDateHTML[_kbGame];return;}
+  const draws=_kbGetDraws(_kbGame);
+  const html='<option value="">— Tahmin modu (gelecek çekiliş) —</option>'+draws.map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
+  _kbBiletDateHTML[_kbGame]=html;
+  sel.innerHTML=html;
+}
 function _kbRenderBilet(){
   const game=getGame(_kbGame);
   let h='';
-  h+=`<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.2);border-radius:10px;padding:9px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px"><span style="font-size:.7rem;font-weight:800;color:var(--accent)">🎯 Tahmin Modu</span><span style="font-size:.62rem;color:var(--muted)">Tüm geçmiş çekiliş verisi kullanılarak bir sonraki çekiliş için konsensüs hesaplanır. Sistemin verdiği kolonu buraya yapıştır, en güçlü sayıları bul.</span></div>`;
-  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 Bilet Testi — ${game.emoji} ${game.name}</div><div style="font-size:.6rem;color:var(--muted);margin-bottom:8px">Her satıra bir kolon gir (boşlukla ayrılmış sayılar). Kolonlar KB banko adaylarıyla örtüşmelerine göre sıralanır, her sayı kopyalanabilir.</div><textarea id="kbBiletInput" rows="8" placeholder="12 27 32 47 58 63&#10;1 4 6 12 13 16&#10;28 30 39 48 55 68&#10;..." style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;line-height:1.8;outline:none"></textarea><div style="display:flex;gap:8px;margin-top:9px"><button onclick="_kbRunBilet()" style="padding:7px 18px;background:linear-gradient(135deg,rgba(129,140,248,.3),rgba(0,230,118,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:700">🔍 Analiz Et</button><button onclick="document.getElementById('kbBiletInput').value='';document.getElementById('kbBiletResult').innerHTML=''" style="padding:7px 14px;background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);color:#cc2222;border-radius:8px;cursor:pointer;font-size:.8rem">🗑️ Temizle</button></div></div><div id="kbBiletResult"></div>`;
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 Bilet Testi — ${game.emoji} ${game.name}</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">Her satıra bir kolon gir (boşlukla ayrılmış sayılar). <strong>Tarih seçmeden</strong> → tahmin modu (gelecek çekiliş). <strong>Tarih seçerek</strong> → geriye dönük test (eski biletini o günün verisiyle kıyasla).</div>`;
+  h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">`;
+  h+=`<label style="font-size:.62rem;color:var(--muted);white-space:nowrap">📅 Çekiliş tarihi:</label>`;
+  h+=`<select id="kbBiletDateSel" onchange="" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:4px 8px;cursor:pointer;flex:1;min-width:160px"><option value="">— Tahmin modu (gelecek çekiliş) —</option></select>`;
+  h+=`</div>`;
+  h+=`<textarea id="kbBiletInput" rows="8" placeholder="12 27 32 47 58 63&#10;1 4 6 12 13 16&#10;28 30 39 48 55 68&#10;..." style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;line-height:1.8;outline:none"></textarea>`;
+  h+=`<div style="display:flex;gap:8px;margin-top:9px"><button onclick="_kbRunBilet()" style="padding:7px 18px;background:linear-gradient(135deg,rgba(129,140,248,.3),rgba(0,230,118,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:700">🔍 Analiz Et</button><button onclick="document.getElementById('kbBiletInput').value='';document.getElementById('kbBiletResult').innerHTML=''" style="padding:7px 14px;background:rgba(255,82,82,.1);border:1px solid rgba(255,82,82,.3);color:#cc2222;border-radius:8px;cursor:pointer;font-size:.8rem">🗑️ Temizle</button></div>`;
+  h+=`</div><div id="kbBiletResult"></div>`;
   return h;
 }
 function _kbRunBilet(){
-  const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame),tickets=_kbParseTickets(),res=document.getElementById('kbBiletResult');
+  const game=getGame(_kbGame),allDraws=_kbGetDraws(_kbGame),tickets=_kbParseTickets(),res=document.getElementById('kbBiletResult');
   if(!res)return;
   if(!tickets.length){showToast('⚠️ Kolon giriniz');return;}
+  const dateVal=document.getElementById('kbBiletDateSel')?.value||'';
+  const draws=dateVal?allDraws.filter(d=>d.date<dateVal):allDraws;
+  const actual=dateVal?allDraws.find(d=>d.date===dateVal):null;
+  if(dateVal&&!actual){showToast('⚠️ Bu tarihe ait çekiliş bulunamadı');return;}
+  if(draws.length<15){showToast('⚠️ Yeterli geçmiş veri yok');return;}
+  const actSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
   const cal=_kbCalibrate(draws,game),rows=_kbConsensus(draws,game,cal),cnt=Math.min(game.count,7);
   const topSet=new Set(rows.slice(0,cnt+4).map(r=>r.n)),strongSet=new Set(rows.filter(r=>r.support>=3).map(r=>r.n));
   const consMap={};rows.forEach((r,i)=>consMap[r.n]={rank:i+1,support:r.support,consN:r.consN});
@@ -9879,14 +9902,46 @@ function _kbRunBilet(){
     });
     h+=`</div></div>`;
   }
-  // Ticket ranking with per-ticket copy
-  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px"><div style="font-size:.72rem;font-weight:800;margin-bottom:9px">🎫 Kolon Sıralaması (banko örtüşmesine göre)</div>`;
-  ranked.forEach((t,ri)=>{
+  // Backtest: actual result header
+  if(actual){
+    const bankoHits=globalBankoArr.filter(n=>actSet.has(n));
+    const poolBankoHits=poolRows.filter(r=>poolStrongSet.has(r.n)&&actSet.has(r.n)).map(r=>r.n);
+    h+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.28);border-radius:10px;padding:11px 14px;margin-bottom:10px">`;
+    h+=`<div style="font-size:.68rem;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.6px;margin-bottom:8px">✅ Gerçek Sonuç · ${actual.date}</div>`;
+    h+=`<div style="display:flex;align-items:center;gap:3px;flex-wrap:wrap;margin-bottom:7px">`;
+    (actual.nums||[]).forEach(n=>{
+      const inPool=poolCov[n]>0,inStrong=strongSet.has(n);
+      h+=`<span style="display:inline-flex;align-items:center;justify-content:center;width:29px;height:29px;border-radius:50%;background:${inStrong?'rgba(0,230,118,.35)':inPool?'rgba(129,140,248,.2)':'rgba(0,0,0,.07)'};border:2px solid ${inStrong?'rgba(0,230,118,.75)':inPool?'rgba(129,140,248,.5)':'rgba(0,0,0,.12)'};color:${inStrong?'var(--green)':inPool?'var(--accent)':'var(--text)'};font-size:.75rem;font-weight:800;font-family:monospace">${n}</span>`;
+    });
+    if((actual.bonus||[]).length){h+=`<span style="color:rgba(0,0,0,.12);margin:0 3px">|</span>`;(actual.bonus||[]).forEach(n=>{h+=`<span style="display:inline-flex;align-items:center;justify-content:center;width:29px;height:29px;border-radius:50%;background:rgba(0,0,0,.05);border:1px solid rgba(0,0,0,.12);color:var(--muted);font-size:.75rem;font-weight:800;font-family:monospace">${n}</span>`;});}
+    h+=`</div>`;
+    h+=`<div style="font-size:.62rem;color:var(--muted);line-height:1.65">KB banko isabet: <strong style="color:${bankoHits.length?'var(--green)':'var(--muted)'}">${bankoHits.length}/${globalBankoArr.length}</strong> ${bankoHits.length?'('+bankoHits.join(', ')+')':''}`;
+    if(poolStrongSet.size)h+=` · Havuz banko isabet: <strong style="color:${poolBankoHits.length?'var(--green)':'var(--muted)'}">${poolBankoHits.length}/${poolStrongSet.size}</strong> ${poolBankoHits.length?'('+poolBankoHits.join(', ')+')':''}`;
+    h+=`</div></div>`;
+  }
+  // Ticket ranking with per-ticket copy (+ hit count in backtest)
+  const rankedForDisplay=actual?[...ranked].map(t=>({...t,hitCount:t.nums.filter(n=>actSet.has(n)).length})).sort((a,b)=>b.hitCount-a.hitCount||b.strong-a.strong||b.top-a.top):ranked;
+  const rankTitle=actual?'🎫 Kolon Sıralaması (eşleşmeye göre)':'🎫 Kolon Sıralaması (banko örtüşmesine göre)';
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px"><div style="font-size:.72rem;font-weight:800;margin-bottom:9px">${rankTitle}</div>`;
+  rankedForDisplay.forEach((t,ri)=>{
     const medal=ri===0?'🥇':ri===1?'🥈':ri===2?'🥉':('#'+(t.idx+1));
     const tCopy=t.nums.join(' ');
-    h+=`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.04)"><span style="font-size:.6rem;color:var(--muted);min-width:24px">${medal}</span><div style="display:flex;gap:3px;flex-wrap:wrap;flex:1">`;
-    t.nums.forEach(n=>{const st=strongSet.has(n),tp=topSet.has(n);h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;border-radius:5px;background:${st?'rgba(0,230,118,.22)':tp?'rgba(129,140,248,.15)':'rgba(0,0,0,.05)'};border:1px solid ${st?'rgba(0,230,118,.5)':tp?'rgba(129,140,248,.35)':'rgba(0,0,0,.08)'};color:${st?'var(--green)':tp?'var(--accent)':'var(--text)'};font-size:.68rem;font-weight:${st||tp?'800':'500'};font-family:monospace">${n}</span>`;});
-    h+=`</div><span style="font-size:.62rem;font-weight:800;color:var(--green);min-width:54px;text-align:right">${t.strong}🔒 ${t.top}🎯</span>`;
+    h+=`<div style="display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid rgba(0,0,0,.04)">`;
+    h+=`<span style="font-size:.6rem;color:var(--muted);min-width:24px">${medal}</span>`;
+    h+=`<div style="display:flex;gap:3px;flex-wrap:wrap;flex:1">`;
+    t.nums.forEach(n=>{
+      const hit=actSet&&actSet.has(n),st=strongSet.has(n),tp=topSet.has(n);
+      const bg=hit?'rgba(0,230,118,.3)':st?'rgba(0,230,118,.15)':tp?'rgba(129,140,248,.12)':'rgba(0,0,0,.05)';
+      const bd=hit?'rgba(0,230,118,.75)':st?'rgba(0,230,118,.45)':tp?'rgba(129,140,248,.35)':'rgba(0,0,0,.08)';
+      const cl=hit?'var(--green)':st?'var(--green)':tp?'var(--accent)':'var(--text)';
+      h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;border-radius:5px;background:${bg};border:1px solid ${bd};color:${cl};font-size:.68rem;font-weight:${hit||st||tp?'800':'500'};font-family:monospace">${n}</span>`;
+    });
+    h+=`</div>`;
+    if(actual){
+      h+=`<span style="font-size:.72rem;font-weight:800;min-width:18px;text-align:right;color:${t.hitCount>=3?'var(--green)':t.hitCount>=2?'#8a6200':t.hitCount>=1?'var(--accent)':'var(--muted)'}">${t.hitCount}</span>`;
+    }else{
+      h+=`<span style="font-size:.62rem;font-weight:800;color:var(--green);min-width:54px;text-align:right">${t.strong}🔒 ${t.top}🎯</span>`;
+    }
     h+=`<button onclick="_kbCopy('${tCopy}');event.stopPropagation()" style="background:transparent;border:1px solid rgba(0,0,0,.1);color:var(--muted);border-radius:5px;padding:1px 5px;cursor:pointer;font-size:.55rem;flex-shrink:0">📋</button>`;
     h+=`</div>`;
   });
