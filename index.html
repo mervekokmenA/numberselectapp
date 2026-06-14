@@ -9666,13 +9666,15 @@ function runB10Backtest(){
 let _kbGame='sayisal',_kbMode='banko',_kbBtRounds=50;
 const _kbDrawCache={},_kbCalCache={};
 const _KB_METHODS=[
-  {id:'freq',  name:'Frekans',        icon:'📊'},
-  {id:'ewf',   name:'Üstel Frekans',  icon:'📈'},
-  {id:'delay', name:'Gecikme',        icon:'⏳'},
-  {id:'pair',  name:'Eş-görünüm',     icon:'🔗'},
-  {id:'sablon',name:'Şablon Zinciri', icon:'🔢'},
-  {id:'bayes', name:'Bayes Momentum', icon:'🎲'},
-  {id:'sonhane',name:'Son Hane',      icon:'🔄'},
+  {id:'freq',    name:'Frekans',        icon:'📊'},
+  {id:'ewf',     name:'Üstel Frekans',  icon:'📈'},
+  {id:'delay',   name:'Gecikme',        icon:'⏳'},
+  {id:'pair',    name:'Eş-görünüm',     icon:'🔗'},
+  {id:'sablon',  name:'Şablon Zinciri', icon:'🔢'},
+  {id:'bayes',   name:'Bayes Momentum', icon:'🎲'},
+  {id:'sonhane', name:'Son Hane',       icon:'🔄'},
+  {id:'sumzone', name:'Toplam+Bölge',   icon:'📐'},
+  {id:'conet',   name:'Birleşim Ağı',   icon:'🕸️'},
 ];
 const _KB_MICON={};_KB_METHODS.forEach(m=>_KB_MICON[m.id]=m.icon);
 
@@ -9727,7 +9729,39 @@ function _kbSignals(draws,game){
   try{const r=_sablonScoreNext(draws[0],game);for(let n=1;n<=max;n++)sablon[n]=r.score[n]||0;}catch(e){for(let n=1;n<=max;n++)sablon[n]=0;}
   const bayes=_b10SigBB(draws,max,cnt);
   const sonhane=_kbSonHane(draws,max);
-  return {freq,ewf,delay,pair,sablon,bayes,sonhane};
+  // sumzone: optimal toplam aralığı (μ±σ) + bölge dengesi birleşik sinyal
+  const sumzone={};
+  const sumArr=draws.map(d=>d.nums.filter(n=>n>=1&&n<=max).reduce((a,b)=>a+b,0)).filter(s=>s>0);
+  if(sumArr.length>=8){
+    const mu=sumArr.reduce((a,b)=>a+b,0)/sumArr.length;
+    const sd=Math.sqrt(sumArr.map(s=>(s-mu)**2).reduce((a,b)=>a+b,0)/sumArr.length)||1;
+    const lo=mu-sd,hi=mu+sd;
+    const baseR=sumArr.filter(s=>s>=lo&&s<=hi).length/sumArr.length;
+    const inR={},tot={};for(let n=1;n<=max;n++){inR[n]=0;tot[n]=0;}
+    draws.forEach(d=>{const ns=d.nums.filter(n=>n>=1&&n<=max);const s=ns.reduce((a,b)=>a+b,0);const ok=s>=lo&&s<=hi;ns.forEach(n=>{tot[n]++;if(ok)inR[n]++;});});
+    const z3=max/3,hZ=[0,0,0];let hZT=0;
+    draws.slice(0,15).forEach(d=>d.nums.filter(n=>n>=1&&n<=max).forEach(n=>{const z=n<=z3?0:n<=2*z3?1:2;hZ[z]++;hZT++;}));
+    const rZ=[0,0,0];let rZT=0;
+    draws.slice(0,6).forEach(d=>d.nums.filter(n=>n>=1&&n<=max).forEach(n=>{const z=n<=z3?0:n<=2*z3?1:2;rZ[z]++;rZT++;}));
+    const hR=hZ.map(c=>c/(hZT||1)),rR=rZ.map(c=>c/(rZT||1));
+    for(let n=1;n<=max;n++){
+      const sumS=tot[n]>2?(inR[n]/tot[n])/Math.max(baseR,0.01):1;
+      const z=n<=z3?0:n<=2*z3?1:2;
+      const zoneS=Math.max(0.01,hR[z]-rR[z]+0.34);
+      sumzone[n]=sumS*0.65+zoneS*0.35;
+    }
+  } else { for(let n=1;n<=max;n++)sumzone[n]=1; }
+  // conet: birleşim ağı — sıcak sayılarla birlikte çıkma oranı
+  const conet={};
+  const fq={};for(let n=1;n<=max;n++)fq[n]=0;
+  draws.slice(0,60).forEach(d=>d.nums.filter(n=>n>=1&&n<=max).forEach(n=>fq[n]++));
+  const fqVals=Object.values(fq).sort((a,b)=>b-a);
+  const hotTh=fqVals[Math.floor(fqVals.length*0.25)]||1;
+  const hotSet=new Set(Object.keys(fq).map(Number).filter(n=>fq[n]>=hotTh));
+  const bHit={},bApp={};for(let n=1;n<=max;n++){bHit[n]=0;bApp[n]=0;}
+  draws.slice(0,60).forEach(d=>{const ns=d.nums.filter(n=>n>=1&&n<=max);ns.forEach(n=>{bApp[n]++;ns.forEach(m=>{if(m!==n&&hotSet.has(m))bHit[n]++;});});});
+  for(let n=1;n<=max;n++)conet[n]=bApp[n]>2?bHit[n]/bApp[n]:0;
+  return {freq,ewf,delay,pair,sablon,bayes,sonhane,sumzone,conet};
 }
 
 function _kbCalibrate(draws,game){
@@ -12190,24 +12224,61 @@ function _b10RunAI(){
   const game=getGame(_b10Game);
   const draws=_kbGetDraws(_b10Game);
   if(draws.length<15){showToast('⚠️ Yeterli geçmiş veri yok');return;}
-  showToast('🤖 KB motoru çalışıyor...');
+  showToast('🤖 Çok kriterli analiz başlıyor...');
   setTimeout(()=>{
     try{
+      const max=game.max,cnt=game.count;
+      // 1. KB konsensüs — temel puanlama
       const cal=_kbCalibrate(draws,game);
-      const rows=_kbConsensus(draws,game,cal);
-      const strong=rows.filter(r=>r.support>=3);
-      const rest=rows.filter(r=>r.support<3);
-      const pick=[...strong,...rest].slice(0,10).map(r=>r.n).sort((a,b)=>a-b);
+      const kbRows=_kbConsensus(draws,game,cal);
+      // 2. Sinyal skorları (toplam aralığı, birleşim, zone, momentum dahil)
+      const sig=_bzSignalScores(draws,game);
+      const norm={};
+      ['toplam','birlesim','zone','momentum','gecikme','sicak'].forEach(k=>{norm[k]=_b10Norm(sig[k],max);});
+      // 3. Toplam dağılımı: historik μ±σ aralığı
+      const sumArr=draws.map(d=>d.nums.filter(n=>n>=1&&n<=max).reduce((a,b)=>a+b,0)).filter(s=>s>0);
+      const sumMu=sumArr.reduce((a,b)=>a+b,0)/(sumArr.length||1);
+      const sumSd=Math.sqrt(sumArr.map(s=>(s-sumMu)**2).reduce((a,b)=>a+b,0)/(sumArr.length||1));
+      const sumLo=Math.round(sumMu-sumSd),sumHi=Math.round(sumMu+sumSd);
+      // 4. Kompozit skor = KB ağırlık 2 + sinyal bonusları
+      const scoreMap={};
+      kbRows.forEach((r,i)=>{
+        let s=r.consN*2.0;
+        s+=(norm.toplam[r.n]||0)*0.7;
+        s+=(norm.birlesim[r.n]||0)*0.6;
+        s+=(norm.zone[r.n]||0)*0.5;
+        s+=(norm.momentum[r.n]||0)*0.45;
+        s+=(norm.gecikme[r.n]||0)*0.35;
+        s+=(norm.sicak[r.n]||0)*0.3;
+        scoreMap[r.n]={n:r.n,s,kbRank:i+1,kbSupport:r.support};
+      });
+      const ranked=Object.values(scoreMap).sort((a,b)=>b.s-a.s);
+      // 5. Bölge dengesi filtresi: üçlü bölgeden (alt/orta/üst) en az 2 sayı
+      const z3=max/3;
+      const getZ=n=>n<=z3?0:n<=2*z3?1:2;
+      const zMin=[2,2,2];
+      const pick=[],zC=[0,0,0];
+      for(const r of ranked){
+        if(pick.length>=10)break;
+        const z=getZ(r.n);
+        const deficit=zMin.map((t,i)=>Math.max(0,t-zC[i])).reduce((a,b)=>a+b,0);
+        const left=10-pick.length;
+        if(deficit===0||zMin[z]>zC[z]||left<=deficit){pick.push(r.n);zC[z]++;}
+      }
+      for(const r of ranked){if(pick.length>=10)break;if(!pick.includes(r.n)){pick.push(r.n);zC[getZ(r.n)]++;}}
+      pick.sort((a,b)=>a-b);
       _b10Sel=new Set(pick);
+      // 6. Metadata
+      const pickSum=pick.reduce((a,b)=>a+b,0);
+      const zNames=['Alt','Orta','Üst'];
       const details=pick.map(n=>{
-        const ri=rows.findIndex(x=>x.n===n);
-        const r=rows[ri]||{};
-        const s=r.support||0;
-        return`<span style="font-weight:700;color:${s>=3?'var(--green)':s>=2?'var(--accent)':'var(--text)'}">${n}</span><span style="color:var(--muted);font-size:.57rem"> #${ri+1}/${s}m</span>`;
+        const ri=kbRows.findIndex(x=>x.n===n);
+        const r=kbRows[ri]||{};const s=r.support||0;
+        return`<span style="font-weight:700;color:${s>=3?'var(--green)':s>=2?'var(--accent)':'var(--text)'}">${n}</span><span style="color:var(--muted);font-size:.57rem"> #${ri+1}</span>`;
       }).join('  ');
-      _b10AINote=`<strong style="color:var(--accent)">🤖 KB Motoru Tahmini</strong> · ${draws.length} çekiliş · ${strong.length} güçlü banko adayı (≥3/${_KB_METHODS.length} destek)<div style="margin-top:6px;font-size:.65rem;line-height:2.1">${details}</div><div style="margin-top:4px;font-size:.57rem;opacity:.7">Yeşil = ≥3 yöntem destekli · Mor = 2 yöntem · Gri = 1 yöntem. #N = konsensüs sırası, /Nm = destek sayısı.</div>`;
+      _b10AINote=`<strong style="color:var(--accent)">🤖 Çok Kriterli Seçim</strong> · ${draws.length} çekiliş · toplam <strong>${pickSum}</strong> · aralık hedef: ${sumLo}–${sumHi} · bölge: ${zC.map((c,i)=>zNames[i]+':'+c).join(' ')}<div style="margin-top:6px;font-size:.65rem;line-height:2.1">${details}</div><div style="margin-top:4px;font-size:.57rem;opacity:.7">KB konsensüs + toplam aralığı + birleşim ağı (graf) + bölge dengesi + momentum. Yeşil = ≥3 KB yöntemi.</div>`;
       _b10Render();
-      showToast('🤖 10 sayı seçildi');
+      showToast('🤖 10 sayı çok kriterli seçildi');
     }catch(err){showToast('⚠️ Hata: '+err.message);}
   },50);
 }
@@ -12217,12 +12288,16 @@ function _b10RunAI(){
 // + bilet havuzu tersine mühendislik (kırmızı hücre / ortak sayı / ±1 yakın kümeleri)
 
 const _BZ_SIGNALS=[
-  {id:'tekrar', name:'Tekrar',        icon:'🔁', desc:'Son çekilişte çıkan sayıların tekrar gelme eğilimi'},
-  {id:'komsu',  name:'Komşu ±1',      icon:'↔️', desc:'Son çekiliş sayılarının bir alt/üst komşusu (yakın sayı)'},
-  {id:'sonhane',name:'Son Hane',      icon:'🔢', desc:'Son çekilişte baskın olan birim hanesini paylaşan sayılar'},
-  {id:'capraz', name:'Çapraz Hane',   icon:'🔀', desc:'Yanyana sayıların son hane takası (38·59 → 39·58 örüntüsü)'},
-  {id:'gecikme',name:'Gecikme',       icon:'⏳', desc:'Uzun süredir çıkmamış, dolması beklenen sayılar'},
-  {id:'sicak',  name:'Sıcak Frekans', icon:'🔥', desc:'Son çekilişlerde sık çıkan ısınmış sayılar'},
+  {id:'tekrar',  name:'Tekrar',         icon:'🔁', desc:'Son çekilişte çıkan sayıların tekrar gelme eğilimi'},
+  {id:'komsu',   name:'Komşu ±1',       icon:'↔️', desc:'Son çekiliş sayılarının bir alt/üst komşusu'},
+  {id:'sonhane', name:'Son Hane',        icon:'🔢', desc:'Son çekilişte baskın birim hanesini paylaşan sayılar'},
+  {id:'capraz',  name:'Çapraz Hane',     icon:'🔀', desc:'Yanyana sayıların son hane takası (38·59 → 39·58)'},
+  {id:'gecikme', name:'Gecikme',         icon:'⏳', desc:'Uzun süredir çıkmamış, dolması beklenen sayılar'},
+  {id:'sicak',   name:'Sıcak Frekans',  icon:'🔥', desc:'Son çekilişlerde sık çıkan ısınmış sayılar'},
+  {id:'toplam',  name:'Toplam Aralığı', icon:'➕', desc:'Tarihsel optimal toplam bandında (μ±σ) daha sık çıkan sayılar'},
+  {id:'birlesim',name:'Birleşim Ağı',   icon:'🕸️', desc:'Graf teorisi: diğer sıcak sayılarla sıkça birlikte çıkan sayılar'},
+  {id:'zone',    name:'Bölge Dengesi',   icon:'📐', desc:'Son çekilişlerde eksik kalan sayı bölgesine (alt/orta/üst) bonus'},
+  {id:'momentum',name:'Momentum',        icon:'📈', desc:'Son 10 çekilişte belirgin şekilde frekansı artan sayılar'},
 ];
 
 let _bzGame='sayisal',_bzMode='auto';
@@ -12234,31 +12309,64 @@ function _bzSignalScores(prior,game){
   const last=prior[0]||{nums:[],bonus:[]};
   const lastAll=[...(last.nums||[]),...(last.bonus||[])].filter(n=>n>=1&&n<=max);
   const tekrar=_bzZero(max),komsu=_bzZero(max),sonhane=_bzZero(max),capraz=_bzZero(max),gecikme=_bzZero(max),sicak=_bzZero(max);
+  const toplam=_bzZero(max),birlesim=_bzZero(max),zone=_bzZero(max),momentum=_bzZero(max);
   // 1) Tekrar
   lastAll.forEach(n=>{tekrar[n]=1;});
   // 2) Komşu ±1
   lastAll.forEach(n=>{[n-1,n+1].forEach(m=>{if(m>=1&&m<=max)komsu[m]+=1;});});
-  // 3) Son hane (son çekilişteki birim hanesi yoğunluğu)
+  // 3) Son hane
   const ld={};lastAll.forEach(n=>{ld[n%10]=(ld[n%10]||0)+1;});
   for(let n=1;n<=max;n++)sonhane[n]=ld[n%10]||0;
-  // 4) Çapraz hane: sıralı yanyana çiftlerin son hane takası
+  // 4) Çapraz hane
   const sorted=[...lastAll].sort((a,b)=>a-b);
   for(let i=0;i+1<sorted.length;i++){
     const a=sorted[i],b=sorted[i+1];
     const ab=Math.floor(a/10)*10+(b%10), ba=Math.floor(b/10)*10+(a%10);
     [ab,ba].forEach(m=>{if(m>=1&&m<=max&&m!==a&&m!==b)capraz[m]+=1;});
   }
-  // 5) Gecikme (kaç çekiliştir yok)
+  // 5) Gecikme
   for(let n=1;n<=max;n++){let i=prior.findIndex(d=>[...d.nums,...(d.bonus||[])].includes(n));gecikme[n]=i===-1?prior.length:i;}
   // 6) Sıcak frekans (üstel ağırlıklı son 20)
   prior.slice(0,20).forEach((d,i)=>{const w=Math.pow(0.9,i);[...d.nums,...(d.bonus||[])].forEach(n=>{if(n>=1&&n<=max)sicak[n]+=w;});});
-  return {tekrar,komsu,sonhane,capraz,gecikme,sicak};
+  // 7) Toplam Aralığı: μ±σ optimal band — o bantta daha sık çıkan sayılar
+  const sumData=prior.map(d=>{const ns=d.nums.filter(n=>n>=1&&n<=max);return{s:ns.reduce((a,b)=>a+b,0),ns};}).filter(x=>x.ns.length>=Math.max(2,game.count-1));
+  if(sumData.length>=8){
+    const sums=sumData.map(x=>x.s);
+    const mu=sums.reduce((a,b)=>a+b,0)/sums.length;
+    const sd=Math.sqrt(sums.map(s=>(s-mu)**2).reduce((a,b)=>a+b,0)/sums.length)||1;
+    const lo=mu-sd,hi=mu+sd;
+    const baseR=sums.filter(s=>s>=lo&&s<=hi).length/sums.length;
+    const inR=_bzZero(max),tot=_bzZero(max);
+    sumData.forEach(({s,ns})=>{const ok=s>=lo&&s<=hi;ns.forEach(n=>{tot[n]++;if(ok)inR[n]++;});});
+    for(let n=1;n<=max;n++)toplam[n]=tot[n]>2?(inR[n]/tot[n])/Math.max(baseR,0.01):1;
+  } else { for(let n=1;n<=max;n++)toplam[n]=1; }
+  // 8) Birleşim Ağı (graf teorisi): diğer sıcak sayılarla birlikte çıkan sayılar
+  const fq=_bzZero(max);
+  prior.slice(0,60).forEach(d=>d.nums.filter(n=>n>=1&&n<=max).forEach(n=>fq[n]++));
+  const fqVals=Object.values(fq).sort((a,b)=>b-a);
+  const hotTh=fqVals[Math.floor(fqVals.length*0.25)]||1;
+  const hotSet=new Set(Object.keys(fq).map(Number).filter(n=>fq[n]>=hotTh));
+  const bHit=_bzZero(max),bApp=_bzZero(max);
+  prior.slice(0,60).forEach(d=>{const ns=d.nums.filter(n=>n>=1&&n<=max);ns.forEach(n=>{bApp[n]++;ns.forEach(m=>{if(m!==n&&hotSet.has(m))bHit[n]++;});});});
+  for(let n=1;n<=max;n++)birlesim[n]=bApp[n]>2?bHit[n]/bApp[n]:0;
+  // 9) Bölge Dengesi: tarihsel dağılıma göre son dönemde eksik kalan bölge
+  const z3=max/3;
+  const hZ=[0,0,0],rZ=[0,0,0];let hZT=0,rZT=0;
+  prior.forEach((d,i)=>{d.nums.filter(n=>n>=1&&n<=max).forEach(n=>{const z=n<=z3?0:n<=2*z3?1:2;hZ[z]++;hZT++;if(i<12){rZ[z]++;rZT++;}});});
+  const hR=hZ.map(c=>c/(hZT||1)),rR=rZ.map(c=>c/(rZT||1));
+  for(let n=1;n<=max;n++){const z=n<=z3?0:n<=2*z3?1:2;zone[n]=Math.max(0.01,hR[z]-rR[z]+0.34);}
+  // 10) Momentum: son 10 vs 10-30 arası frekans farkı
+  const r10=_bzZero(max),o20=_bzZero(max);
+  prior.slice(0,10).forEach(d=>d.nums.filter(n=>n>=1&&n<=max).forEach(n=>r10[n]++));
+  prior.slice(10,30).forEach(d=>d.nums.filter(n=>n>=1&&n<=max).forEach(n=>o20[n]++));
+  for(let n=1;n<=max;n++){const r=r10[n]/10,o=o20[n]/20;momentum[n]=r-o;}
+  return {tekrar,komsu,sonhane,capraz,gecikme,sicak,toplam,birlesim,zone,momentum};
 }
 
 // Sinyal laboratuvarı: her sinyalin son K çekilişteki gerçek isabet oranı + ±1 yakın oranı + lift
 function _bzBacktestSignals(draws,game){
   const max=game.max,cnt=Math.min(game.count,7);
-  const topM=cnt+4;
+  const topM=cnt+Math.round(max*0.18);
   const K=Math.min(50,Math.max(8,draws.length-15));
   const acc={};_BZ_SIGNALS.forEach(s=>acc[s.id]={hit:0,near:0,n:0});
   let baseHit=0,baseN=0;
@@ -12322,7 +12430,8 @@ function _bzComputeBanko(draws,game){
   for(let n=1;n<=max;n++){
     let score=0;const fired=[];
     _BZ_SIGNALS.forEach(s=>{
-      const w=Math.max(0,(lab[s.id].lift||0)-1);   // sadece rastgeleyi geçen sinyaller katkı verir
+      const lift=lab[s.id].lift||0;
+      const w=lift>1?Math.pow(lift-1,0.7)*lift:0;  // güçlü sinyalleri amplifiye et, zayıfları sıfırla
       score+=w*norm[s.id][n];
       if(topSets[s.id].has(n))fired.push(s);
     });
