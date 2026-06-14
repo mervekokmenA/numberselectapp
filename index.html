@@ -9645,11 +9645,13 @@ const _KB_METHODS=[
 ];
 const _KB_MICON={};_KB_METHODS.forEach(m=>_KB_MICON[m.id]=m.icon);
 
-// Kazanan bilet — 08/06/2026 Çılgın Sayısal Loto · Adana/Yüreğir · 1.110.362.664 TL
-const _KB_WIN={
-  game:'sayisal',date:'2026-06-08',jackpot:1110362664,yer:'Adana / Yüreğir',
-  columns:[[12,27,32,47,58,63],[1,4,6,12,13,16],[7,13,18,27,33,58],[16,22,28,34,40,46],[28,30,39,48,55,68],[42,47,52,57,62,67]],
-  winIdx:4
+// Kazanan bilet verileri — oyun başına (biliniyorsa çok kolonlu sistem bileti)
+const _KB_WINS={
+  sayisal:{game:'sayisal',date:'2026-06-08',jackpot:1110362664,yer:'Adana / Yüreğir',
+    columns:[[12,27,32,47,58,63],[1,4,6,12,13,16],[7,13,18,27,33,58],[16,22,28,34,40,46],[28,30,39,48,55,68],[42,47,52,57,62,67]],winIdx:4},
+  super:null,
+  sans:null,
+  onnumara:null
 };
 
 function _kbGetDraws(gid){
@@ -10058,11 +10060,43 @@ function _kbRunBilet(){
 }
 
 function _kbRenderKazanan(){
-  const W=_KB_WIN,game=getGame(W.game),draws=_kbGetDraws(W.game),prior=draws.filter(d=>d.date<W.date),winCol=W.columns[W.winIdx],cnt=Math.min(game.count,7);
+  const W=_KB_WINS[_kbGame];
+  const game=getGame(_kbGame);
+  const draws=_kbGetDraws(_kbGame);
+  const cnt=Math.min(game.count,7);
   let h='';
-  h+=`<div style="background:linear-gradient(135deg,rgba(224,64,95,.08),rgba(184,134,11,.08));border:1px solid rgba(224,64,95,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.85rem;font-weight:800;color:var(--accent2)">🏆 Kazanan Bilet İncelemesi</div><div style="font-size:.66rem;color:var(--muted);margin-top:4px">${game.emoji} Çılgın Sayısal Loto · ${W.date} · ${W.yer} · <strong style="color:var(--text)">${_kbFmtTL(W.jackpot)}</strong></div></div>`;
+  // Header
+  h+=`<div style="background:linear-gradient(135deg,rgba(224,64,95,.08),rgba(184,134,11,.08));border:1px solid rgba(224,64,95,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.85rem;font-weight:800;color:var(--accent2)">🏆 Kazanan Bilet İncelemesi</div><div style="font-size:.66rem;color:var(--muted);margin-top:4px">${game.emoji} ${game.name}</div></div>`;
+  if(!W){
+    // No detailed ticket data for this game — show last jackpot + model analysis
+    const jpData=JACKPOT_DATA[_kbGame]||{};
+    const jpDates=Object.keys(jpData).sort((a,b)=>b.localeCompare(a));
+    h+=`<div style="background:rgba(0,0,0,.02);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:.65rem;color:var(--muted)">Bu oyun için kayıtlı çok-kolonlu sistem bileti verisi henüz yok. Aşağıda bilinen büyük ikramiye tarihlerinde modelin ne söyleyeceği gösterilmektedir.</div>`;
+    if(!jpDates.length)return h;
+    jpDates.slice(0,3).forEach(date=>{
+      const prior=draws.filter(d=>d.date<date);
+      if(prior.length<20)return;
+      const actual=draws.find(d=>d.date===date);
+      if(!actual)return;
+      const cal=_kbCalibrate(prior,game),rows=_kbConsensus(prior,game,cal),rankMap={};
+      rows.forEach((r,i)=>rankMap[r.n]={rank:i+1,support:r.support});
+      const topSet=new Set(rows.slice(0,cnt+4).map(r=>r.n)),strongSet=new Set(rows.filter(r=>r.support>=3).map(r=>r.n));
+      const winNums=[...actual.nums].sort((a,b)=>a-b),hitTop=winNums.filter(n=>topSet.has(n)),hitStrong=winNums.filter(n=>strongSet.has(n));
+      h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px">`;
+      h+=`<div style="font-size:.68rem;font-weight:800;margin-bottom:6px">🏆 ${date} · ${_kbFmtTL(jpData[date])}</div>`;
+      h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">`;
+      winNums.forEach(n=>{const s=strongSet.has(n),t=topSet.has(n);h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:26px;border-radius:6px;background:${s?'rgba(0,230,118,.22)':t?'rgba(129,140,248,.15)':'rgba(0,0,0,.05)'};border:1px solid ${s?'rgba(0,230,118,.55)':t?'rgba(129,140,248,.35)':'rgba(0,0,0,.08)'};color:${s?'var(--green)':t?'var(--accent)':'var(--text)'};font-size:.7rem;font-weight:${s||t?'800':'500'};font-family:monospace">${n}</span>`;});
+      h+=`</div>`;
+      h+=`<div style="font-size:.62rem;color:var(--muted);line-height:1.65">Üst ${cnt+4} aday isabet: <strong style="color:${hitTop.length?'var(--green)':'var(--muted)'}">${hitTop.length}/${winNums.length}</strong> (${hitTop.join(', ')||'—'}) · Güçlü banko: <strong style="color:${hitStrong.length?'var(--green)':'var(--muted)'}">${hitStrong.length}</strong> (${hitStrong.join(', ')||'—'})</div>`;
+      h+=`</div>`;
+    });
+    return h;
+  }
+  // Full ticket analysis (Sayısal detailed data)
+  const prior=draws.filter(d=>d.date<W.date),winCol=W.columns[W.winIdx];
+  h+=`<div style="font-size:.64rem;color:var(--muted);margin-bottom:10px">${W.date} · ${W.yer} · <strong style="color:var(--text)">${_kbFmtTL(W.jackpot)}</strong></div>`;
   const repeats=_kbColRepeats(W.columns),repSet=new Map(repeats.map(r=>[r.n,r.c]));
-  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.72rem;font-weight:800;margin-bottom:4px">🎫 Biletin 6 Kolonu</div><div style="font-size:.58rem;color:var(--muted);margin-bottom:9px">Kazanan kolon yeşil. <span style="color:#8a6200">Sarı</span> = kolonlar arası tekrar eden (oyuncunun banko) sayıları. Aritmetik diziler sağda.</div>`;
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.72rem;font-weight:800;margin-bottom:4px">🎫 Biletin ${W.columns.length} Kolonu</div><div style="font-size:.58rem;color:var(--muted);margin-bottom:9px">Kazanan kolon yeşil · <span style="color:#8a6200">Sarı</span> = kolonlar arası tekrar (banko) · Aritmetik diziler sağda</div>`;
   W.columns.forEach((col,ci)=>{
     const win=ci===W.winIdx,ar=_kbArith(col);
     h+=`<div style="display:flex;align-items:center;gap:6px;padding:5px 7px;border-radius:7px;margin-bottom:4px;background:${win?'rgba(0,230,118,.08)':'transparent'};border:1px solid ${win?'rgba(0,230,118,.35)':'transparent'}"><span style="font-size:.56rem;color:var(--muted);min-width:62px">${win?'✅ KAZANAN':'Kolon '+(ci+1)}</span><div style="display:flex;gap:3px;flex-wrap:wrap;flex:1">`;
@@ -10071,15 +10105,15 @@ function _kbRenderKazanan(){
   });
   h+=`</div>`;
   const winRepeated=repeats.filter(r=>winCol.includes(r.n));
-  h+=`<div style="background:rgba(184,134,11,.06);border:1px solid rgba(184,134,11,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.72rem;font-weight:800;color:#8a6200;margin-bottom:6px">🔑 Oyuncunun Banko Mantığı</div><div style="font-size:.62rem;color:var(--muted);line-height:1.7">Oyuncu ${repeats.length} sayıyı birden çok kolona yaymış (banko stratejisi): ${repeats.map(r=>`<strong style="color:var(--text)">${r.n}</strong>(${r.c}×)`).join(', ')}.<br>Bunlardan kazanan kolonda çıkan: ${winRepeated.length?winRepeated.map(r=>`<strong style="color:var(--green)">${r.n}</strong>`).join(', '):'—'}. Kolon 6 ise tam <strong style="color:var(--accent)">+5 aritmetik dizi</strong> (42·47·52·57·62·67).</div></div>`;
+  h+=`<div style="background:rgba(184,134,11,.06);border:1px solid rgba(184,134,11,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.72rem;font-weight:800;color:#8a6200;margin-bottom:6px">🔑 Oyuncunun Banko Mantığı</div><div style="font-size:.62rem;color:var(--muted);line-height:1.7">Oyuncu ${repeats.length} sayıyı birden çok kolona yaymış: ${repeats.map(r=>`<strong style="color:var(--text)">${r.n}</strong>(${r.c}×)`).join(', ')}.<br>Kazanan kolonda çıkan: ${winRepeated.length?winRepeated.map(r=>`<strong style="color:var(--green)">${r.n}</strong>`).join(', '):'—'}. Kolon 6 ise tam <strong style="color:var(--accent)">+5 aritmetik dizi</strong> (42·47·52·57·62·67).</div></div>`;
   if(prior.length>=20){
     const cal=_kbCalibrate(prior,game),rows=_kbConsensus(prior,game,cal),rankMap={};
     rows.forEach((r,i)=>rankMap[r.n]={rank:i+1,support:r.support});
     const topSet=new Set(rows.slice(0,cnt+4).map(r=>r.n)),strongSet=new Set(rows.filter(r=>r.support>=3).map(r=>r.n));
     const winSorted=[...winCol].sort((a,b)=>a-b),hitTop=winSorted.filter(n=>topSet.has(n)),hitStrong=winSorted.filter(n=>strongSet.has(n));
-    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px"><div style="font-size:.72rem;font-weight:800;margin-bottom:4px">🔬 Model, Çekilişten Önce Ne Derdi?</div><div style="font-size:.58rem;color:var(--muted);margin-bottom:9px">${W.date} öncesi ${prior.length} çekilişle konsensüs kuruldu. Kazanan 6 sayının model sıralamasındaki yeri:</div>`;
-    winSorted.forEach(n=>{const rm=rankMap[n]||{rank:'—',support:0},inTop=topSet.has(n),inStrong=strongSet.has(n);h+=`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.04)"><span style="font-size:.82rem;font-weight:800;font-family:monospace;color:${inStrong?'var(--green)':inTop?'var(--accent)':'var(--text)'};min-width:28px">${n}</span><span style="font-size:.62rem;color:var(--muted);flex:1">model sırası: <strong style="color:var(--text)">${rm.rank}.</strong> · destek ${rm.support}/6</span><span style="font-size:.56rem;color:${inStrong?'var(--green)':inTop?'var(--accent)':'var(--muted)'}">${inStrong?'🔒 güçlü banko':inTop?'🎯 üst aday':'—'}</span></div>`;});
-    h+=`<div style="margin-top:9px;padding:8px 10px;background:rgba(0,230,118,.05);border-radius:7px;font-size:.63rem;color:var(--muted);line-height:1.6">Model, üst ${cnt+4} adayı kazanan 6 sayının <strong style="color:var(--green)">${hitTop.length}</strong> tanesini önceden işaret ederdi (${hitTop.join(', ')||'—'}); bunların <strong style="color:var(--green)">${hitStrong.length}</strong> tanesi güçlü banko seviyesindeydi (${hitStrong.join(', ')||'—'}).</div></div>`;
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px"><div style="font-size:.72rem;font-weight:800;margin-bottom:4px">🔬 Model, Çekilişten Önce Ne Derdi?</div><div style="font-size:.58rem;color:var(--muted);margin-bottom:9px">${W.date} öncesi ${prior.length} çekilişle konsensüs kuruldu:</div>`;
+    winSorted.forEach(n=>{const rm=rankMap[n]||{rank:'—',support:0},inTop=topSet.has(n),inStrong=strongSet.has(n);h+=`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.04)"><span style="font-size:.82rem;font-weight:800;font-family:monospace;color:${inStrong?'var(--green)':inTop?'var(--accent)':'var(--text)'};min-width:28px">${n}</span><span style="font-size:.62rem;color:var(--muted);flex:1">sıra: <strong style="color:var(--text)">${rm.rank}.</strong> · destek ${rm.support}/${_KB_METHODS.length}</span><span style="font-size:.56rem;color:${inStrong?'var(--green)':inTop?'var(--accent)':'var(--muted)'}">${inStrong?'🔒 güçlü banko':inTop?'🎯 üst aday':'—'}</span></div>`;});
+    h+=`<div style="margin-top:9px;padding:8px 10px;background:rgba(0,230,118,.05);border-radius:7px;font-size:.63rem;color:var(--muted);line-height:1.6">Üst ${cnt+4} aday isabet: <strong style="color:var(--green)">${hitTop.length}/${winSorted.length}</strong> (${hitTop.join(', ')||'—'}) · Güçlü banko: <strong style="color:var(--green)">${hitStrong.length}</strong> (${hitStrong.join(', ')||'—'})</div></div>`;
   }
   return h;
 }
