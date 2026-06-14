@@ -323,6 +323,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-listeler" onclick="showMainPage('listeler')">📋 Listeler</button>
       <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Geçmiş Kazanan</button>
       <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı Bakış</button>
+      <button class="nav-link" id="navBtn-b10sistem" onclick="showMainPage('b10sistem')">🎟️ B10 Sistem</button>
     </div>
   </div>
 </nav>
@@ -915,6 +916,15 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    🏆 işaretli = büyük ikramiye kazanıldığı doğrulanmış çekiliş. Kutucukla kendi işaretlerini ekleyebilirsin. Bağlam değeri girersen kazanan çekilişin ± kadar öncesi ve sonrası da listelenir.
   </div>
   <div id="kznList"></div>
+ </div>
+</div>
+
+<!-- ═══════════ PAGE: B10 SİSTEM ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-b10sistem">
+ <div class="card">
+  <div class="card-title">🎟️ B10 Sistem Kuponu</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">10 sayı seçerek sistem kuponu oluştur. Seçilen 10 sayıdan ≥4 tanesi çekilişte çıkarsa en az bir kolonda 4 isabet garantisi oluşur. KB motoru geçmiş verilere göre en iyi 10 sayıyı önerebilir.</div>
+  <div id="b10Content"></div>
  </div>
 </div>
 
@@ -10128,17 +10138,18 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan','page-kapsamli'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-b10sistem'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
   if(id==='listeler')_initListelerPage();
   if(id==='kazanan')_initKazananPage();
   if(id==='kapsamli'){_kbGame=state.selectedGame||_kbGame;_kbInit();}
+  if(id==='b10sistem')_b10Init();
 }
 
 function _scanGetDraws(gameId){
@@ -11998,6 +12009,193 @@ function _ndpSpan(n,tier){
   const cfg={main:{bg:'rgba(0,230,118,.18)',bd:'rgba(0,230,118,.5)',cl:'var(--green)'},alt:{bg:'rgba(0,150,58,.09)',bd:'rgba(0,150,58,.35)',cl:'#8a6200'},bonus:{bg:'rgba(129,140,248,.18)',bd:'rgba(129,140,248,.5)',cl:'var(--accent)'}};
   const c=cfg[tier]||cfg.main;
   return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:30px;padding:0 5px;border-radius:8px;background:${c.bg};border:1px solid ${c.bd};color:${c.cl};font-size:.82rem;font-weight:800;font-family:monospace">${n}</span>`;
+}
+
+// ═══════════ B10 Sistem Kuponu ════════════════════════════════════════════════
+
+const _B10_TEMPLATES={
+  sayisal:[ // C(10,7,4) — 10 sayı · 7'li kolon · 12 kolon · 4 çıkarsa 4 garanti
+    [0,1,2,3,4,5,6],[0,1,2,3,7,8,9],[0,4,5,6,7,8,9],
+    [1,2,3,4,5,7,8],[1,2,3,4,6,7,9],[0,1,2,5,6,8,9],
+    [0,3,4,5,6,8,9],[0,1,2,4,5,7,9],[0,1,2,3,6,7,8],
+    [0,1,2,4,6,8,9],[1,2,3,5,6,7,9],[0,1,2,3,4,5,7]
+  ],
+  super:[ // C(10,6,4) — 10 sayı · 6'lı kolon · 23 kolon · 4 çıkarsa 4 garanti
+    [0,1,2,3,4,5],[0,1,2,6,7,8],[0,3,4,6,7,9],
+    [1,3,5,6,8,9],[2,4,5,7,8,9],[0,1,2,3,7,9],
+    [0,1,4,5,6,7],[0,1,4,5,8,9],[0,2,3,4,6,8],
+    [0,2,5,6,8,9],[0,3,5,7,8,9],[1,2,3,4,6,9],
+    [1,2,3,4,7,8],[1,2,3,5,6,7],[1,4,6,7,8,9],
+    [1,2,3,5,8,9],[3,4,5,6,7,8],[2,4,5,6,7,9],
+    [0,1,3,5,6,8],[0,2,4,5,7,8],[0,1,2,4,6,9],
+    [0,1,5,7,8,9],[0,3,4,5,8,9]
+  ]
+};
+
+const _B10_HISTORY=[
+  {game:'sayisal',date:'2026-06-13',
+   selection:[15,25,28,30,39,50,53,55,68,77],
+   actualDraw:{nums:[2,16,25,35,40,80,88],bonus:[53]},
+   notes:'25 net · 15 39 yakın (16≈15, 35/40≈39) · 53 Süperstar neti',
+   mainHits:[25],bonusHits:[53],near:[15,39]},
+  {game:'super',date:'2026-06-11',
+   selection:[11,19,20,21,28,31,35,38,47,56],
+   actualDraw:{nums:[15,19,30,38,57,60],bonus:[]},
+   notes:'19 38 net · 31 56 yakın (30≈31, 57≈56)',
+   mainHits:[19,38],bonusHits:[],near:[31,56]}
+];
+
+let _b10Game='sayisal',_b10Sel=new Set(),_b10AINote='';
+
+function _b10Init(){
+  if(state.selectedGame&&_B10_TEMPLATES[state.selectedGame])_b10Game=state.selectedGame;
+  _b10Render();
+}
+
+function _b10Render(){
+  const el=document.getElementById('b10Content');if(!el)return;
+  const game=getGame(_b10Game),tpl=_B10_TEMPLATES[_b10Game];
+  const sel=[..._b10Sel].sort((a,b)=>a-b);
+  const cols=sel.length===10?tpl.map(ix=>ix.map(i=>sel[i]).sort((a,b)=>a-b)):null;
+  if(cols)window._b10ColsTxt=cols.map((c,i)=>`${i+1}. ${c.join(' - ')}`).join('\n');
+  let h='';
+
+  // Game tabs
+  h+=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">`;
+  Object.keys(_B10_TEMPLATES).forEach(gid=>{
+    const g=getGame(gid),t=_B10_TEMPLATES[gid],act=gid===_b10Game;
+    h+=`<button onclick="_b10SetGame('${gid}')" style="font-size:.7rem;padding:5px 13px;border-radius:8px;border:1px solid ${act?'rgba(108,99,255,.5)':'var(--border)'};background:${act?'rgba(108,99,255,.15)':'var(--surface2)'};color:${act?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${act?800:500}">${g.emoji} ${g.name} <span style="opacity:.65;font-size:.6rem">${t.length} kolon</span></button>`;
+  });
+  h+=`</div>`;
+
+  // Info banner
+  h+=`<div style="background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.18);border-radius:8px;padding:8px 12px;font-size:.63rem;color:var(--muted);margin-bottom:12px;line-height:1.65"><strong style="color:var(--accent)">B10 Sistem:</strong> 10 sayı seç → <strong>${tpl.length} kolon</strong> oluşsun → seçilen 10'dan ≥4 çekilişte çıkınca en az bir kolonda <strong>4 isabet garantisi</strong>.</div>`;
+
+  // Number picker
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:6px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800">Sayı Seçimi <span style="font-size:.62rem;font-weight:500;color:${sel.length===10?'var(--green)':'var(--muted)'}">(${sel.length}/10)</span></div>`;
+  h+=`<div style="display:flex;gap:5px">`;
+  h+=`<button onclick="_b10Clear()" style="font-size:.62rem;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">↺ Sıfırla</button>`;
+  h+=`<button onclick="_b10RunAI()" style="font-size:.62rem;padding:3px 10px;border-radius:6px;border:1px solid rgba(108,99,255,.4);background:rgba(108,99,255,.12);color:var(--accent);cursor:pointer;font-weight:700">🤖 KB Motoru Öner</button>`;
+  h+=`</div></div>`;
+  h+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(${game.max>60?28:30}px,1fr));gap:3px">`;
+  for(let n=1;n<=game.max;n++){
+    const on=_b10Sel.has(n),dis=!on&&sel.length>=10;
+    h+=`<button onclick="_b10Toggle(${n})" style="height:26px;border-radius:5px;border:1px solid ${on?'rgba(0,230,118,.55)':'rgba(0,0,0,.08)'};background:${on?'rgba(0,230,118,.18)':dis?'rgba(0,0,0,.02)':'var(--surface2)'};color:${on?'var(--green)':dis?'rgba(120,120,120,.35)':'var(--text)'};font-size:.65rem;font-weight:${on?800:500};font-family:monospace;cursor:pointer;transition:background .1s">${n}</button>`;
+  }
+  h+=`</div>`;
+  if(sel.length>0&&sel.length<10)h+=`<div style="margin-top:7px;font-size:.62rem;color:var(--muted);text-align:center">${10-sel.length} sayı daha seçin</div>`;
+  if(sel.length===10)h+=`<div style="margin-top:8px;font-size:.63rem;color:var(--muted)">Seçili: ${sel.map(n=>`<strong style="color:var(--text)">${n}</strong>`).join(' · ')}</div>`;
+  h+=`</div>`;
+
+  // AI note
+  if(_b10AINote)h+=`<div style="background:rgba(108,99,255,.06);border:1px solid rgba(108,99,255,.2);border-radius:8px;padding:10px 12px;margin-bottom:12px;font-size:.63rem;color:var(--muted);line-height:1.75">${_b10AINote}</div>`;
+
+  // Generated columns
+  if(cols){
+    h+=`<div style="background:var(--surface);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:12px;margin-bottom:14px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
+    h+=`<div style="font-size:.72rem;font-weight:800;color:var(--green)">🎟️ ${tpl.length} Kolon <span style="font-size:.6rem;color:var(--muted);font-weight:500">· 4 çıkarsa 4 garanti</span></div>`;
+    h+=`<button onclick="_kbCopy(window._b10ColsTxt)" style="font-size:.6rem;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋 Kopyala</button>`;
+    h+=`</div>`;
+    cols.forEach((col,ci)=>{
+      h+=`<div style="display:flex;align-items:center;gap:5px;padding:3px 4px;border-bottom:1px solid rgba(0,0,0,.03)">`;
+      h+=`<span style="font-size:.57rem;color:var(--muted);min-width:20px;text-align:right">${ci+1}.</span>`;
+      h+=`<div style="display:flex;gap:3px;flex-wrap:wrap">`;
+      col.forEach(n=>{h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:23px;border-radius:5px;background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.28);color:var(--green);font-size:.67rem;font-weight:700;font-family:monospace">${n}</span>`;});
+      h+=`</div></div>`;
+    });
+    h+=`</div>`;
+  }else if(sel.length>0){
+    h+=`<div style="border:2px dashed var(--border);border-radius:8px;padding:14px;text-align:center;font-size:.65rem;color:var(--muted);margin-bottom:14px">${10-sel.length} sayı daha seçince ${tpl.length} kolon oluşur</div>`;
+  }
+
+  h+=_b10RenderHistory();
+  el.innerHTML=h;
+}
+
+function _b10RenderHistory(){
+  let h=`<div style="font-size:.72rem;font-weight:800;margin-bottom:10px;padding-top:12px;border-top:1px solid var(--border)">📚 Geçmiş B10 Kuponlar</div>`;
+  _B10_HISTORY.forEach((e,idx)=>{
+    const g=getGame(e.game);
+    const drawSet=new Set((e.actualDraw||{}).nums||[]);
+    const bonusSet=new Set((e.actualDraw||{}).bonus||[]);
+    const nearSet=new Set(e.near||[]);
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:10px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:4px">`;
+    h+=`<div><span style="font-size:.68rem;font-weight:800">${g.emoji} ${g.name}</span><span style="font-size:.6rem;color:var(--muted);margin-left:6px">${e.date}</span></div>`;
+    h+=`<button onclick="_b10LoadHistory(${idx})" style="font-size:.6rem;padding:3px 8px;border-radius:6px;border:1px solid rgba(108,99,255,.35);background:rgba(108,99,255,.1);color:var(--accent);cursor:pointer;white-space:nowrap">↩ Bu sayıları yükle</button>`;
+    h+=`</div>`;
+    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px">`;
+    e.selection.forEach(n=>{
+      const hit=drawSet.has(n),star=bonusSet.has(n),near=nearSet.has(n);
+      const bg=hit?'rgba(0,230,118,.22)':star?'rgba(129,140,248,.2)':near?'rgba(184,134,11,.15)':'rgba(0,0,0,.05)';
+      const bd=hit?'rgba(0,230,118,.55)':star?'rgba(129,140,248,.5)':near?'rgba(184,134,11,.4)':'rgba(0,0,0,.08)';
+      const cl=hit?'var(--green)':star?'var(--accent)':near?'#8a6200':'var(--text)';
+      const suf=hit?' ✓':star?' ★':near?' ~':'';
+      h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:25px;padding:0 3px;border-radius:6px;background:${bg};border:1px solid ${bd};color:${cl};font-size:.68rem;font-weight:${hit||star?800:600};font-family:monospace">${n}${suf}</span>`;
+    });
+    h+=`</div>`;
+    if(e.actualDraw&&(e.actualDraw.nums||[]).length){
+      const d=e.actualDraw;
+      h+=`<div style="font-size:.61rem;color:var(--muted);margin-bottom:5px">Çekiliş: `;
+      d.nums.forEach(n=>{const hit=e.selection.includes(n);h+=`<strong style="color:${hit?'var(--green)':'var(--text)'};margin-right:3px">${n}${hit?'✓':''}</strong>`;});
+      if(d.bonus&&d.bonus.length){h+=` · ★ `;d.bonus.forEach(n=>{const hit=e.selection.includes(n);h+=`<strong style="color:${hit?'var(--accent)':'var(--text)'}">${n}${hit?'✓':''}</strong>`;});}
+      h+=`</div>`;
+    }
+    const summary=[];
+    if((e.mainHits||[]).length)summary.push(`<span style="color:var(--green)">${e.mainHits.length} net isabet</span>`);
+    if((e.bonusHits||[]).length)summary.push(`<span style="color:var(--accent)">${e.bonusHits.length} bonus ✓</span>`);
+    if((e.near||[]).length)summary.push(`<span style="color:#8a6200">${e.near.length} yakın</span>`);
+    if(summary.length)h+=`<div style="font-size:.61rem;margin-bottom:4px">${summary.join(' · ')}</div>`;
+    h+=`<div style="font-size:.6rem;color:var(--muted);font-style:italic">${e.notes}</div>`;
+    h+=`</div>`;
+  });
+  return h;
+}
+
+function _b10SetGame(gid){_b10Game=gid;_b10Sel.clear();_b10AINote='';_b10Render();}
+
+function _b10Toggle(n){
+  if(_b10Sel.has(n))_b10Sel.delete(n);
+  else if(_b10Sel.size<10)_b10Sel.add(n);
+  _b10Render();
+}
+
+function _b10Clear(){_b10Sel.clear();_b10AINote='';_b10Render();}
+
+function _b10LoadHistory(idx){
+  const e=_B10_HISTORY[idx];if(!e)return;
+  _b10Game=e.game;_b10Sel=new Set(e.selection);_b10AINote='';
+  _b10Render();
+  showToast('↩ Geçmiş kupon yüklendi');
+}
+
+function _b10RunAI(){
+  const game=getGame(_b10Game);
+  const draws=_kbGetDraws(_b10Game);
+  if(draws.length<15){showToast('⚠️ Yeterli geçmiş veri yok');return;}
+  showToast('🤖 KB motoru çalışıyor...');
+  setTimeout(()=>{
+    try{
+      const cal=_kbCalibrate(draws,game);
+      const rows=_kbConsensus(draws,game,cal);
+      const strong=rows.filter(r=>r.support>=3);
+      const rest=rows.filter(r=>r.support<3);
+      const pick=[...strong,...rest].slice(0,10).map(r=>r.n).sort((a,b)=>a-b);
+      _b10Sel=new Set(pick);
+      const details=pick.map(n=>{
+        const ri=rows.findIndex(x=>x.n===n);
+        const r=rows[ri]||{};
+        const s=r.support||0;
+        return`<span style="font-weight:700;color:${s>=3?'var(--green)':s>=2?'var(--accent)':'var(--text)'}">${n}</span><span style="color:var(--muted);font-size:.57rem"> #${ri+1}/${s}m</span>`;
+      }).join('  ');
+      _b10AINote=`<strong style="color:var(--accent)">🤖 KB Motoru Tahmini</strong> · ${draws.length} çekiliş · ${strong.length} güçlü banko adayı (≥3/${_KB_METHODS.length} destek)<div style="margin-top:6px;font-size:.65rem;line-height:2.1">${details}</div><div style="margin-top:4px;font-size:.57rem;opacity:.7">Yeşil = ≥3 yöntem destekli · Mor = 2 yöntem · Gri = 1 yöntem. #N = konsensüs sırası, /Nm = destek sayısı.</div>`;
+      _b10Render();
+      showToast('🤖 10 sayı seçildi');
+    }catch(err){showToast('⚠️ Hata: '+err.message);}
+  },50);
 }
 </script>
 
