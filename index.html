@@ -11503,59 +11503,17 @@ function _mpRRun(){
   const actual=draws.find(d=>d.date===dateVal);
   if(!actual){showToast('⚠️ Bu tarihe ait çekiliş yok');return;}
   const prior=draws.filter(d=>d.date<dateVal);
-  if(prior.length<5){showToast('⚠️ Yeterli geçmiş veri yok');return;}
-  const actSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
-  // Annotate with hits
-  const ann=tickets.map(t=>{
-    const all=[...(t.main||[]),...(t.bonus||[])];
-    const hits=all.filter(n=>actSet.has(n));
-    return{...t,hits,hitCount:hits.length};
-  });
-  // ── Method 1: Frekans ──────────────────────────────────
-  const freq=buildFreq(prior);const maxF=Math.max(...Object.values(freq),1);
-  const mFreq=[...ann].map(t=>{
-    const s=t.main.reduce((a,n)=>a+(freq[n]||0)/maxF,0)/t.main.length*100;
-    return{...t,mScore:+s.toFixed(1)};
-  }).sort((a,b)=>b.mScore-a.mScore||b.hitCount-a.hitCount);
-  // ── Method 2: NS Zincir ────────────────────────────────
-  let mChain=null;
-  try{
-    const {score:cs}=_sablonScoreNext(prior[0],game);
-    const maxC=Math.max(...cs,1);
-    mChain=[...ann].map(t=>{
-      const s=t.main.reduce((a,n)=>a+(cs[n]||0)/maxC,0)/t.main.length*100;
-      return{...t,mScore:+s.toFixed(1)};
-    }).sort((a,b)=>b.mScore-a.mScore||b.hitCount-a.hitCount);
-  }catch(e){}
-  // ── Method 3: Gecikme ──────────────────────────────────
-  const delay={};
-  for(let n=1;n<=game.max;n++){const i=prior.findIndex(d=>[...d.nums,...(d.bonus||[])].includes(n));delay[n]=i===-1?prior.length:i;}
-  const mDelay=[...ann].map(t=>{
-    const s=t.main.reduce((a,n)=>a+(delay[n]||0),0);
-    return{...t,mScore:s};
-  }).sort((a,b)=>b.mScore-a.mScore||b.hitCount-a.hitCount);
-  // ── Method 4: Taze Sayı ────────────────────────────────
-  const rec=new Set();prior.slice(0,4).forEach(d=>[...d.nums,...(d.bonus||[])].forEach(n=>rec.add(n)));
-  const mFresh=[...ann].map(t=>{
-    const s=t.main.filter(n=>!rec.has(n)).length;
-    return{...t,mScore:s};
-  }).sort((a,b)=>b.mScore-a.mScore||b.hitCount-a.hitCount);
-  // ── Method 5: Karma ────────────────────────────────────
-  const normArr=(arr,key)=>{const mn=Math.min(...arr.map(x=>x[key]));const mx=Math.max(...arr.map(x=>x[key]));const rng=mx-mn||1;return arr.map(x=>({idx:x.idx,v:(x[key]-mn)/rng}));};
-  const nF=normArr(mFreq,'mScore');const nD=normArr(mDelay,'mScore');const nR=normArr(mFresh,'mScore');const nC=mChain?normArr(mChain,'mScore'):nF;
-  const mKarma=[...ann].map(t=>{
-    const f=nF.find(x=>x.idx===t.idx)?.v||0;const d=nD.find(x=>x.idx===t.idx)?.v||0;const r=nR.find(x=>x.idx===t.idx)?.v||0;const c=nC.find(x=>x.idx===t.idx)?.v||0;
-    return{...t,mScore:+((f*0.25+d*0.3+r*0.2+c*0.25)*100).toFixed(1)};
-  }).sort((a,b)=>b.mScore-a.mScore||b.hitCount-a.hitCount);
-  // Render
-  const methods=[
-    {name:'🔢 Frekans Skoru',desc:'Son çekilişlerde en sık çıkan sayılara sahip kuponları öne çıkarır',data:mFreq,unit:'%'},
-    mChain?{name:'🔗 NS Zincir',desc:'Gizli sayfanın şablon analizi — NS/NST zincirinden türetilen aday sayı skorları',data:mChain,unit:'%'}:null,
-    {name:'⏳ Gecikme',desc:'Uzun süredir çıkmamış (bekleme süresi uzun) sayılara sahip kuponlar',data:mDelay,unit:'bk'},
-    {name:'🌱 Taze Sayı',desc:'Son 4 çekilişte çıkmamış sayılara sahip kuponlar — tekrar kaçınma',data:mFresh,unit:'taze'},
-    {name:'⚖️ Karma',desc:'Frekans + Gecikme + Taze + NS Zincir yöntemlerinin ağırlıklı kombinasyonu',data:mKarma,unit:'p'},
-  ].filter(Boolean);
-  _mpRRenderResults(ann,actual,actSet,methods);
+  if(prior.length<15){showToast('⚠️ Yeterli geçmiş veri yok (en az 15 çekiliş gerekli)');return;}
+  const cov={};
+  tickets.forEach(t=>[...t.main,...(t.bonus||[])].forEach(n=>{cov[n]=(cov[n]||0)+1;}));
+  const cal=_kbCalibrate(prior,game);
+  const allRows=_kbConsensus(prior,game,cal);
+  const consMap={};allRows.forEach((r,i)=>consMap[r.n]={rank:i+1,support:r.support,consN:r.consN});
+  const poolRows=Object.keys(cov).map(Number).map(n=>{
+    const kb=consMap[n]||{rank:allRows.length,support:0,consN:0};
+    return{n,rank:kb.rank,support:kb.support,consN:kb.consN,coverage:cov[n]};
+  }).sort((a,b)=>b.consN-a.consN||b.support-a.support||b.coverage-a.coverage);
+  _mpRRenderPrediction(tickets,poolRows,game,gid,prior.length,cal,actual);
 }
 function _mpRRenderResults(ann,actual,actSet,methods){
   const el=document.getElementById('mpRResults');if(!el)return;
@@ -11672,91 +11630,125 @@ function _mpRCopyFallback(text){
   const t=document.createElement('textarea');t.value=text;t.style.position='fixed';t.style.opacity='0';
   document.body.appendChild(t);t.select();try{document.execCommand('copy');showToast('✅ Kopyalandı');}catch(e){}document.body.removeChild(t);
 }
-function _mpRRenderPrediction(tickets,poolRows,game,gid,totalDraws,cal){
+function _mpRRenderPrediction(tickets,poolRows,game,gid,totalDraws,cal,actual){
+  actual=actual||null;
   const el=document.getElementById('mpRResults');if(!el)return;
+  const isBacktest=!!actual;
+  const actSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
   const strongPoolSet=new Set(poolRows.filter(r=>r.support>=3).map(r=>r.n));
   const topPool=poolRows.slice(0,game.count);
   const topPoolSet=new Set(topPool.map(r=>r.n));
-  // fast lookup for consN
   const consNMap={};poolRows.forEach(r=>{consNMap[r.n]=r.consN;});
   const numSpan=(n,strong,top)=>{
-    const bg=strong?'rgba(0,230,118,.22)':top?'rgba(129,140,248,.15)':'rgba(0,0,0,.05)';
-    const bd=strong?'rgba(0,230,118,.55)':top?'rgba(129,140,248,.35)':'rgba(0,0,0,.08)';
-    const cl=strong?'var(--green)':top?'var(--accent)':'var(--text)';
-    return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;padding:0 4px;border-radius:5px;background:${bg};border:1px solid ${bd};color:${cl};font-size:.68rem;font-weight:${strong||top?'800':'500'};font-family:monospace">${n}</span>`;
+    const hit=actSet&&actSet.has(n);
+    const bg=strong?'rgba(0,230,118,.22)':hit?'rgba(0,230,118,.13)':top?'rgba(129,140,248,.15)':'rgba(0,0,0,.05)';
+    const bd=(strong&&hit)?'rgba(0,230,118,.9)':strong?'rgba(0,230,118,.55)':hit?'rgba(0,230,118,.6)':top?'rgba(129,140,248,.35)':'rgba(0,0,0,.08)';
+    const cl=strong||hit?'var(--green)':top?'var(--accent)':'var(--text)';
+    return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:24px;padding:0 4px;border-radius:5px;background:${bg};border:1px solid ${bd};color:${cl};font-size:.68rem;font-weight:${strong||top||hit?'800':'500'};font-family:monospace">${n}${hit?' ✓':''}</span>`;
   };
   let html='';
   // Mode banner
-  const inputEl=document.getElementById('mpRInput');
-  html+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
-  html+=`<div style="font-size:.78rem;font-weight:800;color:var(--accent)">🧭 KB Tahmin Modu</div>`;
-  html+=`<div style="font-size:.65rem;color:var(--muted)">${game.emoji} ${game.name} · ${tickets.length} kupon · ${poolRows.length} sayı · ${totalDraws} çekiliş · ${cal.valid} kalibrasyon</div>`;
-  html+=`<button onclick="_kbOpenBiletWith(document.getElementById('mpRInput').value,'${gid}')" style="margin-left:auto;padding:4px 11px;background:rgba(0,150,58,.12);border:1px solid rgba(0,150,58,.35);color:var(--green);border-radius:7px;cursor:pointer;font-size:.63rem;font-weight:700;white-space:nowrap">🧭 Kapsamlı Bakış'ta Aç</button>`;
+  html+=`<div style="background:${isBacktest?'rgba(184,134,11,.07)':'rgba(129,140,248,.07)'};border:1px solid ${isBacktest?'rgba(184,134,11,.28)':'rgba(129,140,248,.25)'};border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
+  html+=`<div style="font-size:.78rem;font-weight:800;color:${isBacktest?'#8a6200':'var(--accent)'}">${isBacktest?'⏪ Geçmiş Simülasyon':'🧭 KB Tahmin Modu'}</div>`;
+  html+=`<div style="font-size:.65rem;color:var(--muted)">${game.emoji} ${game.name} · ${tickets.length} kupon · ${poolRows.length} sayı · ${totalDraws} çekiliş${isBacktest?' · '+actual.date+' öncesi veri':''} · kalibre: ${cal.valid}</div>`;
+  if(!isBacktest)html+=`<button onclick="_kbOpenBiletWith(document.getElementById('mpRInput').value,'${gid}')" style="margin-left:auto;padding:4px 11px;background:rgba(0,150,58,.12);border:1px solid rgba(0,150,58,.35);color:var(--green);border-radius:7px;cursor:pointer;font-size:.63rem;font-weight:700;white-space:nowrap">🧭 Kapsamlı Bakış'ta Aç</button>`;
   html+=`</div>`;
+  // Actual draw section (backtest only)
+  if(isBacktest){
+    const bankosHit=poolRows.filter(r=>strongPoolSet.has(r.n)&&actSet.has(r.n));
+    const topHit=poolRows.filter(r=>topPoolSet.has(r.n)&&!strongPoolSet.has(r.n)&&actSet.has(r.n));
+    html+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:11px 14px;margin-bottom:10px">`;
+    html+=`<div style="font-size:.58rem;color:var(--muted);text-transform:uppercase;font-weight:700;letter-spacing:.6px;margin-bottom:7px">✅ Gerçek Sonuç · ${actual.date}</div>`;
+    html+=`<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;margin-bottom:8px">`;
+    (actual.nums||[]).forEach(n=>{
+      const s=strongPoolSet.has(n),t=topPoolSet.has(n)&&!s;
+      html+=`<span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:${s?'rgba(0,230,118,.35)':t?'rgba(129,140,248,.22)':'rgba(0,230,118,.15)'};border:2px solid ${s?'rgba(0,230,118,.85)':t?'rgba(129,140,248,.6)':'rgba(0,230,118,.45)'};color:${s?'var(--green)':t?'var(--accent)':'var(--green)'};font-size:.75rem;font-weight:800;font-family:monospace" title="${s?'KB Banko ✓':t?'KB Top Aday ✓':''}">${n}</span>`;
+    });
+    if((actual.bonus||[]).length){
+      html+=`<span style="color:rgba(0,0,0,.12);margin:0 3px">|</span>`;
+      (actual.bonus||[]).forEach(n=>{html+=`<span style="display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:rgba(0,150,58,.15);border:2px solid rgba(0,150,58,.45);color:var(--gold);font-size:.75rem;font-weight:800;font-family:monospace">${n}</span>`;});
+    }
+    html+=`</div>`;
+    html+=`<div style="font-size:.62rem;color:var(--muted);line-height:1.65">🔒 Banko adayı isabet: <strong style="color:${bankosHit.length?'var(--green)':'var(--muted)'}">${bankosHit.length}</strong>${bankosHit.length?' ('+bankosHit.map(r=>r.n).join(', ')+')'  :''} · 🎯 Üst aday isabet: <strong style="color:${topHit.length?'var(--accent)':'var(--muted)'}">${topHit.length}</strong>${topHit.length?' ('+topHit.map(r=>r.n).join(', ')+')':''}</div>`;
+    html+=`</div>`;
+  }
   // Banko candidates from pool
   const strongArr=[...strongPoolSet].sort((a,b)=>a-b);
   if(strongArr.length){
     const bankoCopyTxt=`KB Banko Adayları\\n${strongArr.join(' ')}`;
     html+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:11px 14px;margin-bottom:10px">`;
     html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
-    html+=`<div style="font-size:.72rem;font-weight:800;color:var(--green)">🔒 Havuzdan KB Banko Adayları (≥3/6 yöntem)</div>`;
+    html+=`<div style="font-size:.72rem;font-weight:800;color:var(--green)">🔒 KB Banko Adayları (≥3/${_KB_METHODS.length} yöntem)${isBacktest?' — ✓ çekilişte çıktı':''}</div>`;
     html+=`<button onclick="_mpRCopy('${bankoCopyTxt}')" style="background:rgba(0,150,58,.1);border:1px solid rgba(0,150,58,.3);color:var(--green);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.62rem;font-weight:700">📋</button>`;
     html+=`</div><div style="display:flex;gap:5px;flex-wrap:wrap">`;
     poolRows.filter(r=>strongPoolSet.has(r.n)).forEach(r=>{
-      html+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:4px 6px;border-radius:8px;background:rgba(0,230,118,.2);border:1px solid rgba(0,230,118,.55);font-family:monospace">`;
-      html+=`<span style="font-size:.82rem;font-weight:800;color:var(--green)">${r.n}</span>`;
-      html+=`<span style="font-size:.48rem;color:var(--muted)">${r.support}/6 · #${r.rank}</span>`;
+      const hit=actSet&&actSet.has(r.n);
+      html+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:4px 6px;border-radius:8px;background:${hit?'rgba(0,230,118,.35)':'rgba(0,230,118,.18)'};border:1px solid ${hit?'rgba(0,230,118,.85)':'rgba(0,230,118,.5)'};font-family:monospace">`;
+      html+=`<span style="font-size:.82rem;font-weight:800;color:var(--green)">${r.n}${hit?' ✓':''}</span>`;
+      html+=`<span style="font-size:.48rem;color:var(--muted)">${r.support}/${_KB_METHODS.length} · #${r.rank}</span>`;
       html+=`</span>`;
     });
     html+=`</div></div>`;
   }else{
-    html+=`<div style="background:rgba(0,0,0,.02);border:1px solid var(--border);border-radius:10px;padding:9px 14px;margin-bottom:10px;font-size:.65rem;color:var(--muted)">💡 Havuzdaki sayılar arasında güçlü KB banko adayı (≥3/6 yöntem) bulunamadı.</div>`;
+    html+=`<div style="background:rgba(0,0,0,.02);border:1px solid var(--border);border-radius:10px;padding:9px 14px;margin-bottom:10px;font-size:.65rem;color:var(--muted)">💡 Havuzdaki sayılar arasında güçlü KB banko adayı (≥3/${_KB_METHODS.length} yöntem) bulunamadı.</div>`;
   }
   // Top pool numbers by KB
   const topCopyTxt=`KB Top ${game.count} Sayı\\n${topPool.map(r=>r.n).sort((a,b)=>a-b).join(' ')}`;
   html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px;margin-bottom:10px">`;
   html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
-  html+=`<div style="font-size:.72rem;font-weight:800;color:var(--text)">🏆 Havuzdan En İyi ${game.count} KB Adayı</div>`;
+  html+=`<div style="font-size:.72rem;font-weight:800;color:var(--text)">🏆 En İyi ${game.count} KB Adayı${isBacktest?' — ✓ çekilişte çıktı':''}</div>`;
   html+=`<button onclick="_mpRCopy('${topCopyTxt}')" style="background:rgba(0,0,0,.05);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.62rem">📋</button>`;
   html+=`</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px">`;
   topPool.forEach(r=>{const s=strongPoolSet.has(r.n);html+=numSpan(r.n,s,!s);});
-  html+=`</div><div style="font-size:.58rem;color:var(--muted)">6 yöntemli konsensüs: Frekans · Üstel Frekans · Gecikme · Eş-görünüm · Şablon · Bayes</div>`;
+  html+=`</div><div style="font-size:.58rem;color:var(--muted)">${_KB_METHODS.length} yöntemli konsensüs: ${_KB_METHODS.map(m=>m.name).join(' · ')}</div>`;
   html+=`</div>`;
   // Pool number KB ranking table
+  const hasCols6=isBacktest;
   html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px;margin-bottom:10px">`;
   html+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">📊 Havuz Sayıları — KB Konsensüs Sıralaması</div>`;
-  html+=`<div style="display:grid;grid-template-columns:auto auto 1fr auto auto;gap:3px 8px;font-size:.58rem;color:var(--muted);margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--border)">`;
-  html+=`<span>#KB</span><span>Sayı</span><span>Konsensüs</span><span>Destek</span><span>Kupon</span></div>`;
+  html+=`<div style="display:grid;grid-template-columns:auto auto 1fr auto auto${hasCols6?' auto':''};gap:3px 8px;font-size:.58rem;color:var(--muted);margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--border)">`;
+  html+=`<span>#KB</span><span>Sayı</span><span>Konsensüs</span><span>Destek</span><span>Kupon</span>${hasCols6?'<span>✓</span>':''}`;
+  html+=`</div>`;
   poolRows.forEach(x=>{
-    const s=strongPoolSet.has(x.n),t=topPoolSet.has(x.n)&&!s;
-    html+=`<div style="display:grid;grid-template-columns:auto auto 1fr auto auto;gap:3px 8px;align-items:center;padding:2px 0;border-bottom:1px solid rgba(0,0,0,.03)">`;
+    const s=strongPoolSet.has(x.n),t=topPoolSet.has(x.n)&&!s,hit=actSet&&actSet.has(x.n);
+    html+=`<div style="display:grid;grid-template-columns:auto auto 1fr auto auto${hasCols6?' auto':''};gap:3px 8px;align-items:center;padding:2px 0;border-bottom:1px solid rgba(0,0,0,.03)">`;
     html+=`<span style="font-size:.6rem;color:var(--muted)">${x.rank}.</span>`;
-    html+=`<span style="font-size:.72rem;font-weight:${s?'800':t?'700':'500'};color:${s?'var(--green)':t?'var(--accent)':'var(--text)'};font-family:monospace;min-width:24px">${x.n}</span>`;
+    html+=`<span style="font-size:.72rem;font-weight:${s?'800':t?'700':'500'};color:${s||hit?'var(--green)':t?'var(--accent)':'var(--text)'};font-family:monospace;min-width:24px">${x.n}</span>`;
     html+=`<div style="height:6px;border-radius:3px;background:rgba(0,0,0,.07);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:3px;background:${s?'rgba(0,230,118,.6)':t?'rgba(129,140,248,.55)':'rgba(0,0,0,.22)'};width:${Math.round(x.consN*100)}%"></div></div>`;
-    html+=`<span style="font-size:.62rem;color:${s?'var(--green)':t?'var(--accent)':'var(--muted)'};font-weight:${s||t?'800':'400'}">${x.support}/6</span>`;
+    html+=`<span style="font-size:.62rem;color:${s?'var(--green)':t?'var(--accent)':'var(--muted)'};font-weight:${s||t?'800':'400'}">${x.support}/${_KB_METHODS.length}</span>`;
     html+=`<span style="font-size:.62rem;color:var(--muted)">${x.coverage}k</span>`;
+    if(hasCols6)html+=`<span style="font-size:.7rem;color:var(--green);font-weight:800">${hit?'✓':''}</span>`;
     html+=`</div>`;
   });
   html+=`</div>`;
-  // Ticket ranking by KB score
+  // Ticket ranking by KB score (+ actual hits in backtest)
   html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px">`;
-  html+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">🎫 Kuponlar — KB Örtüşme Sıralaması</div>`;
+  html+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">🎫 Kuponlar — ${isBacktest?'Gerçek İsabet + KB Sıra':'KB Örtüşme Sıralaması'}</div>`;
   const ranked=[...tickets].map(t=>{
     const strong=t.main.filter(n=>strongPoolSet.has(n)).length;
     const top=t.main.filter(n=>topPoolSet.has(n)).length;
     const score=t.main.reduce((a,n)=>a+(consNMap[n]||0),0);
-    return{...t,strong,top,score};
-  }).sort((a,b)=>b.strong-a.strong||b.top-a.top||b.score-a.score);
+    const hitCount=actSet?[...t.main,...(t.bonus||[])].filter(n=>actSet.has(n)).length:null;
+    return{...t,strong,top,score,hitCount};
+  }).sort((a,b)=>{
+    if(isBacktest&&a.hitCount!==null&&a.hitCount!==b.hitCount)return b.hitCount-a.hitCount;
+    return b.strong-a.strong||b.top-a.top||b.score-a.score;
+  });
   ranked.forEach((t,ri)=>{
     const medal=ri===0?'🥇':ri===1?'🥈':ri===2?'🥉':'';
-    const ticketTxt=t.main.join(' ')+(t.bonus.length?' | '+t.bonus.join(' '):'');
+    const ticketTxt=t.main.join(' ')+(t.bonus&&t.bonus.length?' | '+t.bonus.join(' '):'');
+    const hc=t.hitCount;
     html+=`<div style="display:flex;align-items:center;gap:5px;padding:4px 7px;border-radius:5px;margin-bottom:3px;background:${ri===0?'rgba(0,230,118,.07)':ri<=2?'rgba(0,150,58,.03)':'transparent'}">`;
     html+=`<span style="font-size:.6rem;color:var(--muted);min-width:22px">${medal||('#'+(t.idx+1))}</span>`;
     html+=`<div style="display:flex;gap:2px;flex-wrap:wrap;flex:1">`;
     t.main.forEach(n=>{html+=numSpan(n,strongPoolSet.has(n),topPoolSet.has(n)&&!strongPoolSet.has(n));});
-    if(t.bonus.length){html+=`<span style="color:rgba(0,0,0,.12);margin:0 2px">|</span>`;t.bonus.forEach(n=>{html+=numSpan(n,strongPoolSet.has(n),topPoolSet.has(n)&&!strongPoolSet.has(n));});}
+    if((t.bonus||[]).length){html+=`<span style="color:rgba(0,0,0,.12);margin:0 2px">|</span>`;(t.bonus||[]).forEach(n=>{html+=numSpan(n,strongPoolSet.has(n),topPoolSet.has(n)&&!strongPoolSet.has(n));});}
     html+=`</div>`;
-    html+=`<span style="font-size:.62rem;font-weight:700;min-width:38px;text-align:right;color:${t.strong>=2?'var(--green)':t.strong>=1?'#8a6200':t.top>=2?'var(--accent)':'var(--muted)'}">${t.strong}🔒 ${t.top}🎯</span>`;
+    if(isBacktest&&hc!==null){
+      html+=`<span style="font-size:.75rem;font-weight:800;min-width:28px;text-align:right;color:${hc>=3?'var(--green)':hc>=2?'#8a6200':hc>=1?'var(--accent)':'var(--muted)'}">${hc} ✓</span>`;
+    }else{
+      html+=`<span style="font-size:.62rem;font-weight:700;min-width:38px;text-align:right;color:${t.strong>=2?'var(--green)':t.strong>=1?'#8a6200':t.top>=2?'var(--accent)':'var(--muted)'}">${t.strong}🔒 ${t.top}🎯</span>`;
+    }
     html+=`<button onclick="_mpRCopy('${ticketTxt.replace(/'/g,"\\'")}');event.stopPropagation()" style="background:transparent;border:1px solid rgba(0,0,0,.1);color:var(--muted);border-radius:5px;padding:1px 5px;cursor:pointer;font-size:.55rem;flex-shrink:0">📋</button>`;
     html+=`</div>`;
   });
