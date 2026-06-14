@@ -309,6 +309,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   .algo-score-panel{grid-template-columns:repeat(2,minmax(0,1fr))}
   .b10-tahmin-grid{grid-template-columns:1fr}
 }
+@media(max-width:720px){#gizliSayfa{width:calc(100vw - 16px) !important;height:calc(100vh - 60px) !important;left:8px !important;top:30px !important;transform:none !important;}}
 </style>
 </head>
 <body>
@@ -921,7 +922,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <div style="grid-column:1/-1;display:none" id="page-kapsamli">
  <div class="card">
   <div class="card-title">🧭 Kapsamlı Bakış</div>
-  <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">6 bağımsız analiz yöntemini (frekans · üstel frekans · gecikme · eş-görünüm · şablon zinciri · Bayes momentum) tek bir konsensüs motorunda birleştirir. Yöntem ağırlıkları geçmiş isabete göre otomatik ayarlanır; <strong>banko adayları</strong> birden çok yöntemin aynı anda öne çıkardığı sayılardır.</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">7 bağımsız analiz yöntemini (frekans · üstel frekans · gecikme · eş-görünüm · şablon zinciri · Bayes momentum · son hane) tek bir konsensüs motorunda birleştirir. Yöntem ağırlıkları geçmiş isabete göre otomatik ayarlanır; <strong>banko adayları</strong> birden çok yöntemin aynı anda öne çıkardığı sayılardır.</div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
    <button class="kb-game-btn" data-game="sayisal"  onclick="_kbSetGame('sayisal')"  style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔵 Sayısal Loto</button>
    <button class="kb-game-btn" data-game="super"    onclick="_kbSetGame('super')"    style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">⭐ Süper Loto</button>
@@ -8269,8 +8270,8 @@ function openGizliSayfa(){
   _gizliSelectedGame=state.selectedGame||'super';
   el.style.left='50%';el.style.top='50%';
   el.style.transform='translate(-50%,-50%)';
-  if(!el.style.width||el.style.width==='')el.style.width='700px';
-  if(!el.style.height||el.style.height==='')el.style.height='580px';
+  if(!el.style.width||el.style.width==='')el.style.width=Math.min(700,window.innerWidth-16)+'px';
+  if(!el.style.height||el.style.height==='')el.style.height=Math.min(580,window.innerHeight-60)+'px';
   el.style.display='flex';
   _gizliRenderGameSelector();
   _gizliRenderInputs();
@@ -9788,7 +9789,11 @@ function _kbCopyFb(text){const t=document.createElement('textarea');t.value=text
 function _kbParseTickets(){const txt=document.getElementById('kbBiletInput')?.value||'',tickets=[];txt.split('\n').forEach((line,li)=>{line=line.trim();if(!line)return;const nums=(line.match(/\d+/g)||[]).map(Number);if(nums.length)tickets.push({nums,idx:li});});return tickets;}
 
 // ── KB render ──────────────────────────────────────────────────
-function _kbInit(){_kbGame=state.selectedGame||_kbGame;_kbRender();}
+function _kbInit(){
+  const sg=state.selectedGame;
+  if(sg&&sg!==_kbGame){_kbGame=sg;}
+  _kbRender();
+}
 function _kbSetGame(g){_kbGame=g;_kbRender();}
 function _kbSetMode(m){_kbMode=m;_kbRender();}
 function _kbRender(){
@@ -10099,7 +10104,7 @@ function showMainPage(id){
   if(id==='scan')_initScanPage();
   if(id==='listeler')_initListelerPage();
   if(id==='kazanan')_initKazananPage();
-  if(id==='kapsamli')_kbInit();
+  if(id==='kapsamli'){_kbGame=state.selectedGame||_kbGame;_kbInit();}
 }
 
 function _scanGetDraws(gameId){
