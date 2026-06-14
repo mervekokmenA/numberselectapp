@@ -9640,6 +9640,7 @@ const _KB_METHODS=[
   {id:'pair',  name:'Eş-görünüm',     icon:'🔗'},
   {id:'sablon',name:'Şablon Zinciri', icon:'🔢'},
   {id:'bayes', name:'Bayes Momentum', icon:'🎲'},
+  {id:'sonhane',name:'Son Hane',      icon:'🔄'},
 ];
 const _KB_MICON={};_KB_METHODS.forEach(m=>_KB_MICON[m.id]=m.icon);
 
@@ -9664,6 +9665,23 @@ function _kbGetDraws(gid){
   _kbDrawCache[gid]=draws;return draws;
 }
 
+function _kbSonHane(draws,max){
+  const sc={};for(let n=1;n<=max;n++)sc[n]=0;
+  const lam=0.82;
+  draws.slice(0,50).forEach((d,i)=>{
+    const w=Math.pow(lam,i);
+    [...d.nums,...(d.bonus||[])].forEach(m=>{
+      const ml=m%10;
+      for(let n=1;n<=max;n++){
+        if(n===m)continue;
+        const nl=n%10,diff=Math.abs(nl-ml);
+        if(diff===0)sc[n]+=w*1.2;
+        else if(diff===1||diff===9)sc[n]+=w*0.5;
+      }
+    });
+  });
+  return sc;
+}
 function _kbSignals(draws,game){
   const max=game.max,cnt=Math.min(game.count,7);
   const freq=buildFreq(draws);
@@ -9674,7 +9692,8 @@ function _kbSignals(draws,game){
   let sablon={};
   try{const r=_sablonScoreNext(draws[0],game);for(let n=1;n<=max;n++)sablon[n]=r.score[n]||0;}catch(e){for(let n=1;n<=max;n++)sablon[n]=0;}
   const bayes=_b10SigBB(draws,max,cnt);
-  return {freq,ewf,delay,pair,sablon,bayes};
+  const sonhane=_kbSonHane(draws,max);
+  return {freq,ewf,delay,pair,sablon,bayes,sonhane};
 }
 
 function _kbCalibrate(draws,game){
@@ -9805,6 +9824,34 @@ function _kbRenderBanko(){
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:4px">⚖️ Yöntem Ağırlıkları</div><div style="font-size:.58rem;color:var(--muted);margin-bottom:9px">Her yöntemin geçmiş isabet katkısına (lift) göre otomatik ağırlığı. Negatif lift = rastgeleden kötü → ağırlık kısılır.</div>`;
   sortedM.forEach(m=>{const w=cal.weights[m.id],lift=cal.lift[m.id];h+=`<div style="display:flex;align-items:center;gap:8px;padding:3px 0"><span style="font-size:.66rem;min-width:122px">${m.icon} ${m.name}</span><div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.05);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;background:rgba(129,140,248,.6);width:${Math.round(w*100)}%"></div></div><span style="font-size:.62rem;color:var(--accent);min-width:36px;text-align:right;font-weight:700">${Math.round(w*100)}%</span><span style="font-size:.56rem;color:${lift>=0?'var(--green)':'#cc2222'};min-width:52px;text-align:right">lift ${lift>=0?'+':''}${(lift*100).toFixed(1)}%</span></div>`;});
   h+=`</div>`;
+  // NS kümülatif toplamlar ve ±k adaylar (son çekilişten)
+  const lastD=draws[0];
+  if(lastD){
+    const sorted=[...lastD.nums].sort((a,b)=>a-b);
+    let ns=0;const nsVals=sorted.map(n=>{ns+=n;return ns;});
+    const nsLabels=['NS₁','NS₂','NS₃','NS₄','NS₅','NS₆','NS₇'];
+    const nsCands=new Map();
+    nsVals.forEach((nsv,ni)=>{
+      for(let k=-4;k<=4;k++){const c=nsv+k;if(c>=1&&c<=game.max){if(!nsCands.has(c))nsCands.set(c,{k,nsi:ni,nsv});}}
+    });
+    const nsCandArr=[...nsCands.entries()].map(([c,v])=>({n:c,k:v.k,nsi:v.nsi,nsv:v.nsv,kb:consMap[c]||{rank:rows.length,support:0,consN:0}})).sort((a,b)=>b.kb.consN-a.kb.consN||Math.abs(a.k)-Math.abs(b.k)).slice(0,20);
+    if(nsCandArr.length){
+      h+=`<div style="background:rgba(129,140,248,.04);border:1px solid rgba(129,140,248,.2);border-radius:10px;padding:11px 14px;margin-top:14px">`;
+      h+=`<div style="font-size:.68rem;font-weight:800;color:var(--accent);margin-bottom:5px">🔢 NS Zincir Adayları — Son Çekilişten</div>`;
+      h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">Son çekiliş (${lastD.date}) kümülatif toplamlar: ${nsVals.map((v,i)=>`${nsLabels[i]}=${v}`).join(' · ')}. Bu değerlere ±4 yakın sayılar:</div>`;
+      const nsCopyTxt=nsCandArr.slice(0,cnt).map(x=>x.n).sort((a,b)=>a-b).join(' ');
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><span style="font-size:.62rem;color:var(--muted)">KB konsensüse göre sıralanmış</span><button onclick="_kbCopy('NS Adayları\\n${nsCopyTxt}')" style="background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.62rem">📋 Top ${cnt}</button></div>`;
+      h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">`;
+      nsCandArr.forEach((x,xi)=>{
+        const hot=x.kb.support>=3,top=xi<cnt;
+        h+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 5px;border-radius:7px;background:${hot?'rgba(0,230,118,.15)':top?'rgba(129,140,248,.12)':'rgba(0,0,0,.04)'};border:1px solid ${hot?'rgba(0,230,118,.4)':top?'rgba(129,140,248,.3)':'rgba(0,0,0,.08)'};font-family:monospace">`;
+        h+=`<span style="font-size:.78rem;font-weight:${hot?'800':'600'};color:${hot?'var(--green)':top?'var(--accent)':'var(--text)'}">${x.n}</span>`;
+        h+=`<span style="font-size:.46rem;color:var(--muted)">${nsLabels[x.nsi]}${x.k>=0?'+':''}${x.k}·#${x.kb.rank}</span>`;
+        h+=`</span>`;
+      });
+      h+=`</div></div>`;
+    }
+  }
   return h;
 }
 
@@ -9972,6 +10019,35 @@ function _kbRunBilet(){
     h+=`</div>`;
   });
   h+=`</div>`;
+  // Çapraz Hane (digit-swap cross candidates from pool pairs)
+  const crossMap={};
+  const poolNums2=poolRows.map(r=>r.n);
+  for(let i=0;i<poolNums2.length;i++){
+    for(let j=i+1;j<poolNums2.length;j++){
+      const n1=poolNums2[i],n2=poolNums2[j];
+      const t1=Math.floor(n1/10),u1=n1%10,t2=Math.floor(n2/10),u2=n2%10;
+      [t1*10+u2,t2*10+u1].forEach(c=>{if(c>=1&&c<=game.max&&!poolCov[c]){crossMap[c]=(crossMap[c]||0)+1;}});
+    }
+  }
+  const crossArr=Object.entries(crossMap).map(([n,c])=>({n:+n,c,kb:consMap[+n]||{rank:rows.length,support:0,consN:0}})).sort((a,b)=>b.c-a.c||b.kb.consN-a.kb.consN).slice(0,12);
+  if(crossArr.length){
+    h+=`<div style="background:rgba(184,134,11,.05);border:1px solid rgba(184,134,11,.25);border-radius:10px;padding:11px 14px;margin-top:10px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
+    h+=`<div style="font-size:.68rem;font-weight:800;color:#8a6200">🔄 Çapraz Hane Adayları</div>`;
+    const cxTxt=crossArr.slice(0,6).map(x=>x.n).sort((a,b)=>a-b).join(' ');
+    h+=`<button onclick="_kbCopy('Çapraz Hane\\n${cxTxt}')" style="background:rgba(184,134,11,.1);border:1px solid rgba(184,134,11,.3);color:#8a6200;border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.62rem">📋 Top 6</button>`;
+    h+=`</div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">Havuz çiftlerinden türetilen çapraz hane sayıları: (AB,CD) → AD ve CB. Havuzda olmayan adaylar.</div>`;
+    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">`;
+    crossArr.forEach((x,xi)=>{
+      const hot=x.kb.support>=3,top=xi<6;
+      h+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 5px;border-radius:7px;background:${hot?'rgba(0,230,118,.15)':top?'rgba(184,134,11,.12)':'rgba(0,0,0,.04)'};border:1px solid ${hot?'rgba(0,230,118,.4)':top?'rgba(184,134,11,.35)':'rgba(0,0,0,.08)'};font-family:monospace">`;
+      h+=`<span style="font-size:.78rem;font-weight:800;color:${hot?'var(--green)':top?'#8a6200':'var(--text)'}">${x.n}</span>`;
+      h+=`<span style="font-size:.46rem;color:var(--muted)">${x.c}çift·#${x.kb.rank}</span>`;
+      h+=`</span>`;
+    });
+    h+=`</div></div>`;
+  }
   res.innerHTML=h;
 }
 
