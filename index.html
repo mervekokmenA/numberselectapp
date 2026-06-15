@@ -476,7 +476,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <div class="counter-ctrl">
         <button onclick="adjustBtCount(-1)">−</button>
         <input type="number" class="counter-val" id="btCountVal" value="4" min="1" max="50"
-          oninput="state.btCount=Math.max(1,Math.min(2000,parseInt(this.value)||1));this.value=state.btCount"
+          oninput="state.btCount=Math.max(1,Math.min(10000,parseInt(this.value)||1));this.value=state.btCount"
           onkeydown="if(event.key==='Enter')updateAlgoScores()">
         <button onclick="adjustBtCount(1)">+</button>
       </div>
@@ -540,7 +540,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <div class="counter-ctrl">
         <button onclick="adjustBtCount2(-1)">−</button>
         <input type="number" class="counter-val" id="btCountVal2" value="4" min="1" max="50"
-          oninput="state.btCount2=Math.max(1,Math.min(2000,parseInt(this.value)||1));this.value=state.btCount2"
+          oninput="state.btCount2=Math.max(1,Math.min(10000,parseInt(this.value)||1));this.value=state.btCount2"
           onkeydown="if(event.key==='Enter')updateAlgoScores2()">
         <button onclick="adjustBtCount2(1)">+</button>
       </div>
@@ -816,7 +816,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       </select>
       <input type="number" id="listelerCount" value="10" min="1" max="10000"
         style="width:64px;font-size:.8rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;text-align:center"
-        oninput="this.value=Math.max(1,Math.min(2000,parseInt(this.value)||1))">
+        oninput="this.value=Math.max(1,Math.min(10000,parseInt(this.value)||1))">
       <span style="font-size:.72rem;color:var(--muted)">bilet</span>
       <button onclick="listelerVeriDurumu()" style="padding:7px 14px;background:rgba(0,150,58,.09);border:1px solid rgba(0,150,58,.35);color:var(--text);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">📥 Veri Durumu</button>
       <button onclick="listelerRunBacktest()" style="padding:7px 16px;background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.08));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🔬 Geçmiş Testi Çalıştır</button>
@@ -5278,8 +5278,8 @@ async function analyzeBtAlgoPositions(gameId){
   renderAlgoScorePanel();
 }
 
-function adjustBtCount(d){ state.btCount=Math.max(1,Math.min(2000,state.btCount+d)); const el=document.getElementById('btCountVal');if(el)el.value=state.btCount; }
-function adjustBtCount2(d){state.btCount2=Math.max(1,Math.min(2000,state.btCount2+d));const el=document.getElementById('btCountVal2');if(el)el.value=state.btCount2;}
+function adjustBtCount(d){ state.btCount=Math.max(1,Math.min(10000,state.btCount+d)); const el=document.getElementById('btCountVal');if(el)el.value=state.btCount; }
+function adjustBtCount2(d){state.btCount2=Math.max(1,Math.min(10000,state.btCount2+d));const el=document.getElementById('btCountVal2');if(el)el.value=state.btCount2;}
 
 // ── Draw schedule (days-of-week: 0=Sun … 6=Sat) ─────────────
 const DRAW_SCHEDULE={sayisal:[1,3,6],super:[0,2,4],sans:[3,0],onnumara:[1,5]};
@@ -8496,7 +8496,7 @@ function gizliModelAra(){
 function _gizliGuc(col,freqMap,archiveSize){
   const hits=col.reduce((s,n)=>s+(freqMap[n]||0),0);
   const pct=hits/Math.max(1,col.length*archiveSize);
-  return Math.round(Math.min(2000,Math.max(100,1400+pct*350)));
+  return Math.round(Math.min(10000,Math.max(100,1400+pct*350)));
 }
 function _gizliCombine(pool,need,bankos,game,freqMap,archiveSize,result,maxR){
   const bankSet=new Set(bankos);
@@ -8536,7 +8536,7 @@ function gizliModelUygula(){
   if(need===0){
     columns.push({col:[...bankos].sort((a,b)=>a-b),guc:_gizliGuc(bankos,freqMap,_gizliArchive.length)});
   }else{
-    _gizliCombine(topPool,need,bankos,game,freqMap,_gizliArchive.length,columns,2000);
+    _gizliCombine(topPool,need,bankos,game,freqMap,_gizliArchive.length,columns,10000);
   }
   if(!columns.length){
     if(kol)kol.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Kolon üretilemedi — banko sayıları ve arşiv uyumsuz.</div>';
@@ -8635,7 +8635,7 @@ function gizliTestEt(){
   const topPool=pool.slice(0,Math.min(maxK,pool.length));
   const columns=[];
   if(need===0){columns.push({col:[...bankos].sort((a,b2)=>a-b2),guc:_gizliGuc(bankos,freqMap,testArchive.length)});}
-  else{_gizliCombine(topPool,need,bankos,game,freqMap,testArchive.length,columns,2000);}
+  else{_gizliCombine(topPool,need,bankos,game,freqMap,testArchive.length,columns,10000);}
   if(!columns.length){
     const res=document.getElementById('gizliTestResult');
     if(res)res.innerHTML='<div style="color:#cc2222;font-size:.72rem">Kolon üretilemedi</div>';return;
@@ -10530,7 +10530,7 @@ function listelerRunBacktest(){
   if(!testDate){showToast('⚠️ Tarih seçin');return;}
   if(_listelerHistory.some(h=>h.date===testDate&&h.game.id===gameId)){showToast('⚠️ Bu tarih için zaten bir sütun var');return;}
   const win=document.getElementById('listelerWindow')?.value||'30';
-  const n=Math.max(1,Math.min(2000,parseInt(document.getElementById('listelerCount')?.value)||10));
+  const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||10));
   const draws=_scanGetDraws(gameId);
   let prior=draws.filter(d=>d.date<testDate);
   if(win!=='all')prior=prior.slice(-parseInt(win));
@@ -10588,7 +10588,7 @@ function listelerRunNewPred(){
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
   const game=getGame(gameId);if(!game)return;
   const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
-  const n=Math.max(1,Math.min(2000,parseInt(document.getElementById('listelerCount')?.value)||10));
+  const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||10));
   const draws=_scanGetDraws(gameId);
   if(!draws.length){showToast('⚠️ Veri yok');return;}
   const win=document.getElementById('listelerWindow')?.value||'30';
