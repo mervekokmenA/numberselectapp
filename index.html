@@ -5652,6 +5652,57 @@ function _peGetProensembleSetup(game,freqOverride,drawsOverride){
   return data;
 }
 
+// Megavote sinyal kalibrasyonu: walk-forward ile EWF/KNN/Pair lift'ini ölçer
+function _mvCalibrate(draws,game){
+  const max=game.max,cnt=game.count;
+  const V=Math.min(18,Math.max(6,Math.floor(draws.length*0.28)));
+  const topK=Math.max(cnt,Math.round(max*0.13));
+  const base=topK/max;
+  const sums={ewf:0,knn:0,pair:0};let valid=0;
+  const gN=d=>(Array.isArray(d)?d:(d.nums||[])).filter(n=>n>=1&&n<=max);
+  const nrm2=arr=>{let mn=Infinity,mx2=-Infinity;for(let n=1;n<=max;n++){if(arr[n]<mn)mn=arr[n];if(arr[n]>mx2)mx2=arr[n];}const r=Math.max(mx2-mn,1e-9),o=new Float32Array(max+1);for(let n=1;n<=max;n++)o[n]=(arr[n]-mn)/r;return o;};
+  for(let t=0;t<V;t++){
+    const prior=draws.slice(t+1);if(prior.length<10)break;
+    const actual=new Set(gN(draws[t]));if(actual.size<2)continue;
+    const T=prior.length;
+    // EWF
+    const ewf=new Float32Array(max+1);
+    prior.forEach((d,i)=>{const w=Math.pow(0.85,i);gN(d).forEach(n=>{ewf[n]+=w;});});
+    // KNN
+    const knn=new Float32Array(max+1);
+    if(T>=4){
+      const ls=new Set(gN(prior[0]));const lsz=ls.size;const sims=[];
+      for(let i=1;i<T-1;i++){const dn=gN(prior[i]);const inter=dn.filter(n=>ls.has(n)).length;const uni=lsz+dn.length-inter;if(uni>0)sims.push({i,sim:inter/uni});}
+      sims.sort((a,b)=>b.sim-a.sim);
+      sims.slice(0,10).forEach(({i,sim},rank)=>{const fd=prior[i-1];if(fd)gN(fd).forEach(n=>{knn[n]+=sim*(1-rank*0.08);});});
+    }
+    // Pair conditional
+    const pair=new Float32Array(max+1);
+    if(T>=8){
+      const pC={},pT={};
+      for(let i=1;i<Math.min(T-1,80);i++){const src=gN(prior[i]);const nxt=gN(prior[i-1]);const w=Math.pow(0.93,i);src.forEach(sn=>{nxt.forEach(tn=>{const k=sn+'_'+tn;pC[k]=(pC[k]||0)+w;});pT[sn]=(pT[sn]||0)+w*nxt.length;});}
+      gN(prior[0]).forEach(sn=>{const tot=pT[sn]||1;for(let n=1;n<=max;n++){const v=pC[sn+'_'+n];if(v)pair[n]+=v/tot;}});
+    }
+    // Lift her sinyal için
+    const sigs={ewf:nrm2(ewf),knn:nrm2(knn),pair:nrm2(pair)};
+    for(const[k,sc]of Object.entries(sigs)){
+      const ranked=[];for(let n=1;n<=max;n++)ranked.push([n,sc[n]]);
+      ranked.sort((a,b)=>b[1]-a[1]);
+      sums[k]+=(ranked.slice(0,topK).filter(([n])=>actual.has(n)).length/topK)-base;
+    }
+    valid++;
+  }
+  if(!valid)return{ewf:0.38,knn:0.37,pair:0.25,game:game.id};
+  // Lift'e göre softmax ağırlıkları (B10 kalibrasyonu ile aynı yöntem)
+  const lifts={};for(const k of['ewf','knn','pair'])lifts[k]=sums[k]/valid;
+  const absMax=Math.max(...Object.values(lifts).map(Math.abs),1e-9);
+  const w={};let wsum=0;
+  for(const k of['ewf','knn','pair']){let v=Math.exp(2.5*lifts[k]/absMax);if(lifts[k]<0)v*=0.08;v=Math.max(v,0.01);w[k]=v;wsum+=v;}
+  for(const k of Object.keys(w))w[k]/=wsum;
+  w.game=game.id;w.lifts=lifts;w.valid=valid;
+  return w;
+}
+
 function generateNumbers(game,algo,freqOverride,drawsOverride){
   const freq=freqOverride||state.frequency;
   const hasHist=Object.keys(freq).length>0;
@@ -6522,9 +6573,10 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const ewfN=nrm(ewf),knnN=nrm(knn),delN=nrm(delayArr),posN=nrm(posScore),pairN=nrm(pairScore);
       const score=new Float32Array(mvMax+1);
       if(mvBt){
-        // BT modu: en isabetli 3 sinyal, yakın çekiliş cezası yok
-        // EWF 38% + KNN 37% + Koşullu çift 25%
-        for(let n=1;n<=mvMax;n++)score[n]=ewfN[n]*0.38+knnN[n]*0.37+pairN[n]*0.25;
+        // BT modu: kalibre edilmiş ağırlıklar (varsa) veya sabit ağırlıklar
+        const cw=window._mvBtCalibWeights&&window._mvBtCalibWeights.game===game.id
+          ?window._mvBtCalibWeights:{ewf:0.38,knn:0.37,pair:0.25};
+        for(let n=1;n<=mvMax;n++)score[n]=ewfN[n]*cw.ewf+knnN[n]*cw.knn+pairN[n]*cw.pair;
       } else {
         // Normal mod: tüm 5 sinyal + yakın çekiliş cezası
         for(let n=1;n<=mvMax;n++)score[n]=ewfN[n]*0.28+knnN[n]*0.30+delN[n]*0.10+posN[n]*0.10+pairN[n]*0.22;
@@ -11738,6 +11790,11 @@ function runScanBacktest(){
   res.innerHTML='<div style="font-size:.75rem;color:var(--muted);padding:20px;text-align:center">⏳ Hesaplanıyor...</div>';
   setTimeout(()=>{
     window._scanBtMode=true;
+    // Megavote için BT başlamadan önce sinyal kalibrasyonu (test öncesi veriyle)
+    if(algoId==='megavote'){
+      const calibDraws=draws.slice(Math.min(btCount,draws.length-1));
+      if(calibDraws.length>=12)window._mvBtCalibWeights=_mvCalibrate(calibDraws,game);
+    }
     const tests=draws.slice(0,Math.min(btCount,draws.length-5));
     const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
     const rows=[];
@@ -11768,12 +11825,27 @@ function runScanBacktest(){
     });
     if(!rows.length){res.innerHTML='<div class="empty-state">Yeterli test satırı oluşturulamadı.</div>';return;}
     const avg=(totalMatch/rows.length).toFixed(2);
+    const hit2Count=rows.filter(r=>r.match>=2).length;
     const pct=Math.round(hitCount/rows.length*100);
-    let html=`<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px">`;
+    const pct2=Math.round(hit2Count/rows.length*100);
+    let html=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">`;
     html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--accent)">${avg}</div><div style="font-size:.62rem;color:var(--muted)">ort. eşleşme</div></div>`;
+    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--gold)">${pct2}%</div><div style="font-size:.62rem;color:var(--muted)">2+ eşleşme</div></div>`;
     html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--green)">${pct}%</div><div style="font-size:.62rem;color:var(--muted)">3+ eşleşme</div></div>`;
     html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--text)">${rows.length}</div><div style="font-size:.62rem;color:var(--muted)">test sayısı</div></div>`;
     html+=`</div>`;
+    // Megavote kalibrasyon bilgisi göster
+    if(algoId==='megavote'&&window._mvBtCalibWeights&&window._mvBtCalibWeights.game===gameId){
+      const cw=window._mvBtCalibWeights;
+      const lf=cw.lifts||{};
+      const fmt=v=>((v>=0?'+':'')+((v||0)*100).toFixed(1)+'%');
+      html+=`<div style="font-size:.6rem;padding:7px 10px;background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.15);border-radius:7px;margin-bottom:8px;display:flex;flex-wrap:wrap;gap:10px;align-items:center">
+        <span style="color:var(--muted);font-weight:700">🎯 Kalibrasyon (${cw.valid} tur)</span>
+        <span>EWF <strong style="color:var(--accent)">${Math.round(cw.ewf*100)}%</strong><span style="color:var(--muted);font-size:.55rem"> lift:${fmt(lf.ewf)}</span></span>
+        <span>KNN <strong style="color:var(--accent)">${Math.round(cw.knn*100)}%</strong><span style="color:var(--muted);font-size:.55rem"> lift:${fmt(lf.knn)}</span></span>
+        <span>Çift <strong style="color:var(--accent)">${Math.round(cw.pair*100)}%</strong><span style="color:var(--muted);font-size:.55rem"> lift:${fmt(lf.pair)}</span></span>
+      </div>`;
+    }
     html+=`<div style="font-size:.67rem;color:var(--muted);margin-bottom:8px">${game.emoji} ${game.name} · ${algoName}</div>`;
     const hasTop12=rows.some(r=>r.top12);
     html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
@@ -11803,6 +11875,7 @@ function runScanBacktest(){
     html+=`</tbody></table></div>`;
     html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓ = isabetli · · = Top-12'de var · turuncu = ±1 yakın</div>`;
     window._scanBtMode=false;
+    window._mvBtCalibWeights=null;
     res.innerHTML=html;
   },20);
 }
