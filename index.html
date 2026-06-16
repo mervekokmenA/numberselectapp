@@ -12,20 +12,21 @@
   --text:#1a1a3e; --muted:#5a5a84; --ball-size:52px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;overflow-x:hidden}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh;overflow-x:hidden;padding-top:52px}
 body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(ellipse at 15% 8%,rgba(82,72,212,.06) 0%,transparent 45%),
     radial-gradient(ellipse at 85% 92%,rgba(224,64,95,.04) 0%,transparent 45%);}
 
 /* Nav */
-.main-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(245,247,252,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 16px;transition:opacity .28s ease,transform .28s ease}
-.main-nav.nav-hidden{opacity:0;transform:translateY(-100%);pointer-events:none}
-.nav-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;min-height:52px;height:auto;flex-wrap:wrap;gap:6px;padding:6px 0}
-.nav-brand{font-size:.96rem;font-weight:800;white-space:nowrap;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
-.nav-links{display:flex;gap:6px;flex-wrap:wrap}
-.nav-link{background:none;border:1px solid transparent;color:var(--muted);border-radius:8px;padding:5px 12px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .18s}
+.main-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(245,247,252,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 12px;height:52px}
+.nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:8px;height:100%}
+.nav-brand{font-size:.9rem;font-weight:800;white-space:nowrap;flex-shrink:0;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex:1;min-width:0}
+.nav-links::-webkit-scrollbar{display:none}
+.nav-link{background:none;border:1px solid transparent;color:var(--muted);border-radius:8px;padding:5px 11px;font-size:.75rem;font-weight:600;cursor:pointer;transition:all .18s;white-space:nowrap;flex-shrink:0}
 .nav-link:hover{border-color:var(--border);color:var(--text)}
 .nav-link.active{background:rgba(108,99,255,.18);border-color:rgba(108,99,255,.45);color:var(--accent)}
+.nav-scroll-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:4px 7px;cursor:pointer;font-size:.8rem;line-height:1;flex-shrink:0;display:none}
 /* Listeler sayfası */
 .lcell{width:22px;height:18px;min-height:18px;max-height:18px;font-size:.58rem;display:flex;align-items:center;justify-content:center;background:#fff;color:#222;border:1px solid #ddd;font-weight:600;border-radius:2px;flex-shrink:0;flex-grow:0;line-height:1;box-sizing:border-box;overflow:hidden}
 .lcell.l-green{background:#43a047;color:#fff;border-color:#2e7d32}
@@ -317,19 +318,21 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <nav class="main-nav" id="mainNav">
   <div class="nav-inner">
-    <span class="nav-brand" onclick="_gizliLogoClick()" style="cursor:pointer;user-select:none">🎱 Loto Tahmin Makinesi</span>
-    <div class="nav-links">
+    <span class="nav-brand" onclick="_gizliLogoClick()" style="cursor:pointer;user-select:none">🎱 Loto</span>
+    <button class="nav-scroll-btn" id="navScrollPrev" onclick="_navScroll(-1)">‹</button>
+    <div class="nav-links" id="navLinks">
       <button class="nav-link active" id="navBtn-home" onclick="showMainPage('home')">🏠 Ana Sayfa</button>
       <button class="nav-link" id="navBtn-scan" onclick="showMainPage('scan')">🔍 Tarama</button>
       <button class="nav-link" id="navBtn-listeler" onclick="showMainPage('listeler')">📋 Listeler</button>
-      <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Geçmiş Kazanan</button>
-      <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı Bakış</button>
-      <button class="nav-link" id="navBtn-b10sistem" onclick="showMainPage('b10sistem')">🎟️ B10 Sistem</button>
-      <button class="nav-link" id="navBtn-bankocoz" onclick="showMainPage('bankocoz')">🎯 Banko Çözücü</button>
-      <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Süper Özel</button>
-      <button class="nav-link" id="navBtn-capraz" onclick="showMainPage('capraz')">🔀 Çapraz Bilet</button>
-      <button class="nav-link" id="navBtn-nsa" onclick="openGizliSayfa()" style="border-color:rgba(184,134,11,.4);color:#8a6200">🔐 NSA Sistemi</button>
+      <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Kazanan</button>
+      <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı</button>
+      <button class="nav-link" id="navBtn-b10sistem" onclick="showMainPage('b10sistem')">🎟️ B10</button>
+      <button class="nav-link" id="navBtn-bankocoz" onclick="showMainPage('bankocoz')">🎯 Banko</button>
+      <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
+      <button class="nav-link" id="navBtn-capraz" onclick="showMainPage('capraz')">🔀 Çapraz</button>
+      <button class="nav-link" id="navBtn-nsa" onclick="openGizliSayfa()" style="border-color:rgba(184,134,11,.4);color:#8a6200">🔐 NSA</button>
     </div>
+    <button class="nav-scroll-btn" id="navScrollNext" onclick="_navScroll(1)">›</button>
   </div>
 </nav>
 
@@ -10269,19 +10272,27 @@ function showMainPage(id){
   if(id==='capraz')_cxInit();
 }
 
-// Nav: visible on scroll/initial load, hides after inactivity; body padding synced
+// Nav: always fixed, single row; scroll buttons on large screens, touch scroll on mobile
 (function(){
   const nav=document.getElementById('mainNav');
-  if(!nav)return;
-  let t=null;
-  const applyPad=()=>{document.body.style.paddingTop=nav.offsetHeight+'px';};
-  const hide=()=>{t=setTimeout(()=>{nav.classList.add('nav-hidden');document.body.style.paddingTop='0';},1800);};
-  const show=()=>{clearTimeout(t);nav.classList.remove('nav-hidden');applyPad();};
-  window.addEventListener('scroll',()=>{show();hide();},{passive:true});
-  window.addEventListener('resize',()=>{if(!nav.classList.contains('nav-hidden'))applyPad();},{passive:true});
-  applyPad();
-  // İlk girişte menü sabit kalır; kullanıcı kaydırana kadar gizlenmez
+  const links=document.getElementById('navLinks');
+  const prev=document.getElementById('navScrollPrev');
+  const next=document.getElementById('navScrollNext');
+  if(!nav||!links)return;
+  document.body.style.paddingTop=nav.offsetHeight+'px';
+  function update(){
+    const overflow=links.scrollWidth>links.clientWidth+4;
+    if(prev)prev.style.display=overflow?'block':'none';
+    if(next)next.style.display=overflow?'block':'none';
+  }
+  links.addEventListener('scroll',update,{passive:true});
+  window.addEventListener('resize',update,{passive:true});
+  update();
 })();
+function _navScroll(dir){
+  const links=document.getElementById('navLinks');
+  if(links)links.scrollBy({left:dir*160,behavior:'smooth'});
+}
 
 function _scanGetDraws(gameId){
   const raw=DRAW_DATA[gameId]||'';
