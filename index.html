@@ -5103,17 +5103,7 @@ function initAlgoGrid(){
   }
   const medals={1:'🥇',2:'🥈',3:'🥉'};
   document.getElementById('algoGrid').innerHTML='<div class="algo-score-panel">'+ALGOS.map(a=>{
-    let posHtml='';
-    if(scores&&scores[a.id]){
-      const good=scores[a.id].filter(x=>x.lift>0.08).sort((x,y)=>y.lift-x.lift);
-      if(good.length){
-        const tags=good.slice(0,4).sort((x,y)=>x.pos-y.pos)
-          .map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet">${x.pos}</span>`).join('');
-        posHtml=`<div class="algo-pos-row" style="margin-top:3px">${tags}</div>`;
-      }
-    } else if(analyzing){
-      posHtml=`<span style="font-size:.62rem;color:var(--muted)">⏳</span>`;
-    }
+    const posHtml='';
     // Retrotest badge
     let perfHtml='';
     if(perf&&perf[a.id]){
@@ -5227,7 +5217,8 @@ async function analyzeAlgoPositions(gameId){
     actual.forEach(n=>{ numApps[n]=(numApps[n]||0)+1; });
 
     for(const algo of ALGOS){
-      if(algo.id==='proensemble')continue;
+      // Ağır algoritmalar konum analizinden çıkarılıyor (UI performansı için)
+      if(algo.id==='proensemble'||algo.id==='megavote')continue;
       try{
         const pred=generateNumbers(game,algo.id,freq,prior);
         const pSet=new Set(pred.main);
@@ -5236,7 +5227,7 @@ async function analyzeAlgoPositions(gameId){
         actual.forEach(n=>{ if(!numHits[algo.id][n])numHits[algo.id][n]=0; if(pSet.has(n))numHits[algo.id][n]++; });
       }catch(e){}
     }
-    if((i-MIN_PRIOR)%3===2) await new Promise(r=>setTimeout(r,0));
+    if((i-MIN_PRIOR)%2===1) await new Promise(r=>setTimeout(r,0));
     if(state._analyzingGame!==gameId)return;
   }
 
@@ -6780,17 +6771,7 @@ async function generateTickets(){
   const copyAll=(algo?.name||state.selectedAlgo)+'\n'+ticketsSorted.map(({t})=>[...t.main,...t.bonus].join(' - ')).join('\n');
   state._copyText=copyAll;
   const conf=calcConfidence(state.selectedAlgo);
-  const posRow=(()=>{
-    if(!posScores||!posScores[state.selectedAlgo])return '';
-    const good=posScores[state.selectedAlgo].filter(x=>x.lift>0.08).sort((a,b)=>b.lift-a.lift);
-    if(!good.length)return '';
-    const tags=good.slice(0,6).sort((a,b)=>a.pos-b.pos)
-      .map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet">${x.pos}</span>`).join('');
-    return `<div style="display:flex;align-items:center;gap:5px;margin-bottom:8px;flex-wrap:wrap">
-      <span style="font-size:.63rem;color:var(--muted)">Güçlü konumlar:</span>
-      <div class="algo-pos-row" style="margin:0">${tags}</div>
-    </div>`;
-  })();
+  const posRow='';
   const BSZ_GEN=mobileBSZ();
   const genPosHeader=(()=>{
     const nums=Array.from({length:game.count},(_,pi)=>
@@ -7365,20 +7346,8 @@ function updateAlgoScores(){
   const posScores=state.algoPositionScores[gameId];
   const numScores=state.algoNumberScores[gameId];
   panel.innerHTML=`<div class="algo-score-panel">${results.map(r=>{
-    let posHtml='';
-    if(posScores&&posScores[r.id]){
-      const good=posScores[r.id].filter(x=>x.lift>0.08).sort((x,y)=>y.lift-x.lift);
-      if(good.length){
-        const tags=good.slice(0,4).sort((x,y)=>x.pos-y.pos)
-          .map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet">${x.pos}</span>`).join('');
-        posHtml=`<div class="algo-pos-row" style="margin-top:3px">${tags}</div>`;
-      }
-
-    }
-    const hasPos=!!posHtml;
-    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:stretch;':''}" onclick="selectAlgo('${r.id}');document.querySelectorAll('.algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
+    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer" onclick="selectAlgo('${r.id}');document.querySelectorAll('.algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
       <div style="display:flex;align-items:center;gap:4px;min-width:0"><span class="as-name" style="min-width:0;width:100%">${ALGO_SHORT[r.id]||r.id}</span><span class="as-val" style="flex-shrink:0">${r.match}/${total}</span></div>
-      ${posHtml}
     </div>`;
   }).join('')}</div>`;
   state._algoScoreCache[cKey]=panel.innerHTML;
@@ -7424,20 +7393,9 @@ function updateAlgoScores2(){
     return{id:a.id,match:best};
   });
   const maxMatch=Math.max(...results.map(r=>r.match));
-  const posScores=state.algoPositionScores[gameId];
   panel.innerHTML=`<div class="algo-score-panel">${results.map(r=>{
-    let posHtml='';
-    if(posScores&&posScores[r.id]){
-      const good=posScores[r.id].filter(x=>x.lift>0.08).sort((x,y)=>y.lift-x.lift);
-      if(good.length){
-        const tags=good.slice(0,4).sort((x,y)=>x.pos-y.pos).map(x=>`<span class="algo-pos-tag${x.lift>0.25?' strong':''}" title="${x.pos}. sıra: %${Math.round(x.rate*100)} isabet">${x.pos}</span>`).join('');
-        posHtml=`<div class="algo-pos-row" style="margin-top:3px">${tags}</div>`;
-      }
-    }
-    const hasPos=!!posHtml;
-    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer;${hasPos?'flex-direction:column;align-items:stretch;':''}" onclick="document.getElementById('btAlgo2').value='${r.id}';state.btAlgo2='${r.id}';document.querySelectorAll('#algoScorePanel2 .algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
+    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer" onclick="document.getElementById('btAlgo2').value='${r.id}';state.btAlgo2='${r.id}';document.querySelectorAll('#algoScorePanel2 .algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
       <div style="display:flex;align-items:center;gap:4px;min-width:0"><span class="as-name" style="min-width:0;width:100%">${ALGO_SHORT[r.id]||r.id}</span><span class="as-val" style="flex-shrink:0">${r.match}/${total}</span></div>
-      ${posHtml}
     </div>`;
   }).join('')}</div>`;
   state._algoScoreCache2[cKey]=panel.innerHTML;
