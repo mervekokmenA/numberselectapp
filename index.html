@@ -6453,11 +6453,12 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const mvPerf=state.algoPerf&&state.algoPerf[game.id];
       const mvExclude=new Set(['megavote','random','proensemble']);
       const mvAlgos=ALGOS.filter(a=>!mvExclude.has(a.id));
-      // İki pencere: kısa (son 20) ve uzun (son 100) — her ikisinde de çalıştır
-      const mvShort=mvD.slice(0,Math.min(20,mvD.length));
+      // Backtest modunda hızlı çalış: 1 pencere + az sim
+      const mvBt=!!window._scanBtMode;
       const mvLong=mvD.slice(0,Math.min(100,mvD.length));
-      const mvWindows=[[mvShort,buildFreq(mvShort)],[mvLong,buildFreq(mvLong)]].filter(([w])=>w.length>=3);
-      const MV_SIMS=18;
+      const mvShort=mvD.slice(0,Math.min(20,mvD.length));
+      const mvWindows=mvBt?[[mvLong,freq]]:[[mvShort,buildFreq(mvShort)],[mvLong,buildFreq(mvLong)]].filter(([w])=>w.length>=3);
+      const MV_SIMS=mvBt?5:18;
       for(const mvAlgo of mvAlgos){
         const algoW=mvPerf?Math.max(0.3,mvPerf[mvAlgo.id]?.avg||0.8):1.0;
         for(const[window,wFreq]of mvWindows){
@@ -11560,6 +11561,7 @@ function runScanBacktest(){
   if(draws.length<5){res.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Bu oyun için yeterli veri yok.</div>';return;}
   res.innerHTML='<div style="font-size:.75rem;color:var(--muted);padding:20px;text-align:center">⏳ Hesaplanıyor...</div>';
   setTimeout(()=>{
+    window._scanBtMode=true;
     const tests=draws.slice(0,Math.min(btCount,draws.length-5));
     const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
     const rows=[];
@@ -11603,6 +11605,7 @@ function runScanBacktest(){
       html+=`</tr>`;
     });
     html+=`</tbody></table></div>`;
+    window._scanBtMode=false;
     res.innerHTML=html;
   },20);
 }
