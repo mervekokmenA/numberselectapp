@@ -11757,6 +11757,11 @@ function _mpRCopy(text){
     navigator.clipboard.writeText(text).then(()=>showToast('✅ Kopyalandı'),()=>{_mpRCopyFallback(text);});
   }else{_mpRCopyFallback(text);}
 }
+let _mpRAllTicketsTxt='';
+function _mpRCopyAll(){
+  if(!_mpRAllTicketsTxt){showToast('⚠️ Kopyalanacak kupon yok');return;}
+  _mpRCopy(_mpRAllTicketsTxt);
+}
 function _mpRCopyFallback(text){
   const t=document.createElement('textarea');t.value=text;t.style.position='fixed';t.style.opacity='0';
   document.body.appendChild(t);t.select();try{document.execCommand('copy');showToast('✅ Kopyalandı');}catch(e){}document.body.removeChild(t);
@@ -11853,8 +11858,6 @@ function _mpRRenderPrediction(tickets,poolRows,game,gid,totalDraws,cal,actual){
   });
   html+=`</div>`;
   // Ticket ranking by KB score (+ actual hits in backtest)
-  html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px">`;
-  html+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">🎫 Kuponlar — ${isBacktest?'Gerçek İsabet + KB Sıra':'KB Örtüşme Sıralaması'}</div>`;
   const ranked=[...tickets].map(t=>{
     const strong=t.main.filter(n=>strongPoolSet.has(n)).length;
     const top=t.main.filter(n=>topPoolSet.has(n)).length;
@@ -11865,6 +11868,12 @@ function _mpRRenderPrediction(tickets,poolRows,game,gid,totalDraws,cal,actual){
     if(isBacktest&&a.hitCount!==null&&a.hitCount!==b.hitCount)return b.hitCount-a.hitCount;
     return b.strong-a.strong||b.top-a.top||b.score-a.score;
   });
+  _mpRAllTicketsTxt=ranked.map((t,ri)=>`${ri+1}) ${t.main.join(' ')}${t.bonus&&t.bonus.length?' | '+t.bonus.join(' '):''}`).join('\n');
+  html+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 14px">`;
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">`;
+  html+=`<div style="font-size:.72rem;font-weight:800;color:var(--text)">🎫 Kuponlar — ${isBacktest?'Gerçek İsabet + KB Sıra':'KB Örtüşme Sıralaması'}</div>`;
+  html+=`<button onclick="_mpRCopyAll()" style="background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:.62rem;font-weight:700;flex-shrink:0">📋 Tümünü Kopyala (${ranked.length})</button>`;
+  html+=`</div>`;
   ranked.forEach((t,ri)=>{
     const medal=ri===0?'🥇':ri===1?'🥈':ri===2?'🥉':'';
     const ticketTxt=t.main.join(' ')+(t.bonus&&t.bonus.length?' | '+t.bonus.join(' '):'');
