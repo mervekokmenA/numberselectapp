@@ -957,12 +957,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button class="bz-mode-btn" data-mode="pool" onclick="_bzSetMode('pool')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🔬 Bilet Havuzu</button>
    <button class="bz-mode-btn" data-mode="model" onclick="_bzSetMode('model')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🔍 Model Keşfi</button>
   </div>
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:8px 10px;background:rgba(248,113,113,.04);border:1px solid rgba(248,113,113,.18);border-radius:8px">
-   <span style="font-size:.6rem;color:var(--accent2);font-weight:700;white-space:nowrap">⛔ Hariç Bırak:</span>
-   <input id="bzExcludeInput" type="text" placeholder="Sayı veya aralık: 10 18 20-29 63 ..." oninput="_bzSetExclude(this.value)" style="flex:1;min-width:140px;background:var(--surface2);border:1px solid rgba(248,113,113,.3);color:var(--text);border-radius:6px;padding:4px 8px;font-size:.68rem;font-family:monospace">
-   <span id="bzExcludeCount" style="font-size:.58rem;color:var(--muted)"></span>
-   <button onclick="document.getElementById('bzExcludeInput').value='';_bzSetExclude('')" style="font-size:.58rem;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">Temizle</button>
-  </div>
+  <div id="bzExcludeBox" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:8px 10px;background:rgba(248,113,113,.04);border:1px solid rgba(248,113,113,.18);border-radius:8px"></div>
   <div id="bzContent"></div>
  </div>
 </div>
@@ -8336,6 +8331,7 @@ function openGizliSayfa(){
   el.style.display='flex';
   _gizliRenderGameSelector();
   _gizliRenderInputs();
+  _gizliRenderExclude();
   gizliArsivTemizle();
   gizliTestInit();
   clearTimeout(_gizliSablonTimer);
@@ -8400,8 +8396,10 @@ function _gizliGetDraws(){
 let _gizliSablonTimer=null;
 function _gizliSetGame(gameId){
   _gizliSelectedGame=gameId;
+  _gizliExclude=new Set();
   _gizliRenderGameSelector();
   _gizliRenderInputs();
+  _gizliRenderExclude();
   gizliArsivTemizle();
   gizliTestInit();
   clearTimeout(_gizliSablonTimer);
@@ -8715,12 +8713,6 @@ function gizliKopyalaHepsi(){
     showToast('Kopyalanamadı — metin: '+text.slice(0,40));
   });
 }
-function _gizliSetExclude(v){
-  _gizliExclude=_bzParseExclude(v);
-  const cnt=document.getElementById('gizliExcludeCount');
-  if(cnt)cnt.textContent=_gizliExclude.size>0?`${_gizliExclude.size} sayı hariç`:'';
-}
-
 // ── Şablon Analizi UI ─────────────────────────────────────────
 let _sablonView='last';
 let _sablonBtK=15;
@@ -12357,23 +12349,38 @@ const _BZ_SIGNALS=[
 
 let _bzGame='sayisal',_bzMode='auto',_bzExclude=new Set();
 
-function _bzParseExclude(str){
-  const s=new Set();
-  if(!str||!str.trim())return s;
-  str.trim().split(/[\s,;]+/).forEach(p=>{
-    const r=p.match(/^(\d+)-(\d+)$/);
-    if(r){const lo=parseInt(r[1]),hi=parseInt(r[2]);for(let n=Math.min(lo,hi);n<=Math.max(lo,hi);n++)s.add(n);}
-    else{const n=parseInt(p);if(!isNaN(n)&&n>=1)s.add(n);}
-  });
-  return s;
+function _buildDecadeGroups(maxNum){
+  const g=[];
+  if(maxNum>=1)g.push({lo:1,hi:Math.min(9,maxNum)});
+  for(let d=10;d<=maxNum;d+=10)g.push({lo:d,hi:Math.min(d+9,maxNum)});
+  return g;
 }
-
-function _bzSetExclude(v){
-  _bzExclude=_bzParseExclude(v);
-  const cnt=document.getElementById('bzExcludeCount');
-  if(cnt)cnt.textContent=_bzExclude.size>0?`${_bzExclude.size} sayı hariç`:'';
-  _bzRender();
+function _decadeLabel(lo,hi){
+  if(lo===1)return'1-9';
+  if(lo===hi)return String(lo);
+  return lo+([20,50,70,80].includes(lo)?'ler':'lar');
 }
+function _renderDecadeExclude(containerId,maxNum,excludeSet,toggleFn,clearFn){
+  const el=document.getElementById(containerId);
+  if(!el)return;
+  const groups=_buildDecadeGroups(maxNum);
+  const boxes=groups.map(({lo,hi})=>{
+    const allOn=Array.from({length:hi-lo+1},(_,i)=>lo+i).every(n=>excludeSet.has(n));
+    const lbl=_decadeLabel(lo,hi);
+    return`<label style="display:inline-flex;align-items:center;gap:3px;cursor:pointer;font-size:.64rem;color:${allOn?'#cc2222':'var(--muted)'};white-space:nowrap"><input type="checkbox" ${allOn?'checked':''} onchange="${toggleFn}(${lo},${hi},this.checked)" style="accent-color:#cc2222;width:12px;height:12px;cursor:pointer"> ${lbl}</label>`;
+  }).join('');
+  const hasAny=excludeSet.size>0;
+  el.innerHTML=`<span style="font-size:.6rem;color:#cc2222;font-weight:700;flex-shrink:0;white-space:nowrap">⛔ Hariç Bırak:</span>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;flex:1;align-items:center">${boxes}</div>
+    ${hasAny?`<span style="font-size:.58rem;color:#cc2222;white-space:nowrap">${excludeSet.size} sayı</span>`:''}
+    ${hasAny?`<button onclick="${clearFn}()" style="background:rgba(220,40,40,.08);border:1px solid rgba(220,40,40,.2);color:#cc2222;border-radius:5px;padding:2px 8px;cursor:pointer;font-size:.62rem;flex-shrink:0">Temizle</button>`:''}`;
+}
+function _bzRenderExclude(){_renderDecadeExclude('bzExcludeBox',getGame(_bzGame).max,_bzExclude,'_bzToggleDecade','_bzClearExclude');}
+function _bzToggleDecade(lo,hi,checked){for(let n=lo;n<=hi;n++){if(checked)_bzExclude.add(n);else _bzExclude.delete(n);}; _bzRenderExclude();_bzRender();}
+function _bzClearExclude(){_bzExclude=new Set();_bzRenderExclude();_bzRender();}
+function _gizliRenderExclude(){_renderDecadeExclude('gizliExcludeBox',_gizliCurrentGame().max,_gizliExclude,'_gizliToggleDecade','_gizliClearExclude');}
+function _gizliToggleDecade(lo,hi,checked){for(let n=lo;n<=hi;n++){if(checked)_gizliExclude.add(n);else _gizliExclude.delete(n);}; _gizliRenderExclude();}
+function _gizliClearExclude(){_gizliExclude=new Set();_gizliRenderExclude();}
 const _bzZero=max=>{const o={};for(let n=1;n<=max;n++)o[n]=0;return o;};
 
 // Tüm ucuz sinyallerin skor haritası (prior: yeniden→eskiye sıralı çekilişler)
@@ -12590,6 +12597,7 @@ function _bzRender(){
     b.style.color=a?'var(--accent)':'var(--muted)';
     b.style.borderColor=a?'rgba(108,99,255,.5)':'var(--border)';
   });
+  _bzRenderExclude();
   if(_bzMode==='auto')el.innerHTML=_bzRenderAuto();
   else if(_bzMode==='pool'){el.innerHTML=_bzRenderPool();_bzInitPoolDateSel();}
   else el.innerHTML=_bzModelRender();
@@ -13431,12 +13439,7 @@ function _cxBacktest(){
    <div id="gizliBankoInputs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
   </div>
 
-  <div style="background:var(--surface);border:1px solid rgba(220,40,40,.22);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-   <span style="font-size:.6rem;color:#cc2222;font-weight:700;flex-shrink:0">⛔ Hariç Bırak:</span>
-   <input id="gizliExcludeInput" type="text" placeholder="Sayı veya aralık: 10 18 20-29 63 ..." oninput="_gizliSetExclude(this.value)" style="flex:1;min-width:180px;padding:4px 8px;font-size:.72rem;background:var(--surface2);border:1px solid rgba(220,40,40,.25);border-radius:6px;color:var(--text)">
-   <span id="gizliExcludeCount" style="font-size:.58rem;color:var(--muted);white-space:nowrap"></span>
-   <button onclick="document.getElementById('gizliExcludeInput').value='';_gizliSetExclude('')" style="background:rgba(220,40,40,.08);border:1px solid rgba(220,40,40,.2);color:#cc2222;border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.65rem;flex-shrink:0">Temizle</button>
-  </div>
+  <div id="gizliExcludeBox" style="background:var(--surface);border:1px solid rgba(220,40,40,.22);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"></div>
 
   <div id="gizliModelAraResult" style="display:none;background:var(--surface);border:1px solid rgba(0,150,58,.22);border-radius:10px;padding:12px;margin-bottom:10px"></div>
 
