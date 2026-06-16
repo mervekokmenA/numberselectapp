@@ -12921,6 +12921,24 @@ function _bzSistemKupon(bankos,pool,totalCount){
   pick(0,[]);
   return combos;
 }
+// Sistem Kupon HTML'i: başlık + "tüm kolonları kopyala" + tıkla-kopyala satırlar
+function _bzTicketsHTML(tickets,bankos,game,subLabel){
+  if(!tickets||!tickets.length)return'';
+  const lines=tickets.map((t,i)=>`${(i+1).toString().padStart(2,'0')}. ${t.join(' ')}`).join('\n');
+  window._bzTicketsCopy=`${game.name} — Sistem Kupon (banko ${bankos.join(' ')})\n${lines}`;
+  let h=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px">`;
+  h+=`<div style="font-size:.74rem;font-weight:800">🎫 Sistem Kupon</div>`;
+  h+=`<button onclick="_kbCopy(window._bzTicketsCopy)" style="font-size:.58rem;padding:4px 9px;border-radius:6px;border:1px solid rgba(0,230,118,.4);background:rgba(0,230,118,.1);color:var(--green);cursor:pointer;font-weight:700;white-space:nowrap;flex-shrink:0">📋 Tüm kolonlar (${tickets.length})</button>`;
+  h+=`</div>`;
+  h+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:8px">${tickets.length} kolon · toplam ${game.count} sayı/kolon${subLabel?` · ${subLabel}`:''} <span style="opacity:.7">— satıra tıkla = o kolonu kopyala</span></div>`;
+  tickets.forEach((t,i)=>{
+    const txt=t.join(' ');
+    h+=`<div onclick="_kbCopy('${txt}')" title="Bu kolonu kopyala" style="font-size:.65rem;font-family:monospace;padding:3px 4px;border-bottom:1px solid rgba(0,0,0,.03);cursor:pointer;border-radius:5px" onmouseover="this.style.background='rgba(108,99,255,.07)'" onmouseout="this.style.background='transparent'"><span style="color:var(--muted)">${(i+1).toString().padStart(2,'0')}.</span> ${t.map(n=>bankos.includes(n)?`<strong style="color:var(--green)">${n}</strong>`:n).join(' ')}</div>`;
+  });
+  h+=`</div>`;
+  return h;
+}
 let _bzModelResult=null;
 function _bzModelRender(){
   const game=getGame(_bzGame);
@@ -12966,13 +12984,7 @@ function _bzModelAnalyze(mode){
         h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">`;
         topCands.forEach((r,i)=>{h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:26px;padding:0 5px;border-radius:7px;background:${i<bankos.length?"rgba(0,230,118,.2)":"rgba(129,140,248,.12)"};border:1px solid ${i<bankos.length?"rgba(0,230,118,.5)":"rgba(129,140,248,.3)"};font-family:monospace;font-size:.7rem;font-weight:700;color:${i<bankos.length?"var(--green)":"var(--accent)"}">${r.n}</span>`;});
         h+=`</div></div>`;
-        if(tickets.length){
-          h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">`;
-          h+=`<div style="font-size:.74rem;font-weight:800;margin-bottom:4px">🎫 Sistem Kupon (banko ${bankos.join('·')} + pool ${pool.join('·')})</div>`;
-          h+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:8px">${tickets.length} kolon · toplam ${game.count} sayı/kolon</div>`;
-          tickets.forEach((t,i)=>{h+=`<div style="font-size:.65rem;font-family:monospace;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.03)"><span style="color:var(--muted)">${(i+1).toString().padStart(2,'0')}.</span> ${t.map(n=>bankos.includes(n)?`<strong style="color:var(--green)">${n}</strong>`:n).join(' ')}</div>`;});
-          h+=`</div>`;
-        }
+        h+=_bzTicketsHTML(tickets,bankos,game,`banko ${bankos.join('·')} + pool ${pool.join('·')}`);
         _bzModelResult=h;out.innerHTML=h;
       } else {
         // Intra-game model
@@ -13005,13 +13017,7 @@ function _bzModelAnalyze(mode){
         h+=`</div>`;
         h+=`<div style="font-size:.57rem;color:var(--muted)">Yeşil = banko (${bankos.join('·')}) · Mor = sistem pool (${pool.join('·')})</div>`;
         h+=`</div>`;
-        if(tickets.length){
-          h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">`;
-          h+=`<div style="font-size:.74rem;font-weight:800;margin-bottom:4px">🎫 Sistem Kupon</div>`;
-          h+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:8px">${tickets.length} kolon · banko: ${bankos.join('·')} + pool: ${pool.join('·')} → C(${pool.length},${game.count-bankos.length})</div>`;
-          tickets.forEach((t,i)=>{h+=`<div style="font-size:.65rem;font-family:monospace;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.03)"><span style="color:var(--muted)">${(i+1).toString().padStart(2,'0')}.</span> ${t.map(n=>bankos.includes(n)?`<strong style="color:var(--green)">${n}</strong>`:n).join(' ')}</div>`;});
-          h+=`</div>`;
-        }
+        h+=_bzTicketsHTML(tickets,bankos,game,`banko: ${bankos.join('·')} + pool: ${pool.join('·')} → C(${pool.length},${game.count-bankos.length})`);
         _bzModelResult=h;out.innerHTML=h;
       }
     }catch(e){out.innerHTML=`<span style="font-size:.65rem;color:var(--accent2)">⚠️ Hata: ${e.message}</span>`;}
