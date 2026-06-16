@@ -19,12 +19,23 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 
 /* Nav */
 .main-nav{position:sticky;top:0;z-index:100;background:rgba(245,247,252,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 16px}
-.nav-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;min-height:52px;height:auto;flex-wrap:wrap;gap:6px;padding:6px 0}
-.nav-brand{font-size:.96rem;font-weight:800;white-space:nowrap;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;min-height:52px;gap:6px;padding:6px 0;flex-wrap:nowrap}
+.nav-brand{font-size:.96rem;font-weight:800;white-space:nowrap;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;flex-shrink:0}
 .nav-links{display:flex;gap:6px;flex-wrap:wrap}
 .nav-link{background:none;border:1px solid transparent;color:var(--muted);border-radius:8px;padding:5px 12px;font-size:.78rem;font-weight:600;cursor:pointer;transition:all .18s}
 .nav-link:hover{border-color:var(--border);color:var(--text)}
 .nav-link.active{background:rgba(108,99,255,.18);border-color:rgba(108,99,255,.45);color:var(--accent)}
+.nav-hamburger{display:none;background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:1rem;color:var(--muted);flex-shrink:0}
+.nav-drawer{display:none;position:fixed;top:0;right:0;bottom:0;width:220px;background:rgba(245,247,252,.98);backdrop-filter:blur(20px);border-left:1px solid var(--border);z-index:200;flex-direction:column;padding:16px 12px;gap:4px;box-shadow:-4px 0 24px rgba(0,0,0,.1);transition:transform .22s ease}
+.nav-drawer.open{display:flex}
+.nav-drawer-overlay{display:none;position:fixed;inset:0;z-index:199;background:rgba(0,0,0,.25)}
+.nav-drawer-overlay.open{display:block}
+.nav-drawer .nav-link{width:100%;text-align:left;padding:9px 14px;font-size:.84rem}
+.nav-drawer-close{background:none;border:none;font-size:1.3rem;cursor:pointer;color:var(--muted);align-self:flex-end;margin-bottom:6px;padding:2px 6px}
+@media(max-width:800px){
+  .nav-hamburger{display:block}
+  .nav-links{display:none}
+}
 /* Listeler sayfası */
 .lcell{width:22px;height:18px;min-height:18px;max-height:18px;font-size:.58rem;display:flex;align-items:center;justify-content:center;background:#fff;color:#222;border:1px solid #ddd;font-weight:600;border-radius:2px;flex-shrink:0;flex-grow:0;line-height:1;box-sizing:border-box;overflow:hidden}
 .lcell.l-green{background:#43a047;color:#fff;border-color:#2e7d32}
@@ -314,6 +325,19 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 </head>
 <body>
 
+<div class="nav-drawer-overlay" id="navOverlay" onclick="_navClose()"></div>
+<div class="nav-drawer" id="navDrawer">
+  <button class="nav-drawer-close" onclick="_navClose()">✕</button>
+  <button class="nav-link" id="navDrBtn-home" onclick="showMainPage('home');_navClose()">🏠 Ana Sayfa</button>
+  <button class="nav-link" id="navDrBtn-scan" onclick="showMainPage('scan');_navClose()">🔍 Tarama</button>
+  <button class="nav-link" id="navDrBtn-listeler" onclick="showMainPage('listeler');_navClose()">📋 Listeler</button>
+  <button class="nav-link" id="navDrBtn-kazanan" onclick="showMainPage('kazanan');_navClose()">🏆 Geçmiş Kazanan</button>
+  <button class="nav-link" id="navDrBtn-kapsamli" onclick="showMainPage('kapsamli');_navClose()">🧭 Kapsamlı Bakış</button>
+  <button class="nav-link" id="navDrBtn-b10sistem" onclick="showMainPage('b10sistem');_navClose()">🎟️ B10 Sistem</button>
+  <button class="nav-link" id="navDrBtn-bankocoz" onclick="showMainPage('bankocoz');_navClose()">🎯 Banko Çözücü</button>
+  <button class="nav-link" id="navDrBtn-soz" onclick="showMainPage('soz');_navClose()">🔮 Süper Özel</button>
+  <button class="nav-link" id="navDrBtn-capraz" onclick="showMainPage('capraz');_navClose()">🔀 Çapraz Bilet</button>
+</div>
 <nav class="main-nav">
   <div class="nav-inner">
     <span class="nav-brand" onclick="_gizliLogoClick()" style="cursor:pointer;user-select:none">🎱 Loto Tahmin Makinesi</span>
@@ -328,6 +352,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Süper Özel</button>
       <button class="nav-link" id="navBtn-capraz" onclick="showMainPage('capraz')">🔀 Çapraz Bilet</button>
     </div>
+    <button class="nav-hamburger" onclick="_navOpen()" title="Menü">☰</button>
   </div>
 </nav>
 
@@ -10220,6 +10245,7 @@ function showMainPage(id){
   });
   ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem','navBtn-bankocoz','navBtn-soz','navBtn-capraz'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
+    document.getElementById(bid.replace('navBtn-','navDrBtn-'))?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
   if(id==='listeler')_initListelerPage();
@@ -10229,6 +10255,15 @@ function showMainPage(id){
   if(id==='bankocoz')_bzInit();
   if(id==='soz')_soInit();
   if(id==='capraz')_cxInit();
+}
+
+function _navOpen(){
+  document.getElementById('navDrawer')?.classList.add('open');
+  document.getElementById('navOverlay')?.classList.add('open');
+}
+function _navClose(){
+  document.getElementById('navDrawer')?.classList.remove('open');
+  document.getElementById('navOverlay')?.classList.remove('open');
 }
 
 function _scanGetDraws(gameId){
@@ -12961,23 +12996,33 @@ function _soRenderFull(){
   const game=getGame(_soGame);
   const draws=_kbGetDraws(_soGame);
   if(!draws||draws.length<2){el.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok.</div>';return;}
-  if(!_soDate||!draws.find(d=>d.date===_soDate))_soDate=draws[0].date;
   const GLIST=[{id:'sayisal',e:'🔵',n:'Sayısal'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
   let h=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">`;
   GLIST.forEach(g=>{const a=g.id===_soGame;h+=`<button onclick="_soSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;});
   h+=`</div>`;
-  h+=`<div style="margin-bottom:14px"><select id="soDateSel" onchange="_soSetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;width:100%;max-width:350px">`;
-  draws.slice(0,80).forEach(d=>{h+=`<option value="${d.date}"${d.date===_soDate?' selected':''}>📅 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  // Dropdown: "" = new prediction (latest draw → future), else = show how prev draw predicted selected date
+  h+=`<div style="margin-bottom:14px"><select id="soDateSel" onchange="_soSetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;width:100%;max-width:420px">`;
+  h+=`<option value=""${_soDate===''?' selected':''}>🔮 Yeni Tahmin — ${draws[0].date} sonuçlarından gelecek tahmini</option>`;
+  draws.slice(0,79).forEach((d,i)=>{
+    if(i>=draws.length-1)return; // skip the oldest (no prev draw to use)
+    h+=`<option value="${d.date}"${d.date===_soDate?' selected':''}>🎯 Hedef: ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;
+  });
   h+=`</select></div>`;
-  const draw=draws.find(d=>d.date===_soDate);
-  if(draw){
-    const idx=draws.indexOf(draw);
-    const nextDraw=idx>0?draws[idx-1]:null;
-    h+=_soDoAnalysis(draw,game,nextDraw);
+  if(_soDate===''){
+    // New prediction: analyze latest draw, no validation target
+    h+=_soDoAnalysis(draws[0],game,null,true);
+  } else {
+    const targetDraw=draws.find(d=>d.date===_soDate);
+    if(targetDraw){
+      const tIdx=draws.indexOf(targetDraw);
+      const srcDraw=tIdx<draws.length-1?draws[tIdx+1]:null; // draw BEFORE target
+      if(srcDraw){h+=_soDoAnalysis(srcDraw,game,targetDraw,false);}
+      else{h+=`<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için kaynak (önceki) çekiliş bulunamadı.</div>`;}
+    }
   }
   el.innerHTML=h;
 }
-function _soDoAnalysis(draw,game,nextDraw){
+function _soDoAnalysis(draw,game,nextDraw,isFuture){
   const max=game.max;
   const nums=[...draw.nums].filter(n=>n>=1&&n<=max).sort((a,b)=>a-b);
   if(nums.length<2)return'<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için yeterli sayı yok.</div>';
@@ -13001,8 +13046,12 @@ function _soDoAnalysis(draw,game,nextDraw){
   };
   let h='';
   // ── Gap analizi
+  const headerLabel=nextDraw
+    ?`Kaynak: ${draw.date} → Hedef: ${nextDraw.date}`
+    :`${draw.date} → Gelecek (Yeni Tahmin)`;
   h+=`<div style="background:rgba(108,99,255,.06);border:1px solid rgba(108,99,255,.22);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
-  h+=`<div style="font-size:.74rem;font-weight:800;margin-bottom:9px">📊 Fark Analizi · ${draw.date}</div>`;
+  h+=`<div style="font-size:.74rem;font-weight:800;margin-bottom:4px">📊 Fark Analizi</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--accent);font-weight:700;margin-bottom:8px;font-family:monospace">${headerLabel}</div>`;
   h+=`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin-bottom:9px">`;
   nums.forEach((n,i)=>{
     h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:27px;padding:0 5px;border-radius:7px;background:rgba(129,140,248,.18);border:1px solid rgba(129,140,248,.4);font-size:.78rem;font-weight:800;font-family:monospace;color:var(--accent)">${n}</span>`;
@@ -13016,7 +13065,9 @@ function _soDoAnalysis(draw,game,nextDraw){
   h+=`</div>`;
   if(nextDraw){
     const sortedNext=[...nextDraw.nums].sort((a,b)=>a-b);
-    h+=`<div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.2);border-radius:8px;padding:7px 12px;font-size:.6rem;color:var(--muted);margin-bottom:12px">✅ Sonraki çekiliş <strong style="color:var(--text)">${nextDraw.date}</strong>: ${sortedNext.map(n=>`<strong style="color:${nextSet.has(n)?'var(--green)':'var(--muted)'}">${n}${nextSet.has(n)?'✓':''}</strong>`).join(' ')} &nbsp;<span style="font-size:.55rem">(Yeşil ✓ = tahminlerimizde çıkan)</span></div>`;
+    h+=`<div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.2);border-radius:8px;padding:7px 12px;font-size:.6rem;color:var(--muted);margin-bottom:12px">🎯 Hedef çekiliş <strong style="color:var(--text)">${nextDraw.date}</strong>: ${sortedNext.map(n=>`<strong style="color:${nextSet.has(n)?'var(--green)':'var(--muted)'}">${n}${nextSet.has(n)?'✓':''}</strong>`).join(' ')} &nbsp;<span style="font-size:.55rem">(Yeşil ✓ = tahminlerimizde çıktı)</span></div>`;
+  } else if(isFuture){
+    h+=`<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.2);border-radius:8px;padding:7px 12px;font-size:.6rem;color:var(--muted);margin-bottom:12px">🔮 Bu analiz <strong style="color:var(--accent)">${draw.date}</strong> çekilişinin fark yapısını kullanarak bir sonraki çekilişi tahmin etmektedir. Doğrulama çekilişi sonuçlanınca burada görünecek.</div>`;
   }
   // ── Çıkarma + Toplama (iki sütun)
   h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">`;
