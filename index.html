@@ -13039,10 +13039,11 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   // Badge renderer
   const badge=n=>{
     const f=freq[n]||0,isNext=nextSet&&nextSet.has(n);
-    const bg=isNext?'rgba(0,230,118,.35)':f>=3?'rgba(248,113,113,.22)':f>=2?'rgba(251,191,36,.18)':'rgba(0,0,0,.04)';
-    const bd=isNext?'rgba(0,230,118,.8)':f>=3?'rgba(248,113,113,.55)':f>=2?'rgba(251,191,36,.5)':'var(--border)';
-    const cl=isNext?'var(--green)':f>=3?'#c53030':f>=2?'#975a16':'var(--text)';
-    return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:21px;padding:0 4px;border-radius:5px;background:${bg};border:1px solid ${bd};color:${cl};font-size:.64rem;font-weight:${f>=2?800:400};font-family:monospace" title="${f>0?f+'× tabloda':''}">${n}${isNext?'✓':''}</span>`;
+    const isClose=!isNext&&nextSet&&[...nextSet].some(t=>Math.abs(t-n)===1);
+    const bg=isNext?'rgba(0,230,118,.35)':isClose?'rgba(251,191,36,.22)':'rgba(0,0,0,.04)';
+    const bd=isNext?'rgba(0,230,118,.8)':isClose?'rgba(251,191,36,.6)':'var(--border)';
+    const cl=isNext?'var(--green)':isClose?'#8a6200':'var(--text)';
+    return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:21px;padding:0 4px;border-radius:5px;background:${bg};border:1px solid ${bd};color:${cl};font-size:.64rem;font-weight:${isNext||isClose?800:400};font-family:monospace">${n}${isNext?'✓':isClose?'~':''}</span>`;
   };
   let h='';
   // ── Gap analizi
@@ -13065,26 +13066,37 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   h+=`</div>`;
   if(nextDraw){
     const sortedNext=[...nextDraw.nums].sort((a,b)=>a-b);
-    h+=`<div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.2);border-radius:8px;padding:7px 12px;font-size:.6rem;color:var(--muted);margin-bottom:12px">🎯 Hedef çekiliş <strong style="color:var(--text)">${nextDraw.date}</strong>: ${sortedNext.map(n=>`<strong style="color:${nextSet.has(n)?'var(--green)':'var(--muted)'}">${n}${nextSet.has(n)?'✓':''}</strong>`).join(' ')} &nbsp;<span style="font-size:.55rem">(Yeşil ✓ = tahminlerimizde çıktı)</span></div>`;
+    // ── Hedef çekiliş — önce görsel badge sırası
+    h+=`<div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.22);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
+    h+=`<div style="font-size:.6rem;color:var(--muted);font-weight:600;margin-bottom:7px">🎯 Hedef Çekiliş — <strong style="color:var(--text)">${nextDraw.date}</strong></div>`;
+    h+=`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin-bottom:6px">`;
+    sortedNext.forEach(n=>{
+      const hit=nextSet.has(n);
+      h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:27px;padding:0 5px;border-radius:7px;background:${hit?'rgba(0,230,118,.28)':'rgba(0,0,0,.04)'};border:1.5px solid ${hit?'rgba(0,230,118,.7)':'var(--border)'};font-size:.78rem;font-weight:800;font-family:monospace;color:${hit?'var(--green)':'var(--text)'}">${n}${hit?'✓':''}</span>`;
+    });
+    h+=`</div>`;
+    const hitNums=sortedNext.filter(n=>nextSet.has(n));
+    h+=`<div style="font-size:.56rem;color:var(--muted)">Tablolardan isabet: <strong style="color:var(--green)">${hitNums.length}/${sortedNext.length}</strong>${hitNums.length?' · '+hitNums.join(' '):''} &nbsp;<span style="opacity:.7">(Yeşil ✓ = çıkarma/toplama tablolarından çıktı)</span></div>`;
+    h+=`</div>`;
   } else if(isFuture){
-    h+=`<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.2);border-radius:8px;padding:7px 12px;font-size:.6rem;color:var(--muted);margin-bottom:12px">🔮 Bu analiz <strong style="color:var(--accent)">${draw.date}</strong> çekilişinin fark yapısını kullanarak bir sonraki çekilişi tahmin etmektedir. Doğrulama çekilişi sonuçlanınca burada görünecek.</div>`;
+    h+=`<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.2);border-radius:8px;padding:8px 12px;font-size:.6rem;color:var(--muted);margin-bottom:12px">🔮 <strong style="color:var(--accent)">${draw.date}</strong> çekilişi kaynak alındı · Bir sonraki çekiliş gerçekleşince doğrulama burada görünecek</div>`;
   }
-  // ── Çıkarma + Toplama (iki sütun)
+  // ── Toplama + Çıkarma (Toplama solda)
   h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">`;
-  // ÇIKARMA
-  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px">`;
-  h+=`<div style="font-size:.72rem;font-weight:800;margin-bottom:8px;color:var(--accent2)">➖ Çıkarma ~</div>`;
-  cikRows.forEach((row,i)=>{
-    if(!row.length)return;
-    h+=`<div style="margin-bottom:6px"><span style="font-size:.54rem;color:var(--muted);font-family:monospace;margin-right:4px">−f${i+1}(${gaps[i]})</span><span style="display:inline-flex;flex-wrap:wrap;gap:2px">${row.map(badge).join('')}</span></div>`;
-  });
-  h+=`</div>`;
-  // TOPLAMA
+  // TOPLAMA (sol)
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px">`;
   h+=`<div style="font-size:.72rem;font-weight:800;margin-bottom:8px;color:var(--green)">➕ Toplama</div>`;
   topRows.forEach((row,i)=>{
     if(!row.length)return;
     h+=`<div style="margin-bottom:6px"><span style="font-size:.54rem;color:var(--muted);font-family:monospace;margin-right:4px">+f${i+1}(${gaps[i]})</span><span style="display:inline-flex;flex-wrap:wrap;gap:2px">${row.map(badge).join('')}</span></div>`;
+  });
+  h+=`</div>`;
+  // ÇIKARMA (sağ)
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800;margin-bottom:8px;color:var(--accent2)">➖ Çıkarma ~</div>`;
+  cikRows.forEach((row,i)=>{
+    if(!row.length)return;
+    h+=`<div style="margin-bottom:6px"><span style="font-size:.54rem;color:var(--muted);font-family:monospace;margin-right:4px">−f${i+1}(${gaps[i]})</span><span style="display:inline-flex;flex-wrap:wrap;gap:2px">${row.map(badge).join('')}</span></div>`;
   });
   h+=`</div>`;
   h+=`</div>`;
