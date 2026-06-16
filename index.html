@@ -8379,7 +8379,7 @@ document.addEventListener('mousemove',function(e){
 });
 document.addEventListener('mouseup',function(){_gizliDragState=null;_gizliResizeState=null;});
 function _gizliCurrentGame(){return getGame(_gizliSelectedGame||'super');}
-function _gizliPositionCount(){return Math.min(_gizliCurrentGame().count,6);}
+function _gizliPositionCount(){return Math.min(_gizliCurrentGame().count,7);}
 function _gizliGetDraws(){
   const raw=DRAW_DATA[_gizliSelectedGame]||'';
   const draws=[];
@@ -8416,7 +8416,7 @@ function _gizliRenderGameSelector(){
 }
 function _gizliRenderInputs(){
   const n=_gizliPositionCount();
-  const labels='ABCDEF';
+  const labels='ABCDEFG';
   const ist='width:46px;text-align:center;padding:5px 3px;font-size:.82rem;background:var(--surface2);border:1px solid var(--border);border-radius:7px;color:var(--text)';
   let bHtml='',bankHtml='';
   for(let i=0;i<n;i++){
@@ -8439,7 +8439,7 @@ function _gizliUpdateHint(){
     const v=(document.getElementById('gb_bek_'+i)?.value||'').trim();
     if(!v)continue;
     const num=parseInt(v);if(isNaN(num))continue;
-    const lbl='ABCDEF'[i];
+    const lbl='ABCDEFG'[i];
     if(num<0)parts.push(`${lbl}: ${Math.abs(num)}'den küçük`);
     else if(num>=1&&num<=9)parts.push(`${lbl}: ${num*10}'lı (${num*10}–${Math.min(num*10+9,_gizliCurrentGame().max)})`);
     else parts.push(`${lbl}: birebir ${num}`);
@@ -8507,7 +8507,7 @@ function gizliModelAra(){
   const mr=document.getElementById('gizliModelAraResult');
   if(!mr)return;
   const n=_gizliPositionCount();
-  const labels='ABCDEF';
+  const labels='ABCDEFG';
   const scored=_gizliArchive.map(nums=>{
     const exact=bankos.filter(b=>nums.includes(b)).length;
     const close=bankos.filter(b=>nums.some(v=>Math.abs(v-b)<=5&&v!==b)).length;
@@ -8521,25 +8521,54 @@ function gizliModelAra(){
     <span style="font-size:.63rem;color:var(--muted);flex-shrink:0;margin-left:6px">${score>=100?Math.round(score/100)+' banko eşleşmesi':'yakın'}</span>
   </div>`).join('')}`;
 }
-function _gizliGuc(col,freqMap,archiveSize){
-  const hits=col.reduce((s,n)=>s+(freqMap[n]||0),0);
-  const pct=hits/Math.max(1,col.length*archiveSize);
-  return Math.round(Math.min(10000,Math.max(100,1400+pct*350)));
+// Per-position frequency model: for each sorted position i, how often each value appears there
+function _gizliPosFreq(archive,n){
+  const pf=Array.from({length:n},()=>({}));
+  archive.forEach(nums=>{for(let i=0;i<n&&i<nums.length;i++){pf[i][nums[i]]=(pf[i][nums[i]]||0)+1;}});
+  return pf;
 }
-function _gizliCombine(pool,need,bankos,game,freqMap,archiveSize,result,maxR){
+// Candidate values per position (freq-desc), always including bankos so they can be slotted
+function _gizliPosCandidates(pf,n,bankos,excl,perPos){
+  return Array.from({length:n},(_,i)=>{
+    const ranked=Object.entries(pf[i]||{})
+      .filter(([v])=>!excl.has(+v))
+      .sort((a,b)=>b[1]-a[1])
+      .slice(0,perPos)
+      .map(([v])=>+v);
+    const set=new Set(ranked);
+    bankos.forEach(b=>{if(!excl.has(b))set.add(b);});
+    // order by this position's frequency desc so strongest combos surface first
+    return [...set].sort((a,b)=>((pf[i][b]||0)-(pf[i][a]||0))||a-b);
+  });
+}
+// Position-aware strength: reward values that are typical for their sorted slot
+function _gizliPosGuc(col,pf,archiveSize){
+  let s=0;for(let i=0;i<col.length;i++)s+=(pf[i]&&pf[i][col[i]])||0;
+  const pct=s/Math.max(1,col.length*archiveSize);
+  return Math.round(Math.min(10000,Math.max(100,1400+pct*450)));
+}
+// Generate sorted columns position-by-position, enforcing all bankos appear
+function _gizliGenColumns(posCand,bankos,n,maxR){
   const bankSet=new Set(bankos);
-  function go(start,cur){
+  const sortedB=[...bankos].sort((a,b)=>a-b);
+  const result=[];
+  function go(pos,prev,cur,used){
     if(result.length>=maxR)return;
-    if(cur.length===need){
-      const col=[...bankos,...cur.map(x=>x.n)];
-      const colU=[...new Set(col)].filter(v=>v>=1&&v<=game.max).sort((a,b)=>a-b);
-      if(colU.length===bankos.length+need)
-        result.push({col:colU,guc:_gizliGuc(colU,freqMap,archiveSize)});
-      return;
+    // next-needed banko is already unreachable (values only increase) → dead branch
+    if(used<sortedB.length&&sortedB[used]<=prev)return;
+    if(pos===n){if(used===sortedB.length)result.push(cur.slice());return;}
+    const remaining=n-pos;
+    for(const v of posCand[pos]){
+      if(v<=prev)continue;
+      const isB=bankSet.has(v);
+      const needB=sortedB.length-used-(isB?1:0);
+      if(needB>remaining-1)continue; // can't fit remaining bankos
+      cur.push(v);go(pos+1,v,cur,used+(isB?1:0));cur.pop();
+      if(result.length>=maxR)return;
     }
-    for(let i=start;i<pool.length&&result.length<maxR;i++)go(i+1,[...cur,pool[i]]);
   }
-  go(0,[]);
+  go(0,0,[],0);
+  return result;
 }
 function gizliModelUygula(){
   if(!_gizliArchive.length){gizliTara();if(!_gizliArchive.length){showToast('⚠️ Önce TARA yapın');return;}}
@@ -8551,40 +8580,28 @@ function gizliModelUygula(){
   const btn=document.getElementById('gizliKopyaBtn');
   if(need<0){showToast('⚠️ Çok fazla banko sayısı');return;}
   const bankSet=new Set(bankos);
-  // Archive freq (from filtered/sliced draws)
-  const freqMap={};
-  _gizliArchive.forEach(nums=>nums.forEach(v=>{if(!bankSet.has(v))freqMap[v]=(freqMap[v]||0)+1;}));
-  // Global freq from recent unsliced draws (captures high numbers cut off by position slice)
-  const allGameDraws=_gizliGetDraws();
-  const globalFreq={};
-  allGameDraws.slice(0,Math.min(50,allGameDraws.length)).forEach(d=>d.nums.forEach(v=>{globalFreq[v]=(globalFreq[v]||0)+1;}));
-  const recentSet=new Set(allGameDraws.slice(0,Math.min(15,allGameDraws.length)).flatMap(d=>d.nums));
   const excl=_gizliExclude;
-  // Build pool over ALL numbers 1-max, not just archive-observed ones
-  const pool=Array.from({length:game.max},(_,i)=>i+1)
-    .filter(n=>!bankSet.has(n)&&!excl.has(n))
-    .map(n=>({n,f:freqMap[n]||0,score:(freqMap[n]||0)*5+(globalFreq[n]||0)*0.8+(!recentSet.has(n)?2:0)}))
-    .sort((a,b)=>b.score-a.score);
-  if(need>0&&pool.length<need){
-    if(kol)kol.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Arşivde yeterli sayı yok. Beklentiyi genişletin veya banko sayısını azaltın.</div>';
-    return;
-  }
-  const maxK=need===0?1:[0,game.max,80,50,30,22,16,14][need]||game.max;
-  const topPool=pool.slice(0,Math.min(maxK,pool.length));
-  const columns=[];
+  // Position-aware model: each sorted slot keeps its own value distribution,
+  // so position G naturally favours the high (70-90) range and bankos slot in by value.
+  const pf=_gizliPosFreq(_gizliArchive,n);
+  const archSize=_gizliArchive.length;
+  let columns=[];
   if(need===0){
-    columns.push({col:[...bankos].sort((a,b)=>a-b),guc:_gizliGuc(bankos,freqMap,_gizliArchive.length)});
+    columns.push({col:[...bankos].sort((a,b)=>a-b),guc:_gizliPosGuc([...bankos].sort((a,b)=>a-b),pf,archSize)});
   }else{
-    _gizliCombine(topPool,need,bankos,game,freqMap,_gizliArchive.length,columns,10000);
+    const perPos=[0,40,30,22,16,12,9,7][n]||7;
+    const posCand=_gizliPosCandidates(pf,n,bankos,excl,perPos);
+    const cols=_gizliGenColumns(posCand,bankos,n,20000);
+    columns=cols.map(col=>({col,guc:_gizliPosGuc(col,pf,archSize)}));
   }
   if(!columns.length){
-    if(kol)kol.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Kolon üretilemedi — banko sayıları ve arşiv uyumsuz.</div>';
+    if(kol)kol.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Kolon üretilemedi — banko sayıları beklentiyle uyumsuz olabilir.</div>';
     return;
   }
   columns.sort((a,b)=>b.guc-a.guc);
   const top30=columns.slice(0,30);
   _gizliLastColumns=top30;
-  const labels='ABCDEF';
+  const labels='ABCDEFG';
   const exclNote=excl.size>0?`<div style="font-size:.6rem;color:#cc2222;margin-bottom:6px;padding:3px 7px;background:rgba(220,40,40,.06);border-radius:5px">⛔ Hariç: ${[...excl].sort((a,b)=>a-b).join(' ')}</div>`:'';
   const rows=top30.map(({col,guc},idx)=>{
     const colHtml=col.map((v,i)=>`<span style="${bankSet.has(v)?'color:var(--accent);font-weight:800':'color:var(--text)'}">${labels[i]}:${v}</span>`).join('  ');
@@ -8627,7 +8644,7 @@ function gizliTestDateChanged(){
   const draws=_gizliGetDraws();
   const draw=draws.find(d=>d.date===testDate);
   if(!draw){actual.innerHTML='<div style="font-size:.7rem;color:#cc2222">Bu tarihte çekiliş bulunamadı</div>';return;}
-  const n=_gizliPositionCount();const labels='ABCDEF';
+  const n=_gizliPositionCount();const labels='ABCDEFG';
   const nums=[...draw.nums].sort((a,b2)=>a-b2).slice(0,n);
   actual.innerHTML=`<div style="font-size:.63rem;color:var(--muted);margin-bottom:4px">Gerçek Çekiliş · ${testDate}</div>
     <div style="font-family:monospace;font-size:.82rem;display:flex;gap:10px;flex-wrap:wrap">
@@ -8667,23 +8684,17 @@ function gizliTestEt(){
     .filter(nums=>!anyC||_gizliDrawMatch(nums,beklenti,harften));
   if(!testArchive.length){showToast('⚠️ Bu tarih öncesi arşivde eşleşen çekiliş yok');return;}
   const bankSet=new Set(bankos);
-  const freqMap={};
-  testArchive.forEach(nums=>nums.forEach(v=>{if(!bankSet.has(v))freqMap[v]=(freqMap[v]||0)+1;}));
-  // Global freq from prior draws (unsliced) to surface high numbers cut by position slice
-  const priorGlobalFreq={};
-  priorDraws.slice(0,Math.min(50,priorDraws.length)).forEach(d=>d.nums.forEach(v=>{priorGlobalFreq[v]=(priorGlobalFreq[v]||0)+1;}));
-  const priorRecentSet=new Set(priorDraws.slice(0,Math.min(15,priorDraws.length)).flatMap(d=>d.nums));
   const excl=_gizliExclude;
-  const pool=Array.from({length:game.max},(_,i)=>i+1)
-    .filter(n=>!bankSet.has(n)&&!excl.has(n))
-    .map(n=>({n,f:freqMap[n]||0,score:(freqMap[n]||0)*5+(priorGlobalFreq[n]||0)*0.8+(!priorRecentSet.has(n)?2:0)}))
-    .sort((a,b)=>b.score-a.score);
-  if(need>0&&pool.length<need){showToast('⚠️ Arşivde yeterli sayı yok');return;}
-  const maxK=need===0?1:([0,game.max,80,50,30,22,16,14][need]||game.max);
-  const topPool=pool.slice(0,Math.min(maxK,pool.length));
-  const columns=[];
-  if(need===0){columns.push({col:[...bankos].sort((a,b2)=>a-b2),guc:_gizliGuc(bankos,freqMap,testArchive.length)});}
-  else{_gizliCombine(topPool,need,bankos,game,freqMap,testArchive.length,columns,10000);}
+  // Position-aware model from prior-only archive (no data leakage)
+  const pf=_gizliPosFreq(testArchive,n);
+  const archSize=testArchive.length;
+  let columns=[];
+  if(need===0){columns.push({col:[...bankos].sort((a,b2)=>a-b2),guc:_gizliPosGuc([...bankos].sort((a,b2)=>a-b2),pf,archSize)});}
+  else{
+    const perPos=[0,40,30,22,16,12,9,7][n]||7;
+    const posCand=_gizliPosCandidates(pf,n,bankos,excl,perPos);
+    columns=_gizliGenColumns(posCand,bankos,n,20000).map(col=>({col,guc:_gizliPosGuc(col,pf,archSize)}));
+  }
   if(!columns.length){
     const res=document.getElementById('gizliTestResult');
     if(res)res.innerHTML='<div style="color:#cc2222;font-size:.72rem">Kolon üretilemedi</div>';return;
@@ -8693,7 +8704,7 @@ function gizliTestEt(){
   columns.forEach(c=>{c.matchCount=c.col.filter(v=>actualSet.has(v)).length;});
   columns.sort((a,b2)=>b2.matchCount-a.matchCount||b2.guc-a.guc);
   const top30=columns.slice(0,30);
-  const labels='ABCDEF';
+  const labels='ABCDEFG';
   const best=top30[0];
   const mc=best.matchCount;
   const matchColor=mc>=n?'var(--green)':mc>=n-1?'#00963a':mc>=n-2?'#8a6200':mc>=n-3?'#b85c00':'var(--muted)';
