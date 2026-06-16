@@ -313,10 +313,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 }
 @media(max-width:720px){#gizliSayfa{width:calc(100vw - 16px) !important;height:calc(100vh - 60px) !important;left:8px !important;top:30px !important;transform:none !important;}}
 /* ── Hızlı Gülay popup ── */
-#soqOverlay{display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.20);align-items:center;justify-content:center;padding:16px;pointer-events:none}
+#soqOverlay{display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.20);align-items:flex-start;justify-content:center;padding:16px;pointer-events:none}
 #soqOverlay.open{display:flex}
-#soqBox{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:680px;max-height:calc(100vh - 80px);display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.4);pointer-events:auto}
-#soqHeader{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+#soqBox{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:680px;max-height:calc(100vh - 80px);display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.4);pointer-events:auto;position:fixed;top:60px;left:50%;transform:translateX(-50%)}
+#soqHeader{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;cursor:grab;user-select:none}
+#soqHeader:active{cursor:grabbing}
 #soqBody{overflow-y:auto;padding:14px 16px;flex:1}
 #soqInput{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:monospace;font-size:.82rem;outline:none;transition:border .15s}
 #soqInput:focus{border-color:rgba(108,99,255,.55)}
@@ -13317,14 +13318,50 @@ let _soqGame='sayisal';
 const _SOQ_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
 function _soqOpen(){
   if(state.selectedGame&&getGame(state.selectedGame))_soqGame=state.selectedGame;
+  const box=document.getElementById('soqBox');
+  if(box){box.style.left='50%';box.style.top='60px';box.style.transform='translateX(-50%)';}
   document.getElementById('soqOverlay').classList.add('open');
-  document.body.style.overflow='hidden';
   _soqRenderControls();
 }
 function _soqClose(){
   document.getElementById('soqOverlay').classList.remove('open');
-  document.body.style.overflow='';
 }
+// Sürükleme
+(function(){
+  let drag=false,ox=0,oy=0,sx=0,sy=0;
+  function onDown(e){
+    const box=document.getElementById('soqBox');if(!box)return;
+    const r=box.getBoundingClientRect();
+    // transform'u kaldırıp mutlak konuma geç
+    box.style.transform='none';
+    box.style.left=r.left+'px';
+    box.style.top=r.top+'px';
+    drag=true;
+    const pt=e.touches?e.touches[0]:e;
+    ox=pt.clientX;oy=pt.clientY;
+    sx=r.left;sy=r.top;
+    e.preventDefault();
+  }
+  function onMove(e){
+    if(!drag)return;
+    const box=document.getElementById('soqBox');if(!box)return;
+    const pt=e.touches?e.touches[0]:e;
+    const dx=pt.clientX-ox,dy=pt.clientY-oy;
+    const bw=box.offsetWidth,bh=box.offsetHeight;
+    const nl=Math.max(0,Math.min(window.innerWidth-bw,sx+dx));
+    const nt=Math.max(0,Math.min(window.innerHeight-bh,sy+dy));
+    box.style.left=nl+'px';box.style.top=nt+'px';
+  }
+  function onUp(){drag=false;}
+  document.addEventListener('mouseup',onUp);
+  document.addEventListener('touchend',onUp);
+  document.addEventListener('mousemove',onMove);
+  document.addEventListener('touchmove',onMove,{passive:false});
+  document.addEventListener('DOMContentLoaded',()=>{
+    const hdr=document.getElementById('soqHeader');
+    if(hdr){hdr.addEventListener('mousedown',onDown);hdr.addEventListener('touchstart',onDown,{passive:false});}
+  });
+})();
 function _soqSetGame(g){
   _soqGame=g;
   _soqRenderControls();
