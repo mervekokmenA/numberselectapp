@@ -342,7 +342,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-b10sistem" onclick="showMainPage('b10sistem')">🎟️ B10</button>
       <button class="nav-link" id="navBtn-bankocoz" onclick="showMainPage('bankocoz')">🎯 Banko</button>
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
-      <button class="nav-link" id="navBtn-gulayq" onclick="_soqOpen()" style="border-color:rgba(108,99,255,.4);color:var(--accent)">✍️ Hızlı Gülay</button>
+      <button class="nav-link" id="navBtn-gulayq" onclick="showMainPage('gulayq')">✍️ Hızlı Gülay</button>
       <button class="nav-link" id="navBtn-capraz" onclick="showMainPage('capraz')">🔀 Çapraz</button>
       <button class="nav-link" id="navBtn-nsa" onclick="openGizliSayfa()" style="border-color:rgba(184,134,11,.4);color:#8a6200">🔐 NSA</button>
     </div>
@@ -978,6 +978,31 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="bzExcludeBox" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:8px 10px;background:rgba(248,113,113,.04);border:1px solid rgba(248,113,113,.18);border-radius:8px"></div>
   <div id="bzContent"></div>
  </div>
+</div>
+
+<!-- ═══════════ PAGE: HIZLI GÜLAY (TAM SAYFA) ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-gulayq">
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">✍️ Gülay Analizi</div>
+    <div id="gqControls"></div>
+    <div id="gqResult" style="margin-top:12px" onclick="_gqPick(event)"></div>
+    <div id="gqSelBar" style="display:none;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border);margin-top:8px;flex-wrap:wrap"></div>
+  </div>
+  <div class="card">
+    <div class="card-title">📊 Geçmiş Test</div>
+    <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Her geçmiş çekiliş için bir önceki çekilişin gap analizinin hangi sayıları doğru tahmin ettiğini gösterir. Yeşil = isabetli, turuncu = ±1 yakın.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+      <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
+      <select id="gqBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+        <option value="10">10 çekiliş</option>
+        <option value="20" selected>20 çekiliş</option>
+        <option value="30">30 çekiliş</option>
+        <option value="50">50 çekiliş</option>
+      </select>
+      <button onclick="_gqBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
+    </div>
+    <div id="gqBtResult"></div>
+  </div>
 </div>
 
 <!-- ═══════════ PAGE: B10 SİSTEM ═══════════ -->
@@ -10542,11 +10567,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-b10sistem','page-bankocoz','page-soz','page-capraz'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-b10sistem','page-bankocoz','page-gulayq','page-soz','page-capraz'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem','navBtn-bankocoz','navBtn-soz','navBtn-capraz'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem','navBtn-bankocoz','navBtn-gulayq','navBtn-soz','navBtn-capraz'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -10555,6 +10580,7 @@ function showMainPage(id){
   if(id==='kapsamli'){_kbGame=state.selectedGame||_kbGame;_kbInit();}
   if(id==='b10sistem')_b10Init();
   if(id==='bankocoz')_bzInit();
+  if(id==='gulayq')_gqInit();
   if(id==='soz')_soInit();
   if(id==='capraz')_cxInit();
 }
@@ -13664,6 +13690,185 @@ function _soqUpdateSelBar(){
 }
 function _soqCopySel(){_kbCopy([..._soqSel].sort((a,b)=>a-b).join(' '));}
 function _soqClearSel(){_soqSel.clear();_soqRefreshHighlight();_soqUpdateSelBar();}
+// ═══════════ ✍️ HIZLI GÜLAY — TAM SAYFA ════════════════════════════════════
+let _gqGame='sayisal';
+let _gqSel=new Set();
+const _GQ_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
+
+function _gqInit(){
+  if(state.selectedGame&&getGame(state.selectedGame))_gqGame=state.selectedGame;
+  _gqRenderControls();
+  document.getElementById('gqBtResult').innerHTML='';
+}
+function _gqSetGame(g){
+  _gqGame=g;
+  _gqRenderControls();
+}
+function _gqRenderControls(){
+  const game=getGame(_gqGame);
+  const draws=_kbGetDraws(_gqGame);
+  let h=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">`;
+  _GQ_GAMES.forEach(g=>{const a=g.id===_gqGame;h+=`<button onclick="_gqSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;});
+  h+=`</div>`;
+  h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">Sayıları girin (boşluk veya virgülle ayırın) — ${game.count} ana sayı, 1–${game.max} arası:</div>`;
+  h+=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">`;
+  h+=`<input id="gqInput" type="text" placeholder="örn. 5 18 27 36 47 55" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')_gqAnalyze()" style="flex:1;min-width:160px;font-size:.82rem;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;outline:none;font-family:monospace">`;
+  h+=`<button onclick="_gqAnalyze()" style="padding:9px 18px;border-radius:8px;border:1px solid rgba(108,99,255,.5);background:rgba(108,99,255,.12);color:var(--accent);cursor:pointer;font-size:.78rem;font-weight:700;white-space:nowrap;flex-shrink:0">🔮 Analiz Et</button>`;
+  h+=`</div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-top:7px">Geçmiş çekilişten doldur: `;
+  if(draws&&draws.length){
+    draws.slice(0,6).forEach(d=>{h+=`<button onclick="document.getElementById('gqInput').value='${d.nums.join(' ')}';_gqAnalyze()" style="font-size:.58rem;padding:2px 7px;margin:0 2px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:monospace">${d.date}</button>`;});
+  }
+  h+=`</div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px;opacity:.8">💡 Sonuçlardaki sayılara tıklayarak seç, alttaki çubuktan kopyala.</div>`;
+  const ctrl=document.getElementById('gqControls');
+  if(ctrl)ctrl.innerHTML=h;
+  const res=document.getElementById('gqResult');
+  if(res)res.innerHTML='';
+  _gqSel.clear();_gqUpdateSelBar();
+  setTimeout(()=>{const inp=document.getElementById('gqInput');if(inp)inp.focus();},60);
+}
+function _gqAnalyze(){
+  const inp=document.getElementById('gqInput');if(!inp)return;
+  const raw=inp.value.trim();
+  if(!raw){showToast('⚠️ Sayı girin');return;}
+  const game=getGame(_gqGame);
+  const nums=raw.split(/[\s,;]+/).map(s=>parseInt(s)).filter(n=>!isNaN(n)&&n>=1&&n<=game.max);
+  if(nums.length<2){showToast(`⚠️ En az 2 geçerli sayı girin (1–${game.max})`);return;}
+  const draw={date:'Manuel Giriş',nums:[...new Set(nums)].sort((a,b)=>a-b),bonus:[]};
+  const out=document.getElementById('gqResult');
+  _gqSel.clear();
+  if(out)out.innerHTML=_soDoAnalysis(draw,game,null,false);
+  _gqUpdateSelBar();
+}
+// Sayı seçim ve kopyalama
+function _gqSpanNum(el){
+  if(!el||el.tagName!=='SPAN'||el.children.length)return null;
+  const m=(el.textContent||'').trim().match(/^(\d+)[✓~]?$/);
+  if(!m)return null;
+  const n=parseInt(m[1]),g=getGame(_gqGame);
+  if(n<1||n>g.max)return null;
+  return n;
+}
+function _gqPick(e){
+  const n=_gqSpanNum(e.target);if(n==null)return;
+  if(_gqSel.has(n))_gqSel.delete(n);else _gqSel.add(n);
+  _gqRefreshHighlight();_gqUpdateSelBar();
+}
+function _gqRefreshHighlight(){
+  const root=document.getElementById('gqResult');if(!root)return;
+  root.querySelectorAll('span').forEach(el=>{
+    const n=_gqSpanNum(el);
+    if(n!=null&&_gqSel.has(n))el.classList.add('soq-sel');else el.classList.remove('soq-sel');
+  });
+}
+function _gqUpdateSelBar(){
+  const bar=document.getElementById('gqSelBar');if(!bar)return;
+  const arr=[..._gqSel].sort((a,b)=>a-b);
+  if(!arr.length){bar.style.display='none';bar.innerHTML='';return;}
+  bar.style.display='flex';
+  bar.innerHTML=`<div style="flex:1;min-width:0"><div style="font-size:.55rem;color:var(--muted);margin-bottom:2px">Seçilen ${arr.length} sayı</div><div style="font-family:monospace;font-size:.82rem;font-weight:700;color:var(--accent);word-break:break-all">${arr.join(' ')}</div></div>`+
+    `<button onclick="_gqCopySel()" style="padding:7px 13px;border-radius:7px;border:1px solid rgba(108,99,255,.5);background:rgba(108,99,255,.12);color:var(--accent);cursor:pointer;font-size:.72rem;font-weight:700;white-space:nowrap;flex-shrink:0">📋 Kopyala</button>`+
+    `<button onclick="_gqClearSel()" style="padding:7px 11px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-size:.72rem;white-space:nowrap;flex-shrink:0">Temizle</button>`;
+}
+function _gqCopySel(){_kbCopy([..._gqSel].sort((a,b)=>a-b).join(' '));}
+function _gqClearSel(){_gqSel.clear();_gqRefreshHighlight();_gqUpdateSelBar();}
+
+// Tahmin çıkarma: gap analizi predicted sayılarını döndürür (HTML olmadan)
+function _gqGetPredictions(sourceNums,game){
+  const max=game.max;
+  const nums=[...new Set(sourceNums)].filter(n=>n>=1&&n<=max).sort((a,b)=>a-b);
+  if(nums.length<2)return new Set();
+  const gaps=[];for(let i=1;i<nums.length;i++)gaps.push(nums[i]-nums[i-1]);
+  const pred=new Set();
+  const srcSet=new Set(nums);
+  // Toplama
+  gaps.forEach(g=>nums.forEach(n=>{const v=n+g;if(v>=1&&v<=max&&!srcSet.has(v))pred.add(v);}));
+  // Çıkarma
+  gaps.forEach(g=>nums.forEach(n=>{const v=n-g;if(v>=1&&v<=max&&!srcSet.has(v))pred.add(v);}));
+  // Fark zinciri
+  for(let start=1;start<=max;start+=10){
+    let cur=start;
+    for(const g of gaps){cur+=g;if(cur>max)break;if(!srcSet.has(cur))pred.add(cur);}
+  }
+  return pred;
+}
+
+function _gqBacktest(){
+  const game=getGame(_gqGame);
+  const draws=_kbGetDraws(_gqGame);
+  const btEl=document.getElementById('gqBtResult');if(!btEl)return;
+  const btCount=parseInt(document.getElementById('gqBtCount')?.value)||20;
+  if(!draws||draws.length<3){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (en az 3 gerekli).</div>';return;}
+  btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor…</div>';
+  setTimeout(()=>{
+    const tests=Math.min(btCount,draws.length-1);
+    const rows=[];
+    let totalHits=0,totalNear=0,totalPred=0;
+    let hit1=0,hit2=0,hit3=0;
+    for(let i=0;i<tests;i++){
+      const target=draws[i];         // next actual draw (what we're checking against)
+      const source=draws[i+1];       // previous draw (input to analysis)
+      if(!source||!target)continue;
+      const pred=_gqGetPredictions(source.nums,game);
+      const targetSet=new Set(target.nums);
+      const hitNums=target.nums.filter(n=>pred.has(n));
+      const nearNums=target.nums.filter(n=>!pred.has(n)&&(pred.has(n-1)||pred.has(n+1)));
+      totalHits+=hitNums.length;
+      totalNear+=nearNums.length;
+      totalPred+=pred.size;
+      if(hitNums.length>=1)hit1++;
+      if(hitNums.length>=2)hit2++;
+      if(hitNums.length>=3)hit3++;
+      rows.push({sourceDate:source.date,targetDate:target.date,sourceNums:source.nums,targetNums:target.nums,pred,hitNums,nearNums});
+    }
+    if(!rows.length){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Test satırı oluşturulamadı.</div>';return;}
+    const N=rows.length;
+    const avgHit=(totalHits/N).toFixed(2);
+    const avgPred=Math.round(totalPred/N);
+    const pct1=Math.round(hit1/N*100),pct2=Math.round(hit2/N*100),pct3=Math.round(hit3/N*100);
+    let html=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">`;
+    const statCard=(lbl,val,col)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${col}">${val}</div><div style="font-size:.6rem;color:var(--muted)">${lbl}</div></div>`;
+    html+=statCard('Ort. isabet',avgHit,'var(--accent)');
+    html+=statCard('1+ isabet',pct1+'%',pct1>=60?'var(--green)':pct1>=40?'var(--gold)':'var(--muted)');
+    html+=statCard('2+ isabet',pct2+'%',pct2>=30?'var(--green)':pct2>=15?'var(--gold)':'var(--muted)');
+    html+=statCard('3+ isabet',pct3+'%',pct3>=15?'var(--green)':pct3>=5?'var(--gold)':'var(--muted)');
+    html+=statCard('Ort. tahmin',avgPred,'var(--text)');
+    html+=statCard('Test sayısı',N,'var(--text)');
+    html+=`</div>`;
+    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — analiz tahminleri · Yeşil=isabetli · 🟠=±1 yakın</div>`;
+    html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
+    html+=`<thead><tr style="border-bottom:1px solid var(--border)">`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Kaynak</th>`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Tahmin hedefi</th>`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek çekiliş</th>`;
+    html+=`<th style="text-align:center;padding:4px 6px;color:var(--muted)">İsabet</th>`;
+    html+=`<th style="text-align:center;padding:4px 6px;color:var(--muted)">Yakın</th>`;
+    html+=`</tr></thead><tbody>`;
+    rows.forEach(r=>{
+      const hitSet=new Set(r.hitNums);
+      const nearSet=new Set(r.nearNums);
+      const numSpan=n=>{
+        const hit=hitSet.has(n),near=nearSet.has(n);
+        const col=hit?'var(--green)':near?'#e8820c':'var(--text)';
+        const fw=hit||near?'800':'400';
+        return`<span style="font-family:monospace;font-size:.65rem;color:${col};font-weight:${fw}">${n}${hit?'✓':near?'~':''}</span>`;
+      };
+      const hitColor=r.hitNums.length>=3?'var(--green)':r.hitNums.length>=2?'var(--gold)':r.hitNums.length>=1?'var(--accent)':'var(--muted)';
+      const nearColor=r.nearNums.length>=3?'var(--green)':r.nearNums.length>=2?'var(--gold)':'var(--muted)';
+      html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04)">`;
+      html+=`<td style="padding:4px 6px;color:var(--muted);white-space:nowrap;font-size:.6rem">${r.sourceDate}<br><span style="font-family:monospace;color:var(--text)">${r.sourceNums.join(' ')}</span></td>`;
+      html+=`<td style="padding:4px 6px;white-space:nowrap;color:var(--muted);font-size:.6rem">${r.targetDate}</td>`;
+      html+=`<td style="padding:4px 6px"><div style="display:flex;gap:4px;flex-wrap:wrap">${r.targetNums.map(numSpan).join('')}</div></td>`;
+      html+=`<td style="padding:4px 6px;text-align:center;font-weight:800;color:${hitColor}">${r.hitNums.length}</td>`;
+      html+=`<td style="padding:4px 6px;text-align:center;font-weight:700;color:${nearColor}">${r.nearNums.length}</td>`;
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table></div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=isabetli · ~=±1 yakın · Tahmin havuzu: Toplama + Çıkarma + Fark Zinciri yöntemlerinden</div>`;
+    btEl.innerHTML=html;
+  },20);
+}
 // ─────────────────────────────────────────────────────────────────────────────
 
 function _soInit(){
