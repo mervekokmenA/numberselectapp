@@ -957,6 +957,12 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button class="bz-mode-btn" data-mode="pool" onclick="_bzSetMode('pool')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🔬 Bilet Havuzu</button>
    <button class="bz-mode-btn" data-mode="model" onclick="_bzSetMode('model')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🔍 Model Keşfi</button>
   </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:8px 10px;background:rgba(248,113,113,.04);border:1px solid rgba(248,113,113,.18);border-radius:8px">
+   <span style="font-size:.6rem;color:var(--accent2);font-weight:700;white-space:nowrap">⛔ Hariç Bırak:</span>
+   <input id="bzExcludeInput" type="text" placeholder="Sayı veya aralık: 10 18 20-29 63 ..." oninput="_bzSetExclude(this.value)" style="flex:1;min-width:140px;background:var(--surface2);border:1px solid rgba(248,113,113,.3);color:var(--text);border-radius:6px;padding:4px 8px;font-size:.68rem;font-family:monospace">
+   <span id="bzExcludeCount" style="font-size:.58rem;color:var(--muted)"></span>
+   <button onclick="document.getElementById('bzExcludeInput').value='';_bzSetExclude('')" style="font-size:.58rem;padding:3px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">Temizle</button>
+  </div>
   <div id="bzContent"></div>
  </div>
 </div>
@@ -12338,7 +12344,25 @@ const _BZ_SIGNALS=[
   {id:'modelsig',   name:'Model Sinyali',    icon:'🔍', desc:'Aritmetik model (+3 -3 +8 vb.): son çekilişe en sık görülen offset uygulanır'},
 ];
 
-let _bzGame='sayisal',_bzMode='auto';
+let _bzGame='sayisal',_bzMode='auto',_bzExclude=new Set();
+
+function _bzParseExclude(str){
+  const s=new Set();
+  if(!str||!str.trim())return s;
+  str.trim().split(/[\s,;]+/).forEach(p=>{
+    const r=p.match(/^(\d+)-(\d+)$/);
+    if(r){const lo=parseInt(r[1]),hi=parseInt(r[2]);for(let n=Math.min(lo,hi);n<=Math.max(lo,hi);n++)s.add(n);}
+    else{const n=parseInt(p);if(!isNaN(n)&&n>=1)s.add(n);}
+  });
+  return s;
+}
+
+function _bzSetExclude(v){
+  _bzExclude=_bzParseExclude(v);
+  const cnt=document.getElementById('bzExcludeCount');
+  if(cnt)cnt.textContent=_bzExclude.size>0?`${_bzExclude.size} sayı hariç`:'';
+  _bzRender();
+}
 const _bzZero=max=>{const o={};for(let n=1;n<=max;n++)o[n]=0;return o;};
 
 // Tüm ucuz sinyallerin skor haritası (prior: yeniden→eskiye sıralı çekilişler)
@@ -12568,12 +12592,16 @@ function _bzRenderAuto(){
   const last=draws[0];
   let h='';
 
-  // ── Banko önerisi
-  const strong=rows.filter(r=>r.agree>=4).slice(0,game.count+2);
-  const medium=rows.filter(r=>r.agree>=2&&r.agree<4&&!strong.includes(r)).slice(0,8);
+  // ── Banko önerisi (hariç bırakılan sayılar filtreleniyor)
+  const excl=_bzExclude;
+  const filtRows=excl.size>0?rows.filter(r=>!excl.has(r.n)):rows;
+  const strong=filtRows.filter(r=>r.agree>=4).slice(0,game.count+2);
+  const medium=filtRows.filter(r=>r.agree>=2&&r.agree<4&&!strong.includes(r)).slice(0,8);
   const bankoSet=new Set(strong.map(r=>r.n));
-  const topList=rows.slice(0,game.count);
-  window._bzBankoCopy=`Banko Çözücü — ${game.name}\n🔒 Güçlü: ${strong.map(r=>r.n).join(' ')}\n🎯 Orta: ${medium.map(r=>r.n).join(' ')}\n🏆 Top ${game.count}: ${topList.map(r=>r.n).sort((a,b)=>a-b).join(' ')}`;
+  const topList=filtRows.slice(0,game.count);
+  const exclNote=excl.size>0?` · ⛔ ${excl.size} sayı hariç bırakıldı`:'';
+  if(excl.size>0){h+=`<div style="font-size:.6rem;color:var(--accent2);padding:5px 10px;background:rgba(248,113,113,.06);border:1px solid rgba(248,113,113,.18);border-radius:6px;margin-bottom:10px">⛔ Hariç bırakılan: <strong>${[...excl].sort((a,b)=>a-b).join(' ')}</strong></div>`;}
+  window._bzBankoCopy=`Banko Çözücü — ${game.name}${exclNote}\n🔒 Güçlü: ${strong.map(r=>r.n).join(' ')}\n🎯 Orta: ${medium.map(r=>r.n).join(' ')}\n🏆 Top ${game.count}: ${topList.map(r=>r.n).sort((a,b)=>a-b).join(' ')}`;
 
   h+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:13px 15px;margin-bottom:14px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:6px">`;
@@ -12618,12 +12646,12 @@ function _bzRenderAuto(){
   // ── Son çekiliş kümülatif toplam (NS/NST) paneli — kullanıcının takip ettiği veri
   h+=_bzRenderSums(last,game);
 
-  // ── Tam sıralama tablosu (top 20)
-  window._bzRankCopy=`Banko Skor Sıralaması — ${game.name}\n`+rows.slice(0,20).map((r,i)=>`${i+1}. ${r.n} (${r.agree} sinyal · KB#${r.kbRank})`).join('\n');
+  // ── Tam sıralama tablosu (top 20, hariç bırakılanlar yok)
+  window._bzRankCopy=`Banko Skor Sıralaması — ${game.name}\n`+filtRows.slice(0,20).map((r,i)=>`${i+1}. ${r.n} (${r.agree} sinyal · KB#${r.kbRank})`).join('\n');
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 15px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:.78rem;font-weight:800">📊 Banko Skor Sıralaması (top 20)</div><button onclick="_kbCopy(window._bzRankCopy)" style="font-size:.6rem;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></div>`;
   h+=`<div style="display:grid;grid-template-columns:auto auto 1fr auto;gap:3px 8px;font-size:.56rem;color:var(--muted);margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--border)"><span>#</span><span>Sayı</span><span>Tetiklenen Sinyaller</span><span>Skor</span></div>`;
-  rows.slice(0,20).forEach((r,i)=>{
+  filtRows.slice(0,20).forEach((r,i)=>{
     const tier=r.agree>=4,mid=r.agree>=2&&!tier;
     h+=`<div style="display:grid;grid-template-columns:auto auto 1fr auto;gap:3px 8px;align-items:center;padding:2px 0;border-bottom:1px solid rgba(0,0,0,.03)">`;
     h+=`<span style="font-size:.58rem;color:var(--muted)">${i+1}.</span>`;
