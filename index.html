@@ -6469,12 +6469,21 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const knn=new Float32Array(mvMax+1);
       if(T>=4){
         const lastSet=new Set(mvGN(mvDraws[0]));
+        const lastSize=lastSet.size;
+        const sims=[];
         for(let i=1;i<T-1;i++){
-          const dSet=new Set(mvGN(mvDraws[i]));
-          const inter=[...dSet].filter(n=>lastSet.has(n)).length;
-          const sim=inter/Math.max(lastSet.size+dSet.size-inter,1);
-          if(sim>0){const w=Math.pow(0.85,i)*sim;mvGN(mvDraws[i-1]).forEach(n=>{knn[n]+=w;});}
+          const dn=mvGN(mvDraws[i]);
+          const inter=dn.filter(n=>lastSet.has(n)).length;
+          const uni=lastSize+dn.length-inter;
+          const sim=uni>0?inter/uni:0;
+          if(sim>0)sims.push({i,sim});
         }
+        // Sort by similarity and use top-10 (not decayed by recency — sim is the only weight)
+        sims.sort((a,b)=>b.sim-a.sim);
+        sims.slice(0,10).forEach(({i,sim},rank)=>{
+          const followDraw=mvDraws[i-1]; // draw that followed the similar draw
+          if(followDraw)mvGN(followDraw).forEach(n=>{knn[n]+=sim*(1-rank*0.08);});
+        });
       }
 
       // ── Sinyal 3: Gecikme — uzun süredir çıkmayan sayılar (beklenen boşluk aşıldı) ──
@@ -6510,33 +6519,37 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       }
 
       // ── Normalize ve ağırlıklı birleşim ──
-      // EWF 28% + KNN 30% + Gecikme 14% + Pozisyon 13% + Koşullu çift 15%
       const ewfN=nrm(ewf),knnN=nrm(knn),delN=nrm(delayArr),posN=nrm(posScore),pairN=nrm(pairScore);
       const score=new Float32Array(mvMax+1);
-      for(let n=1;n<=mvMax;n++)score[n]=ewfN[n]*0.28+knnN[n]*0.30+delN[n]*0.14+posN[n]*0.13+pairN[n]*0.15;
-
-      // ── Son 1-2 çekilişe çıkan sayılara ceza (tekrar nadiren çıkar) ──
-      const recP=game.id==='super'?[0.40,0.65]:[0.32,0.62];
-      mvGN(mvDraws[0]).forEach(n=>{score[n]*=recP[0];});
-      if(T>1)mvGN(mvDraws[1]).forEach(n=>{score[n]*=recP[1];});
+      if(mvBt){
+        // BT modu: en isabetli 3 sinyal, yakın çekiliş cezası yok
+        // EWF 38% + KNN 37% + Koşullu çift 25%
+        for(let n=1;n<=mvMax;n++)score[n]=ewfN[n]*0.38+knnN[n]*0.37+pairN[n]*0.25;
+      } else {
+        // Normal mod: tüm 5 sinyal + yakın çekiliş cezası
+        for(let n=1;n<=mvMax;n++)score[n]=ewfN[n]*0.28+knnN[n]*0.30+delN[n]*0.10+posN[n]*0.10+pairN[n]*0.22;
+        const recP=game.id==='super'?[0.60,0.82]:[0.55,0.78];
+        mvGN(mvDraws[0]).forEach(n=>{score[n]*=recP[0];});
+        if(T>1)mvGN(mvDraws[1]).forEach(n=>{score[n]*=recP[1];});
+      }
 
       // ── Normal modda algoritma oylamasını ek sinyal olarak ekle (backtest'te atla) ──
       if(!mvBt){
         const mvVotes=new Float32Array(mvMax+1);
-        const mvExclude=new Set(['megavote','random','proensemble']);
+        const mvExclude=new Set(['megavote','random','proensemble','wheeling']);
         const mvAlgos=ALGOS.filter(a=>!mvExclude.has(a.id));
         const mvPerf=state.algoPerf&&state.algoPerf[game.id];
         const shortW=mvD.slice(0,Math.min(20,mvD.length));
-        const longW=mvD.slice(0,Math.min(100,mvD.length));
+        const longW=mvD.slice(0,Math.min(80,mvD.length));
         const mvWins=[[shortW,buildFreq(shortW)],[longW,buildFreq(longW)]].filter(([w])=>w.length>=3);
         for(const mvAlgo of mvAlgos){
           const algoW=mvPerf?Math.max(0.3,mvPerf[mvAlgo.id]?.avg||0.8):1.0;
           for(const[win,wFreq]of mvWins){
-            for(let s=0;s<12;s++){try{const t=generateNumbers(game,mvAlgo.id,wFreq,win);(t.main||[]).forEach(n=>{if(n>=1&&n<=mvMax)mvVotes[n]+=algoW;});}catch(e){}}
+            for(let s=0;s<8;s++){try{const t=generateNumbers(game,mvAlgo.id,wFreq,win);(t.main||[]).forEach(n=>{if(n>=1&&n<=mvMax)mvVotes[n]+=algoW;});}catch(e){}}
           }
         }
         const vN=nrm(mvVotes);
-        for(let n=1;n<=mvMax;n++)score[n]=score[n]*0.55+vN[n]*0.45;
+        for(let n=1;n<=mvMax;n++)score[n]=score[n]*0.50+vN[n]*0.50;
       }
 
       // UI için skorları sakla
@@ -6546,10 +6559,12 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const co={};
       mvDraws.slice(0,60).forEach((d,i)=>{const w=Math.pow(0.92,i),ns=mvGN(d).slice(0,mvN);for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){const k=Math.min(ns[a],ns[b])+'_'+Math.max(ns[a],ns[b]);co[k]=(co[k]||0)+w;}});
 
-      // ── Tarihsel toplam kısıtı (geniş: P10-P90) ──
+      // ── Tarihsel toplam kısıtı (BT modda daha geniş: P5-P95) ──
       const sumArr=mvDraws.slice(0,120).map(d=>mvGN(d).sort((a,b)=>a-b).slice(0,mvN).reduce((s,v)=>s+v,0)).filter(s=>s>0).sort((a,b)=>a-b);
-      const sumLo=sumArr[Math.floor(sumArr.length*0.10)]||(mvMax+1)*mvN*0.22;
-      const sumHi=sumArr[Math.floor(sumArr.length*0.90)]||(mvMax+1)*mvN*0.78;
+      const loP=mvBt?0.05:0.10,hiP=mvBt?0.95:0.90;
+      const sumLo=sumArr[Math.floor(sumArr.length*loP)]||(mvMax+1)*mvN*0.20;
+      const sumHi=sumArr[Math.floor(sumArr.length*hiP)]||(mvMax+1)*mvN*0.80;
+      const coBns=mvBt?0.18:0.3; // BT modda ko-sinyal bonusu daha düşük (aşırı etkiye karşı)
 
       // ── Açgözlü seçim: skor + ko-sinyal, toplam kısıtı ile ──
       const sel=[],used=new Set();let curSum=0;
@@ -6559,10 +6574,10 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         for(let n=1;n<=mvMax;n++){
           if(used.has(n))continue;
           if((curSum+n+(needed-1))>sumHi||(curSum+n+mvMax*(needed-1))<sumLo)continue;
-          let sc=score[n];for(const s of sel){const k=Math.min(n,s)+'_'+Math.max(n,s);const v=co[k];if(v)sc+=v*0.3;}
+          let sc=score[n];for(const s of sel){const k=Math.min(n,s)+'_'+Math.max(n,s);const v=co[k];if(v)sc+=v*coBns;}
           if(sc>bestSc){bestSc=sc;bestN=n;}
         }
-        if(bestN===-1){for(let n=1;n<=mvMax;n++){if(used.has(n))continue;let sc=score[n];for(const s of sel){const k=Math.min(n,s)+'_'+Math.max(n,s);const v=co[k];if(v)sc+=v*0.3;}if(sc>bestSc){bestSc=sc;bestN=n;}}}
+        if(bestN===-1){for(let n=1;n<=mvMax;n++){if(used.has(n))continue;let sc=score[n];for(const s of sel){const k=Math.min(n,s)+'_'+Math.max(n,s);const v=co[k];if(v)sc+=v*coBns;}if(sc>bestSc){bestSc=sc;bestN=n;}}}
         if(bestN>0){sel.push(bestN);used.add(bestN);curSum+=bestN;}
       }
       mainNums=sel.sort((a,b)=>a-b);bonusNums=smartBonus();
