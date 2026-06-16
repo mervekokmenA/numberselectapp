@@ -18,7 +18,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     radial-gradient(ellipse at 85% 92%,rgba(224,64,95,.04) 0%,transparent 45%);}
 
 /* Nav */
-.main-nav{position:sticky;top:0;z-index:100;background:rgba(245,247,252,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 16px;transition:opacity .28s ease,transform .28s ease}
+.main-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(245,247,252,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 16px;transition:opacity .28s ease,transform .28s ease}
 .main-nav.nav-hidden{opacity:0;transform:translateY(-100%);pointer-events:none}
 .nav-inner{max-width:960px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;min-height:52px;height:auto;flex-wrap:wrap;gap:6px;padding:6px 0}
 .nav-brand{font-size:.96rem;font-weight:800;white-space:nowrap;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
@@ -936,7 +936,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <!-- ═══════════ PAGE: BANKO ÇÖZÜCÜ ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-soz">
  <div class="card">
-  <div class="card-title">🔮 Süper Özel Analiz</div>
+  <div class="card-title">🔮 Gülay'ın Hesaplamalar</div>
   <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Seçilen çekilişin ardışık sayıları arasındaki <strong>farkları (gap)</strong> bulur. Her farkı tüm sayılara ekleyerek <strong>Toplama</strong>, çıkararak <strong>Çıkarma</strong> sütunlarını oluşturur. Birden fazla sütunda tekrar eden sayılar güçlü banko adayıdır. <strong>Fark Zinciri</strong> ise farkları ardışık uygulayarak olası bir sonraki çekiliş şablonunu gösterir.</div>
   <div id="soContent"></div>
  </div>
@@ -8551,15 +8551,25 @@ function gizliModelUygula(){
   const btn=document.getElementById('gizliKopyaBtn');
   if(need<0){showToast('⚠️ Çok fazla banko sayısı');return;}
   const bankSet=new Set(bankos);
+  // Archive freq (from filtered/sliced draws)
   const freqMap={};
   _gizliArchive.forEach(nums=>nums.forEach(v=>{if(!bankSet.has(v))freqMap[v]=(freqMap[v]||0)+1;}));
+  // Global freq from recent unsliced draws (captures high numbers cut off by position slice)
+  const allGameDraws=_gizliGetDraws();
+  const globalFreq={};
+  allGameDraws.slice(0,Math.min(50,allGameDraws.length)).forEach(d=>d.nums.forEach(v=>{globalFreq[v]=(globalFreq[v]||0)+1;}));
+  const recentSet=new Set(allGameDraws.slice(0,Math.min(15,allGameDraws.length)).flatMap(d=>d.nums));
   const excl=_gizliExclude;
-  const pool=Object.entries(freqMap).filter(([v])=>!excl.has(parseInt(v))).sort((a,b)=>b[1]-a[1]).map(([v,f])=>({n:parseInt(v),f}));
+  // Build pool over ALL numbers 1-max, not just archive-observed ones
+  const pool=Array.from({length:game.max},(_,i)=>i+1)
+    .filter(n=>!bankSet.has(n)&&!excl.has(n))
+    .map(n=>({n,f:freqMap[n]||0,score:(freqMap[n]||0)*5+(globalFreq[n]||0)*0.8+(!recentSet.has(n)?2:0)}))
+    .sort((a,b)=>b.score-a.score);
   if(need>0&&pool.length<need){
     if(kol)kol.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Arşivde yeterli sayı yok. Beklentiyi genişletin veya banko sayısını azaltın.</div>';
     return;
   }
-  const maxK=need===0?1:[0,100,60,30,20,15,12,10][need]||10;
+  const maxK=need===0?1:[0,game.max,80,50,30,22,16,14][need]||game.max;
   const topPool=pool.slice(0,Math.min(maxK,pool.length));
   const columns=[];
   if(need===0){
@@ -8659,10 +8669,17 @@ function gizliTestEt(){
   const bankSet=new Set(bankos);
   const freqMap={};
   testArchive.forEach(nums=>nums.forEach(v=>{if(!bankSet.has(v))freqMap[v]=(freqMap[v]||0)+1;}));
+  // Global freq from prior draws (unsliced) to surface high numbers cut by position slice
+  const priorGlobalFreq={};
+  priorDraws.slice(0,Math.min(50,priorDraws.length)).forEach(d=>d.nums.forEach(v=>{priorGlobalFreq[v]=(priorGlobalFreq[v]||0)+1;}));
+  const priorRecentSet=new Set(priorDraws.slice(0,Math.min(15,priorDraws.length)).flatMap(d=>d.nums));
   const excl=_gizliExclude;
-  const pool=Object.entries(freqMap).filter(([v])=>!excl.has(parseInt(v))).sort((a,b2)=>b2[1]-a[1]).map(([v,f])=>({n:parseInt(v),f}));
+  const pool=Array.from({length:game.max},(_,i)=>i+1)
+    .filter(n=>!bankSet.has(n)&&!excl.has(n))
+    .map(n=>({n,f:freqMap[n]||0,score:(freqMap[n]||0)*5+(priorGlobalFreq[n]||0)*0.8+(!priorRecentSet.has(n)?2:0)}))
+    .sort((a,b)=>b.score-a.score);
   if(need>0&&pool.length<need){showToast('⚠️ Arşivde yeterli sayı yok');return;}
-  const maxK=need===0?1:([0,100,60,30,20,15,12,10][need]||10);
+  const maxK=need===0?1:([0,game.max,80,50,30,22,16,14][need]||game.max);
   const topPool=pool.slice(0,Math.min(maxK,pool.length));
   const columns=[];
   if(need===0){columns.push({col:[...bankos].sort((a,b2)=>a-b2),guc:_gizliGuc(bankos,freqMap,testArchive.length)});}
@@ -10241,16 +10258,18 @@ function showMainPage(id){
   if(id==='capraz')_cxInit();
 }
 
-// Nav: visible only while scrolling, hides after 1.8s of inactivity
+// Nav: visible on scroll/initial load, hides after inactivity; body padding synced
 (function(){
   const nav=document.getElementById('mainNav');
   if(!nav)return;
   let t=null;
-  const hide=()=>{t=setTimeout(()=>{nav.classList.add('nav-hidden');},1800);};
-  const show=()=>{nav.classList.remove('nav-hidden');clearTimeout(t);};
+  const applyPad=()=>{document.body.style.paddingTop=nav.offsetHeight+'px';};
+  const hide=()=>{t=setTimeout(()=>{nav.classList.add('nav-hidden');document.body.style.paddingTop='0';},1800);};
+  const show=()=>{clearTimeout(t);nav.classList.remove('nav-hidden');applyPad();};
   window.addEventListener('scroll',()=>{show();hide();},{passive:true});
-  // Start visible; hide after 4 seconds of no interaction
-  t=setTimeout(()=>{nav.classList.add('nav-hidden');},4000);
+  window.addEventListener('resize',()=>{if(!nav.classList.contains('nav-hidden'))applyPad();},{passive:true});
+  applyPad();
+  t=setTimeout(()=>{nav.classList.add('nav-hidden');document.body.style.paddingTop='0';},4000);
 })();
 
 function _scanGetDraws(gameId){
@@ -13015,6 +13034,15 @@ function _soInit(){
   _soRenderFull();
 }
 function _soSetGame(g){_soGame=g;_soDate='';_soRenderFull();}
+function _soStepDate(dir){
+  const sel=document.getElementById('soDateSel');if(!sel)return;
+  const opts=Array.from(sel.options);
+  const cur=opts.findIndex(o=>o.value===sel.value);
+  const next=cur+dir;
+  if(next<0||next>=opts.length)return;
+  sel.value=opts[next].value;
+  _soSetDate(sel.value);
+}
 function _soSetDate(v){_soDate=v;_soRenderFull();}
 function _soRenderFull(){
   const el=document.getElementById('soContent');if(!el)return;
@@ -13026,13 +13054,18 @@ function _soRenderFull(){
   GLIST.forEach(g=>{const a=g.id===_soGame;h+=`<button onclick="_soSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;});
   h+=`</div>`;
   // Dropdown: "" = new prediction (latest draw → future), else = show how prev draw predicted selected date
-  h+=`<div style="margin-bottom:14px"><select id="soDateSel" onchange="_soSetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;width:100%;max-width:420px">`;
+  const btnSt='background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 10px;cursor:pointer;font-size:.82rem;flex-shrink:0';
+  h+=`<div style="margin-bottom:14px;display:flex;align-items:center;gap:6px">`;
+  h+=`<button onclick="_soStepDate(-1)" style="${btnSt}" title="Önceki">◀</button>`;
+  h+=`<select id="soDateSel" onchange="_soSetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:0">`;
   h+=`<option value=""${_soDate===''?' selected':''}>🔮 Yeni Tahmin — ${draws[0].date} sonuçlarından gelecek tahmini</option>`;
   draws.slice(0,79).forEach((d,i)=>{
     if(i>=draws.length-1)return; // skip the oldest (no prev draw to use)
     h+=`<option value="${d.date}"${d.date===_soDate?' selected':''}>🎯 Hedef: ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;
   });
-  h+=`</select></div>`;
+  h+=`</select>`;
+  h+=`<button onclick="_soStepDate(1)" style="${btnSt}" title="Sonraki">▶</button>`;
+  h+=`</div>`;
   if(_soDate===''){
     // New prediction: analyze latest draw, no validation target
     h+=_soDoAnalysis(draws[0],game,null,true);
