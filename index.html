@@ -12796,17 +12796,35 @@ function _bzRenderBacktest(){
   h+=card(`Top ${K*2} isabet`,avg2K,(K*2/game.max*K).toFixed(2),K*2);
   h+=`</div></div>`;
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:13px 15px">`;
-  h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">🗓 Çekiliş Bazlı Sonuçlar</div>`;
-  h+=`<div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:4px 10px;font-size:.56rem;color:var(--muted);padding-bottom:5px;border-bottom:1px solid var(--border);margin-bottom:4px">
-    <span>Tarih</span><span>Gerçek Çekiliş</span><span>Top-5 İsabet</span><span>Top-${K} İsabet</span></div>`;
+  h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:3px">🗓 Çekiliş Bazlı Sonuçlar</div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:8px"><span style="color:var(--green);font-weight:700">●</span> isabet · <span style="color:#e8820c;font-weight:700">●</span> yakın (±1)</div>`;
+  h+=`<div style="display:grid;grid-template-columns:auto 1fr 1fr auto auto;gap:4px 10px;font-size:.56rem;color:var(--muted);padding-bottom:5px;border-bottom:1px solid var(--border);margin-bottom:4px">
+    <span>Tarih</span><span>Gerçek Çekiliş</span><span>Tahmin (Top-${K})</span><span>Top-5</span><span>Top-${K}</span></div>`;
   results.forEach(r=>{
     const actualSet=new Set(r.actual);
-    const numSpan=n=>`<span style="font-family:monospace;font-size:.62rem;padding:1px 4px;border-radius:4px;background:${r.topK.includes(n)?'rgba(0,230,118,.22)':r.top5.includes(n)?'rgba(129,140,248,.15)':'rgba(0,0,0,.04)'};color:${r.topK.includes(n)&&actualSet.has(n)?'var(--green)':r.top5.includes(n)&&actualSet.has(n)?'var(--accent)':'var(--text)'};font-weight:${actualSet.has(n)&&r.topK.includes(n)?'800':'400'}">${n}</span>`;
+    const predSet=new Set(r.topK);
+    // gerçek çekiliş: tahmin edildiyse yeşil, tahmin ±1 yakınındaysa turuncu
+    const numSpan=n=>{
+      const hit=predSet.has(n);
+      const near=!hit&&(predSet.has(n-1)||predSet.has(n+1));
+      const bg=hit?'rgba(0,230,118,.22)':near?'rgba(232,130,12,.16)':'rgba(0,0,0,.04)';
+      const col=hit?'var(--green)':near?'#e8820c':'var(--text)';
+      return`<span style="font-family:monospace;font-size:.62rem;padding:1px 4px;border-radius:4px;background:${bg};color:${col};font-weight:${hit?'800':near?'700':'400'}">${n}</span>`;
+    };
+    // tahmin: gerçek çekilişte varsa yeşil, gerçek sayıya ±1 yakınsa turuncu
+    const predSpan=n=>{
+      const hit=actualSet.has(n);
+      const near=!hit&&(actualSet.has(n-1)||actualSet.has(n+1));
+      const bg=hit?'rgba(0,230,118,.22)':near?'rgba(232,130,12,.16)':'rgba(0,0,0,.04)';
+      const col=hit?'var(--green)':near?'#e8820c':'var(--muted)';
+      return`<span style="font-family:monospace;font-size:.62rem;padding:1px 4px;border-radius:4px;background:${bg};color:${col};font-weight:${hit?'800':near?'700':'400'}">${n}</span>`;
+    };
     const c5=r.hits5>=3?'var(--green)':r.hits5>=2?'#8a6200':'var(--muted)';
     const cK=r.hitsK>=Math.ceil(K/2)?'var(--green)':r.hitsK>=2?'#8a6200':'var(--muted)';
-    h+=`<div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:4px 10px;align-items:center;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.03)">`;
+    h+=`<div style="display:grid;grid-template-columns:auto 1fr 1fr auto auto;gap:4px 10px;align-items:center;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.03)">`;
     h+=`<span style="font-size:.6rem;color:var(--muted);white-space:nowrap">${r.date}</span>`;
     h+=`<div style="display:flex;gap:3px;flex-wrap:wrap">${r.actual.map(numSpan).join('')}</div>`;
+    h+=`<div style="display:flex;gap:3px;flex-wrap:wrap">${[...r.topK].sort((a,b)=>a-b).map(predSpan).join('')}</div>`;
     h+=`<span style="font-size:.7rem;font-weight:800;text-align:center;color:${c5}">${r.hits5}/${5}</span>`;
     h+=`<span style="font-size:.7rem;font-weight:800;text-align:center;color:${cK}">${r.hitsK}/${K}</span>`;
     h+=`</div>`;
