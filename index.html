@@ -12549,6 +12549,7 @@ function _bzBacktestSignals(draws,game){
   const K=Math.min(50,Math.max(8,draws.length-15));
   const acc={};_BZ_SIGNALS.forEach(s=>acc[s.id]={hit:0,near:0,n:0});
   let baseHit=0,baseN=0;
+  let kbHit=0,kbN2=0;
   for(let t=0;t<K;t++){
     const prior=draws.slice(t+1);if(prior.length<15)break;
     const actual=draws[t].nums.filter(n=>n>=1&&n<=max);if(actual.length<2)continue;
@@ -12569,6 +12570,14 @@ function _bzBacktestSignals(draws,game){
       acc[s.id].near+=near/actual.length;
       acc[s.id].n++;
     });
+    // KB konsensüs lift ölçümü
+    try{
+      const cal=_kbCalibrate(prior,game);
+      const kbRows=_kbConsensus(prior,game,cal);
+      const kbTop=new Set(kbRows.slice(0,topM).map(r=>r.n));
+      let kbh=0;actual.forEach(a=>{if(kbTop.has(a))kbh++;});
+      kbHit+=kbh/actual.length;kbN2++;
+    }catch(e){}
     // rastgele beklenti: topM aday için
     baseHit+=topM/max;baseN++;
   }
@@ -12576,10 +12585,12 @@ function _bzBacktestSignals(draws,game){
   const out={};
   _BZ_SIGNALS.forEach(s=>{
     const a=acc[s.id];
-    const hitRate=a.n?a.hit/a.n:0;          // ortalama yakalama oranı
+    const hitRate=a.n?a.hit/a.n:0;
     const nearRate=a.n?a.near/a.n:0;
     out[s.id]={hitRate,nearRate,lift:base>0?hitRate/base:0};
   });
+  const kbHitRate=kbN2?kbHit/kbN2:0;
+  out._kbLift=base>0?kbHitRate/base:1;
   out._base=base;out._K=Math.min(K,baseN);out._topM=topM;
   return out;
 }
@@ -12605,16 +12616,17 @@ function _bzComputeBanko(draws,game){
     ranked.sort((a,b)=>b[1]-a[1]);
     topSets[s.id]=new Set(ranked.slice(0,topM).map(x=>x[0]));
   });
+  const kbLift=lab._kbLift||1;
   const rows=[];
   for(let n=1;n<=max;n++){
     let score=0;const fired=[];
     _BZ_SIGNALS.forEach(s=>{
       const lift=lab[s.id].lift||0;
-      const w=lift>1?Math.pow(lift-1,0.7)*lift:0;  // güçlü sinyalleri amplifiye et, zayıfları sıfırla
+      const w=Math.pow(Math.max(0,lift-1),1.5)*40;
       score+=w*norm[s.id][n];
       if(topSets[s.id].has(n))fired.push(s);
     });
-    const kbBonus=(kbN[n]||0)*1.1;                  // KB meta-motoru güçlü ağırlık
+    const kbBonus=Math.pow(Math.max(0,kbLift-1),1.5)*40*(kbN[n]||0);
     score+=kbBonus;
     const kbStrong=(kbSupport[n]||0)>=3;
     const agree=fired.length+(kbStrong?1:0);
