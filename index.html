@@ -321,6 +321,9 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 #soqInput{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:monospace;font-size:.82rem;outline:none;transition:border .15s}
 #soqInput:focus{border-color:rgba(108,99,255,.55)}
 #soqResult{margin-top:14px}
+#soqResult span{cursor:pointer}
+.soq-sel{outline:2px solid var(--accent)!important;outline-offset:1px;box-shadow:0 0 0 3px rgba(108,99,255,.28)!important;border-radius:5px}
+#soqSelBar{display:none;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--border);background:var(--surface2);flex-shrink:0;border-radius:0 0 16px 16px}
 </style>
 </head>
 <body>
@@ -13207,8 +13210,10 @@ function _soqRenderControls(){
     draws.slice(0,5).forEach(d=>{h+=`<button onclick="document.getElementById('soqInput').value='${d.nums.join(' ')}';_soqAnalyze()" style="font-size:.56rem;padding:2px 7px;margin:0 2px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:monospace">${d.date}</button>`;});
   }
   h+=`</div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:7px">💡 Sonuçlardaki sayılara tıklayarak seç → alttaki çubuktan topluca kopyala.</div>`;
   document.getElementById('soqControls').innerHTML=h;
   document.getElementById('soqResult').innerHTML='';
+  _soqSel.clear();_soqUpdateSelBar();
   setTimeout(()=>{const inp=document.getElementById('soqInput');if(inp)inp.focus();},50);
 }
 function _soqAnalyze(){
@@ -13221,8 +13226,45 @@ function _soqAnalyze(){
   if(nums.length<2){showToast(`⚠️ En az 2 geçerli sayı girin (1–${game.max})`);return;}
   const draw={date:'Manuel Giriş',nums:[...new Set(nums)].sort((a,b)=>a-b),bonus:[]};
   const out=document.getElementById('soqResult');
+  _soqSel.clear();
   if(out)out.innerHTML=_soDoAnalysis(draw,game,null,false);
+  _soqUpdateSelBar();
 }
+// ── Çoklu seçim & kopyalama ──
+let _soqSel=new Set();
+function _soqSpanNum(el){
+  if(!el||el.tagName!=='SPAN'||el.children.length)return null;
+  const m=(el.textContent||'').trim().match(/^(\d+)[✓~]?$/);
+  if(!m)return null;
+  const n=parseInt(m[1]),g=getGame(_soqGame);
+  if(n<1||n>g.max)return null;
+  return n;
+}
+function _soqPick(e){
+  const n=_soqSpanNum(e.target);
+  if(n==null)return;
+  if(_soqSel.has(n))_soqSel.delete(n);else _soqSel.add(n);
+  _soqRefreshHighlight();
+  _soqUpdateSelBar();
+}
+function _soqRefreshHighlight(){
+  const root=document.getElementById('soqResult');if(!root)return;
+  root.querySelectorAll('span').forEach(el=>{
+    const n=_soqSpanNum(el);
+    if(n!=null&&_soqSel.has(n))el.classList.add('soq-sel');else el.classList.remove('soq-sel');
+  });
+}
+function _soqUpdateSelBar(){
+  const bar=document.getElementById('soqSelBar');if(!bar)return;
+  const arr=[..._soqSel].sort((a,b)=>a-b);
+  if(!arr.length){bar.style.display='none';bar.innerHTML='';return;}
+  bar.style.display='flex';
+  bar.innerHTML=`<div style="flex:1;min-width:0"><div style="font-size:.55rem;color:var(--muted);margin-bottom:2px">Seçilen ${arr.length} sayı</div><div style="font-family:monospace;font-size:.8rem;font-weight:700;color:var(--accent);word-break:break-all">${arr.join(' ')}</div></div>`+
+  `<button onclick="_soqCopySel()" style="padding:7px 13px;border-radius:7px;border:1px solid rgba(108,99,255,.5);background:rgba(108,99,255,.12);color:var(--accent);cursor:pointer;font-size:.72rem;font-weight:700;white-space:nowrap;flex-shrink:0">📋 Kopyala</button>`+
+  `<button onclick="_soqClearSel()" style="padding:7px 11px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-size:.72rem;white-space:nowrap;flex-shrink:0">Temizle</button>`;
+}
+function _soqCopySel(){_kbCopy([..._soqSel].sort((a,b)=>a-b).join(' '));}
+function _soqClearSel(){_soqSel.clear();_soqRefreshHighlight();_soqUpdateSelBar();}
 // ─────────────────────────────────────────────────────────────────────────────
 
 function _soInit(){
@@ -13291,9 +13333,6 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   // Çıkarma + Toplama rows
   const cikRows=gaps.map(g=>nums.map(n=>n-g).filter(n=>n>=1));
   const topRows=gaps.map(g=>nums.map(n=>n+g).filter(n=>n<=max));
-  // Frequency count
-  const freq={};[...cikRows.flat(),...topRows.flat()].forEach(n=>{freq[n]=(freq[n]||0)+1;});
-  const maxFreq=Math.max(...Object.values(freq),1);
   // Badge renderer — green=exact match, yellow~=±1 from a MAIN target number only
   const badge=n=>{
     const isNext=nextSet&&nextSet.has(n);
@@ -13360,17 +13399,6 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   });
   h+=`</div>`;
   h+=`</div>`;
-  // ── Tekrar eden sayılar
-  const topFreq=Object.entries(freq).map(([n,f])=>({n:parseInt(n),f})).filter(x=>x.f>=2).sort((a,b)=>b.f-a.f||a.n-b.n);
-  if(topFreq.length){
-    const copyText=topFreq.map(x=>x.n).join(' ');
-    window._soRepCopy=copyText;
-    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
-    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div style="font-size:.72rem;font-weight:800">🔁 Tekrar Edenler <span style="font-size:.57rem;font-weight:400;color:var(--muted)">(≥2 satırda çıkan güçlü adaylar)</span></div><button onclick="_kbCopy(window._soRepCopy)" style="font-size:.58rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></div>`;
-    h+=`<div style="display:flex;flex-wrap:wrap;gap:3px">${topFreq.map(({n,f})=>badge(n)).join('')}</div>`;
-    h+=`<div style="font-size:.55rem;color:var(--muted);margin-top:5px">${topFreq.map(({n,f})=>`${n}(${f}×)`).join(' ')}</div>`;
-    h+=`</div>`;
-  }
   // ── Fark Zinciri
   h+=`<div style="background:rgba(184,134,11,.04);border:1px solid rgba(184,134,11,.2);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
   h+=`<div style="font-size:.72rem;font-weight:800;color:#8a6200;margin-bottom:7px">🔗 Fark Zinciri <span style="font-size:.57rem;font-weight:400;color:var(--muted)">(farklı başlangıç noktalarından farklar zincirleme uygulanır · 10'ar adım)</span></div>`;
@@ -13395,7 +13423,7 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   const allTop=topRows.map((r,i)=>`+f${i+1}(${gaps[i]}): ${r.join(' ')}`).join('\n');
   const allChain=chainRows.map(({start,chain})=>`${start}: ${chain.join(' ')}`).join('\n');
   // Tekrar edenler en alta alınır
-  window._soCopy=`${game.name} — ${draw.date}\nSayılar: ${nums.join(' ')}\nFarklar: ${gaps.join(' ')} = ${gapSum}\n\nÇIKARMA:\n${allCik}\n\nTOPLAMA:\n${allTop}\n\nFARK ZİNCİRİ:\n${allChain}\n\nTEKRAR EDENLER (≥2×):\n${topFreq.map(x=>x.n).join(' ')}`;
+  window._soCopy=`${game.name} — ${draw.date}\nSayılar: ${nums.join(' ')}\nFarklar: ${gaps.join(' ')} = ${gapSum}\n\nÇIKARMA:\n${allCik}\n\nTOPLAMA:\n${allTop}\n\nFARK ZİNCİRİ:\n${allChain}`;
   h+=`<div style="text-align:right"><button onclick="_kbCopy(window._soCopy)" style="font-size:.62rem;padding:4px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋 Tüm Analizi Kopyala</button></div>`;
   return h;
 }
@@ -13783,8 +13811,9 @@ function _cxBacktest(){
     </div>
     <div id="soqBody">
       <div id="soqControls"></div>
-      <div id="soqResult"></div>
+      <div id="soqResult" onclick="_soqPick(event)"></div>
     </div>
+    <div id="soqSelBar"></div>
   </div>
 </div>
 </body>
