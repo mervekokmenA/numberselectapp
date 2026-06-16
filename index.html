@@ -312,6 +312,15 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   .b10-tahmin-grid{grid-template-columns:1fr}
 }
 @media(max-width:720px){#gizliSayfa{width:calc(100vw - 16px) !important;height:calc(100vh - 60px) !important;left:8px !important;top:30px !important;transform:none !important;}}
+/* ── Hızlı Gülay popup ── */
+#soqOverlay{display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.48);backdrop-filter:blur(4px);align-items:center;justify-content:center;padding:16px}
+#soqOverlay.open{display:flex}
+#soqBox{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:680px;max-height:calc(100vh - 80px);display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.4)}
+#soqHeader{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+#soqBody{overflow-y:auto;padding:14px 16px;flex:1}
+#soqInput{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:monospace;font-size:.82rem;outline:none;transition:border .15s}
+#soqInput:focus{border-color:rgba(108,99,255,.55)}
+#soqResult{margin-top:14px}
 </style>
 </head>
 <body>
@@ -329,6 +338,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-b10sistem" onclick="showMainPage('b10sistem')">🎟️ B10</button>
       <button class="nav-link" id="navBtn-bankocoz" onclick="showMainPage('bankocoz')">🎯 Banko</button>
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
+      <button class="nav-link" id="navBtn-gulayq" onclick="_soqOpen()" style="border-color:rgba(108,99,255,.4);color:var(--accent)">✍️ Hızlı Gülay</button>
       <button class="nav-link" id="navBtn-capraz" onclick="showMainPage('capraz')">🔀 Çapraz</button>
       <button class="nav-link" id="navBtn-nsa" onclick="openGizliSayfa()" style="border-color:rgba(184,134,11,.4);color:#8a6200">🔐 NSA</button>
     </div>
@@ -13164,6 +13174,57 @@ function _bzAnalyzePool(){
 // ═══════════ 🔮 SÜPER ÖZEL ANALİZ ════════════════════════════════════════════
 // Notebook'taki gap analizi: farklar → çıkarma + toplama sütunları + fark zinciri
 let _soGame='super',_soDate='';
+// ── Hızlı Gülay popup ────────────────────────────────────────────────────────
+let _soqGame='sayisal';
+const _SOQ_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
+function _soqOpen(){
+  if(state.selectedGame&&getGame(state.selectedGame))_soqGame=state.selectedGame;
+  document.getElementById('soqOverlay').classList.add('open');
+  document.body.style.overflow='hidden';
+  _soqRenderControls();
+}
+function _soqClose(){
+  document.getElementById('soqOverlay').classList.remove('open');
+  document.body.style.overflow='';
+}
+function _soqSetGame(g){
+  _soqGame=g;
+  _soqRenderControls();
+}
+function _soqRenderControls(){
+  const game=getGame(_soqGame);
+  let h=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">`;
+  _SOQ_GAMES.forEach(g=>{const a=g.id===_soqGame;h+=`<button onclick="_soqSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;});
+  h+=`</div>`;
+  h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Sayıları girin (boşluk veya virgülle ayırın) — ${game.count} ana sayı, 1–${game.max} arası:</div>`;
+  h+=`<div style="display:flex;gap:8px;align-items:center">`;
+  h+=`<input id="soqInput" type="text" placeholder="örn. 5 18 27 36 47 55" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')_soqAnalyze()">`;
+  h+=`<button onclick="_soqAnalyze()" style="padding:9px 16px;border-radius:8px;border:1px solid rgba(108,99,255,.5);background:rgba(108,99,255,.12);color:var(--accent);cursor:pointer;font-size:.78rem;font-weight:700;white-space:nowrap;flex-shrink:0">🔮 Analiz Et</button>`;
+  h+=`</div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:5px;opacity:.7">Geçmiş çekilişten doldur: `;
+  const draws=_kbGetDraws(_soqGame);
+  if(draws&&draws.length){
+    draws.slice(0,5).forEach(d=>{h+=`<button onclick="document.getElementById('soqInput').value='${d.nums.join(' ')}';_soqAnalyze()" style="font-size:.56rem;padding:2px 7px;margin:0 2px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:monospace">${d.date}</button>`;});
+  }
+  h+=`</div>`;
+  document.getElementById('soqControls').innerHTML=h;
+  document.getElementById('soqResult').innerHTML='';
+  setTimeout(()=>{const inp=document.getElementById('soqInput');if(inp)inp.focus();},50);
+}
+function _soqAnalyze(){
+  const inp=document.getElementById('soqInput');
+  if(!inp)return;
+  const raw=inp.value.trim();
+  if(!raw){showToast('⚠️ Sayı girin');return;}
+  const game=getGame(_soqGame);
+  const nums=raw.split(/[\s,;]+/).map(s=>parseInt(s)).filter(n=>!isNaN(n)&&n>=1&&n<=game.max);
+  if(nums.length<2){showToast(`⚠️ En az 2 geçerli sayı girin (1–${game.max})`);return;}
+  const draw={date:'Manuel Giriş',nums:[...new Set(nums)].sort((a,b)=>a-b),bonus:[]};
+  const out=document.getElementById('soqResult');
+  if(out)out.innerHTML=_soDoAnalysis(draw,game,null,false);
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 function _soInit(){
   if(state.selectedGame&&getGame(state.selectedGame))_soGame=state.selectedGame;
   _soRenderFull();
@@ -13710,6 +13771,20 @@ function _cxBacktest(){
       </div>
     </div>
     <div id="predNotesList"></div>
+  </div>
+</div>
+
+<!-- ═══ Hızlı Gülay Popup ═══ -->
+<div id="soqOverlay" onclick="if(event.target===this)_soqClose()">
+  <div id="soqBox">
+    <div id="soqHeader">
+      <div style="font-size:.9rem;font-weight:800">✍️ Hızlı Gülay Analizi</div>
+      <button onclick="_soqClose()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:.85rem;display:flex;align-items:center;justify-content:center">✕</button>
+    </div>
+    <div id="soqBody">
+      <div id="soqControls"></div>
+      <div id="soqResult"></div>
+    </div>
   </div>
 </div>
 </body>
