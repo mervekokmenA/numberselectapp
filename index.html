@@ -6444,77 +6444,122 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       break;}
 
     case 'megavote':{
-      // Tüm algoritmalar × 18 sim × 2 pencere + KNN + gap + pozisyon sinyalleri
+      // Deterministik 5-sinyal puanlama: EWF + KNN + Gap + Pozisyon + Koşullu-Çift
       const mvD=drawsOverride||state.pastDraws||[];
       if(mvD.length<3)return generateNumbers(game,'random',freq,drawsOverride);
       const mvMax=game.max,mvN=game.count;
-      const mvVotes=new Float32Array(mvMax+1);
-      const mvGN=d=>(Array.isArray(d)?d:(d.nums||[])).filter(n=>n>=1&&n<=mvMax);
-      // Algo ağırlıkları: backtest varsa gerçek ortalama, yoksa eşit
-      const mvPerf=state.algoPerf&&state.algoPerf[game.id];
-      const mvExclude=new Set(['megavote','random','proensemble']);
-      const mvAlgos=ALGOS.filter(a=>!mvExclude.has(a.id));
-      // Backtest modunda hızlı çalış: 1 pencere + az sim
       const mvBt=!!window._scanBtMode;
-      const mvLong=mvD.slice(0,Math.min(100,mvD.length));
-      const mvShort=mvD.slice(0,Math.min(20,mvD.length));
-      const mvWindows=mvBt?[[mvLong,freq]]:[[mvShort,buildFreq(mvShort)],[mvLong,buildFreq(mvLong)]].filter(([w])=>w.length>=3);
-      const MV_SIMS=mvBt?5:18;
-      for(const mvAlgo of mvAlgos){
-        const algoW=mvPerf?Math.max(0.3,mvPerf[mvAlgo.id]?.avg||0.8):1.0;
-        for(const[window,wFreq]of mvWindows){
-          for(let s=0;s<MV_SIMS;s++){
-            try{const t=generateNumbers(game,mvAlgo.id,wFreq,window);(t.main||[]).forEach(n=>{if(n>=1&&n<=mvMax)mvVotes[n]+=algoW;});}catch(e){}
-          }
-        }
-      }
-      // KNN sinyali: son çekilişe en benzer tarihsel çekilişleri bul, sonrasında çıkan sayıları boost et
-      if(mvD.length>=4){
-        const lastSet=new Set(mvGN(mvD[0]));
-        mvD.slice(1).forEach((d,i)=>{
-          const dSet=new Set(mvGN(d));
+      const mvGN=d=>(Array.isArray(d)?d:(d.nums||[])).filter(n=>n>=1&&n<=mvMax);
+      const mvDraws=mvD.slice(0,Math.min(150,mvD.length));
+      const T=mvDraws.length;
+      const nrm=arr=>{let mn=Infinity,mx=-Infinity;for(let n=1;n<=mvMax;n++){if(arr[n]<mn)mn=arr[n];if(arr[n]>mx)mx=arr[n];}const r=Math.max(mx-mn,1e-9),o=new Float32Array(mvMax+1);for(let n=1;n<=mvMax;n++)o[n]=(arr[n]-mn)/r;return o;};
+
+      // ── Sinyal 1: EWF — üstel ağırlıklı frekans (son çekilişler daha ağır) ──
+      const λ=game.id==='super'?0.78:0.88;
+      const ewf=new Float32Array(mvMax+1);
+      mvDraws.forEach((d,i)=>{const w=Math.pow(λ,i);mvGN(d).forEach(n=>{ewf[n]+=w;});});
+
+      // ── Sinyal 2: KNN — son çekilişe benzer geçmiş çekilişlerin ardından ne çıktı ──
+      const knn=new Float32Array(mvMax+1);
+      if(T>=4){
+        const lastSet=new Set(mvGN(mvDraws[0]));
+        for(let i=1;i<T-1;i++){
+          const dSet=new Set(mvGN(mvDraws[i]));
           const inter=[...dSet].filter(n=>lastSet.has(n)).length;
           const sim=inter/Math.max(lastSet.size+dSet.size-inter,1);
-          if(sim>0&&i>0){const w=Math.pow(0.88,i)*sim*22;mvGN(mvD[i]).forEach(n=>{mvVotes[n]+=w;});}
+          if(sim>0){const w=Math.pow(0.85,i)*sim;mvGN(mvDraws[i-1]).forEach(n=>{knn[n]+=w;});}
+        }
+      }
+
+      // ── Sinyal 3: Gecikme — uzun süredir çıkmayan sayılar (beklenen boşluk aşıldı) ──
+      const delayArr=new Float32Array(mvMax+1);
+      const lastSeen=new Int32Array(mvMax+1).fill(T);
+      mvDraws.forEach((d,i)=>{mvGN(d).forEach(n=>{if(lastSeen[n]===T)lastSeen[n]=i;});});
+      const avgGap=T/mvMax;
+      for(let n=1;n<=mvMax;n++){delayArr[n]=Math.max(0,(lastSeen[n]/avgGap)-0.8);}
+
+      // ── Sinyal 4: Pozisyon frekansı — hangi pozisyonda hangi sayı sık çıkıyor ──
+      const posFreq=Array.from({length:mvN},()=>new Float32Array(mvMax+1));
+      mvDraws.forEach(d=>{const ns=mvGN(d).sort((a,b)=>a-b).slice(0,mvN);ns.forEach((n,i)=>{if(i<mvN)posFreq[i][n]++;});});
+      const posScore=new Float32Array(mvMax+1);
+      posFreq.forEach(pf=>{let tot=0;for(let i=0;i<pf.length;i++)tot+=pf[i];if(tot>0){const inv=1/tot;for(let n=1;n<=mvMax;n++)posScore[n]+=pf[n]*inv;}});
+
+      // ── Sinyal 5: Koşullu çift — son çekilişin sayıları verildiğinde, bir sonrakinde ne çıkar ──
+      const pairScore=new Float32Array(mvMax+1);
+      if(T>=8){
+        const pCnt={},pTot={};
+        for(let i=1;i<Math.min(T-1,90);i++){
+          const srcNums=mvGN(mvDraws[i]);
+          const nxtNums=mvGN(mvDraws[i-1]);
+          const w=Math.pow(0.93,i);
+          srcNums.forEach(sn=>{
+            nxtNums.forEach(tn=>{const k=sn+'_'+tn;pCnt[k]=(pCnt[k]||0)+w;});
+            pTot[sn]=(pTot[sn]||0)+w*nxtNums.length;
+          });
+        }
+        mvGN(mvDraws[0]).forEach(sn=>{
+          const tot=pTot[sn]||1;
+          for(let n=1;n<=mvMax;n++){const v=pCnt[sn+'_'+n];if(v)pairScore[n]+=v/tot;}
         });
       }
-      // Gap sinyali: gecikmiş sayılara bonus
-      const mvLastSeen=new Int32Array(mvMax+1).fill(9999);
-      mvD.forEach((d,i)=>{mvGN(d).forEach(n=>{if(n>=1&&n<=mvMax&&mvLastSeen[n]===9999)mvLastSeen[n]=i;});});
-      const mvAvgGap=mvD.length/mvMax;
-      for(let n=1;n<=mvMax;n++){
-        const gap=mvLastSeen[n]===9999?mvD.length:mvLastSeen[n];
-        if(gap>mvAvgGap*1.3)mvVotes[n]+=Math.min(3,(gap/mvAvgGap-1))*4;
+
+      // ── Normalize ve ağırlıklı birleşim ──
+      // EWF 28% + KNN 30% + Gecikme 14% + Pozisyon 13% + Koşullu çift 15%
+      const ewfN=nrm(ewf),knnN=nrm(knn),delN=nrm(delayArr),posN=nrm(posScore),pairN=nrm(pairScore);
+      const score=new Float32Array(mvMax+1);
+      for(let n=1;n<=mvMax;n++)score[n]=ewfN[n]*0.28+knnN[n]*0.30+delN[n]*0.14+posN[n]*0.13+pairN[n]*0.15;
+
+      // ── Son 1-2 çekilişe çıkan sayılara ceza (tekrar nadiren çıkar) ──
+      const recP=game.id==='super'?[0.40,0.65]:[0.32,0.62];
+      mvGN(mvDraws[0]).forEach(n=>{score[n]*=recP[0];});
+      if(T>1)mvGN(mvDraws[1]).forEach(n=>{score[n]*=recP[1];});
+
+      // ── Normal modda algoritma oylamasını ek sinyal olarak ekle (backtest'te atla) ──
+      if(!mvBt){
+        const mvVotes=new Float32Array(mvMax+1);
+        const mvExclude=new Set(['megavote','random','proensemble']);
+        const mvAlgos=ALGOS.filter(a=>!mvExclude.has(a.id));
+        const mvPerf=state.algoPerf&&state.algoPerf[game.id];
+        const shortW=mvD.slice(0,Math.min(20,mvD.length));
+        const longW=mvD.slice(0,Math.min(100,mvD.length));
+        const mvWins=[[shortW,buildFreq(shortW)],[longW,buildFreq(longW)]].filter(([w])=>w.length>=3);
+        for(const mvAlgo of mvAlgos){
+          const algoW=mvPerf?Math.max(0.3,mvPerf[mvAlgo.id]?.avg||0.8):1.0;
+          for(const[win,wFreq]of mvWins){
+            for(let s=0;s<12;s++){try{const t=generateNumbers(game,mvAlgo.id,wFreq,win);(t.main||[]).forEach(n=>{if(n>=1&&n<=mvMax)mvVotes[n]+=algoW;});}catch(e){}}
+          }
+        }
+        const vN=nrm(mvVotes);
+        for(let n=1;n<=mvMax;n++)score[n]=score[n]*0.55+vN[n]*0.45;
       }
-      // Pozisyon frekansı boost
-      const mvPosFreq=Array.from({length:mvN},()=>new Float32Array(mvMax+1));
-      mvD.slice(0,150).forEach(d=>{const ns=mvGN(d).sort((a,b)=>a-b).slice(0,mvN);ns.forEach((n,i)=>{if(i<mvN)mvPosFreq[i][n]++;});});
-      const mvPosMul=mvAlgos.length*mvWindows.length*MV_SIMS*0.05;
-      mvPosFreq.forEach(pf=>{let tot=0;for(let i=0;i<pf.length;i++)tot+=pf[i];if(tot>0){const inv=1/tot;for(let n=1;n<=mvMax;n++)mvVotes[n]+=pf[n]*inv*mvPosMul;}});
-      // Oylama havuzunu UI için sakla
-      window._mvLastVotes={votes:Array.from(mvVotes),game:game.id};
-      // Tarihsel toplam kısıtı
-      const mvSumArr=mvLong.map(d=>mvGN(d).sort((a,b)=>a-b).slice(0,mvN).reduce((s,v)=>s+v,0)).filter(s=>s>0).sort((a,b)=>a-b);
-      const mvSumLo=mvSumArr[Math.floor(mvSumArr.length*0.15)]||(mvMax+1)*mvN*0.25;
-      const mvSumHi=mvSumArr[Math.floor(mvSumArr.length*0.85)]||(mvMax+1)*mvN*0.75;
-      // Birlikte çıkma sinyali
-      const mvCo={};
-      mvLong.slice(0,60).forEach((d,i)=>{const w=Math.pow(0.92,i),ns=mvGN(d).slice(0,mvN);for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){const k=Math.min(ns[a],ns[b])+'_'+Math.max(ns[a],ns[b]);mvCo[k]=(mvCo[k]||0)+w;}});
-      // Açgözlü seçim: oylar + birlikte çıkma, toplam kısıtı ile
-      const mvSel=[],mvUsed=new Set();let mvSum=0;
+
+      // UI için skorları sakla
+      window._mvLastVotes={votes:Array.from(score),game:game.id};
+
+      // ── Birlikte çıkma matrisi (seçimde ko-sinyal) ──
+      const co={};
+      mvDraws.slice(0,60).forEach((d,i)=>{const w=Math.pow(0.92,i),ns=mvGN(d).slice(0,mvN);for(let a=0;a<ns.length;a++)for(let b=a+1;b<ns.length;b++){const k=Math.min(ns[a],ns[b])+'_'+Math.max(ns[a],ns[b]);co[k]=(co[k]||0)+w;}});
+
+      // ── Tarihsel toplam kısıtı (geniş: P10-P90) ──
+      const sumArr=mvDraws.slice(0,120).map(d=>mvGN(d).sort((a,b)=>a-b).slice(0,mvN).reduce((s,v)=>s+v,0)).filter(s=>s>0).sort((a,b)=>a-b);
+      const sumLo=sumArr[Math.floor(sumArr.length*0.10)]||(mvMax+1)*mvN*0.22;
+      const sumHi=sumArr[Math.floor(sumArr.length*0.90)]||(mvMax+1)*mvN*0.78;
+
+      // ── Açgözlü seçim: skor + ko-sinyal, toplam kısıtı ile ──
+      const sel=[],used=new Set();let curSum=0;
       for(let pick=0;pick<mvN;pick++){
         const needed=mvN-pick;
-        let bestN=-1,bestScore=-Infinity;
+        let bestN=-1,bestSc=-Infinity;
         for(let n=1;n<=mvMax;n++){
-          if(mvUsed.has(n))continue;
-          if((mvSum+n+(needed-1))>mvSumHi||(mvSum+n+mvMax*(needed-1))<mvSumLo)continue;
-          let sc=mvVotes[n];for(const s of mvSel){const k=Math.min(n,s)+'_'+Math.max(n,s);const v=mvCo[k];if(v)sc+=v*0.4;}
-          if(sc>bestScore){bestScore=sc;bestN=n;}
+          if(used.has(n))continue;
+          if((curSum+n+(needed-1))>sumHi||(curSum+n+mvMax*(needed-1))<sumLo)continue;
+          let sc=score[n];for(const s of sel){const k=Math.min(n,s)+'_'+Math.max(n,s);const v=co[k];if(v)sc+=v*0.3;}
+          if(sc>bestSc){bestSc=sc;bestN=n;}
         }
-        if(bestN===-1){for(let n=1;n<=mvMax;n++){if(mvUsed.has(n))continue;let sc=mvVotes[n];for(const s of mvSel){const k=Math.min(n,s)+'_'+Math.max(n,s);const v=mvCo[k];if(v)sc+=v*0.4;}if(sc>bestScore){bestScore=sc;bestN=n;}}}
-        if(bestN>0){mvSel.push(bestN);mvUsed.add(bestN);mvSum+=bestN;}
+        if(bestN===-1){for(let n=1;n<=mvMax;n++){if(used.has(n))continue;let sc=score[n];for(const s of sel){const k=Math.min(n,s)+'_'+Math.max(n,s);const v=co[k];if(v)sc+=v*0.3;}if(sc>bestSc){bestSc=sc;bestN=n;}}}
+        if(bestN>0){sel.push(bestN);used.add(bestN);curSum+=bestN;}
       }
-      mainNums=mvSel.sort((a,b)=>a-b);bonusNums=smartBonus();
+      mainNums=sel.sort((a,b)=>a-b);bonusNums=smartBonus();
       break;}
 
     default:
@@ -11574,6 +11619,12 @@ function runScanBacktest(){
       const freq=buildFreq(prior);
       let pred;
       try{pred=generateNumbers(game,algoId,freq,prior);}catch(e){return;}
+      // Top-12 adayları kaydet (megavote: _mvLastVotes; diğerleri: tahmin listesi)
+      let top12=null;
+      if(window._mvLastVotes&&window._mvLastVotes.game===game.id){
+        const v=window._mvLastVotes.votes;
+        top12=[...Array(game.max+1).keys()].slice(1).map(n=>({n,v:v[n]||0})).sort((a,b)=>b.v-a.v).slice(0,12).map(x=>x.n);
+      }
       const mainSet=new Set(pred.main||[]);
       const bSet=new Set(pred.bonus||[]);
       const matchMain=(d.nums||[]).filter(n=>mainSet.has(n)).length;
@@ -11581,7 +11632,9 @@ function runScanBacktest(){
       const match=matchMain+matchBonus;
       totalMatch+=match;
       if(match>=3)hitCount++;
-      rows.push({date:d.date,pred:pred.main||[],predBonus:pred.bonus||[],actual:d.nums||[],actualBonus:d.bonus||[],match,matchMain,matchBonus});
+      // Top-12 isabeti
+      const top12Hits=top12?(d.nums||[]).filter(n=>top12.includes(n)).length:null;
+      rows.push({date:d.date,pred:pred.main||[],predBonus:pred.bonus||[],actual:d.nums||[],actualBonus:d.bonus||[],match,matchMain,matchBonus,top12,top12Hits});
     });
     if(!rows.length){res.innerHTML='<div class="empty-state">Yeterli test satırı oluşturulamadı.</div>';return;}
     const avg=(totalMatch/rows.length).toFixed(2);
@@ -11592,20 +11645,33 @@ function runScanBacktest(){
     html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--text)">${rows.length}</div><div style="font-size:.62rem;color:var(--muted)">test sayısı</div></div>`;
     html+=`</div>`;
     html+=`<div style="font-size:.67rem;color:var(--muted);margin-bottom:8px">${game.emoji} ${game.name} · ${algoName}</div>`;
+    const hasTop12=rows.some(r=>r.top12);
     html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
-    html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tahmin</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Eş.</th></tr></thead><tbody>`;
+    html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tahmin (6)</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Eş.</th>${hasTop12?`<th style="text-align:left;padding:4px 6px;color:var(--accent)">Top-12 Aday</th><th style="text-align:center;padding:4px 6px;color:var(--accent)">T12</th>`:''}`;
+    html+=`</tr></thead><tbody>`;
     rows.forEach(r=>{
       const clr=r.match>=4?'var(--green)':r.match>=3?'var(--accent)':r.match>=2?'var(--gold)':'var(--muted)';
       const mainSet=new Set(r.pred);
       const bSet=new Set(r.predBonus);
+      const actualSet=new Set(r.actual);
+      const top12Set=r.top12?new Set(r.top12):null;
       html+=`<tr style="border-bottom:1px solid rgba(42,42,90,.5)">`;
       html+=`<td style="padding:5px 6px;color:var(--muted);white-space:nowrap">${r.date}</td>`;
-      html+=`<td style="padding:5px 6px;color:var(--text)">${r.pred.join(' ')}${r.predBonus.length?' | '+r.predBonus.join(' '):''}</td>`;
-      html+=`<td style="padding:5px 6px">${r.actual.map(n=>`<span style="color:${mainSet.has(n)?'var(--green)':'var(--text)'};font-weight:${mainSet.has(n)?'700':'400'}">${n}</span>`).join(' ')}${r.actualBonus.length?' | '+r.actualBonus.map(n=>`<span style="color:${bSet.has(n)?'var(--accent2)':'var(--text)'};font-weight:${bSet.has(n)?'700':'400'}">${n}</span>`).join(' '):''}</td>`;
+      // Tahmin sütunu: isabet yeşil, yakın(±1) turuncu
+      html+=`<td style="padding:5px 6px">${r.pred.map(n=>{const hit=actualSet.has(n);const near=!hit&&([...actualSet].some(a=>Math.abs(a-n)===1));return`<span style="color:${hit?'var(--green)':near?'#e8820c':'var(--text)'};font-weight:${hit?800:near?700:400}">${n}</span>`;}).join(' ')}</td>`;
+      // Gerçek çekiliş: tahmin veya top12'de varsa vurgula
+      html+=`<td style="padding:5px 6px">${r.actual.map(n=>{const inPred=mainSet.has(n);const inTop=top12Set&&top12Set.has(n)&&!inPred;const near=!inPred&&!inTop&&([...mainSet].some(p=>Math.abs(p-n)===1));return`<span style="color:${inPred?'var(--green)':inTop?'var(--accent)':near?'#e8820c':'var(--text)'};font-weight:${inPred||inTop?800:near?700:400}">${n}${inPred?'✓':inTop?'·':''}</span>`;}).join(' ')}</td>`;
       html+=`<td style="padding:5px 6px;text-align:center;font-weight:800;color:${clr}">${r.match}</td>`;
+      if(hasTop12){
+        const t12=r.top12||[];
+        html+=`<td style="padding:5px 6px">${t12.map(n=>{const hit=actualSet.has(n);const near=!hit&&([...actualSet].some(a=>Math.abs(a-n)===1));return`<span style="color:${hit?'var(--green)':near?'#e8820c':'var(--muted)'};font-weight:${hit?800:near?700:400}">${n}</span>`;}).join(' ')}</td>`;
+        const t12clr=(r.top12Hits||0)>=5?'var(--green)':(r.top12Hits||0)>=3?'var(--accent)':'var(--muted)';
+        html+=`<td style="padding:5px 6px;text-align:center;font-weight:700;color:${t12clr}">${r.top12Hits??'—'}</td>`;
+      }
       html+=`</tr>`;
     });
     html+=`</tbody></table></div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓ = isabetli · · = Top-12'de var · turuncu = ±1 yakın</div>`;
     window._scanBtMode=false;
     res.innerHTML=html;
   },20);
