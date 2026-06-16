@@ -8317,6 +8317,7 @@ let _gizliSelectedGame='super';
 let _gizliClickCount=0;
 let _gizliClickTimer=null;
 let _gizliLastColumns=[];
+let _gizliExclude=new Set();
 
 function _gizliLogoClick(){
   clearTimeout(_gizliClickTimer);
@@ -8554,7 +8555,8 @@ function gizliModelUygula(){
   const bankSet=new Set(bankos);
   const freqMap={};
   _gizliArchive.forEach(nums=>nums.forEach(v=>{if(!bankSet.has(v))freqMap[v]=(freqMap[v]||0)+1;}));
-  const pool=Object.entries(freqMap).sort((a,b)=>b[1]-a[1]).map(([v,f])=>({n:parseInt(v),f}));
+  const excl=_gizliExclude;
+  const pool=Object.entries(freqMap).filter(([v])=>!excl.has(parseInt(v))).sort((a,b)=>b[1]-a[1]).map(([v,f])=>({n:parseInt(v),f}));
   if(need>0&&pool.length<need){
     if(kol)kol.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Arşivde yeterli sayı yok. Beklentiyi genişletin veya banko sayısını azaltın.</div>';
     return;
@@ -8575,6 +8577,7 @@ function gizliModelUygula(){
   const top30=columns.slice(0,30);
   _gizliLastColumns=top30;
   const labels='ABCDEF';
+  const exclNote=excl.size>0?`<div style="font-size:.6rem;color:#cc2222;margin-bottom:6px;padding:3px 7px;background:rgba(220,40,40,.06);border-radius:5px">⛔ Hariç: ${[...excl].sort((a,b)=>a-b).join(' ')}</div>`:'';
   const rows=top30.map(({col,guc},idx)=>{
     const colHtml=col.map((v,i)=>`<span style="${bankSet.has(v)?'color:var(--accent);font-weight:800':'color:var(--text)'}">${labels[i]}:${v}</span>`).join('  ');
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:${idx%2===0?'rgba(0,0,0,.022)':'transparent'};border-radius:5px">
@@ -8583,7 +8586,7 @@ function gizliModelUygula(){
       <span style="color:var(--muted);font-size:.6rem;margin-left:8px;white-space:nowrap">güç:${guc}</span>
     </div>`;
   }).join('');
-  if(kol)kol.innerHTML=rows;
+  if(kol)kol.innerHTML=exclNote+rows;
   if(btn)btn.style.display='inline-block';
   showToast(`✅ ${top30.length} kolon üretildi`);
 }
@@ -8658,7 +8661,8 @@ function gizliTestEt(){
   const bankSet=new Set(bankos);
   const freqMap={};
   testArchive.forEach(nums=>nums.forEach(v=>{if(!bankSet.has(v))freqMap[v]=(freqMap[v]||0)+1;}));
-  const pool=Object.entries(freqMap).sort((a,b2)=>b2[1]-a[1]).map(([v,f])=>({n:parseInt(v),f}));
+  const excl=_gizliExclude;
+  const pool=Object.entries(freqMap).filter(([v])=>!excl.has(parseInt(v))).sort((a,b2)=>b2[1]-a[1]).map(([v,f])=>({n:parseInt(v),f}));
   if(need>0&&pool.length<need){showToast('⚠️ Arşivde yeterli sayı yok');return;}
   const maxK=need===0?1:([0,100,60,30,20,15,12,10][need]||10);
   const topPool=pool.slice(0,Math.min(maxK,pool.length));
@@ -8680,7 +8684,8 @@ function gizliTestEt(){
   const matchColor=mc>=n?'var(--green)':mc>=n-1?'#00963a':mc>=n-2?'#8a6200':mc>=n-3?'#b85c00':'var(--muted)';
   const c5p=columns.filter(c=>c.matchCount>=n-1).length;
   const c4p=columns.filter(c=>c.matchCount>=n-2).length;
-  const summaryHtml=`<div style="background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.18);border-radius:8px;padding:10px;margin-bottom:8px">
+  const exclNoteTst=excl.size>0?`<div style="font-size:.6rem;color:#cc2222;margin-bottom:6px;padding:3px 7px;background:rgba(220,40,40,.06);border-radius:5px">⛔ Hariç: ${[...excl].sort((a,b)=>a-b).join(' ')}</div>`:'';
+  const summaryHtml=exclNoteTst+`<div style="background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.18);border-radius:8px;padding:10px;margin-bottom:8px">
     <div style="font-size:.7rem;color:var(--text);font-weight:700;margin-bottom:3px">Arşiv: ${testArchive.length} çekiliş (${testDate} öncesi)</div>
     <div style="font-size:.85rem;font-weight:800;color:${matchColor}">En iyi: ${mc}/${n} eşleşme</div>
     <div style="font-size:.62rem;color:var(--muted);margin-top:3px">${c5p} kolon ≥${n-1} eşleşme · ${c4p} kolon ≥${n-2} eşleşme</div>
@@ -8709,6 +8714,11 @@ function gizliKopyalaHepsi(){
   navigator.clipboard.writeText(text).then(()=>showToast('📋 Kopyalandı')).catch(()=>{
     showToast('Kopyalanamadı — metin: '+text.slice(0,40));
   });
+}
+function _gizliSetExclude(v){
+  _gizliExclude=_bzParseExclude(v);
+  const cnt=document.getElementById('gizliExcludeCount');
+  if(cnt)cnt.textContent=_gizliExclude.size>0?`${_gizliExclude.size} sayı hariç`:'';
 }
 
 // ── Şablon Analizi UI ─────────────────────────────────────────
@@ -13418,6 +13428,13 @@ function _cxBacktest(){
    </div>
    <div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Gelmesini kesin beklediğin sayıları yaz. Bu sayılar üretilen her kolonda mutlaka yer alır.</div>
    <div id="gizliBankoInputs" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+  </div>
+
+  <div style="background:var(--surface);border:1px solid rgba(220,40,40,.22);border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+   <span style="font-size:.6rem;color:#cc2222;font-weight:700;flex-shrink:0">⛔ Hariç Bırak:</span>
+   <input id="gizliExcludeInput" type="text" placeholder="Sayı veya aralık: 10 18 20-29 63 ..." oninput="_gizliSetExclude(this.value)" style="flex:1;min-width:180px;padding:4px 8px;font-size:.72rem;background:var(--surface2);border:1px solid rgba(220,40,40,.25);border-radius:6px;color:var(--text)">
+   <span id="gizliExcludeCount" style="font-size:.58rem;color:var(--muted);white-space:nowrap"></span>
+   <button onclick="document.getElementById('gizliExcludeInput').value='';_gizliSetExclude('')" style="background:rgba(220,40,40,.08);border:1px solid rgba(220,40,40,.2);color:#cc2222;border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.65rem;flex-shrink:0">Temizle</button>
   </div>
 
   <div id="gizliModelAraResult" style="display:none;background:var(--surface);border:1px solid rgba(0,150,58,.22);border-radius:10px;padding:12px;margin-bottom:10px"></div>
