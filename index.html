@@ -934,6 +934,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:12px">
    <button class="bz-mode-btn" data-mode="auto" onclick="_bzSetMode('auto')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🔒 Otomatik Banko</button>
    <button class="bz-mode-btn" data-mode="pool" onclick="_bzSetMode('pool')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🔬 Bilet Havuzu</button>
+   <button class="bz-mode-btn" data-mode="model" onclick="_bzSetMode('model')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🔍 Model Keşfi</button>
   </div>
   <div id="bzContent"></div>
  </div>
@@ -1003,7 +1004,8 @@ const ALGOS = [
 // ── Real historical draw data ────────────────────────────────
 // Source: Milli Piyango / lotobil.com archive (Sep 2025 – May 2026). Sayısal Loto: 6 main + Joker merged into 7 main, with Süperstar bonus.
 const DRAW_DATA = {
-sayisal:`2026-06-13 2 16 25 35 40 80 88 | 53
+sayisal:`2026-06-15 15 33 36 53 78 79 87 | 25
+2026-06-13 2 16 25 35 40 80 88 | 53
 2026-06-10 10 15 25 31 45 56 67 | 50
 2026-06-08 28 30 39 48 55 68 87 | 80
 2026-06-06 8 33 50 53 62 63 39 | 8
@@ -12297,7 +12299,9 @@ const _BZ_SIGNALS=[
   {id:'toplam',  name:'Toplam Aralığı', icon:'➕', desc:'Tarihsel optimal toplam bandında (μ±σ) daha sık çıkan sayılar'},
   {id:'birlesim',name:'Birleşim Ağı',   icon:'🕸️', desc:'Graf teorisi: diğer sıcak sayılarla sıkça birlikte çıkan sayılar'},
   {id:'zone',    name:'Bölge Dengesi',   icon:'📐', desc:'Son çekilişlerde eksik kalan sayı bölgesine (alt/orta/üst) bonus'},
-  {id:'momentum',name:'Momentum',        icon:'📈', desc:'Son 10 çekilişte belirgin şekilde frekansı artan sayılar'},
+  {id:'momentum',   name:'Momentum',        icon:'📈', desc:'Son 10 çekilişte belirgin şekilde frekansı artan sayılar'},
+  {id:'caprazoyun', name:'Çapraz Oyun',      icon:'🔀', desc:'Diğer oyunun son çekilişindeki sayılara ±offset uygulayarak elde edilen çapraz tahmin'},
+  {id:'modelsig',   name:'Model Sinyali',    icon:'🔍', desc:'Aritmetik model (+3 -3 +8 vb.): son çekilişe en sık görülen offset uygulanır'},
 ];
 
 let _bzGame='sayisal',_bzMode='auto';
@@ -12360,7 +12364,55 @@ function _bzSignalScores(prior,game){
   prior.slice(0,10).forEach(d=>d.nums.filter(n=>n>=1&&n<=max).forEach(n=>r10[n]++));
   prior.slice(10,30).forEach(d=>d.nums.filter(n=>n>=1&&n<=max).forEach(n=>o20[n]++));
   for(let n=1;n<=max;n++){const r=r10[n]/10,o=o20[n]/20;momentum[n]=r-o;}
-  return {tekrar,komsu,sonhane,capraz,gecikme,sicak,toplam,birlesim,zone,momentum};
+  // 11) Çapraz Oyun: diğer oyunun son çekilişine offset uygula
+  const caprazoyun=_bzZero(max);
+  try{
+    const otherId=game.id==='sayisal'?'super':game.id==='super'?'sayisal':null;
+    if(otherId){
+      const otherDraws=_kbGetDraws(otherId);
+      const otherGame=getGame(otherId);
+      if(otherDraws&&otherDraws.length>=5){
+        // Hangi offset en çok iki oyun arasında geçiyor? Son 40 çift karşılaştır
+        const offsets=[-10,-8,-6,-5,-3,-2,-1,0,1,2,3,5,6,8,10,13,-13];
+        const acc={};offsets.forEach(k=>acc[k]=0);
+        const pairLen=Math.min(40,Math.min(prior.length,otherDraws.length)-1);
+        for(let t=0;t<pairLen;t++){
+          const oNums=otherDraws[t].nums.filter(n=>n>=1&&n<=otherGame.max);
+          const sNums=(prior[t]||{nums:[]}).nums.filter(n=>n>=1&&n<=max);
+          const sSet=new Set(sNums);
+          offsets.forEach(k=>oNums.forEach(n=>{if(sSet.has(n+k))acc[k]++;}));
+        }
+        const bestOffset=offsets.reduce((a,b)=>acc[a]>=acc[b]?a:b);
+        const lastOther=otherDraws[0];
+        lastOther.nums.filter(n=>n>=1&&n<=otherGame.max).forEach(n=>{
+          const t=n+bestOffset;if(t>=1&&t<=max)caprazoyun[t]+=acc[bestOffset];
+          // ayrıca sıfır offset (aynı sayı)
+          if(n>=1&&n<=max)caprazoyun[n]+=(acc[0]||0)*0.5;
+        });
+      }
+    }
+  }catch(e){}
+  // 12) Model Sinyali: ard arda çekilişler arasındaki aritmetik offset'i bul ve uygula
+  const modelsig=_bzZero(max);
+  try{
+    const offsets2=[-10,-8,-6,-5,-3,-2,-1,1,2,3,5,6,8,10];
+    const acc2={};offsets2.forEach(k=>acc2[k]=0);
+    const K=Math.min(80,prior.length-1);
+    for(let t=0;t<K;t++){
+      const cur=prior[t+1].nums.filter(n=>n>=1&&n<=max);
+      const nxt=prior[t].nums.filter(n=>n>=1&&n<=max);
+      const nxtSet=new Set(nxt);
+      offsets2.forEach(k=>cur.forEach(n=>{if(nxtSet.has(n+k))acc2[k]++;}));
+    }
+    // Son çekilişe TOP 3 offset uygula
+    const top3=offsets2.sort((a,b)=>acc2[b]-acc2[a]).slice(0,3);
+    const lastNums=prior[0].nums.filter(n=>n>=1&&n<=max);
+    top3.forEach((k,ri)=>{
+      const w=acc2[k]*(3-ri);
+      lastNums.forEach(n=>{const t=n+k;if(t>=1&&t<=max)modelsig[t]+=w;});
+    });
+  }catch(e){}
+  return {tekrar,komsu,sonhane,capraz,gecikme,sicak,toplam,birlesim,zone,momentum,caprazoyun,modelsig};
 }
 
 // Sinyal laboratuvarı: her sinyalin son K çekilişteki gerçek isabet oranı + ±1 yakın oranı + lift
@@ -12469,8 +12521,9 @@ function _bzRender(){
     b.style.color=a?'var(--accent)':'var(--muted)';
     b.style.borderColor=a?'rgba(108,99,255,.5)':'var(--border)';
   });
-  el.innerHTML=_bzMode==='auto'?_bzRenderAuto():_bzRenderPool();
-  if(_bzMode==='pool')_bzInitPoolDateSel();
+  if(_bzMode==='auto')el.innerHTML=_bzRenderAuto();
+  else if(_bzMode==='pool'){el.innerHTML=_bzRenderPool();_bzInitPoolDateSel();}
+  else el.innerHTML=_bzModelRender();
 }
 
 function _bzRenderAuto(){
@@ -12606,6 +12659,152 @@ function _bzParsePool(){
     if(uniq.length>=2)tickets.push(uniq);
   });
   return tickets;
+}
+
+// ── Model Keşfi (aritmetik desen tabanlı tahmin) ──────────────────────────────
+function _bzFindPatterns(draws,game){
+  const max=game.max;
+  const offsets=[-13,-10,-8,-6,-5,-3,-2,-1,0,1,2,3,5,6,8,10,13];
+  const acc={};offsets.forEach(k=>{acc[k]={hits:0,tries:0};});
+  const K=Math.min(100,draws.length-1);
+  for(let t=0;t<K;t++){
+    const cur=draws[t+1].nums.filter(n=>n>=1&&n<=max);
+    const nxt=draws[t].nums.filter(n=>n>=1&&n<=max);
+    const nxtSet=new Set(nxt);
+    offsets.forEach(k=>{cur.forEach(n=>{acc[k].tries++;if(nxtSet.has(n+k))acc[k].hits++;});});
+  }
+  return offsets.map(k=>({k,label:k>=0?`+${k}`:`${k}`,hits:acc[k].hits,tries:acc[k].tries,rate:acc[k].tries>0?acc[k].hits/acc[k].tries:0})).sort((a,b)=>b.rate-a.rate);
+}
+function _bzApplyModel(lastDraw,patterns,game,topK=4){
+  const max=game.max,scores={};for(let n=1;n<=max;n++)scores[n]=0;
+  patterns.slice(0,topK).forEach((p,i)=>{
+    const w=p.rate*(topK-i);
+    lastDraw.nums.filter(n=>n>=1&&n<=max).forEach(n=>{const t=n+p.k;if(t>=1&&t<=max)scores[t]+=w;});
+  });
+  return scores;
+}
+function _bzCrossGamePatterns(draws,game){
+  const otherId=game.id==='sayisal'?'super':game.id==='super'?'sayisal':null;
+  if(!otherId)return null;
+  const otherDraws=_kbGetDraws(otherId);
+  const otherGame=getGame(otherId);
+  if(!otherDraws||otherDraws.length<5)return null;
+  const max=game.max,oMax=otherGame.max;
+  const offsets=[-13,-10,-8,-6,-5,-3,-2,-1,0,1,2,3,5,6,8,10,13];
+  const acc={};offsets.forEach(k=>{acc[k]={hits:0,tries:0};});
+  const K=Math.min(60,Math.min(draws.length,otherDraws.length)-1);
+  for(let t=0;t<K;t++){
+    const o=otherDraws[t].nums.filter(n=>n>=1&&n<=oMax);
+    const s=draws[t].nums.filter(n=>n>=1&&n<=max);
+    const sSet=new Set(s);
+    offsets.forEach(k=>{o.forEach(n=>{acc[k].tries++;if(sSet.has(n+k))acc[k].hits++;});});
+  }
+  return {patterns:offsets.map(k=>({k,label:k>=0?`+${k}`:`${k}`,hits:acc[k].hits,tries:acc[k].tries,rate:acc[k].tries>0?acc[k].hits/acc[k].tries:0})).sort((a,b)=>b.rate-a.rate),otherId,otherDraws,otherGame};
+}
+function _bzSistemKupon(bankos,pool,totalCount){
+  // bankos: fixed numbers, pool: varying numbers, totalCount: numbers per ticket
+  const need=totalCount-bankos.length;
+  if(need<=0||pool.length<need)return[];
+  const combos=[];
+  function pick(start,cur){if(cur.length===need){combos.push([...bankos,...cur].sort((a,b)=>a-b));return;}const left=pool.length-start;if(left<need-cur.length)return;for(let i=start;i<pool.length;i++){cur.push(pool[i]);pick(i+1,cur);cur.pop();}}
+  pick(0,[]);
+  return combos;
+}
+let _bzModelResult=null;
+function _bzModelRender(){
+  const game=getGame(_bzGame);
+  const draws=_kbGetDraws(_bzGame);
+  if(!draws||draws.length<20)return`<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bu oyun için yeterli geçmiş veri yok.</div>`;
+  let h='';
+  h+=`<div style="background:rgba(108,99,255,.05);border:1px solid rgba(108,99,255,.18);border-radius:8px;padding:9px 12px;font-size:.62rem;color:var(--muted);margin-bottom:12px;line-height:1.65">Ard arda çekilişler arasındaki <strong>aritmetik desen</strong> (±3, ±8, ±10 vb.) bulunur. Son çekilişe en güçlü offset'ler uygulanarak bir sonraki çekiliş için aday sayılar üretilir. <strong>Çapraz Oyun</strong> sekmesi Sayısal↔Süper Loto çapraz korelasyonunu gösterir.</div>`;
+  h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">`;
+  h+=`<button onclick="_bzModelAnalyze('intra')" style="padding:7px 16px;background:linear-gradient(135deg,rgba(129,140,248,.3),rgba(0,230,118,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:700">🔍 Model Analiz</button>`;
+  h+=`<button onclick="_bzModelAnalyze('cross')" style="padding:7px 16px;background:linear-gradient(135deg,rgba(0,230,118,.15),rgba(184,134,11,.15));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;cursor:pointer;font-size:.8rem;font-weight:700">🔀 Çapraz Oyun</button>`;
+  h+=`</div>`;
+  h+=`<div id="bzModelOut">${_bzModelResult||'<span style="font-size:.65rem;color:var(--muted)">Analiz başlatmak için yukarıdaki butonlardan birini tıklayın.</span>'}</div>`;
+  return h;
+}
+function _bzModelAnalyze(mode){
+  const game=getGame(_bzGame);
+  const draws=_kbGetDraws(_bzGame);
+  const out=document.getElementById('bzModelOut');
+  if(!out)return;
+  out.innerHTML=`<span style="font-size:.65rem;color:var(--muted)">Hesaplanıyor...</span>`;
+  setTimeout(()=>{
+    try{
+      if(mode==='cross'){
+        const cx=_bzCrossGamePatterns(draws,game);
+        if(!cx){out.innerHTML=`<span style="font-size:.65rem;color:var(--muted)">Bu oyun için çapraz oyun analizi mevcut değil (sadece Sayısal↔Süper Loto).</span>`;return;}
+        const {patterns,otherId,otherDraws,otherGame}=cx;
+        const lastOther=otherDraws[0];
+        const scores=_bzApplyModel(lastOther,patterns,game,4);
+        const scored=Object.entries(scores).map(([n,s])=>({n:parseInt(n),s})).sort((a,b)=>b.s-a.s).filter(r=>r.s>0);
+        const topCands=scored.slice(0,game.count+6);
+        // Sistem kupon
+        const bankos=topCands.slice(0,Math.min(4,game.count-2)).map(r=>r.n);
+        const pool=topCands.slice(Math.min(4,game.count-2),Math.min(4,game.count-2)+6).map(r=>r.n);
+        const tickets=_bzSistemKupon(bankos,pool,game.count).slice(0,20);
+        window._bzModelCopy=`Çapraz Oyun — ${game.name}\nKaynak: ${otherGame.name} son: ${lastOther.date} [${lastOther.nums.join(' ')}]\nTop adaylar: ${topCands.map(r=>r.n).join(' ')}\nBanko: ${bankos.join(' ')} · Pool: ${pool.join(' ')}\n${tickets.map((t,i)=>`${i+1}. ${t.join(' ')}`).join('\n')}`;
+        let h=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+        h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:.74rem;font-weight:800;color:var(--green)">🔀 Çapraz Oyun Analizi: ${otherGame.name} → ${game.name}</div><button onclick="_kbCopy(window._bzModelCopy)" style="font-size:.6rem;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></div>`;
+        h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px">${otherGame.name} son çekiliş: <strong>${lastOther.date}</strong> · [${lastOther.nums.join(' ')}]</div>`;
+        h+=`<div style="font-size:.62rem;margin-bottom:6px"><strong>Top offset'ler</strong> (${Math.min(60,draws.length-1)} çift üzerinde): `;
+        h+=patterns.slice(0,6).map(p=>`<span style="font-family:monospace;font-weight:700;color:${p.rate>0.12?'var(--green)':'var(--text)'}">${p.label}(${p.hits}/${p.tries}=${(p.rate*100).toFixed(0)}%)</span>`).join(' · ');
+        h+=`</div>`;
+        h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Top offset'ler uygulandığında <strong>${game.name}</strong> için adaylar:</div>`;
+        h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">`;
+        topCands.forEach((r,i)=>{h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:26px;padding:0 5px;border-radius:7px;background:${i<bankos.length?"rgba(0,230,118,.2)":"rgba(129,140,248,.12)"};border:1px solid ${i<bankos.length?"rgba(0,230,118,.5)":"rgba(129,140,248,.3)"};font-family:monospace;font-size:.7rem;font-weight:700;color:${i<bankos.length?"var(--green)":"var(--accent)"}">${r.n}</span>`;});
+        h+=`</div></div>`;
+        if(tickets.length){
+          h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">`;
+          h+=`<div style="font-size:.74rem;font-weight:800;margin-bottom:4px">🎫 Sistem Kupon (banko ${bankos.join('·')} + pool ${pool.join('·')})</div>`;
+          h+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:8px">${tickets.length} kolon · toplam ${game.count} sayı/kolon</div>`;
+          tickets.forEach((t,i)=>{h+=`<div style="font-size:.65rem;font-family:monospace;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.03)"><span style="color:var(--muted)">${(i+1).toString().padStart(2,'0')}.</span> ${t.map(n=>bankos.includes(n)?`<strong style="color:var(--green)">${n}</strong>`:n).join(' ')}</div>`;});
+          h+=`</div>`;
+        }
+        _bzModelResult=h;out.innerHTML=h;
+      } else {
+        // Intra-game model
+        const patterns=_bzFindPatterns(draws,game);
+        const scores=_bzApplyModel(draws[0],patterns,game,4);
+        const scored=Object.entries(scores).map(([n,s])=>({n:parseInt(n),s})).sort((a,b)=>b.s-a.s).filter(r=>r.s>0);
+        const topCands=scored.slice(0,game.count+6);
+        const bankos=topCands.slice(0,Math.min(4,game.count-2)).map(r=>r.n);
+        const pool=topCands.slice(Math.min(4,game.count-2),Math.min(4,game.count-2)+6).map(r=>r.n);
+        const tickets=_bzSistemKupon(bankos,pool,game.count).slice(0,20);
+        window._bzModelCopy=`Model Keşfi — ${game.name}\nSon: ${draws[0].date} [${draws[0].nums.join(' ')}]\nTop adaylar: ${topCands.map(r=>r.n).join(' ')}\nBanko: ${bankos.join(' ')} · Pool: ${pool.join(' ')}\n${tickets.map((t,i)=>`${i+1}. ${t.join(' ')}`).join('\n')}`;
+        let h=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+        h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div style="font-size:.74rem;font-weight:800">🔍 Model Tablosu — ${game.name}</div><button onclick="_kbCopy(window._bzModelCopy)" style="font-size:.6rem;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></div>`;
+        h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px">Son çekiliş: ${draws[0].date} · [${draws[0].nums.join(' ')}] · ${Math.min(100,draws.length-1)} çift analiz edildi</div>`;
+        h+=`<div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:3px 10px;font-size:.55rem;color:var(--muted);margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid var(--border)"><span>Offset</span><span>Görselleştirme</span><span style="text-align:right">İsabet</span><span style="text-align:right">Oran</span></div>`;
+        patterns.slice(0,14).forEach(p=>{
+          const good=p.rate>0.12,ok=p.rate>0.08;
+          h+=`<div style="display:grid;grid-template-columns:auto 1fr auto auto;gap:3px 10px;align-items:center;padding:2px 0;border-bottom:1px solid rgba(0,0,0,.03)">`;
+          h+=`<span style="font-size:.64rem;font-weight:700;font-family:monospace;color:${good?"var(--green)":ok?"var(--accent)":"var(--text)"};min-width:30px">${p.label}</span>`;
+          h+=`<div style="height:5px;border-radius:3px;background:rgba(0,0,0,.06);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:3px;background:${good?"rgba(0,230,118,.6)":ok?"rgba(129,140,248,.5)":"rgba(0,0,0,.18)"};width:${Math.round((p.rate/0.2)*100)}%"></div></div>`;
+          h+=`<span style="font-size:.58rem;text-align:right;color:var(--muted);font-family:monospace">${p.hits}/${p.tries}</span>`;
+          h+=`<span style="font-size:.62rem;text-align:right;font-weight:700;font-family:monospace;color:${good?"var(--green)":ok?"var(--accent)":"var(--muted)"}">${(p.rate*100).toFixed(1)}%</span>`;
+          h+=`</div>`;
+        });
+        h+=`</div>`;
+        h+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+        h+=`<div style="font-size:.74rem;font-weight:800;color:var(--green);margin-bottom:8px">🎯 Model Adayları (Top 4 offset uygulandı)</div>`;
+        h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px">`;
+        topCands.forEach((r,i)=>{h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:26px;padding:0 5px;border-radius:7px;background:${i<bankos.length?"rgba(0,230,118,.2)":"rgba(129,140,248,.12)"};border:1px solid ${i<bankos.length?"rgba(0,230,118,.5)":"rgba(129,140,248,.3)"};font-family:monospace;font-size:.7rem;font-weight:700;color:${i<bankos.length?"var(--green)":"var(--accent)"}">${r.n}</span>`;});
+        h+=`</div>`;
+        h+=`<div style="font-size:.57rem;color:var(--muted)">Yeşil = banko (${bankos.join('·')}) · Mor = sistem pool (${pool.join('·')})</div>`;
+        h+=`</div>`;
+        if(tickets.length){
+          h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">`;
+          h+=`<div style="font-size:.74rem;font-weight:800;margin-bottom:4px">🎫 Sistem Kupon</div>`;
+          h+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:8px">${tickets.length} kolon · banko: ${bankos.join('·')} + pool: ${pool.join('·')} → C(${pool.length},${game.count-bankos.length})</div>`;
+          tickets.forEach((t,i)=>{h+=`<div style="font-size:.65rem;font-family:monospace;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.03)"><span style="color:var(--muted)">${(i+1).toString().padStart(2,'0')}.</span> ${t.map(n=>bankos.includes(n)?`<strong style="color:var(--green)">${n}</strong>`:n).join(' ')}</div>`;});
+          h+=`</div>`;
+        }
+        _bzModelResult=h;out.innerHTML=h;
+      }
+    }catch(e){out.innerHTML=`<span style="font-size:.65rem;color:var(--accent2)">⚠️ Hata: ${e.message}</span>`;}
+  },50);
 }
 
 function _bzClearPool(){
