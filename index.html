@@ -13006,7 +13006,9 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   if(nums.length<2)return'<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için yeterli sayı yok.</div>';
   const gaps=[];for(let i=1;i<nums.length;i++)gaps.push(nums[i]-nums[i-1]);
   const gapSum=gaps.reduce((a,b)=>a+b,0);
+  // nextSet: full match (nums+bonus) for green; nextMain: only main nums for yellow proximity
   const nextSet=nextDraw?new Set([...(nextDraw.nums||[]),...(nextDraw.bonus||[])]):null;
+  const nextMain=nextDraw?new Set([...(nextDraw.nums||[])]):null;
   const drawSet=new Set(nums);
   // Çıkarma + Toplama rows
   const cikRows=gaps.map(g=>nums.map(n=>n-g).filter(n=>n>=1));
@@ -13014,10 +13016,10 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   // Frequency count
   const freq={};[...cikRows.flat(),...topRows.flat()].forEach(n=>{freq[n]=(freq[n]||0)+1;});
   const maxFreq=Math.max(...Object.values(freq),1);
-  // Badge renderer
+  // Badge renderer — green=exact match, yellow~=±1 from a MAIN target number only
   const badge=n=>{
-    const f=freq[n]||0,isNext=nextSet&&nextSet.has(n);
-    const isClose=!isNext&&nextSet&&[...nextSet].some(t=>Math.abs(t-n)===1);
+    const isNext=nextSet&&nextSet.has(n);
+    const isClose=!isNext&&nextMain&&[...nextMain].some(t=>Math.abs(t-n)===1);
     const bg=isNext?'rgba(0,230,118,.35)':isClose?'rgba(251,191,36,.22)':'rgba(0,0,0,.04)';
     const bd=isNext?'rgba(0,230,118,.8)':isClose?'rgba(251,191,36,.6)':'var(--border)';
     const cl=isNext?'var(--green)':isClose?'#8a6200':'var(--text)';
@@ -13105,7 +13107,7 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   chainRows.forEach(({start,chain,hits})=>{
     h+=`<div style="display:flex;align-items:center;gap:3px;margin-bottom:3px;flex-wrap:wrap">`;
     h+=`<span style="font-size:.54rem;color:var(--muted);min-width:22px;font-family:monospace;flex-shrink:0">${start}:</span>`;
-    chain.forEach(n=>{const isNext=nextSet&&nextSet.has(n);h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:19px;padding:0 3px;border-radius:4px;background:${isNext?'rgba(0,230,118,.25)':freq[n]&&freq[n]>=2?'rgba(251,191,36,.15)':'rgba(0,0,0,.03)'};border:1px solid ${isNext?'rgba(0,230,118,.6)':freq[n]&&freq[n]>=2?'rgba(251,191,36,.4)':'var(--border)'};font-size:.58rem;font-weight:${isNext||freq[n]>=2?700:400};font-family:monospace;color:${isNext?'var(--green)':freq[n]>=2?'#975a16':'var(--text)'}">${n}${isNext?'✓':''}</span>`;});
+    chain.forEach(n=>{const isNext=nextSet&&nextSet.has(n);const isCz=!isNext&&nextMain&&[...nextMain].some(t=>Math.abs(t-n)===1);h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:19px;padding:0 3px;border-radius:4px;background:${isNext?'rgba(0,230,118,.25)':isCz?'rgba(251,191,36,.15)':'rgba(0,0,0,.03)'};border:1px solid ${isNext?'rgba(0,230,118,.6)':isCz?'rgba(251,191,36,.4)':'var(--border)'};font-size:.58rem;font-weight:${isNext||isCz?700:400};font-family:monospace;color:${isNext?'var(--green)':isCz?'#8a6200':'var(--text)'}">${n}${isNext?'✓':isCz?'~':''}</span>`;});
     if(hits>0)h+=`<span style="font-size:.52rem;color:var(--green);font-weight:700;margin-left:3px">${hits} isabet</span>`;
     h+=`</div>`;
   });
