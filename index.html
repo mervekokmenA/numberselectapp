@@ -325,6 +325,8 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı Bakış</button>
       <button class="nav-link" id="navBtn-b10sistem" onclick="showMainPage('b10sistem')">🎟️ B10 Sistem</button>
       <button class="nav-link" id="navBtn-bankocoz" onclick="showMainPage('bankocoz')">🎯 Banko Çözücü</button>
+      <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Süper Özel</button>
+      <button class="nav-link" id="navBtn-capraz" onclick="showMainPage('capraz')">🔀 Çapraz Bilet</button>
     </div>
   </div>
 </nav>
@@ -920,7 +922,24 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  </div>
 </div>
 
+<!-- ═══════════ PAGE: ÇAPRAZ BİLET ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-capraz">
+ <div class="card">
+  <div class="card-title">🔀 Çapraz Bilet Analizi</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Rastgele üretilen biletlerinizdeki sayılar ile diğer oyunun çekilişleri arasındaki korelasyonu analiz eder. <strong>Teori A:</strong> Biletlerinizde <em>olmayan</em> sayılar → hedef oyunun çekilişinde çıkar. <strong>Teori B:</strong> Biletlerinizdeki sayılara tarihsel <em>çapraz ofset</em> uygulanır → hedef oyun adayları elde edilir.</div>
+  <div id="cxContent"></div>
+ </div>
+</div>
+
 <!-- ═══════════ PAGE: BANKO ÇÖZÜCÜ ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-soz">
+ <div class="card">
+  <div class="card-title">🔮 Süper Özel Analiz</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Seçilen çekilişin ardışık sayıları arasındaki <strong>farkları (gap)</strong> bulur. Her farkı tüm sayılara ekleyerek <strong>Toplama</strong>, çıkararak <strong>Çıkarma</strong> sütunlarını oluşturur. Birden fazla sütunda tekrar eden sayılar güçlü banko adayıdır. <strong>Fark Zinciri</strong> ise farkları ardışık uygulayarak olası bir sonraki çekiliş şablonunu gösterir.</div>
+  <div id="soContent"></div>
+ </div>
+</div>
+
 <div style="grid-column:1/-1;display:none" id="page-bankocoz">
  <div class="card">
   <div class="card-title">🎯 Banko Çözücü</div>
@@ -10195,11 +10214,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-b10sistem','page-bankocoz'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-b10sistem','page-bankocoz','page-soz','page-capraz'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem','navBtn-bankocoz'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem','navBtn-bankocoz','navBtn-soz','navBtn-capraz'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -10208,6 +10227,8 @@ function showMainPage(id){
   if(id==='kapsamli'){_kbGame=state.selectedGame||_kbGame;_kbInit();}
   if(id==='b10sistem')_b10Init();
   if(id==='bankocoz')_bzInit();
+  if(id==='soz')_soInit();
+  if(id==='capraz')_cxInit();
 }
 
 function _scanGetDraws(gameId){
@@ -12924,6 +12945,330 @@ function _bzAnalyzePool(){
 
   window._bzPoolResultHTML=h;
   const res=document.getElementById('bzPoolResults');if(res)res.innerHTML=h;
+}
+
+// ═══════════ 🔮 SÜPER ÖZEL ANALİZ ════════════════════════════════════════════
+// Notebook'taki gap analizi: farklar → çıkarma + toplama sütunları + fark zinciri
+let _soGame='super',_soDate='';
+function _soInit(){
+  if(state.selectedGame&&getGame(state.selectedGame))_soGame=state.selectedGame;
+  _soRenderFull();
+}
+function _soSetGame(g){_soGame=g;_soDate='';_soRenderFull();}
+function _soSetDate(v){_soDate=v;_soRenderFull();}
+function _soRenderFull(){
+  const el=document.getElementById('soContent');if(!el)return;
+  const game=getGame(_soGame);
+  const draws=_kbGetDraws(_soGame);
+  if(!draws||draws.length<2){el.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok.</div>';return;}
+  if(!_soDate||!draws.find(d=>d.date===_soDate))_soDate=draws[0].date;
+  const GLIST=[{id:'sayisal',e:'🔵',n:'Sayısal'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
+  let h=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">`;
+  GLIST.forEach(g=>{const a=g.id===_soGame;h+=`<button onclick="_soSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;});
+  h+=`</div>`;
+  h+=`<div style="margin-bottom:14px"><select id="soDateSel" onchange="_soSetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;width:100%;max-width:350px">`;
+  draws.slice(0,80).forEach(d=>{h+=`<option value="${d.date}"${d.date===_soDate?' selected':''}>📅 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  h+=`</select></div>`;
+  const draw=draws.find(d=>d.date===_soDate);
+  if(draw){
+    const idx=draws.indexOf(draw);
+    const nextDraw=idx>0?draws[idx-1]:null;
+    h+=_soDoAnalysis(draw,game,nextDraw);
+  }
+  el.innerHTML=h;
+}
+function _soDoAnalysis(draw,game,nextDraw){
+  const max=game.max;
+  const nums=[...draw.nums].filter(n=>n>=1&&n<=max).sort((a,b)=>a-b);
+  if(nums.length<2)return'<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için yeterli sayı yok.</div>';
+  const gaps=[];for(let i=1;i<nums.length;i++)gaps.push(nums[i]-nums[i-1]);
+  const gapSum=gaps.reduce((a,b)=>a+b,0);
+  const nextSet=nextDraw?new Set([...(nextDraw.nums||[]),...(nextDraw.bonus||[])]):null;
+  const drawSet=new Set(nums);
+  // Çıkarma + Toplama rows
+  const cikRows=gaps.map(g=>nums.map(n=>n-g).filter(n=>n>=1));
+  const topRows=gaps.map(g=>nums.map(n=>n+g).filter(n=>n<=max));
+  // Frequency count
+  const freq={};[...cikRows.flat(),...topRows.flat()].forEach(n=>{freq[n]=(freq[n]||0)+1;});
+  const maxFreq=Math.max(...Object.values(freq),1);
+  // Badge renderer
+  const badge=n=>{
+    const f=freq[n]||0,isNext=nextSet&&nextSet.has(n);
+    const bg=isNext?'rgba(0,230,118,.35)':f>=3?'rgba(248,113,113,.22)':f>=2?'rgba(251,191,36,.18)':'rgba(0,0,0,.04)';
+    const bd=isNext?'rgba(0,230,118,.8)':f>=3?'rgba(248,113,113,.55)':f>=2?'rgba(251,191,36,.5)':'var(--border)';
+    const cl=isNext?'var(--green)':f>=3?'#c53030':f>=2?'#975a16':'var(--text)';
+    return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:21px;padding:0 4px;border-radius:5px;background:${bg};border:1px solid ${bd};color:${cl};font-size:.64rem;font-weight:${f>=2?800:400};font-family:monospace" title="${f>0?f+'× tabloda':''}">${n}${isNext?'✓':''}</span>`;
+  };
+  let h='';
+  // ── Gap analizi
+  h+=`<div style="background:rgba(108,99,255,.06);border:1px solid rgba(108,99,255,.22);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.74rem;font-weight:800;margin-bottom:9px">📊 Fark Analizi · ${draw.date}</div>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:3px;margin-bottom:9px">`;
+  nums.forEach((n,i)=>{
+    h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:27px;padding:0 5px;border-radius:7px;background:rgba(129,140,248,.18);border:1px solid rgba(129,140,248,.4);font-size:.78rem;font-weight:800;font-family:monospace;color:var(--accent)">${n}</span>`;
+    if(i<gaps.length)h+=`<span style="font-size:.6rem;color:var(--muted);padding:0 1px;font-family:monospace">+${gaps[i]}</span>`;
+  });
+  h+=`</div>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:6px">`;
+  gaps.forEach((g,i)=>h+=`<span style="font-size:.58rem;padding:2px 7px;border-radius:5px;background:rgba(0,0,0,.04);border:1px solid var(--border);font-family:monospace">f${i+1}=<strong>${g}</strong></span>`);
+  h+=`</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted)">${nums[0]} → ${nums[nums.length-1]} · Fark toplamı: <strong style="color:var(--accent)">${gapSum}</strong> &nbsp;(${nums[nums.length-1]}−${nums[0]})</div>`;
+  h+=`</div>`;
+  if(nextDraw){
+    const sortedNext=[...nextDraw.nums].sort((a,b)=>a-b);
+    h+=`<div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.2);border-radius:8px;padding:7px 12px;font-size:.6rem;color:var(--muted);margin-bottom:12px">✅ Sonraki çekiliş <strong style="color:var(--text)">${nextDraw.date}</strong>: ${sortedNext.map(n=>`<strong style="color:${nextSet.has(n)?'var(--green)':'var(--muted)'}">${n}${nextSet.has(n)?'✓':''}</strong>`).join(' ')} &nbsp;<span style="font-size:.55rem">(Yeşil ✓ = tahminlerimizde çıkan)</span></div>`;
+  }
+  // ── Çıkarma + Toplama (iki sütun)
+  h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">`;
+  // ÇIKARMA
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800;margin-bottom:8px;color:var(--accent2)">➖ Çıkarma ~</div>`;
+  cikRows.forEach((row,i)=>{
+    if(!row.length)return;
+    h+=`<div style="margin-bottom:6px"><span style="font-size:.54rem;color:var(--muted);font-family:monospace;margin-right:4px">−f${i+1}(${gaps[i]})</span><span style="display:inline-flex;flex-wrap:wrap;gap:2px">${row.map(badge).join('')}</span></div>`;
+  });
+  h+=`</div>`;
+  // TOPLAMA
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800;margin-bottom:8px;color:var(--green)">➕ Toplama</div>`;
+  topRows.forEach((row,i)=>{
+    if(!row.length)return;
+    h+=`<div style="margin-bottom:6px"><span style="font-size:.54rem;color:var(--muted);font-family:monospace;margin-right:4px">+f${i+1}(${gaps[i]})</span><span style="display:inline-flex;flex-wrap:wrap;gap:2px">${row.map(badge).join('')}</span></div>`;
+  });
+  h+=`</div>`;
+  h+=`</div>`;
+  // ── Tekrar eden sayılar
+  const topFreq=Object.entries(freq).map(([n,f])=>({n:parseInt(n),f})).filter(x=>x.f>=2).sort((a,b)=>b.f-a.f||a.n-b.n);
+  if(topFreq.length){
+    const copyText=topFreq.map(x=>x.n).join(' ');
+    window._soRepCopy=copyText;
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><div style="font-size:.72rem;font-weight:800">🔁 Tekrar Edenler <span style="font-size:.57rem;font-weight:400;color:var(--muted)">(≥2 satırda çıkan güçlü adaylar)</span></div><button onclick="_kbCopy(window._soRepCopy)" style="font-size:.58rem;padding:2px 8px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></div>`;
+    h+=`<div style="display:flex;flex-wrap:wrap;gap:3px">${topFreq.map(({n,f})=>badge(n)).join('')}</div>`;
+    h+=`<div style="font-size:.55rem;color:var(--muted);margin-top:5px">${topFreq.map(({n,f})=>`${n}(${f}×)`).join(' ')}</div>`;
+    h+=`</div>`;
+  }
+  // ── Fark Zinciri
+  h+=`<div style="background:rgba(184,134,11,.04);border:1px solid rgba(184,134,11,.2);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800;color:#8a6200;margin-bottom:7px">🔗 Fark Zinciri <span style="font-size:.57rem;font-weight:400;color:var(--muted)">(farklı başlangıç noktalarından farklar zincirleme uygulanır · 10'ar adım)</span></div>`;
+  const chainRows=[];
+  for(let start=1;start<=max;start+=10){
+    const chain=[start];let cur=start;
+    for(const g of gaps){cur+=g;if(cur>max)break;chain.push(cur);}
+    if(chain.length<2)continue;
+    const chainHits=chain.filter(n=>nextSet&&nextSet.has(n)).length;
+    chainRows.push({start,chain,hits:chainHits});
+  }
+  chainRows.forEach(({start,chain,hits})=>{
+    h+=`<div style="display:flex;align-items:center;gap:3px;margin-bottom:3px;flex-wrap:wrap">`;
+    h+=`<span style="font-size:.54rem;color:var(--muted);min-width:22px;font-family:monospace;flex-shrink:0">${start}:</span>`;
+    chain.forEach(n=>{const isNext=nextSet&&nextSet.has(n);h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:21px;height:19px;padding:0 3px;border-radius:4px;background:${isNext?'rgba(0,230,118,.25)':freq[n]&&freq[n]>=2?'rgba(251,191,36,.15)':'rgba(0,0,0,.03)'};border:1px solid ${isNext?'rgba(0,230,118,.6)':freq[n]&&freq[n]>=2?'rgba(251,191,36,.4)':'var(--border)'};font-size:.58rem;font-weight:${isNext||freq[n]>=2?700:400};font-family:monospace;color:${isNext?'var(--green)':freq[n]>=2?'#975a16':'var(--text)'}">${n}${isNext?'✓':''}</span>`;});
+    if(hits>0)h+=`<span style="font-size:.52rem;color:var(--green);font-weight:700;margin-left:3px">${hits} isabet</span>`;
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+  // ── Kopyala (tam analiz)
+  const allCik=cikRows.map((r,i)=>`-f${i+1}(${gaps[i]}): ${r.join(' ')}`).join('\n');
+  const allTop=topRows.map((r,i)=>`+f${i+1}(${gaps[i]}): ${r.join(' ')}`).join('\n');
+  window._soCopy=`${game.name} — ${draw.date}\nSayılar: ${nums.join(' ')}\nFarklar: ${gaps.join(' ')} = ${gapSum}\n\nÇIKARMA:\n${allCik}\n\nTOPLAMA:\n${allTop}\n\nTekrar (≥2×): ${topFreq.map(x=>x.n).join(' ')}`;
+  h+=`<div style="text-align:right"><button onclick="_kbCopy(window._soCopy)" style="font-size:.62rem;padding:4px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋 Tüm Analizi Kopyala</button></div>`;
+  return h;
+}
+
+// ═══════════ 🔀 ÇAPRAZ BİLET ANALİZİ ════════════════════════════════════════════
+// Kullanıcının 10 bileti → diğer oyunda çıkacak sayıları tahmin et
+let _cxSrc='super',_cxTgt='sayisal';
+
+function _cxInit(){
+  const g=state.selectedGame;
+  if(g==='super'){_cxSrc='super';_cxTgt='sayisal';}
+  else if(g==='sayisal'){_cxSrc='sayisal';_cxTgt='super';}
+  else if(g==='sans'){_cxSrc='sans';_cxTgt='onnumara';}
+  else{_cxSrc='onnumara';_cxTgt='sans';}
+  _cxRenderFull();
+}
+
+function _cxSetSrc(g){
+  _cxSrc=g;
+  const pairs={super:'sayisal',sayisal:'super',sans:'onnumara',onnumara:'sans'};
+  _cxTgt=pairs[g]||'sayisal';
+  _cxRenderFull();
+}
+
+function _cxSetTgt(g){_cxTgt=g;_cxRenderFull();}
+
+function _cxRenderFull(){
+  const el=document.getElementById('cxContent');if(!el)return;
+  const src=getGame(_cxSrc);
+  const tgt=getGame(_cxTgt);
+  const GLIST=[{id:'super',e:'⭐',n:'Süper Loto'},{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
+  let h='';
+  h+=`<div style="margin-bottom:10px"><div style="font-size:.6rem;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Bilet Oyunu (elindeki biletler):</div><div style="display:flex;gap:5px;flex-wrap:wrap">`;
+  GLIST.forEach(g=>{
+    const a=g.id===_cxSrc;
+    h+=`<button onclick="_cxSetSrc('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
+  });
+  h+=`</div></div>`;
+  h+=`<div style="margin-bottom:10px"><div style="font-size:.6rem;font-weight:700;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em">Tahmin Oyunu (bulmak istediğin):</div><div style="display:flex;gap:5px;flex-wrap:wrap">`;
+  GLIST.forEach(g=>{
+    if(g.id===_cxSrc)return;
+    const a=g.id===_cxTgt;
+    h+=`<button onclick="_cxSetTgt('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(0,230,118,.6)':'var(--border)'};background:${a?'rgba(0,230,118,.1)':'var(--surface2)'};color:${a?'var(--green)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
+  });
+  h+=`</div></div>`;
+  h+=`<div style="margin-bottom:10px"><div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">Biletlerini yapıştır — her satır 1 bilet, sayıları boşlukla yaz (aralık 1–${src?src.max:'?'}):</div><textarea id="cxInput" rows="10" placeholder="1 7 14 23 38 54\n3 9 16 25 40 51\n..." style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;font-size:.72rem;font-family:monospace;resize:vertical;box-sizing:border-box"></textarea></div>`;
+  h+=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:14px">`;
+  h+=`<button onclick="_cxAnalyze()" style="font-size:.75rem;padding:8px 22px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🔍 Analiz Et</button>`;
+  h+=`<button onclick="_cxBacktest()" style="font-size:.72rem;padding:7px 16px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:pointer">📊 Tarihsel Backtest</button>`;
+  h+=`</div>`;
+  h+=`<div id="cxResults"></div>`;
+  el.innerHTML=h;
+}
+
+function _cxLearnOffsets(srcId,tgtId){
+  const srcDraws=_kbGetDraws(srcId);
+  const tgtDraws=_kbGetDraws(tgtId);
+  const freq={};
+  tgtDraws.slice(0,80).forEach(td=>{
+    const tTime=new Date(td.date).getTime();
+    let best=null,bestDiff=Infinity;
+    srcDraws.forEach(sd=>{
+      const d=Math.abs(new Date(sd.date).getTime()-tTime)/86400000;
+      if(d<bestDiff&&d<=4){bestDiff=d;best=sd;}
+    });
+    if(!best)return;
+    const tNums=[...(td.nums||[]),...(td.bonus||[])];
+    const sNums=[...(best.nums||[])];
+    sNums.forEach(s=>tNums.forEach(t=>{const off=t-s;if(Math.abs(off)<=35)freq[off]=(freq[off]||0)+1;}));
+  });
+  return Object.entries(freq).map(([off,f])=>({off:parseInt(off),f})).filter(x=>x.f>=2).sort((a,b)=>b.f-a.f).slice(0,12);
+}
+
+function _cxAnalyze(){
+  const resEl=document.getElementById('cxResults');if(!resEl)return;
+  const ta=document.getElementById('cxInput');if(!ta)return;
+  const src=getGame(_cxSrc);const tgt=getGame(_cxTgt);
+  if(!src||!tgt){resEl.innerHTML='<div style="color:var(--accent2);font-size:.7rem">Oyun seçimi eksik.</div>';return;}
+  const tickets=[];
+  ta.value.trim().split('\n').forEach(line=>{
+    const nums=line.trim().split(/[\s,;]+/).map(v=>parseInt(v)).filter(n=>!isNaN(n)&&n>=1&&n<=src.max);
+    if(nums.length>=2)tickets.push(nums);
+  });
+  if(!tickets.length){resEl.innerHTML=`<div style="color:var(--accent2);font-size:.7rem;padding:10px">Geçerli bilet bulunamadı (sayılar 1–${src.max} aralığında olmalı).</div>`;return;}
+  const ticketSet=new Set();tickets.forEach(t=>t.forEach(n=>ticketSet.add(n)));
+  const ticketNums=[...ticketSet].sort((a,b)=>a-b);
+  const missingNums=[];for(let n=1;n<=src.max;n++)if(!ticketSet.has(n))missingNums.push(n);
+  const offsets=_cxLearnOffsets(_cxSrc,_cxTgt);
+  const scoreA={},scoreB={};
+  const addS=(obj,n,v)=>{if(n>=1&&n<=tgt.max)obj[n]=(obj[n]||0)+v;};
+  offsets.forEach(({off,f},i)=>{
+    const w=f*(1-i*0.06);
+    missingNums.forEach(m=>addS(scoreA,m+off,w));
+    ticketNums.forEach(m=>addS(scoreB,m+off,w));
+  });
+  missingNums.forEach(m=>{if(m>=1&&m<=tgt.max)scoreA[m]=(scoreA[m]||0)+3;});
+  const combined={};
+  new Set([...Object.keys(scoreA).map(Number),...Object.keys(scoreB).map(Number)]).forEach(n=>{combined[n]=(scoreA[n]||0)*0.6+(scoreB[n]||0)*0.4;});
+  const candList=Object.entries(combined).map(([n,s])=>({n:parseInt(n),s})).sort((a,b)=>b.s-a.s||a.n-b.n);
+  const topK=Math.min(tgt.count+Math.round(tgt.max*0.08),25);
+  const topCands=candList.slice(0,topK);
+  const tgtDraws=_kbGetDraws(_cxTgt);
+  const lastTgt=tgtDraws[0];
+  const lastTgtSet=lastTgt?new Set([...(lastTgt.nums||[]),...(lastTgt.bonus||[])]):null;
+  const badge=(n,s)=>{
+    const hit=lastTgtSet&&lastTgtSet.has(n);
+    const bg=hit?'rgba(0,230,118,.3)':s>0?'rgba(129,140,248,.12)':'rgba(0,0,0,.04)';
+    const bd=hit?'rgba(0,230,118,.8)':s>0?'rgba(129,140,248,.35)':'var(--border)';
+    const cl=hit?'var(--green)':s>0?'var(--accent)':'var(--text)';
+    return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:25px;height:22px;padding:0 4px;border-radius:5px;background:${bg};border:1px solid ${bd};color:${cl};font-size:.64rem;font-weight:${hit||s>0?800:400};font-family:monospace" title="skor:${s.toFixed(1)}">${n}${hit?'✓':''}</span>`;
+  };
+  let h='';
+  h+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:12px">`;
+  h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.2);border-radius:8px;padding:8px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--accent)">${tickets.length}</div><div style="font-size:.55rem;color:var(--muted)">Bilet</div></div>`;
+  h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.2);border-radius:8px;padding:8px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--accent)">${ticketNums.length}</div><div style="font-size:.55rem;color:var(--muted)">Farklı Sayı</div></div>`;
+  h+=`<div style="background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.2);border-radius:8px;padding:8px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--accent2)">${missingNums.length}</div><div style="font-size:.55rem;color:var(--muted)">Eksik (1–${src.max})</div></div>`;
+  h+=`</div>`;
+  if(offsets.length){
+    h+=`<div style="background:rgba(184,134,11,.04);border:1px solid rgba(184,134,11,.22);border-radius:9px;padding:10px 12px;margin-bottom:10px">`;
+    h+=`<div style="font-size:.7rem;font-weight:800;color:#8a6200;margin-bottom:6px">📐 Tarihsel Çapraz Ofsetler <span style="font-size:.55rem;font-weight:400;color:var(--muted)">(${src.name} → ${tgt.name})</span></div>`;
+    h+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`;
+    offsets.slice(0,8).forEach(({off,f})=>{h+=`<span style="font-size:.6rem;padding:2px 8px;border-radius:5px;background:rgba(184,134,11,.1);border:1px solid rgba(184,134,11,.3);font-family:monospace;color:#8a6200">${off>=0?'+':''}${off} (${f}×)</span>`;});
+    h+=`</div></div>`;
+  }
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:10px">`;
+  h+=`<div style="font-size:.7rem;font-weight:800;margin-bottom:5px;color:var(--accent2)">⛔ Teori A — Biletlerde Olmayan Sayılar <span style="font-size:.55rem;font-weight:400;color:var(--muted)">(${src.name} 1–${src.max})</span></div>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:4px">`;
+  missingNums.forEach(n=>{h+=badge(n,scoreA[n]||0);});
+  h+=`</div>`;
+  if(lastTgt){const hits=missingNums.filter(n=>lastTgtSet&&lastTgtSet.has(n));h+=`<div style="font-size:.55rem;color:var(--muted)">Son ${tgt.name} (${lastTgt.date}): <strong style="color:var(--green)">${hits.length} isabet</strong>${hits.length?' — '+hits.join(' '):'  (yok)'}</div>`;}
+  h+=`</div>`;
+  h+=`<div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.2);border-radius:10px;padding:10px 12px;margin-bottom:10px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">`;
+  h+=`<div style="font-size:.7rem;font-weight:800;color:var(--green)">🎯 ${tgt.name} Adayları <span style="font-size:.55rem;font-weight:400;color:var(--muted)">(A×60%+B×40%)</span></div>`;
+  window._cxCopy=topCands.slice(0,tgt.count).map(x=>x.n).join(' ');
+  h+=`<button onclick="_kbCopy(window._cxCopy)" style="font-size:.58rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(0,230,118,.3);background:rgba(0,230,118,.07);color:var(--green);cursor:pointer">📋</button>`;
+  h+=`</div><div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:4px">`;
+  topCands.forEach(({n,s})=>{h+=badge(n,s);});
+  h+=`</div>`;
+  if(lastTgt){const hits=topCands.filter(x=>lastTgtSet&&lastTgtSet.has(x.n));h+=`<div style="font-size:.55rem;color:var(--muted)">Son ${tgt.name}: <strong style="color:var(--green)">${hits.length} isabet</strong>${hits.length?' — '+hits.map(x=>x.n).join(' '):'  (yok)'}</div>`;}
+  h+=`</div>`;
+  const finalNums=topCands.slice(0,tgt.count).map(x=>x.n).sort((a,b)=>a-b);
+  h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:11px 14px">`;
+  h+=`<div style="font-size:.7rem;font-weight:800;margin-bottom:8px">🎰 Önerilen ${tgt.name} Bileti (${tgt.count} sayı)</div>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`;
+  finalNums.forEach(n=>{const hit=lastTgtSet&&lastTgtSet.has(n);h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:33px;padding:0 7px;border-radius:8px;background:${hit?'rgba(0,230,118,.28)':'rgba(129,140,248,.2)'};border:2px solid ${hit?'rgba(0,230,118,.7)':'rgba(129,140,248,.5)'};color:${hit?'var(--green)':'var(--accent)'};font-size:.82rem;font-weight:800;font-family:monospace">${n}${hit?'✓':''}</span>`;});
+  h+=`</div>`;
+  const fHits=finalNums.filter(n=>lastTgtSet&&lastTgtSet.has(n));
+  if(fHits.length)h+=`<div style="font-size:.58rem;color:var(--green);font-weight:700;margin-top:6px">✅ Son çekilişle ${fHits.length} isabet: ${fHits.join(' ')}</div>`;
+  h+=`</div>`;
+  resEl.innerHTML=h;
+}
+
+function _cxBacktest(){
+  const resEl=document.getElementById('cxResults');if(!resEl)return;
+  const src=getGame(_cxSrc);const tgt=getGame(_cxTgt);if(!src||!tgt)return;
+  const offsets=_cxLearnOffsets(_cxSrc,_cxTgt);
+  const srcDraws=_kbGetDraws(_cxSrc);
+  const tgtDraws=_kbGetDraws(_cxTgt);
+  let totalHits=0,totalPoss=0;
+  const rows=[];
+  srcDraws.slice(1,21).forEach(sd=>{
+    const sTime=new Date(sd.date).getTime();
+    let bestTgt=null,bestDiff=Infinity;
+    tgtDraws.forEach(td=>{
+      const diff=(new Date(td.date).getTime()-sTime)/86400000;
+      if(diff>0&&diff<=6&&diff<bestDiff){bestDiff=diff;bestTgt=td;}
+    });
+    if(!bestTgt)return;
+    const ticketSet=new Set([...(sd.nums||[])]);
+    const missing=[];for(let n=1;n<=src.max;n++)if(!ticketSet.has(n))missing.push(n);
+    const score={};
+    const addS=(n,v)=>{if(n>=1&&n<=tgt.max)score[n]=(score[n]||0)+v;};
+    offsets.forEach(({off,f},i)=>{missing.forEach(m=>addS(m+off,f*(1-i*0.06)));});
+    missing.forEach(m=>{if(m>=1&&m<=tgt.max)score[m]=(score[m]||0)+3;});
+    const cands=Object.entries(score).map(([n,s])=>({n:parseInt(n),s})).sort((a,b)=>b.s-a.s).slice(0,tgt.count+4);
+    const candSet=new Set(cands.map(x=>x.n));
+    const tgtNums=[...(bestTgt.nums||[]),...(bestTgt.bonus||[])];
+    const hits=tgtNums.filter(n=>candSet.has(n));
+    totalHits+=hits.length;totalPoss+=tgtNums.length;
+    rows.push({sd,bestTgt,diff:bestDiff.toFixed(1),hits:hits.length,tot:tgtNums.length,cands:cands.slice(0,tgt.count),tgtSet:new Set(tgtNums)});
+  });
+  if(!rows.length){resEl.innerHTML='<div style="color:var(--muted);font-size:.7rem;padding:10px">Yeterli çakışan çekiliş çifti yok.</div>';return;}
+  const avgH=(totalHits/rows.length).toFixed(2),avgPct=((totalHits/totalPoss)*100).toFixed(1);
+  let h=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.2);border-radius:9px;padding:10px 12px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.7rem;font-weight:800;margin-bottom:5px">📊 Tarihsel Backtest — ${src.name} → ${tgt.name} (son ${rows.length} çift)</div>`;
+  h+=`<div style="display:flex;gap:14px"><span style="font-size:.65rem">Ort. isabet: <strong style="color:var(--green)">${avgH}/${(totalPoss/rows.length).toFixed(0)}</strong></span><span style="font-size:.65rem">İsabet oranı: <strong style="color:var(--accent)">${avgPct}%</strong></span></div></div>`;
+  h+=`<div style="display:flex;flex-direction:column;gap:5px">`;
+  rows.forEach(({sd,bestTgt,diff,hits,tot,cands,tgtSet})=>{
+    const pct=((hits/tot)*100).toFixed(0);
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px">`;
+    h+=`<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:.58rem;color:var(--muted)">${src.emoji||''} ${sd.date} → ${tgt.emoji||''} ${bestTgt.date} (+${diff}g)</span><span style="font-size:.62rem;font-weight:700;color:${hits>=3?'var(--green)':hits>=2?'var(--accent)':'var(--muted)'}">${hits}/${tot} (${pct}%)</span></div>`;
+    h+=`<div style="display:flex;flex-wrap:wrap;gap:2px">`;
+    cands.forEach(({n})=>{const hit=tgtSet.has(n);h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 3px;border-radius:4px;background:${hit?'rgba(0,230,118,.28)':'rgba(0,0,0,.04)'};border:1px solid ${hit?'rgba(0,230,118,.7)':'var(--border)'};color:${hit?'var(--green)':'var(--text)'};font-size:.6rem;font-weight:${hit?800:400};font-family:monospace">${n}${hit?'✓':''}</span>`;});
+    h+=`</div></div>`;
+  });
+  h+=`</div>`;
+  resEl.innerHTML=h;
 }
 </script>
 
