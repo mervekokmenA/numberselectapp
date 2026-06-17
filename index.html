@@ -13998,6 +13998,45 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
 // ── AI Tahmin Sistemi — EWF + gecikme + şablon zinciri + Gülay fark-analizi sinyallerini birleştirir.
 // Sayısal Loto'da sadece 7 ana sayıyı (Süperstar hariç) hedefler; bonus alanı olan oyunlarda ayrıca _naJokerScores ile bonus tahmini sunar.
 // Saf hesaplama — DOM/render'dan bağımsız, hem canlı sayfa hem de geçmiş testi (_soAiBacktest) tarafından paylaşılır.
+// "Agresif" bilet grubu için kombinasyon yardımcıları — havuzdaki her t'li alt kombinasyonun
+// en az bir bilette birlikte çıkmasını garanti eden greedy kapsama (wheeling) tasarımı.
+function _soCombinations(arr,k){
+  const result=[];const n=arr.length;
+  if(k>n||k<=0)return result;
+  const idx=Array.from({length:k},(_,i)=>i);
+  while(true){
+    result.push(idx.map(i=>arr[i]));
+    let i=k-1;
+    while(i>=0&&idx[i]===n-k+i)i--;
+    if(i<0)break;
+    idx[i]++;
+    for(let j=i+1;j<k;j++)idx[j]=idx[j-1]+1;
+  }
+  return result;
+}
+function _soGreedyWheel(pool,k,t,cap){
+  if(pool.length<k||pool.length<t)return{tickets:[],totalT:0,coveredT:0,fullyCovered:false};
+  const allT=_soCombinations(pool,t).map(c=>c.join(','));
+  const allK=_soCombinations(pool,k);
+  const tSetOf=allK.map(ticket=>new Set(_soCombinations(ticket,t).map(c=>c.join(','))));
+  const uncovered=new Set(allT);
+  const chosen=[];
+  while(uncovered.size>0&&chosen.length<cap){
+    let bestI=-1,bestGain=-1;
+    for(let i=0;i<allK.length;i++){
+      let gain=0;
+      for(const key of tSetOf[i])if(uncovered.has(key))gain++;
+      if(gain>bestGain){bestGain=gain;bestI=i;}
+    }
+    if(bestGain<=0)break;
+    chosen.push(allK[bestI]);
+    for(const key of tSetOf[bestI])uncovered.delete(key);
+  }
+  return{tickets:chosen,totalT:allT.length,coveredT:allT.length-uncovered.size,fullyCovered:uncovered.size===0};
+}
+// Her oyunun seçim sayısına (k) göre: havuzun en üst N adayı + bilet tavanı (cap).
+// N, tam kapsamayı (her 3'lü kombinasyon en az 1 biletle) makul bilet sayısıyla sağlayacak şekilde seçildi.
+const _SO_WHEEL_CFG={5:{n:9,cap:16},6:{n:11,cap:16},7:{n:11,cap:16},10:{n:11,cap:16}};
 function _soAiCompute(draws,game,srcDraw){
   if(!draws||draws.length<8||!srcDraw)return null;
   const gmax=game.max,mainCount=game.count;
@@ -14038,6 +14077,16 @@ function _soAiCompute(draws,game,srcDraw){
   // Listeler sayfasındaki çeşitlilik algoritmasıyla 3 farklı bilet üretir (bonus burada kapalı — Süperstar/Joker ayrı motorla hesaplanır)
   const tickets=_listelerGenAiTickets({...game,bonusCount:0,bonusMax:0},gmax,numScore);
 
+  // "Agresif" grup: en güçlü adaylardan daha sıkı bir havuz seçilir ve bu havuzdaki
+  // HER 3'lü sayı kombinasyonunun en az bir bilette birlikte çıkması garanti edilir
+  // (eğer fullyCovered=true ise). Bu, gerçek 3 sayının havuzda olması KOŞULUYLA geçerli bir garantidir —
+  // rastgele bir çekilişi "yenmenin" garantisi değildir.
+  const wCfg=_SO_WHEEL_CFG[mainCount]||{n:Math.min(11,ranked.length),cap:16};
+  const wheelPool=ranked.slice(0,wCfg.n).map(r=>r.n);
+  const wheel=_soGreedyWheel(wheelPool,mainCount,3,wCfg.cap);
+  const aggressiveTickets=wheel.tickets.map(main=>({main:[...main].sort((a,b)=>a-b),bonus:[]}));
+  const wheelInfo={pool:wheelPool,fullyCovered:wheel.fullyCovered,coveragePct:wheel.totalT?Math.round(100*wheel.coveredT/wheel.totalT):0};
+
   let joker=null;
   if(game.bonusCount>0&&game.bonusMax>0){
     try{
@@ -14046,12 +14095,12 @@ function _soAiCompute(draws,game,srcDraw){
     }catch(e){}
   }
 
-  return{gmax,mainCount,numScore,ranked,top15,gulaySet,nsNums,tickets,joker};
+  return{gmax,mainCount,numScore,ranked,top15,gulaySet,nsNums,tickets,aggressiveTickets,wheelInfo,joker};
 }
 function _soAiSection(draws,game,srcDraw,nextDraw){
   const ai=_soAiCompute(draws,game,srcDraw);
   if(!ai)return'';
-  const{mainCount,top15,gulaySet,nsNums,tickets,joker}=ai;
+  const{mainCount,top15,gulaySet,nsNums,tickets,aggressiveTickets,wheelInfo,joker}=ai;
   const maxTop=top15[0].s;
   const nextMainSet=nextDraw?new Set(nextDraw.nums||[]):null;
 
@@ -14088,8 +14137,14 @@ function _soAiSection(draws,game,srcDraw,nextDraw){
   h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:10px">🟣 Gülay fark-analizi · 🔗 şablon zinciri · 🟢 ikisi birden</div>`;
   window._soAiTop15Copy=`${game.name} AI Top 15 (${srcDraw.date} sonrası): ${top15.map(x=>x.n).join(' ')}`;
 
-  h+=`<div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:7px;text-transform:uppercase;letter-spacing:.7px">🎯 AI Biletleri (${mainCount} sayı · 3 farklı kombinasyon)</div>`;
-  const copyLines=[];
+  const jokerLine=joker?`\n${game.id==='sayisal'?'Süperstar (Joker)':'Bonus'}: ${joker[0].n}`:'';
+
+  // ── Normal grup: çeşitlilik bazlı 3 bilet (garanti yok, geniş dağılım) ──
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px">`;
+  h+=`<div style="font-size:.65rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.7px">🎯 Normal Tahmin (${mainCount} sayı · 3 farklı kombinasyon)</div>`;
+  h+=`<button onclick="_kbCopy(window._soAiCopyNormal)" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(129,140,248,.35);background:rgba(129,140,248,.08);color:var(--accent);cursor:pointer">📋 Normal Kopyala</button>`;
+  h+=`</div>`;
+  const normalLines=[];
   tickets.forEach((t,idx)=>{
     const hitCount=nextMainSet?t.main.filter(n=>nextMainSet.has(n)).length:null;
     h+=`<div style="margin-bottom:8px;padding:7px 9px;background:rgba(0,0,0,.025);border:1px solid rgba(0,0,0,.06);border-radius:8px">`;
@@ -14099,9 +14154,32 @@ function _soAiSection(draws,game,srcDraw,nextDraw){
     h+=`</div>`;
     h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${t.main.map(hitChip).join('')}</div>`;
     h+=`</div>`;
-    copyLines.push(`Bilet ${idx+1}: ${t.main.join(' ')}`);
+    normalLines.push(`Bilet ${idx+1}: ${t.main.join(' ')}`);
   });
-  window._soAiCopy=`${game.name} AI Tahmin (${srcDraw.date} sonrası):\n${copyLines.join('\n')}`;
+  window._soAiCopyNormal=`${game.name} AI Tahmin — Normal (${srcDraw.date} sonrası):\n${normalLines.join('\n')}${jokerLine}`;
+
+  // ── Agresif grup: havuz kapsama (wheeling) — havuzdaki her 3'lü kombinasyon en az 1 bilette garanti ──
+  h+=`<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">`;
+  h+=`<div style="font-size:.65rem;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:.7px">🔥 Agresif Tahmin (${aggressiveTickets.length} bilet · havuz kapsamalı)</div>`;
+  h+=`<button onclick="_kbCopy(window._soAiCopyAggressive)" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(194,65,12,.35);background:rgba(194,65,12,.08);color:#c2410c;cursor:pointer">📋 Agresif Kopyala</button>`;
+  h+=`</div>`;
+  const covText=wheelInfo.fullyCovered?`Havuzdaki (${wheelInfo.pool.join(' ')}) HER 3 sayı kombinasyonu, bu ${aggressiveTickets.length} biletten en az birinde birlikte bulunur (garanti — koşul: gerçek çekilen 3 sayının havuzda olması).`:`Havuzdaki (${wheelInfo.pool.join(' ')}) 3'lü kombinasyonların %${wheelInfo.coveragePct}'i bu biletlerle kapsanıyor (tam kapsama için daha fazla bilet gerekir).`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:9px;line-height:1.6">${covText} Daha az ama daha sıkı seçilmiş bir havuza odaklanır; daha fazla bilet = daha yüksek maliyet ama daha güçlü kapsama anlamına gelir.</div>`;
+  const aggLines=[];
+  aggressiveTickets.forEach((t,idx)=>{
+    const hitCount=nextMainSet?t.main.filter(n=>nextMainSet.has(n)).length:null;
+    h+=`<div style="margin-bottom:6px;padding:7px 9px;background:rgba(194,65,12,.04);border:1px solid rgba(194,65,12,.15);border-radius:8px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">`;
+    h+=`<span style="font-size:.6rem;font-weight:700;color:#c2410c">Bilet ${idx+1}</span>`;
+    if(hitCount!==null)h+=`<span style="font-size:.56rem;color:var(--muted)">İsabet: <strong style="color:${hitCount>0?'var(--green)':'var(--text)'}">${hitCount}/${mainCount}</strong></span>`;
+    h+=`</div>`;
+    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${t.main.map(hitChip).join('')}</div>`;
+    h+=`</div>`;
+    aggLines.push(`Bilet ${idx+1}: ${t.main.join(' ')}`);
+  });
+  window._soAiCopyAggressive=`${game.name} AI Tahmin — Agresif (${srcDraw.date} sonrası):\n${aggLines.join('\n')}${jokerLine}`;
+  h+=`</div>`;
 
   // Süperstar/Joker (veya diğer oyunlarda bonus) — ayrı tahmin
   if(joker){
@@ -14118,10 +14196,8 @@ function _soAiSection(draws,game,srcDraw,nextDraw){
       </span>`;
     });
     h+=`</div>`;
-    window._soAiCopy+=`\n${label}: ${joker[0].n}`;
     h+=`</div>`;
   }
-  h+=`<div style="text-align:right;margin-top:9px"><button onclick="_kbCopy(window._soAiCopy)" style="font-size:.62rem;padding:4px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.35);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer">📋 AI Tahminini Kopyala</button></div>`;
   h+=`</div>`;
   return h;
 }
@@ -14138,6 +14214,7 @@ function _soAiBacktest(){
     const rows=[];
     let totalHits=0,bestHits=0,jokerHit=0,jokerTotal=0;
     let bestHit1=0,bestHit2=0,bestHit3=0;
+    let aggBestHits=0,aggBestHit1=0,aggBestHit2=0,aggBestHit3=0,poolHit3=0;
     for(let i=0;i<tests;i++){
       const target=draws[i];
       const srcDraw=draws[i+1];
@@ -14151,20 +14228,30 @@ function _soAiBacktest(){
       const hBest=Math.max(...ticketHits);
       totalHits+=h0;bestHits+=hBest;
       if(hBest>=1)bestHit1++;if(hBest>=2)bestHit2++;if(hBest>=3)bestHit3++;
+      const aggTicketHits=ai.aggressiveTickets.map(t=>t.main.filter(n=>targetMain.has(n)).length);
+      const aggBest=aggTicketHits.length?Math.max(...aggTicketHits):0;
+      aggBestHits+=aggBest;
+      if(aggBest>=1)aggBestHit1++;if(aggBest>=2)aggBestHit2++;if(aggBest>=3)aggBestHit3++;
+      if(ai.wheelInfo.pool.filter(n=>targetMain.has(n)).length>=3)poolHit3++;
       if(ai.joker&&target.bonus&&target.bonus.length){
         jokerTotal++;
         if(ai.joker.some(j=>j.n===target.bonus[0]))jokerHit++;
       }
       const bestIdx=ticketHits.indexOf(hBest);
-      rows.push({srcDate:srcDraw.date,targetNums:[...(target.nums||[])].sort((a,b)=>a-b),tickets:ai.tickets,ticketHits,bestIdx});
+      const aggBestIdx=aggTicketHits.indexOf(aggBest);
+      rows.push({srcDate:srcDraw.date,targetNums:[...(target.nums||[])].sort((a,b)=>a-b),tickets:ai.tickets,ticketHits,bestIdx,aggTickets:ai.aggressiveTickets,aggTicketHits,aggBestIdx});
     }
     if(!rows.length){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Test satırı oluşturulamadı.</div>';return;}
     const N=rows.length;
     const avgHit=(totalHits/N).toFixed(2);
     const avgBest=(bestHits/N).toFixed(2);
     const bpct1=Math.round(bestHit1/N*100),bpct2=Math.round(bestHit2/N*100),bpct3=Math.round(bestHit3/N*100);
+    const avgAggBest=(aggBestHits/N).toFixed(2);
+    const apct1=Math.round(aggBestHit1/N*100),apct2=Math.round(aggBestHit2/N*100),apct3=Math.round(aggBestHit3/N*100);
+    const poolPct3=Math.round(poolHit3/N*100);
     const jPct=jokerTotal?Math.round(jokerHit/jokerTotal*100):null;
-    let html=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">`;
+    let html=`<div style="font-size:.62rem;font-weight:700;color:var(--accent);margin-bottom:5px">🎯 Normal grup</div>`;
+    html+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">`;
     const statCard=(lbl,val,col)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${col}">${val}</div><div style="font-size:.6rem;color:var(--muted)">${lbl}</div></div>`;
     html+=statCard('Ort. isabet (1. bilet)',avgHit,'var(--accent)');
     html+=statCard('Ort. isabet (en iyi 3)',avgBest,'var(--green)');
@@ -14174,30 +14261,52 @@ function _soAiBacktest(){
     if(jPct!==null)html+=statCard((game.id==='sayisal'?'Süperstar':'Bonus')+' isabet (top5)',jPct+'%',jPct>=20?'var(--green)':jPct>=10?'var(--gold)':'var(--muted)');
     html+=statCard('Test sayısı',N,'var(--text)');
     html+=`</div>`;
-    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — AI Tahmin Sistemi geçmiş testi · Yeşil=isabetli · En iyi bilet vurgulanır</div>`;
+    html+=`<div style="font-size:.62rem;font-weight:700;color:#c2410c;margin-bottom:5px">🔥 Agresif grup (havuz kapsamalı)</div>`;
+    html+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">`;
+    html+=statCard('Ort. isabet (en iyi bilet)',avgAggBest,'#c2410c');
+    html+=statCard('1+ isabet',apct1+'%',apct1>=60?'var(--green)':apct1>=40?'var(--gold)':'var(--muted)');
+    html+=statCard('2+ isabet',apct2+'%',apct2>=30?'var(--green)':apct2>=15?'var(--gold)':'var(--muted)');
+    html+=statCard('3+ isabet',apct3+'%',apct3>=15?'var(--green)':apct3>=5?'var(--gold)':'var(--muted)');
+    html+=statCard('Havuzda gerçekte 3+ vardı',poolPct3+'%','var(--muted)');
+    html+=`</div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:10px">"Havuzda gerçekte 3+ vardı" = gerçek çekilişin en az 3 sayısı havuzdaydı (önkoşul). Bu oran ne kadar düşükse, agresif grubun garantisi o kadar az devreye girer — havuzun kendisi zayıfsa kapsama da işe yaramaz.</div>`;
+    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — AI Tahmin Sistemi geçmiş testi · 🟢=isabetli · 🟠=±1 yakın · En iyi bilet vurgulanır</div>`;
     html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
     html+=`<thead><tr style="border-bottom:1px solid var(--border)">`;
     html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Kaynak</th>`;
     html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek çekiliş</th>`;
-    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">AI Biletleri (isabet)</th>`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Normal Biletler (isabet)</th>`;
     html+=`<th style="text-align:center;padding:4px 6px;color:var(--muted)">En iyi</th>`;
+    html+=`<th style="text-align:center;padding:4px 6px;color:var(--muted)">Agresif en iyi</th>`;
     html+=`</tr></thead><tbody>`;
     rows.forEach(r=>{
-      const targetSet=new Set(r.targetNums);
+      const targetMain=new Set(r.targetNums);
+      // Gerçek çekiliş sütunu: yeşil tik SADECE bir AI biletinin o sayıyı içerdiği (gerçekten tuttuğu) durumda
+      const predictedSet=new Set([...r.tickets.flatMap(t=>t.main),...r.aggTickets.flatMap(t=>t.main)]);
       const numSpan=n=>{
-        const hit=targetSet.has(n);
+        const hit=predictedSet.has(n);
         return`<span style="font-family:monospace;font-size:.65rem;color:${hit?'var(--green)':'var(--text)'};font-weight:${hit?800:400}">${n}${hit?'✓':''}</span>`;
       };
+      // Bilet içindeki her sayı: tuttu (yeşil) / yakın ±1 (turuncu) / diğer
+      const ticketNumSpan=n=>{
+        const hit=targetMain.has(n);
+        const near=!hit&&[...targetMain].some(t=>Math.abs(t-n)===1);
+        const col=hit?'var(--green)':near?'#c2410c':'var(--muted)';
+        const fw=hit||near?'800':'400';
+        return`<span style="font-family:monospace;font-size:.6rem;color:${col};font-weight:${fw}">${n}${hit?'✓':near?'~':''}</span>`;
+      };
       const hitColor=val=>val>=3?'var(--green)':val>=2?'var(--gold)':val>=1?'var(--accent)':'var(--muted)';
+      const aggBestVal=r.aggTicketHits.length?r.aggTicketHits[r.aggBestIdx]:0;
       html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04)">`;
       html+=`<td style="padding:4px 6px;color:var(--muted);white-space:nowrap;font-size:.6rem">${r.srcDate}</td>`;
       html+=`<td style="padding:4px 6px"><div style="display:flex;gap:4px;flex-wrap:wrap">${r.targetNums.map(numSpan).join('')}</div></td>`;
-      html+=`<td style="padding:4px 6px"><div style="display:flex;flex-direction:column;gap:2px">${r.tickets.map((t,ti)=>`<span style="font-family:monospace;font-size:.6rem;color:${ti===r.bestIdx?'var(--accent)':'var(--muted)'};font-weight:${ti===r.bestIdx?700:400}">${t.main.join(' ')} (${r.ticketHits[ti]})</span>`).join('')}</div></td>`;
+      html+=`<td style="padding:4px 6px"><div style="display:flex;flex-direction:column;gap:2px">${r.tickets.map((t,ti)=>`<span style="font-size:.6rem;${ti===r.bestIdx?'font-weight:700':''}">${t.main.map(ticketNumSpan).join(' ')} <span style="color:var(--muted)">(${r.ticketHits[ti]})</span></span>`).join('')}</div></td>`;
       html+=`<td style="padding:4px 6px;text-align:center;font-weight:800;color:${hitColor(r.ticketHits[r.bestIdx])}">${r.ticketHits[r.bestIdx]}</td>`;
+      html+=`<td style="padding:4px 6px;text-align:center;font-weight:800;color:${hitColor(aggBestVal)}">${aggBestVal}</td>`;
       html+=`</tr>`;
     });
     html+=`</tbody></table></div>`;
-    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=isabetli · Her test, o tarihte henüz bilinmeyen (gelecek) verisi kullanılmadan hesaplanır</div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=isabetli · ~=±1 yakın · Gerçek çekiliş sütunundaki ✓ sadece bir AI biletinin o sayıyı içerdiğini gösterir · Her test, o tarihte henüz bilinmeyen (gelecek) verisi kullanılmadan hesaplanır</div>`;
     btEl.innerHTML=html;
   },20);
 }
