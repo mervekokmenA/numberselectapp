@@ -13562,7 +13562,12 @@ let _soGame='super',_soDate='';
 // ═══════════ ✍️ HIZLI GÜLAY — POPUP ════════════════════════════════════
 let _gqGame='sayisal';
 let _gqSel=new Set();
-const _GQ_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
+const _GQ_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'},{id:'onnumarahizli',e:'⚡',n:'Hızlı On Numara'}];
+// Hızlı On Numara — gerçek çekiliş verisi tutulmadığı için sahte/sentetik bir game nesnesi kullanır
+function _gqGetGame(){
+  if(_gqGame==='onnumarahizli')return{id:'onnumarahizli',name:'Hızlı On Numara',max:80,count:10,bonusCount:0,bonusMax:0};
+  return getGame(_gqGame);
+}
 
 function _gqOpenPopup(){
   document.getElementById('gqOverlay').classList.add('open');
@@ -13581,40 +13586,64 @@ function _gqSetGame(g){
   _gqRenderControls();
 }
 function _gqRenderControls(){
-  const game=getGame(_gqGame);
-  const draws=_kbGetDraws(_gqGame);
+  const isHizli=_gqGame==='onnumarahizli';
+  const game=_gqGetGame();
+  const draws=isHizli?[]:_kbGetDraws(_gqGame);
   let h=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">`;
   _GQ_GAMES.forEach(g=>{const a=g.id===_gqGame;h+=`<button onclick="_gqSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;});
   h+=`</div>`;
-  h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">Sayıları girin (boşluk veya virgülle ayırın) — ${game.count} ana sayı, 1–${game.max} arası:</div>`;
-  h+=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">`;
-  h+=`<input id="gqInput" type="text" placeholder="örn. 5 18 27 36 47 55" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')_gqAnalyze()" style="flex:1;min-width:160px;font-size:.82rem;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;outline:none;font-family:monospace">`;
-  h+=`<button onclick="_gqAnalyze()" style="padding:9px 18px;border-radius:8px;border:1px solid rgba(108,99,255,.5);background:rgba(108,99,255,.12);color:var(--accent);cursor:pointer;font-size:.78rem;font-weight:700;white-space:nowrap;flex-shrink:0">🔮 Analiz Et</button>`;
-  h+=`</div>`;
-  h+=`<div style="font-size:.58rem;color:var(--muted);margin-top:7px">Geçmiş çekilişten doldur: `;
-  if(draws&&draws.length){
-    draws.slice(0,6).forEach(d=>{h+=`<button onclick="document.getElementById('gqInput').value='${d.nums.join(' ')}';_gqAnalyze()" style="font-size:.58rem;padding:2px 7px;margin:0 2px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:monospace">${d.date}</button>`;});
+  if(isHizli){
+    h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:9px;padding:7px 10px;background:rgba(255,196,0,.06);border:1px solid rgba(255,196,0,.2);border-radius:6px;line-height:1.6">⚡ Hızlı On Numara için geçmiş çekiliş verisi tutulmuyor. Analiz edeceğin sayıları gir; gerçekleşen sonucu da girersen tablolar ona göre renklendirilir.</div>`;
+    h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:4px">Geçmiş (analiz edilecek sayılar) — 1–${game.max} arası:</div>`;
+    h+=`<input id="gqInput" type="text" placeholder="örn. 5 18 27 36 47 55 63 70 74 80" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')_gqAnalyze()" style="width:100%;box-sizing:border-box;font-size:.82rem;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;outline:none;font-family:monospace;margin-bottom:9px">`;
+    h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:4px">Sonuç (gerçekleşen çekiliş — opsiyonel):</div>`;
+    h+=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">`;
+    h+=`<input id="gqResultInput" type="text" placeholder="opsiyonel — girersen renklendirme yapılır" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')_gqAnalyze()" style="flex:1;min-width:160px;font-size:.82rem;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;outline:none;font-family:monospace">`;
+    h+=`<button onclick="_gqAnalyze()" style="padding:9px 18px;border-radius:8px;border:1px solid rgba(108,99,255,.5);background:rgba(108,99,255,.12);color:var(--accent);cursor:pointer;font-size:.78rem;font-weight:700;white-space:nowrap;flex-shrink:0">🔮 Analiz Et</button>`;
+    h+=`</div>`;
+  } else {
+    h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">Sayıları girin (boşluk veya virgülle ayırın) — ${game.count} ana sayı, 1–${game.max} arası:</div>`;
+    h+=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">`;
+    h+=`<input id="gqInput" type="text" placeholder="örn. 5 18 27 36 47 55" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')_gqAnalyze()" style="flex:1;min-width:160px;font-size:.82rem;padding:9px 12px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;outline:none;font-family:monospace">`;
+    h+=`<button onclick="_gqAnalyze()" style="padding:9px 18px;border-radius:8px;border:1px solid rgba(108,99,255,.5);background:rgba(108,99,255,.12);color:var(--accent);cursor:pointer;font-size:.78rem;font-weight:700;white-space:nowrap;flex-shrink:0">🔮 Analiz Et</button>`;
+    h+=`</div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-top:7px">Geçmiş çekilişten doldur: `;
+    if(draws&&draws.length){
+      draws.slice(0,6).forEach(d=>{h+=`<button onclick="document.getElementById('gqInput').value='${d.nums.join(' ')}';_gqAnalyze()" style="font-size:.58rem;padding:2px 7px;margin:0 2px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:monospace">${d.date}</button>`;});
+    }
+    h+=`</div>`;
   }
-  h+=`</div>`;
   h+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px;opacity:.8">💡 Sonuçlardaki sayılara tıklayarak seç, alttaki çubuktan kopyala.</div>`;
   const ctrl=document.getElementById('gqControls');
   if(ctrl)ctrl.innerHTML=h;
   const res=document.getElementById('gqResult');
   if(res)res.innerHTML='';
   _gqSel.clear();_gqUpdateSelBar();
+  const btCard=document.getElementById('gqBacktestCard');
+  if(btCard)btCard.style.display=isHizli?'none':'';
   setTimeout(()=>{const inp=document.getElementById('gqInput');if(inp)inp.focus();},60);
 }
 function _gqAnalyze(){
   const inp=document.getElementById('gqInput');if(!inp)return;
   const raw=inp.value.trim();
   if(!raw){showToast('⚠️ Sayı girin');return;}
-  const game=getGame(_gqGame);
+  const game=_gqGetGame();
   const nums=raw.split(/[\s,;]+/).map(s=>parseInt(s)).filter(n=>!isNaN(n)&&n>=1&&n<=game.max);
   if(nums.length<2){showToast(`⚠️ En az 2 geçerli sayı girin (1–${game.max})`);return;}
   const draw={date:'Manuel Giriş',nums:[...new Set(nums)].sort((a,b)=>a-b),bonus:[]};
+  let nextDraw=null;
+  const resInp=document.getElementById('gqResultInput');
+  if(resInp){
+    const rawRes=resInp.value.trim();
+    if(rawRes){
+      const resNums=rawRes.split(/[\s,;]+/).map(s=>parseInt(s)).filter(n=>!isNaN(n)&&n>=1&&n<=game.max);
+      if(!resNums.length){showToast(`⚠️ Sonuç için en az 1 geçerli sayı girin (1–${game.max})`);return;}
+      nextDraw={date:'Sonuç',nums:[...new Set(resNums)].sort((a,b)=>a-b),bonus:[]};
+    }
+  }
   const out=document.getElementById('gqResult');
   _gqSel.clear();
-  if(out)out.innerHTML=_soDoAnalysis(draw,game,null,false);
+  if(out)out.innerHTML=_soDoAnalysis(draw,game,nextDraw,false);
   _gqUpdateSelBar();
 }
 // Sayı seçim ve kopyalama
@@ -13622,7 +13651,7 @@ function _gqSpanNum(el){
   if(!el||el.tagName!=='SPAN'||el.children.length)return null;
   const m=(el.textContent||'').trim().match(/^(\d+)[✓~]?$/);
   if(!m)return null;
-  const n=parseInt(m[1]),g=getGame(_gqGame);
+  const n=parseInt(m[1]),g=_gqGetGame();
   if(n<1||n>g.max)return null;
   return n;
 }
@@ -13671,9 +13700,10 @@ function _gqGetPredictions(sourceNums,game){
 }
 
 function _gqBacktest(){
+  const btEl=document.getElementById('gqBtResult');if(!btEl)return;
+  if(_gqGame==='onnumarahizli'){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⚡ Hızlı On Numara için geçmiş çekiliş verisi tutulmuyor.</div>';return;}
   const game=getGame(_gqGame);
   const draws=_kbGetDraws(_gqGame);
-  const btEl=document.getElementById('gqBtResult');if(!btEl)return;
   const btCount=parseInt(document.getElementById('gqBtCount')?.value)||20;
   if(!draws||draws.length<3){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (en az 3 gerekli).</div>';return;}
   btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor…</div>';
@@ -14556,7 +14586,7 @@ function _cxBacktest(){
         <div id="gqResult" style="margin-top:12px" onclick="_gqPick(event)"></div>
         <div id="gqSelBar" style="display:none;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border);margin-top:8px;flex-wrap:wrap"></div>
       </div>
-      <div class="card">
+      <div class="card" id="gqBacktestCard">
         <div class="card-title">📊 Geçmiş Test</div>
         <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Her geçmiş çekiliş için bir önceki çekilişin gap analizinin hangi sayıları doğru tahmin ettiğini gösterir. Yeşil = isabetli, turuncu = ±1 yakın.</div>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
