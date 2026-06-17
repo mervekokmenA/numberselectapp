@@ -951,6 +951,21 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Seçilen çekilişin ardışık sayıları arasındaki <strong>farkları (gap)</strong> bulur. Her farkı tüm sayılara ekleyerek <strong>Toplama</strong>, çıkararak <strong>Çıkarma</strong> sütunlarını oluşturur. Birden fazla sütunda tekrar eden sayılar güçlü banko adayıdır. <strong>Fark Zinciri</strong> ise farkları ardışık uygulayarak olası bir sonraki çekiliş şablonunu gösterir.</div>
   <div id="soContent"></div>
  </div>
+ <div class="card">
+  <div class="card-title">📊 AI Tahmin — Geçmiş Test</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">🤖 AI Tahmin Sistemi'nin ürettiği biletleri geçmiş çekilişlere karşı test eder. Her test, o tarihte henüz gerçekleşmemiş (gelecek) verileri kullanmadan hesaplanır — gerçek bir tahmin senaryosunu simüle eder.</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
+    <select id="soAiBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+      <option value="10">10 çekiliş</option>
+      <option value="20" selected>20 çekiliş</option>
+      <option value="30">30 çekiliş</option>
+      <option value="50">50 çekiliş</option>
+    </select>
+    <button onclick="_soAiBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
+  </div>
+  <div id="soAiBtResult"></div>
+ </div>
 </div>
 
 <div style="grid-column:1/-1;display:none" id="page-bankocoz">
@@ -13735,8 +13750,12 @@ function _gqBacktest(){
 function _soInit(){
   if(state.selectedGame&&getGame(state.selectedGame))_soGame=state.selectedGame;
   _soRenderFull();
+  const btEl=document.getElementById('soAiBtResult');if(btEl)btEl.innerHTML='';
 }
-function _soSetGame(g){_soGame=g;_soDate='';_soRenderFull();}
+function _soSetGame(g){
+  _soGame=g;_soDate='';_soRenderFull();
+  const btEl=document.getElementById('soAiBtResult');if(btEl)btEl.innerHTML='';
+}
 function _soStepDate(dir){
   const sel=document.getElementById('soDateSel');if(!sel)return;
   const opts=Array.from(sel.options);
@@ -13771,6 +13790,9 @@ function _soRenderFull(){
   h+=`<button onclick="_soStepDate(1)" style="${btnSt}" title="Daha eski">▼</button>`;
   h+=`</div>`;
   h+=`</div>`;
+  h+=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px">`;
+  h+=`<button onclick="_kbCopy(window._soCopy)" style="font-size:.62rem;padding:4px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋 Tüm Analizi Kopyala</button>`;
+  h+=`</div>`;
   if(_soDate===''){
     // New prediction: analyze latest draw, no validation target
     h+=_soDoAnalysis(draws[0],game,null,true);
@@ -13789,19 +13811,36 @@ function _soRenderFull(){
   }
   el.innerHTML=h;
 }
-function _soDoAnalysis(draw,game,nextDraw,isFuture){
+function _soGapAnalysisCompute(draw,game){
   const max=game.max;
   const nums=[...draw.nums].filter(n=>n>=1&&n<=max).sort((a,b)=>a-b);
-  if(nums.length<2)return'<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için yeterli sayı yok.</div>';
+  if(nums.length<2)return null;
   const gaps=[];for(let i=1;i<nums.length;i++)gaps.push(nums[i]-nums[i-1]);
   const gapSum=gaps.reduce((a,b)=>a+b,0);
+  const drawSet=new Set(nums);
+  const cikRows=gaps.map(g=>nums.map(n=>n-g).filter(n=>n>=1));
+  const topRows=gaps.map(g=>nums.map(n=>n+g).filter(n=>n<=max));
+  const chainRows=[];
+  for(let start=1;start<=max;start+=10){
+    const chain=[start];let cur=start;
+    for(const g of gaps){cur+=g;if(cur>max)break;chain.push(cur);}
+    if(chain.length<2)continue;
+    chainRows.push({start,chain});
+  }
+  const gm={};
+  topRows.forEach(r=>r.forEach(n=>{if(!drawSet.has(n))gm[n]=(gm[n]||0)+1;}));
+  cikRows.forEach(r=>r.forEach(n=>{if(!drawSet.has(n))gm[n]=(gm[n]||0)+1;}));
+  chainRows.forEach(({chain})=>chain.slice(1).forEach(n=>{if(!drawSet.has(n))gm[n]=(gm[n]||0)+1;}));
+  const gulayCands=Object.entries(gm).map(([n,c])=>({n:parseInt(n),cnt:+c})).sort((a,b)=>b.cnt-a.cnt).slice(0,40);
+  return{max,nums,gaps,gapSum,drawSet,cikRows,topRows,chainRows,gulayCands};
+}
+function _soDoAnalysis(draw,game,nextDraw,isFuture){
+  const ga=_soGapAnalysisCompute(draw,game);
+  if(!ga)return'<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için yeterli sayı yok.</div>';
+  const{max,nums,gaps,gapSum,drawSet,cikRows,topRows,chainRows:gaChainRows}=ga;
   // nextSet: full match (nums+bonus) for green; nextMain: only main nums for yellow proximity
   const nextSet=nextDraw?new Set([...(nextDraw.nums||[]),...(nextDraw.bonus||[])]):null;
   const nextMain=nextDraw?new Set([...(nextDraw.nums||[])]):null;
-  const drawSet=new Set(nums);
-  // Çıkarma + Toplama rows
-  const cikRows=gaps.map(g=>nums.map(n=>n-g).filter(n=>n>=1));
-  const topRows=gaps.map(g=>nums.map(n=>n+g).filter(n=>n<=max));
   // Badge renderer — green=exact match, yellow~=±1 from a MAIN target number only
   const badge=n=>{
     const isNext=nextSet&&nextSet.has(n);
@@ -13871,14 +13910,7 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   // ── Fark Zinciri
   h+=`<div style="background:rgba(184,134,11,.04);border:1px solid rgba(184,134,11,.2);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
   h+=`<div style="font-size:.72rem;font-weight:800;color:#8a6200;margin-bottom:7px">🔗 Fark Zinciri <span style="font-size:.57rem;font-weight:400;color:var(--muted)">(farklı başlangıç noktalarından farklar zincirleme uygulanır · 10'ar adım)</span></div>`;
-  const chainRows=[];
-  for(let start=1;start<=max;start+=10){
-    const chain=[start];let cur=start;
-    for(const g of gaps){cur+=g;if(cur>max)break;chain.push(cur);}
-    if(chain.length<2)continue;
-    const chainHits=chain.filter(n=>nextSet&&nextSet.has(n)).length;
-    chainRows.push({start,chain,hits:chainHits});
-  }
+  const chainRows=gaChainRows.map(({start,chain})=>({start,chain,hits:chain.filter(n=>nextSet&&nextSet.has(n)).length}));
   chainRows.forEach(({start,chain,hits})=>{
     h+=`<div style="display:flex;align-items:center;gap:3px;margin-bottom:3px;flex-wrap:wrap">`;
     h+=`<span style="font-size:.54rem;color:var(--muted);min-width:22px;font-family:monospace;flex-shrink:0">${start}:</span>`;
@@ -13893,20 +13925,16 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   const allChain=chainRows.map(({start,chain})=>`${start}: ${chain.join(' ')}`).join('\n');
   // Tekrar edenler en alta alınır
   window._soCopy=`${game.name} — ${draw.date}\nSayılar: ${nums.join(' ')}\nFarklar: ${gaps.join(' ')} = ${gapSum}\n\nÇIKARMA:\n${allCik}\n\nTOPLAMA:\n${allTop}\n\nFARK ZİNCİRİ:\n${allChain}`;
-  h+=`<div style="text-align:right"><button onclick="_kbCopy(window._soCopy)" style="font-size:.62rem;padding:4px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋 Tüm Analizi Kopyala</button></div>`;
   // Gülay adaylarını Kombine Analiz için sakla
-  {const gm={};
-  topRows.forEach(r=>r.forEach(n=>{if(!drawSet.has(n))gm[n]=(gm[n]||0)+1;}));
-  cikRows.forEach(r=>r.forEach(n=>{if(!drawSet.has(n))gm[n]=(gm[n]||0)+1;}));
-  chainRows.forEach(({chain})=>chain.slice(1).forEach(n=>{if(!drawSet.has(n))gm[n]=(gm[n]||0)+1;}));
-  window._soGulayCands={game:game.id,date:draw.date,nums:Object.entries(gm).map(([n,c])=>({n:parseInt(n),cnt:+c})).sort((a,b)=>b.cnt-a.cnt).slice(0,40)};}
+  window._soGulayCands={game:game.id,date:draw.date,nums:ga.gulayCands};
   return h;
 }
 
 // ── AI Tahmin Sistemi — EWF + gecikme + şablon zinciri + Gülay fark-analizi sinyallerini birleştirir.
 // Sayısal Loto'da sadece 7 ana sayıyı (Süperstar hariç) hedefler; bonus alanı olan oyunlarda ayrıca _naJokerScores ile bonus tahmini sunar.
-function _soAiSection(draws,game,srcDraw,nextDraw){
-  if(!draws||draws.length<8)return'';
+// Saf hesaplama — DOM/render'dan bağımsız, hem canlı sayfa hem de geçmiş testi (_soAiBacktest) tarafından paylaşılır.
+function _soAiCompute(draws,game,srcDraw){
+  if(!draws||draws.length<8||!srcDraw)return null;
   const gmax=game.max,mainCount=game.count;
   const numScore=new Array(gmax+1).fill(0);
 
@@ -13929,21 +13957,37 @@ function _soAiSection(draws,game,srcDraw,nextDraw){
     for(let n=1;n<=gmax;n++){const s=(ns[n]||0)/maxNs*2.5;numScore[n]+=s;if(s>=1.5)nsNums.add(n);}
   }catch(e){}
 
-  // 4) Gülay'ın fark-analizi adayları — bu sayfaya özel en güçlü sinyal
+  // 4) Gülay'ın fark-analizi adayları — bu sayfaya özel en güçlü sinyal (srcDraw için doğrudan hesaplanır, global cache'e bağımlı değil)
   const gulaySet=new Set();
-  if(window._soGulayCands&&window._soGulayCands.game===game.id&&window._soGulayCands.date===srcDraw.date){
-    const cands=window._soGulayCands.nums;
-    const maxCnt=Math.max(...cands.map(x=>x.cnt),1);
-    cands.forEach(({n,cnt})=>{numScore[n]+=(cnt/maxCnt)*4;if(cnt>=2)gulaySet.add(n);});
+  const ga=_soGapAnalysisCompute(srcDraw,game);
+  if(ga&&ga.gulayCands.length){
+    const maxCnt=Math.max(...ga.gulayCands.map(x=>x.cnt),1);
+    ga.gulayCands.forEach(({n,cnt})=>{numScore[n]+=(cnt/maxCnt)*4;if(cnt>=2)gulaySet.add(n);});
   }
 
   const ranked=[];
   for(let n=1;n<=gmax;n++)if(numScore[n]>0)ranked.push({n,s:numScore[n]});
   ranked.sort((a,b)=>b.s-a.s);
-  if(!ranked.length)return'';
+  if(!ranked.length)return null;
   const top15=ranked.slice(0,15);
+  // Listeler sayfasındaki çeşitlilik algoritmasıyla 3 farklı bilet üretir (bonus burada kapalı — Süperstar/Joker ayrı motorla hesaplanır)
+  const tickets=_listelerGenAiTickets({...game,bonusCount:0,bonusMax:0},gmax,numScore);
+
+  let joker=null;
+  if(game.bonusCount>0&&game.bonusMax>0){
+    try{
+      const jEng=_naJokerScores(draws,game.bonusMax);
+      if(jEng&&jEng.scored&&jEng.scored.length)joker=jEng.scored.slice(0,5);
+    }catch(e){}
+  }
+
+  return{gmax,mainCount,numScore,ranked,top15,gulaySet,nsNums,tickets,joker};
+}
+function _soAiSection(draws,game,srcDraw,nextDraw){
+  const ai=_soAiCompute(draws,game,srcDraw);
+  if(!ai)return'';
+  const{mainCount,top15,gulaySet,nsNums,tickets,joker}=ai;
   const maxTop=top15[0].s;
-  const ticket=ranked.slice(0,mainCount).map(x=>x.n).sort((a,b)=>a-b);
   const nextMainSet=nextDraw?new Set(nextDraw.nums||[]):null;
 
   const hitChip=n=>{
@@ -13959,7 +14003,10 @@ function _soAiSection(draws,game,srcDraw,nextDraw){
   h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
   h+=`<div style="font-size:.74rem;font-weight:800;margin-bottom:4px;color:var(--accent)">🤖 AI Tahmin Sistemi</div>`;
   h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:9px;line-height:1.6">EWF + gecikme + şablon zinciri + Gülay fark-analizi sinyallerini birleştirir. Süperstar/Joker hariç sadece ${mainCount} ana sayıyı hedefler.</div>`;
-  h+=`<div style="font-size:.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">🏆 Top 15 Aday</div>`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">`;
+  h+=`<div style="font-size:.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">🏆 Top 15 Aday</div>`;
+  h+=`<button onclick="_kbCopy(window._soAiTop15Copy)" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(129,140,248,.35);background:rgba(129,140,248,.08);color:var(--accent);cursor:pointer">📋 Top 15 Kopyala</button>`;
+  h+=`</div>`;
   h+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:9px">`;
   top15.forEach(({n,s})=>{
     const pct=Math.round(s/maxTop*100);
@@ -13974,42 +14021,120 @@ function _soAiSection(draws,game,srcDraw,nextDraw){
   });
   h+=`</div>`;
   h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:10px">🟣 Gülay fark-analizi · 🔗 şablon zinciri · 🟢 ikisi birden</div>`;
+  window._soAiTop15Copy=`${game.name} AI Top 15 (${srcDraw.date} sonrası): ${top15.map(x=>x.n).join(' ')}`;
 
-  h+=`<div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:7px;text-transform:uppercase;letter-spacing:.7px">🎯 AI Bilet (${mainCount} sayı)</div>`;
-  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:6px">${ticket.map(hitChip).join('')}</div>`;
-  if(nextDraw){
-    const hitCount=ticket.filter(n=>nextMainSet.has(n)).length;
-    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">Hedef ${nextDraw.date} ile isabet: <strong style="color:${hitCount>0?'var(--green)':'var(--text)'}">${hitCount}/${mainCount}</strong></div>`;
-  }
-  window._soAiCopy=`${game.name} AI Tahmin (${srcDraw.date} sonrası): ${ticket.join(' ')}`;
+  h+=`<div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:7px;text-transform:uppercase;letter-spacing:.7px">🎯 AI Biletleri (${mainCount} sayı · 3 farklı kombinasyon)</div>`;
+  const copyLines=[];
+  tickets.forEach((t,idx)=>{
+    const hitCount=nextMainSet?t.main.filter(n=>nextMainSet.has(n)).length:null;
+    h+=`<div style="margin-bottom:8px;padding:7px 9px;background:rgba(0,0,0,.025);border:1px solid rgba(0,0,0,.06);border-radius:8px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">`;
+    h+=`<span style="font-size:.6rem;font-weight:700;color:var(--accent)">Bilet ${idx+1}</span>`;
+    if(hitCount!==null)h+=`<span style="font-size:.56rem;color:var(--muted)">İsabet: <strong style="color:${hitCount>0?'var(--green)':'var(--text)'}">${hitCount}/${mainCount}</strong></span>`;
+    h+=`</div>`;
+    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${t.main.map(hitChip).join('')}</div>`;
+    h+=`</div>`;
+    copyLines.push(`Bilet ${idx+1}: ${t.main.join(' ')}`);
+  });
+  window._soAiCopy=`${game.name} AI Tahmin (${srcDraw.date} sonrası):\n${copyLines.join('\n')}`;
 
   // Süperstar/Joker (veya diğer oyunlarda bonus) — ayrı tahmin
-  if(game.bonusCount>0&&game.bonusMax>0){
-    try{
-      const jEng=_naJokerScores(draws,game.bonusMax);
-      if(jEng&&jEng.scored&&jEng.scored.length){
-        const topJ=jEng.scored.slice(0,5);
-        const nextBonus=nextDraw&&nextDraw.bonus&&nextDraw.bonus.length?nextDraw.bonus[0]:null;
-        const label=game.id==='sayisal'?'Süperstar (Joker)':'Bonus';
-        h+=`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">`;
-        h+=`<div style="font-size:.65rem;font-weight:700;color:#8a6200;margin-bottom:6px">🃏 ${label} Tahmini — Top 5</div>`;
-        h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">`;
-        topJ.forEach(({n,score})=>{
-          const isHit=nextBonus===n;
-          h+=`<span style="display:inline-flex;flex-direction:column;align-items:center;background:${isHit?'rgba(0,230,118,.3)':'rgba(184,134,11,.12)'};border:1px solid ${isHit?'rgba(0,230,118,.7)':'rgba(184,134,11,.35)'};border-radius:6px;padding:3px 7px">
-            <span style="font-size:.7rem;font-weight:800;font-family:monospace;color:${isHit?'var(--green)':'#8a6200'}">${n}${isHit?'✓':''}</span>
-            <span style="font-size:.42rem;color:var(--muted);line-height:1;margin-top:1px">${Math.round(score*100)}p</span>
-          </span>`;
-        });
-        h+=`</div>`;
-        window._soAiCopy+=` | ${label}: ${topJ[0].n}`;
-        h+=`</div>`;
-      }
-    }catch(e){}
+  if(joker){
+    const nextBonus=nextDraw&&nextDraw.bonus&&nextDraw.bonus.length?nextDraw.bonus[0]:null;
+    const label=game.id==='sayisal'?'Süperstar (Joker)':'Bonus';
+    h+=`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">`;
+    h+=`<div style="font-size:.65rem;font-weight:700;color:#8a6200;margin-bottom:6px">🃏 ${label} Tahmini — Top 5</div>`;
+    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">`;
+    joker.forEach(({n,score})=>{
+      const isHit=nextBonus===n;
+      h+=`<span style="display:inline-flex;flex-direction:column;align-items:center;background:${isHit?'rgba(0,230,118,.3)':'rgba(184,134,11,.12)'};border:1px solid ${isHit?'rgba(0,230,118,.7)':'rgba(184,134,11,.35)'};border-radius:6px;padding:3px 7px">
+        <span style="font-size:.7rem;font-weight:800;font-family:monospace;color:${isHit?'var(--green)':'#8a6200'}">${n}${isHit?'✓':''}</span>
+        <span style="font-size:.42rem;color:var(--muted);line-height:1;margin-top:1px">${Math.round(score*100)}p</span>
+      </span>`;
+    });
+    h+=`</div>`;
+    window._soAiCopy+=`\n${label}: ${joker[0].n}`;
+    h+=`</div>`;
   }
   h+=`<div style="text-align:right;margin-top:9px"><button onclick="_kbCopy(window._soAiCopy)" style="font-size:.62rem;padding:4px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.35);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer">📋 AI Tahminini Kopyala</button></div>`;
   h+=`</div>`;
   return h;
+}
+
+function _soAiBacktest(){
+  const game=getGame(_soGame);
+  const draws=_kbGetDraws(_soGame);
+  const btEl=document.getElementById('soAiBtResult');if(!btEl)return;
+  const btCount=parseInt(document.getElementById('soAiBtCount')?.value)||20;
+  if(!draws||draws.length<10){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (en az 10 gerekli).</div>';return;}
+  btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor…</div>';
+  setTimeout(()=>{
+    const tests=Math.min(btCount,draws.length-9);
+    const rows=[];
+    let totalHits=0,bestHits=0,jokerHit=0,jokerTotal=0;
+    let bestHit1=0,bestHit2=0,bestHit3=0;
+    for(let i=0;i<tests;i++){
+      const target=draws[i];
+      const srcDraw=draws[i+1];
+      const histDraws=draws.slice(i+1); // sadece o tarihte mevcut veri — lookahead yok
+      if(!srcDraw||histDraws.length<8)continue;
+      const ai=_soAiCompute(histDraws,game,srcDraw);
+      if(!ai)continue;
+      const targetMain=new Set(target.nums||[]);
+      const ticketHits=ai.tickets.map(t=>t.main.filter(n=>targetMain.has(n)).length);
+      const h0=ticketHits[0]||0;
+      const hBest=Math.max(...ticketHits);
+      totalHits+=h0;bestHits+=hBest;
+      if(hBest>=1)bestHit1++;if(hBest>=2)bestHit2++;if(hBest>=3)bestHit3++;
+      if(ai.joker&&target.bonus&&target.bonus.length){
+        jokerTotal++;
+        if(ai.joker.some(j=>j.n===target.bonus[0]))jokerHit++;
+      }
+      const bestIdx=ticketHits.indexOf(hBest);
+      rows.push({srcDate:srcDraw.date,targetNums:[...(target.nums||[])].sort((a,b)=>a-b),tickets:ai.tickets,ticketHits,bestIdx});
+    }
+    if(!rows.length){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Test satırı oluşturulamadı.</div>';return;}
+    const N=rows.length;
+    const avgHit=(totalHits/N).toFixed(2);
+    const avgBest=(bestHits/N).toFixed(2);
+    const bpct1=Math.round(bestHit1/N*100),bpct2=Math.round(bestHit2/N*100),bpct3=Math.round(bestHit3/N*100);
+    const jPct=jokerTotal?Math.round(jokerHit/jokerTotal*100):null;
+    let html=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">`;
+    const statCard=(lbl,val,col)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${col}">${val}</div><div style="font-size:.6rem;color:var(--muted)">${lbl}</div></div>`;
+    html+=statCard('Ort. isabet (1. bilet)',avgHit,'var(--accent)');
+    html+=statCard('Ort. isabet (en iyi 3)',avgBest,'var(--green)');
+    html+=statCard('1+ isabet (en iyi 3)',bpct1+'%',bpct1>=60?'var(--green)':bpct1>=40?'var(--gold)':'var(--muted)');
+    html+=statCard('2+ isabet (en iyi 3)',bpct2+'%',bpct2>=30?'var(--green)':bpct2>=15?'var(--gold)':'var(--muted)');
+    html+=statCard('3+ isabet (en iyi 3)',bpct3+'%',bpct3>=15?'var(--green)':bpct3>=5?'var(--gold)':'var(--muted)');
+    if(jPct!==null)html+=statCard((game.id==='sayisal'?'Süperstar':'Bonus')+' isabet (top5)',jPct+'%',jPct>=20?'var(--green)':jPct>=10?'var(--gold)':'var(--muted)');
+    html+=statCard('Test sayısı',N,'var(--text)');
+    html+=`</div>`;
+    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — AI Tahmin Sistemi geçmiş testi · Yeşil=isabetli · En iyi bilet vurgulanır</div>`;
+    html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
+    html+=`<thead><tr style="border-bottom:1px solid var(--border)">`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Kaynak</th>`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek çekiliş</th>`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">AI Biletleri (isabet)</th>`;
+    html+=`<th style="text-align:center;padding:4px 6px;color:var(--muted)">En iyi</th>`;
+    html+=`</tr></thead><tbody>`;
+    rows.forEach(r=>{
+      const targetSet=new Set(r.targetNums);
+      const numSpan=n=>{
+        const hit=targetSet.has(n);
+        return`<span style="font-family:monospace;font-size:.65rem;color:${hit?'var(--green)':'var(--text)'};font-weight:${hit?800:400}">${n}${hit?'✓':''}</span>`;
+      };
+      const hitColor=val=>val>=3?'var(--green)':val>=2?'var(--gold)':val>=1?'var(--accent)':'var(--muted)';
+      html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04)">`;
+      html+=`<td style="padding:4px 6px;color:var(--muted);white-space:nowrap;font-size:.6rem">${r.srcDate}</td>`;
+      html+=`<td style="padding:4px 6px"><div style="display:flex;gap:4px;flex-wrap:wrap">${r.targetNums.map(numSpan).join('')}</div></td>`;
+      html+=`<td style="padding:4px 6px"><div style="display:flex;flex-direction:column;gap:2px">${r.tickets.map((t,ti)=>`<span style="font-family:monospace;font-size:.6rem;color:${ti===r.bestIdx?'var(--accent)':'var(--muted)'};font-weight:${ti===r.bestIdx?700:400}">${t.main.join(' ')} (${r.ticketHits[ti]})</span>`).join('')}</div></td>`;
+      html+=`<td style="padding:4px 6px;text-align:center;font-weight:800;color:${hitColor(r.ticketHits[r.bestIdx])}">${r.ticketHits[r.bestIdx]}</td>`;
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table></div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=isabetli · Her test, o tarihte henüz bilinmeyen (gelecek) verisi kullanılmadan hesaplanır</div>`;
+    btEl.innerHTML=html;
+  },20);
 }
 
 // ═══════════ 🔀 ÇAPRAZ BİLET ANALİZİ ════════════════════════════════════════════
