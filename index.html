@@ -13774,12 +13774,16 @@ function _soRenderFull(){
   if(_soDate===''){
     // New prediction: analyze latest draw, no validation target
     h+=_soDoAnalysis(draws[0],game,null,true);
+    h+=_soAiSection(draws,game,draws[0],null);
   } else {
     const targetDraw=draws.find(d=>d.date===_soDate);
     if(targetDraw){
       const tIdx=draws.indexOf(targetDraw);
       const srcDraw=tIdx<draws.length-1?draws[tIdx+1]:null; // draw BEFORE target
-      if(srcDraw){h+=_soDoAnalysis(srcDraw,game,targetDraw,false);}
+      if(srcDraw){
+        h+=_soDoAnalysis(srcDraw,game,targetDraw,false);
+        h+=_soAiSection(draws.slice(tIdx+1),game,srcDraw,targetDraw); // only data available before target — no lookahead
+      }
       else{h+=`<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için kaynak (önceki) çekiliş bulunamadı.</div>`;}
     }
   }
@@ -13896,6 +13900,115 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   cikRows.forEach(r=>r.forEach(n=>{if(!drawSet.has(n))gm[n]=(gm[n]||0)+1;}));
   chainRows.forEach(({chain})=>chain.slice(1).forEach(n=>{if(!drawSet.has(n))gm[n]=(gm[n]||0)+1;}));
   window._soGulayCands={game:game.id,date:draw.date,nums:Object.entries(gm).map(([n,c])=>({n:parseInt(n),cnt:+c})).sort((a,b)=>b.cnt-a.cnt).slice(0,40)};}
+  return h;
+}
+
+// ── AI Tahmin Sistemi — EWF + gecikme + şablon zinciri + Gülay fark-analizi sinyallerini birleştirir.
+// Sayısal Loto'da sadece 7 ana sayıyı (Süperstar hariç) hedefler; bonus alanı olan oyunlarda ayrıca _naJokerScores ile bonus tahmini sunar.
+function _soAiSection(draws,game,srcDraw,nextDraw){
+  if(!draws||draws.length<8)return'';
+  const gmax=game.max,mainCount=game.count;
+  const numScore=new Array(gmax+1).fill(0);
+
+  // 1) EWF — üstel ağırlıklı frekans
+  const ewf=buildEWF(draws,gmax,0.85);
+  const maxEwf=Math.max(0,...Object.values(ewf));
+  if(maxEwf>0)for(let n=1;n<=gmax;n++)numScore[n]+=((ewf[n]||0)/maxEwf)*2.5;
+
+  // 2) Gecikme — kaç çekiliştir görünmüyor (uzun süredir çıkmayan = yüksek skor)
+  const delay=new Float32Array(gmax+1);
+  for(let n=1;n<=gmax;n++){const i=draws.findIndex(d=>[...d.nums,...(d.bonus||[])].includes(n));delay[n]=i===-1?draws.length:i;}
+  const maxDelay=Math.max(...delay.slice(1),1);
+  for(let n=1;n<=gmax;n++)numScore[n]+=(delay[n]/maxDelay)*1.5;
+
+  // 3) NS/NST şablon zinciri
+  const nsNums=new Set();
+  try{
+    const{score:ns}=_sablonScoreNext(srcDraw,game);
+    const maxNs=Math.max(...ns.slice(1),1);
+    for(let n=1;n<=gmax;n++){const s=(ns[n]||0)/maxNs*2.5;numScore[n]+=s;if(s>=1.5)nsNums.add(n);}
+  }catch(e){}
+
+  // 4) Gülay'ın fark-analizi adayları — bu sayfaya özel en güçlü sinyal
+  const gulaySet=new Set();
+  if(window._soGulayCands&&window._soGulayCands.game===game.id&&window._soGulayCands.date===srcDraw.date){
+    const cands=window._soGulayCands.nums;
+    const maxCnt=Math.max(...cands.map(x=>x.cnt),1);
+    cands.forEach(({n,cnt})=>{numScore[n]+=(cnt/maxCnt)*4;if(cnt>=2)gulaySet.add(n);});
+  }
+
+  const ranked=[];
+  for(let n=1;n<=gmax;n++)if(numScore[n]>0)ranked.push({n,s:numScore[n]});
+  ranked.sort((a,b)=>b.s-a.s);
+  if(!ranked.length)return'';
+  const top15=ranked.slice(0,15);
+  const maxTop=top15[0].s;
+  const ticket=ranked.slice(0,mainCount).map(x=>x.n).sort((a,b)=>a-b);
+  const nextMainSet=nextDraw?new Set(nextDraw.nums||[]):null;
+
+  const hitChip=n=>{
+    const isHit=nextMainSet&&nextMainSet.has(n);
+    const isClose=!isHit&&nextMainSet&&[...nextMainSet].some(t=>Math.abs(t-n)===1);
+    const bg=isHit?'rgba(0,230,118,.32)':isClose?'rgba(251,191,36,.22)':'rgba(129,140,248,.78)';
+    const bd=isHit?'rgba(0,230,118,.8)':isClose?'rgba(251,191,36,.6)':'rgba(129,140,248,.92)';
+    const cl=isHit?'var(--green)':isClose?'#8a6200':'#fff';
+    return`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:27px;padding:0 5px;border-radius:7px;background:${bg};border:1.5px solid ${bd};font-size:.78rem;font-weight:800;font-family:monospace;color:${cl}">${n}${isHit?'✓':isClose?'~':''}</span>`;
+  };
+
+  let h='';
+  h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.74rem;font-weight:800;margin-bottom:4px;color:var(--accent)">🤖 AI Tahmin Sistemi</div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:9px;line-height:1.6">EWF + gecikme + şablon zinciri + Gülay fark-analizi sinyallerini birleştirir. Süperstar/Joker hariç sadece ${mainCount} ana sayıyı hedefler.</div>`;
+  h+=`<div style="font-size:.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">🏆 Top 15 Aday</div>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:9px">`;
+  top15.forEach(({n,s})=>{
+    const pct=Math.round(s/maxTop*100);
+    const isG=gulaySet.has(n),isNs=nsNums.has(n);
+    const bg=isG&&isNs?'rgba(0,200,100,.18)':isG?'rgba(108,99,255,.22)':isNs?'rgba(129,140,248,.18)':'rgba(0,0,0,.06)';
+    const bd=isG&&isNs?'rgba(0,200,100,.45)':isG?'rgba(108,99,255,.5)':isNs?'rgba(129,140,248,.4)':'rgba(0,0,0,.1)';
+    const cl=isG&&isNs?'var(--green)':isG?'var(--accent)':isNs?'#818cf8':'var(--muted)';
+    h+=`<span title="${pct}p" style="display:inline-flex;flex-direction:column;align-items:center;background:${bg};border:1px solid ${bd};border-radius:6px;padding:3px 6px">
+      <span style="font-size:.7rem;font-weight:800;color:${cl};font-family:monospace">${n}</span>
+      <span style="font-size:.42rem;color:var(--muted);line-height:1;margin-top:1px">${pct}p</span>
+    </span>`;
+  });
+  h+=`</div>`;
+  h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:10px">🟣 Gülay fark-analizi · 🔗 şablon zinciri · 🟢 ikisi birden</div>`;
+
+  h+=`<div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:7px;text-transform:uppercase;letter-spacing:.7px">🎯 AI Bilet (${mainCount} sayı)</div>`;
+  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:6px">${ticket.map(hitChip).join('')}</div>`;
+  if(nextDraw){
+    const hitCount=ticket.filter(n=>nextMainSet.has(n)).length;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">Hedef ${nextDraw.date} ile isabet: <strong style="color:${hitCount>0?'var(--green)':'var(--text)'}">${hitCount}/${mainCount}</strong></div>`;
+  }
+  window._soAiCopy=`${game.name} AI Tahmin (${srcDraw.date} sonrası): ${ticket.join(' ')}`;
+
+  // Süperstar/Joker (veya diğer oyunlarda bonus) — ayrı tahmin
+  if(game.bonusCount>0&&game.bonusMax>0){
+    try{
+      const jEng=_naJokerScores(draws,game.bonusMax);
+      if(jEng&&jEng.scored&&jEng.scored.length){
+        const topJ=jEng.scored.slice(0,5);
+        const nextBonus=nextDraw&&nextDraw.bonus&&nextDraw.bonus.length?nextDraw.bonus[0]:null;
+        const label=game.id==='sayisal'?'Süperstar (Joker)':'Bonus';
+        h+=`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)">`;
+        h+=`<div style="font-size:.65rem;font-weight:700;color:#8a6200;margin-bottom:6px">🃏 ${label} Tahmini — Top 5</div>`;
+        h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">`;
+        topJ.forEach(({n,score})=>{
+          const isHit=nextBonus===n;
+          h+=`<span style="display:inline-flex;flex-direction:column;align-items:center;background:${isHit?'rgba(0,230,118,.3)':'rgba(184,134,11,.12)'};border:1px solid ${isHit?'rgba(0,230,118,.7)':'rgba(184,134,11,.35)'};border-radius:6px;padding:3px 7px">
+            <span style="font-size:.7rem;font-weight:800;font-family:monospace;color:${isHit?'var(--green)':'#8a6200'}">${n}${isHit?'✓':''}</span>
+            <span style="font-size:.42rem;color:var(--muted);line-height:1;margin-top:1px">${Math.round(score*100)}p</span>
+          </span>`;
+        });
+        h+=`</div>`;
+        window._soAiCopy+=` | ${label}: ${topJ[0].n}`;
+        h+=`</div>`;
+      }
+    }catch(e){}
+  }
+  h+=`<div style="text-align:right;margin-top:9px"><button onclick="_kbCopy(window._soAiCopy)" style="font-size:.62rem;padding:4px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.35);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer">📋 AI Tahminini Kopyala</button></div>`;
+  h+=`</div>`;
   return h;
 }
 
