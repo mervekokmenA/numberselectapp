@@ -312,19 +312,13 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   .b10-tahmin-grid{grid-template-columns:1fr}
 }
 @media(max-width:720px){#page-nsa #gizliPageKolon>div[style*="grid-template-columns"]{grid-template-columns:1fr !important;}}
-/* ── Hızlı Gülay popup ── */
-#soqOverlay{display:none;position:fixed;inset:0;z-index:900;background:rgba(0,0,0,.20);align-items:flex-start;justify-content:center;padding:16px;pointer-events:none}
-#soqOverlay.open{display:flex}
-#soqBox{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:680px;max-height:calc(100vh - 80px);display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.4);pointer-events:auto;position:fixed;top:60px;left:50%;transform:translateX(-50%)}
-#soqHeader{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;cursor:grab;user-select:none}
-#soqHeader:active{cursor:grabbing}
-#soqBody{overflow-y:auto;padding:14px 16px;flex:1}
-#soqInput{width:100%;box-sizing:border-box;padding:9px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);font-family:monospace;font-size:.82rem;outline:none;transition:border .15s}
-#soqInput:focus{border-color:rgba(108,99,255,.55)}
-#soqResult{margin-top:14px}
-#soqResult span{cursor:pointer}
+/* ── Hızlı Gülay popup (her ekran boyutunda modal) ── */
+#gqOverlay{display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.68);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+#gqOverlay.open{display:flex}
+#gqBox{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(720px,95vw);max-height:calc(100vh - 56px);display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.4);margin:auto}
+#gqHeader{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+#gqBody{overflow-y:auto;padding:14px 16px;flex:1}
 .soq-sel{outline:2px solid var(--accent)!important;outline-offset:1px;box-shadow:0 0 0 3px rgba(108,99,255,.28)!important;border-radius:5px}
-#soqSelBar{display:none;align-items:center;gap:10px;padding:10px 16px;border-top:1px solid var(--border);background:var(--surface2);flex-shrink:0;border-radius:0 0 16px 16px}
 </style>
 </head>
 <body>
@@ -342,7 +336,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-b10sistem" onclick="showMainPage('b10sistem')">🎟️ B10</button>
       <button class="nav-link" id="navBtn-bankocoz" onclick="showMainPage('bankocoz')">🎯 Banko</button>
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
-      <button class="nav-link" id="navBtn-gulayq" onclick="showMainPage('gulayq')">✍️ Hızlı Gülay</button>
+      <button class="nav-link" id="navBtn-gulayq" onclick="_gqOpenPopup()">✍️ Hızlı Gülay</button>
       <button class="nav-link" id="navBtn-capraz" onclick="showMainPage('capraz')">🔀 Çapraz</button>
       <button class="nav-link" id="navBtn-nsa" onclick="showMainPage('nsa')" style="border-color:rgba(184,134,11,.4);color:#8a6200">🔐 NSA</button>
     </div>
@@ -978,31 +972,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="bzExcludeBox" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;padding:8px 10px;background:rgba(248,113,113,.04);border:1px solid rgba(248,113,113,.18);border-radius:8px"></div>
   <div id="bzContent"></div>
  </div>
-</div>
-
-<!-- ═══════════ PAGE: HIZLI GÜLAY (TAM SAYFA) ═══════════ -->
-<div style="grid-column:1/-1;display:none" id="page-gulayq">
-  <div class="card" style="margin-bottom:12px">
-    <div class="card-title">✍️ Gülay Analizi</div>
-    <div id="gqControls"></div>
-    <div id="gqResult" style="margin-top:12px" onclick="_gqPick(event)"></div>
-    <div id="gqSelBar" style="display:none;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border);margin-top:8px;flex-wrap:wrap"></div>
-  </div>
-  <div class="card">
-    <div class="card-title">📊 Geçmiş Test</div>
-    <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Her geçmiş çekiliş için bir önceki çekilişin gap analizinin hangi sayıları doğru tahmin ettiğini gösterir. Yeşil = isabetli, turuncu = ±1 yakın.</div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-      <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
-      <select id="gqBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-        <option value="10">10 çekiliş</option>
-        <option value="20" selected>20 çekiliş</option>
-        <option value="30">30 çekiliş</option>
-        <option value="50">50 çekiliş</option>
-      </select>
-      <button onclick="_gqBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
-    </div>
-    <div id="gqBtResult"></div>
-  </div>
 </div>
 
 <!-- ═══════════ PAGE: B10 SİSTEM ═══════════ -->
@@ -2914,7 +2883,8 @@ super:`2026-06-16 8 14 23 32 58 60
 2020-08-04 17 19 32 37 41 54
 2020-08-02 9 16 18 44 47 51`,
 
-sans:`2026-06-10 2 4 13 24 33 | 11
+sans:`2026-06-14 4 17 21 22 32 | 2
+2026-06-10 2 4 13 24 33 | 11
 2026-06-07 12 15 18 21 34 | 10
 2026-06-03 7 13 19 21 25 | 14
 2026-05-31 7 9 10 22 28 | 14
@@ -5365,9 +5335,9 @@ async function proxyFetch(url){
 }
 
 const _FETCH_URLS={
-  sayisal:['https://www.millipiyangoonline.com/sayisal-loto/cekilis-sonuclari','https://www.lotobil.com/Sayisal-Loto-Butun-Sonuc-Listesi'],
-  super:['https://www.millipiyangoonline.com/super-loto/cekilis-sonuclari','https://www.lotobil.com/Super-Loto-Butun-Sonuc-Listesi'],
-  sans:['https://www.millipiyangoonline.com/sans-topu/cekilis-sonuclari','https://www.lotobil.com/Sans-Topu-Butun-Sonuc-Listesi'],
+  sayisal:['https://www.lotobil.com/Sayisal-Loto-Butun-Sonuc-Listesi','https://www.millipiyangoonline.com/sayisal-loto/cekilis-sonuclari'],
+  super:['https://www.lotobil.com/Super-Loto-Butun-Sonuc-Listesi','https://www.millipiyangoonline.com/super-loto/cekilis-sonuclari'],
+  sans:['https://www.lotobil.com/Sans-Topu-Butun-Sonuc-Listesi','https://www.millipiyangoonline.com/sans-topu/cekilis-sonuclari'],
   onnumara:['https://www.millipiyangoonline.com/on-numara/cekilis-sonuclari','https://www.lotobil.com/On-Numara-Butun-Sonuc-Listesi']
 };
 
@@ -5384,13 +5354,31 @@ function _parseLotteryHtml(html,gameId,date){
   const game=GAMES.find(g=>g.id===gameId);
   if(!game||!html)return null;
   const [y,m,d]=date.split('-');
-  const dateTR=`${d}.${m}.${y}`;
-  const altTR=`${parseInt(d)}.${parseInt(m)}.${y}`;
+  const dd=d.padStart(2,'0'),mm=m.padStart(2,'0');
+  // Real sources use DD/MM/YYYY (lotobil.com); keep dotted variants as fallback for other sources
+  const dateCandidates=[`${dd}/${mm}/${y}`,`${parseInt(d)}/${parseInt(m)}/${y}`,`${dd}.${mm}.${y}`,`${parseInt(d)}.${parseInt(m)}.${y}`];
+  // ── Primary: structured <tr> table-row parsing (lotobil.com "Tarih,Hft,T1..Tn[,Joker][,Super]" layout) ──
+  const rowRe=/<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let row=null,rowMatch;
+  while((rowMatch=rowRe.exec(html))){
+    if(dateCandidates.some(c=>rowMatch[1].includes('>'+c+'<'))){row=rowMatch[1];break;}
+  }
+  if(row){
+    const cells=[...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(c=>c[1].replace(/<[^>]+>/g,'').trim());
+    // cells[0]=Tarih, cells[1]=Hft (week no. — discard), rest are the actual draw numbers in column order
+    const drawNums=cells.slice(2).map(c=>parseInt(c)).filter(n=>Number.isFinite(n));
+    if(gameId==='super'&&drawNums.length>=6)
+      return `${date} ${drawNums.slice(0,6).sort((a,b)=>a-b).join(' ')}`;
+    if(gameId==='sans'&&drawNums.length>=6)
+      return `${date} ${drawNums.slice(0,5).sort((a,b)=>a-b).join(' ')} | ${drawNums[5]}`;
+    if(gameId==='sayisal'&&drawNums.length>=8&&drawNums[7]>0)
+      return `${date} ${drawNums.slice(0,7).sort((a,b)=>a-b).join(' ')} | ${drawNums[7]}`;
+  }
+  // ── Fallback: flatten-and-scan (covers sources without a clean per-date table row, e.g. onnumara) ──
   const text=html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ')
     .replace(/<[^>]+>/g,' ').replace(/&[a-zA-Z0-9#]+;/g,' ').replace(/\s+/g,' ');
-  let idx=text.indexOf(dateTR);
-  if(idx<0)idx=text.indexOf(altTR);
-  if(idx<0)return null;
+  const idx=dateCandidates.map(c=>text.indexOf(c)).find(i=>i>=0);
+  if(idx===undefined)return null;
   const after=text.slice(idx,idx+800);
   const matches=[...after.matchAll(/\b(\d{1,2})\b/g)].map(x=>parseInt(x[1])).filter(n=>n>=1&&n<=game.max);
   const unique=[...new Set(matches)];
@@ -10512,11 +10500,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-b10sistem','page-bankocoz','page-gulayq','page-soz','page-capraz','page-nsa'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-b10sistem','page-bankocoz','page-soz','page-capraz','page-nsa'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem','navBtn-bankocoz','navBtn-gulayq','navBtn-soz','navBtn-capraz','navBtn-nsa'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem','navBtn-bankocoz','navBtn-soz','navBtn-capraz','navBtn-nsa'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -10525,7 +10513,6 @@ function showMainPage(id){
   if(id==='kapsamli'){_kbGame=state.selectedGame||_kbGame;_kbInit();}
   if(id==='b10sistem')_b10Init();
   if(id==='bankocoz')_bzInit();
-  if(id==='gulayq')_gqInit();
   if(id==='soz')_soInit();
   if(id==='capraz')_cxInit();
   if(id==='nsa')_nsaInit();
@@ -12453,7 +12440,7 @@ function _nextDrawPredict(){
   const score=new Float32Array(gmax+1);
   // Sinyal 1: Ağırlıklı frekans (40%)
   const ewf=buildEWF(draws,gmax,0.08);
-  const maxEwf=Math.max(...ewf.slice(1),1);
+  const maxEwf=Math.max(...Object.values(ewf),1);
   for(let n=1;n<=gmax;n++)score[n]+=(ewf[n]||0)/maxEwf*40;
   // Sinyal 2: NS/NST zincir skoru (35%)
   try{
@@ -13554,135 +13541,18 @@ function _bzAnalyzePool(){
 // ═══════════ 🔮 SÜPER ÖZEL ANALİZ ════════════════════════════════════════════
 // Notebook'taki gap analizi: farklar → çıkarma + toplama sütunları + fark zinciri
 let _soGame='super',_soDate='';
-// ── Hızlı Gülay popup ────────────────────────────────────────────────────────
-let _soqGame='sayisal';
-const _SOQ_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
-function _soqOpen(){
-  if(state.selectedGame&&getGame(state.selectedGame))_soqGame=state.selectedGame;
-  const box=document.getElementById('soqBox');
-  if(box){box.style.left='50%';box.style.top='60px';box.style.transform='translateX(-50%)';}
-  document.getElementById('soqOverlay').classList.add('open');
-  _soqRenderControls();
-}
-function _soqClose(){
-  document.getElementById('soqOverlay').classList.remove('open');
-}
-// Sürükleme
-(function(){
-  let drag=false,ox=0,oy=0,sx=0,sy=0;
-  function onDown(e){
-    const box=document.getElementById('soqBox');if(!box)return;
-    const r=box.getBoundingClientRect();
-    // transform'u kaldırıp mutlak konuma geç
-    box.style.transform='none';
-    box.style.left=r.left+'px';
-    box.style.top=r.top+'px';
-    drag=true;
-    const pt=e.touches?e.touches[0]:e;
-    ox=pt.clientX;oy=pt.clientY;
-    sx=r.left;sy=r.top;
-    e.preventDefault();
-  }
-  function onMove(e){
-    if(!drag)return;
-    const box=document.getElementById('soqBox');if(!box)return;
-    const pt=e.touches?e.touches[0]:e;
-    const dx=pt.clientX-ox,dy=pt.clientY-oy;
-    const bw=box.offsetWidth,bh=box.offsetHeight;
-    const nl=Math.max(0,Math.min(window.innerWidth-bw,sx+dx));
-    const nt=Math.max(0,Math.min(window.innerHeight-bh,sy+dy));
-    box.style.left=nl+'px';box.style.top=nt+'px';
-  }
-  function onUp(){drag=false;}
-  document.addEventListener('mouseup',onUp);
-  document.addEventListener('touchend',onUp);
-  document.addEventListener('mousemove',onMove);
-  document.addEventListener('touchmove',onMove,{passive:false});
-  document.addEventListener('DOMContentLoaded',()=>{
-    const hdr=document.getElementById('soqHeader');
-    if(hdr){hdr.addEventListener('mousedown',onDown);hdr.addEventListener('touchstart',onDown,{passive:false});}
-  });
-})();
-function _soqSetGame(g){
-  _soqGame=g;
-  _soqRenderControls();
-}
-function _soqRenderControls(){
-  const game=getGame(_soqGame);
-  let h=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px">`;
-  _SOQ_GAMES.forEach(g=>{const a=g.id===_soqGame;h+=`<button onclick="_soqSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;});
-  h+=`</div>`;
-  h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Sayıları girin (boşluk veya virgülle ayırın) — ${game.count} ana sayı, 1–${game.max} arası:</div>`;
-  h+=`<div style="display:flex;gap:8px;align-items:center">`;
-  h+=`<input id="soqInput" type="text" placeholder="örn. 5 18 27 36 47 55" autocomplete="off" spellcheck="false" onkeydown="if(event.key==='Enter')_soqAnalyze()">`;
-  h+=`<button onclick="_soqAnalyze()" style="padding:9px 16px;border-radius:8px;border:1px solid rgba(108,99,255,.5);background:rgba(108,99,255,.12);color:var(--accent);cursor:pointer;font-size:.78rem;font-weight:700;white-space:nowrap;flex-shrink:0">🔮 Analiz Et</button>`;
-  h+=`</div>`;
-  h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:5px;opacity:.7">Geçmiş çekilişten doldur: `;
-  const draws=_kbGetDraws(_soqGame);
-  if(draws&&draws.length){
-    draws.slice(0,5).forEach(d=>{h+=`<button onclick="document.getElementById('soqInput').value='${d.nums.join(' ')}';_soqAnalyze()" style="font-size:.56rem;padding:2px 7px;margin:0 2px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-family:monospace">${d.date}</button>`;});
-  }
-  h+=`</div>`;
-  h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:7px">💡 Sonuçlardaki sayılara tıklayarak seç → alttaki çubuktan topluca kopyala.</div>`;
-  document.getElementById('soqControls').innerHTML=h;
-  document.getElementById('soqResult').innerHTML='';
-  _soqSel.clear();_soqUpdateSelBar();
-  setTimeout(()=>{const inp=document.getElementById('soqInput');if(inp)inp.focus();},50);
-}
-function _soqAnalyze(){
-  const inp=document.getElementById('soqInput');
-  if(!inp)return;
-  const raw=inp.value.trim();
-  if(!raw){showToast('⚠️ Sayı girin');return;}
-  const game=getGame(_soqGame);
-  const nums=raw.split(/[\s,;]+/).map(s=>parseInt(s)).filter(n=>!isNaN(n)&&n>=1&&n<=game.max);
-  if(nums.length<2){showToast(`⚠️ En az 2 geçerli sayı girin (1–${game.max})`);return;}
-  const draw={date:'Manuel Giriş',nums:[...new Set(nums)].sort((a,b)=>a-b),bonus:[]};
-  const out=document.getElementById('soqResult');
-  _soqSel.clear();
-  if(out)out.innerHTML=_soDoAnalysis(draw,game,null,false);
-  _soqUpdateSelBar();
-}
-// ── Çoklu seçim & kopyalama ──
-let _soqSel=new Set();
-function _soqSpanNum(el){
-  if(!el||el.tagName!=='SPAN'||el.children.length)return null;
-  const m=(el.textContent||'').trim().match(/^(\d+)[✓~]?$/);
-  if(!m)return null;
-  const n=parseInt(m[1]),g=getGame(_soqGame);
-  if(n<1||n>g.max)return null;
-  return n;
-}
-function _soqPick(e){
-  const n=_soqSpanNum(e.target);
-  if(n==null)return;
-  if(_soqSel.has(n))_soqSel.delete(n);else _soqSel.add(n);
-  _soqRefreshHighlight();
-  _soqUpdateSelBar();
-}
-function _soqRefreshHighlight(){
-  const root=document.getElementById('soqResult');if(!root)return;
-  root.querySelectorAll('span').forEach(el=>{
-    const n=_soqSpanNum(el);
-    if(n!=null&&_soqSel.has(n))el.classList.add('soq-sel');else el.classList.remove('soq-sel');
-  });
-}
-function _soqUpdateSelBar(){
-  const bar=document.getElementById('soqSelBar');if(!bar)return;
-  const arr=[..._soqSel].sort((a,b)=>a-b);
-  if(!arr.length){bar.style.display='none';bar.innerHTML='';return;}
-  bar.style.display='flex';
-  bar.innerHTML=`<div style="flex:1;min-width:0"><div style="font-size:.55rem;color:var(--muted);margin-bottom:2px">Seçilen ${arr.length} sayı</div><div style="font-family:monospace;font-size:.8rem;font-weight:700;color:var(--accent);word-break:break-all">${arr.join(' ')}</div></div>`+
-  `<button onclick="_soqCopySel()" style="padding:7px 13px;border-radius:7px;border:1px solid rgba(108,99,255,.5);background:rgba(108,99,255,.12);color:var(--accent);cursor:pointer;font-size:.72rem;font-weight:700;white-space:nowrap;flex-shrink:0">📋 Kopyala</button>`+
-  `<button onclick="_soqClearSel()" style="padding:7px 11px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;font-size:.72rem;white-space:nowrap;flex-shrink:0">Temizle</button>`;
-}
-function _soqCopySel(){_kbCopy([..._soqSel].sort((a,b)=>a-b).join(' '));}
-function _soqClearSel(){_soqSel.clear();_soqRefreshHighlight();_soqUpdateSelBar();}
-// ═══════════ ✍️ HIZLI GÜLAY — TAM SAYFA ════════════════════════════════════
+// ═══════════ ✍️ HIZLI GÜLAY — POPUP ════════════════════════════════════
 let _gqGame='sayisal';
 let _gqSel=new Set();
 const _GQ_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
 
+function _gqOpenPopup(){
+  document.getElementById('gqOverlay').classList.add('open');
+  _gqInit();
+}
+function _gqClosePopup(){
+  document.getElementById('gqOverlay').classList.remove('open');
+}
 function _gqInit(){
   if(state.selectedGame&&getGame(state.selectedGame))_gqGame=state.selectedGame;
   _gqRenderControls();
@@ -14432,17 +14302,35 @@ function _cxBacktest(){
 </div>
 
 <!-- ═══ Hızlı Gülay Popup ═══ -->
-<div id="soqOverlay" onclick="if(event.target===this)_soqClose()">
-  <div id="soqBox">
-    <div id="soqHeader">
+<div id="gqOverlay" onclick="if(event.target===this)_gqClosePopup()">
+  <div id="gqBox">
+    <div id="gqHeader">
       <div style="font-size:.9rem;font-weight:800">✍️ Hızlı Gülay Analizi</div>
-      <button onclick="_soqClose()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:.85rem;display:flex;align-items:center;justify-content:center">✕</button>
+      <button onclick="_gqClosePopup()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-size:.85rem;display:flex;align-items:center;justify-content:center">✕</button>
     </div>
-    <div id="soqBody">
-      <div id="soqControls"></div>
-      <div id="soqResult" onclick="_soqPick(event)"></div>
+    <div id="gqBody">
+      <div class="card" style="margin-bottom:12px">
+        <div class="card-title">✍️ Gülay Analizi</div>
+        <div id="gqControls"></div>
+        <div id="gqResult" style="margin-top:12px" onclick="_gqPick(event)"></div>
+        <div id="gqSelBar" style="display:none;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--border);margin-top:8px;flex-wrap:wrap"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">📊 Geçmiş Test</div>
+        <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Her geçmiş çekiliş için bir önceki çekilişin gap analizinin hangi sayıları doğru tahmin ettiğini gösterir. Yeşil = isabetli, turuncu = ±1 yakın.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+          <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
+          <select id="gqBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+            <option value="10">10 çekiliş</option>
+            <option value="20" selected>20 çekiliş</option>
+            <option value="30">30 çekiliş</option>
+            <option value="50">50 çekiliş</option>
+          </select>
+          <button onclick="_gqBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
+        </div>
+        <div id="gqBtResult"></div>
+      </div>
     </div>
-    <div id="soqSelBar"></div>
   </div>
 </div>
 </body>
