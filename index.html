@@ -13558,6 +13558,41 @@ function _bzAnalyzePool(){
 
 // ═══════════ 🔮 SÜPER ÖZEL ANALİZ ════════════════════════════════════════════
 // Notebook'taki gap analizi: farklar → çıkarma + toplama sütunları + fark zinciri
+// Hızlı On Numara — gerçek çekiliş arşivi (Milli Piyango). Sadece Gülay sayfalarında kullanılır,
+// global GAMES listesine eklenmez. Aynı gün içinde birden çok çekiliş olduğundan date saat içerir.
+const HIZLI_ON_DRAWS=[
+ {no:36380,date:'2026-06-17 17:37',nums:[3,12,14,17,22,28,30,38,39,41,46,50,52,53,54,55,67,68,69,72]},
+ {no:36379,date:'2026-06-17 17:32',nums:[8,9,11,12,13,20,23,24,25,27,30,35,46,47,52,57,61,64,74,77]},
+ {no:36378,date:'2026-06-17 17:27',nums:[8,9,13,16,17,20,21,32,36,38,42,59,60,64,67,72,73,75,76,77]},
+ {no:36377,date:'2026-06-17 17:22',nums:[2,6,14,17,20,25,27,32,34,41,42,44,45,52,54,57,63,66,76,80]},
+ {no:36376,date:'2026-06-17 17:17',nums:[2,9,11,12,14,18,23,28,32,34,39,41,43,46,53,54,59,68,75,80]},
+ {no:36375,date:'2026-06-17 17:12',nums:[5,12,15,22,24,35,45,51,56,57,58,60,62,65,69,70,72,74,77,80]},
+ {no:36374,date:'2026-06-17 17:07',nums:[6,9,10,12,18,19,24,31,34,37,42,48,49,55,58,65,69,72,76,78]},
+ {no:36373,date:'2026-06-17 17:02',nums:[3,6,9,10,14,15,18,26,30,35,43,51,56,57,59,60,64,67,77,79]},
+ {no:36372,date:'2026-06-17 16:57',nums:[4,6,7,16,22,25,27,30,33,35,36,38,39,45,47,51,62,65,66,75]},
+ {no:36371,date:'2026-06-17 16:52',nums:[2,3,4,8,11,18,22,23,25,31,32,34,41,44,51,55,63,67,71,80]},
+ {no:36370,date:'2026-06-17 16:47',nums:[5,10,11,20,24,32,33,35,36,39,40,41,43,56,59,63,67,70,76,77]},
+ {no:36369,date:'2026-06-17 16:42',nums:[2,6,16,19,22,25,31,34,35,36,37,41,48,51,57,60,63,65,68,71]},
+ {no:36368,date:'2026-06-17 16:37',nums:[6,8,10,12,13,18,19,28,29,30,32,34,43,49,53,58,62,69,72,76]},
+ {no:36367,date:'2026-06-17 16:32',nums:[3,6,7,8,13,16,18,21,24,29,38,48,49,51,53,55,57,74,76,80]},
+ {no:36366,date:'2026-06-17 16:27',nums:[2,5,11,32,35,37,39,43,44,46,51,52,54,57,63,69,70,74,76,80]},
+ {no:36365,date:'2026-06-17 16:22',nums:[5,19,26,28,31,34,36,38,47,50,51,53,56,57,64,68,69,72,76,78]},
+ {no:36364,date:'2026-06-17 16:17',nums:[1,10,12,15,18,24,28,30,32,33,39,40,43,51,54,62,63,65,66,80]},
+ {no:36363,date:'2026-06-17 16:12',nums:[5,6,9,15,19,20,21,25,30,33,36,51,63,68,69,70,72,75,76,80]},
+ {no:36360,date:'2026-06-17 15:57',nums:[1,2,3,5,16,17,22,26,28,34,43,52,53,54,56,60,61,72,75,78]},
+ {no:36359,date:'2026-06-17 15:52',nums:[1,5,10,15,17,19,26,29,33,41,44,45,51,53,58,64,71,74,75,80]},
+ {no:36358,date:'2026-06-17 15:47',nums:[1,6,7,16,17,18,23,26,28,29,31,35,36,38,39,44,47,52,54,79]},
+ {no:36357,date:'2026-06-17 15:42',nums:[6,20,25,26,27,32,33,35,38,39,43,50,53,54,56,62,63,71,73,78]},
+ {no:36356,date:'2026-06-17 15:37',nums:[4,7,8,11,12,14,24,27,34,39,42,46,56,60,62,63,65,69,70,73]},
+ {no:36355,date:'2026-06-17 15:32',nums:[5,13,18,19,20,28,29,30,37,38,40,42,49,51,52,62,65,66,68,71]},
+ {no:36354,date:'2026-06-17 15:27',nums:[7,9,10,13,14,15,17,19,20,21,25,29,32,44,51,61,68,70,74,77]},
+ {no:36353,date:'2026-06-17 15:22',nums:[9,16,19,21,28,29,30,32,38,40,41,49,52,53,60,66,71,72,75,77]},
+ {no:36352,date:'2026-06-17 15:17',nums:[4,6,9,10,15,22,23,26,30,40,41,51,58,60,62,63,64,67,74,80]},
+ {no:36351,date:'2026-06-17 15:12',nums:[2,7,16,17,18,24,26,27,34,35,36,37,43,51,52,63,67,73,78,80]},
+].map(d=>({...d,bonus:[]})).sort((a,b)=>b.date.localeCompare(a.date));
+function _soHizliOnGame(){return{id:'onnumarahizli',name:'Hızlı On Numara',emoji:'⚡',max:80,count:10,bonusCount:0,bonusMax:0};}
+function _soGetGame(){return _soGame==='onnumarahizli'?_soHizliOnGame():getGame(_soGame);}
+function _soGetDraws(){return _soGame==='onnumarahizli'?HIZLI_ON_DRAWS:_kbGetDraws(_soGame);}
 let _soGame='super',_soDate='';
 // ═══════════ ✍️ HIZLI GÜLAY — POPUP ════════════════════════════════════
 let _gqGame='sayisal';
@@ -13798,10 +13833,10 @@ function _soStepDate(dir){
 function _soSetDate(v){_soDate=v;_soRenderFull();}
 function _soRenderFull(){
   const el=document.getElementById('soContent');if(!el)return;
-  const game=getGame(_soGame);
-  const draws=_kbGetDraws(_soGame);
+  const game=_soGetGame();
+  const draws=_soGetDraws();
   if(!draws||draws.length<2){el.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok.</div>';return;}
-  const GLIST=[{id:'sayisal',e:'🔵',n:'Sayısal'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
+  const GLIST=[{id:'sayisal',e:'🔵',n:'Sayısal'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'},{id:'onnumarahizli',e:'⚡',n:'Hızlı On Numara'}];
   let h=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">`;
   GLIST.forEach(g=>{const a=g.id===_soGame;h+=`<button onclick="_soSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;});
   h+=`</div>`;
@@ -14092,8 +14127,8 @@ function _soAiSection(draws,game,srcDraw,nextDraw){
 }
 
 function _soAiBacktest(){
-  const game=getGame(_soGame);
-  const draws=_kbGetDraws(_soGame);
+  const game=_soGetGame();
+  const draws=_soGetDraws();
   const btEl=document.getElementById('soAiBtResult');if(!btEl)return;
   const btCount=parseInt(document.getElementById('soAiBtCount')?.value)||20;
   if(!draws||draws.length<10){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (en az 10 gerekli).</div>';return;}
