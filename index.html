@@ -12385,25 +12385,70 @@ function _kazananRender(){
 }
 
 // ═══════════ Sonraki Çekiliş Tahmin Grubu ═══════════════════
-function _nextDrawCompute(draws,game){
-  const gmax=game.max,cnt=game.count;
-  const score=new Float32Array(gmax+1);
-  // Sinyal 1: Ağırlıklı frekans (40%) — draws[0] en güncel çekiliş, eskiye gidildikçe ağırlık üstel azalır
-  const ewf={};
-  draws.forEach((d,i)=>{const w=Math.exp(-0.08*i);[...(d.nums||[]),...(d.bonus||[])].forEach(n=>{if(n>=1&&n<=gmax)ewf[n]=(ewf[n]||0)+w;});});
-  const maxEwf=Math.max(...Object.values(ewf),1);
-  for(let n=1;n<=gmax;n++)score[n]+=(ewf[n]||0)/maxEwf*40;
-  // Sinyal 2: NS/NST zincir skoru (35%)
+// Self-kalibre çoklu sinyal ensemble'ı — B10 sisteminin walk-forward ağırlık
+// öğrenme prensibi (_b10Calibrate) burada da uygulanır: her sinyalin geçmişteki
+// gerçek isabet kazancı (lift) ölçülür, ağırlıklar buna göre öğrenilir.
+const _NDP_SIGS=['ewf','ns','tekrar','komsu','sonhane','capraz','gecikme','sicak','toplam','birlesim','zone','momentum','caprazoyun','modelsig'];
+const _NDP_SIG_NAMES={ewf:'Ağırlıklı Frekans',ns:'NS Zinciri',tekrar:'Tekrar',komsu:'Komşu ±1',sonhane:'Son Hane',capraz:'Çapraz Hane',gecikme:'Gecikme',sicak:'Sıcak Frekans',toplam:'Toplam Aralığı',birlesim:'Birleşim Ağı',zone:'Bölge Dengesi',momentum:'Momentum',caprazoyun:'Çapraz Oyun',modelsig:'Model Sinyali'};
+function _ndpEwf(draws,max){
+  const o={};for(let n=1;n<=max;n++)o[n]=0;
+  draws.forEach((d,i)=>{const w=Math.exp(-0.08*i);[...(d.nums||[]),...(d.bonus||[])].forEach(n=>{if(n>=1&&n<=max)o[n]+=w;});});
+  return o;
+}
+function _ndpNs(draws,game){
+  const o={};for(let n=1;n<=game.max;n++)o[n]=0;
   try{
-    const{score:ns}=_sablonScoreNext(draws[0],game);
-    const maxNS=Math.max(...ns.slice(1),1);
-    for(let n=1;n<=gmax;n++)score[n]+=(ns[n]||0)/maxNS*35;
+    const{score}=_sablonScoreNext(draws[0],game);
+    for(let n=1;n<=game.max;n++)o[n]=score[n]||0;
   }catch(e){}
-  // Sinyal 3: Gecikme / çıkmayan sayılar (25%)
-  for(let n=1;n<=gmax;n++){
-    const i=draws.findIndex(d=>[...(d.nums||[]),...(d.bonus||[])].includes(n));
-    score[n]+=(i===-1?draws.length:i)/draws.length*25;
+  return o;
+}
+function _ndpAllSigs(draws,game){
+  return{ewf:_ndpEwf(draws,game.max),ns:_ndpNs(draws,game),..._bzSignalScores(draws,game)};
+}
+function _ndpCalibrate(draws,game){
+  const max=game.max,cnt=game.count;
+  const V=Math.min(22,Math.max(8,Math.floor(draws.length*0.3)));
+  const topK=Math.max(cnt,Math.round(max*0.14));
+  const baseHit=topK/max;
+  const sumL={};_NDP_SIGS.forEach(k=>sumL[k]=0);
+  let valid=0;
+  for(let t=0;t<V;t++){
+    const prior=draws.slice(t+1);
+    if(prior.length<12)break;
+    const actual=new Set([...(draws[t].nums||[]),...(draws[t].bonus||[])].filter(n=>n>=1&&n<=max));
+    if(actual.size<2)continue;
+    const sg=_ndpAllSigs(prior,game);
+    _NDP_SIGS.forEach(k=>{
+      const nf=_b10Norm(sg[k],max);
+      const ranked=[];for(let i=1;i<=max;i++)ranked.push([i,nf[i]]);
+      ranked.sort((a,b)=>b[1]-a[1]);
+      sumL[k]+=(ranked.slice(0,topK).filter(([n])=>actual.has(n)).length/topK)-baseHit;
+    });
+    valid++;
   }
+  const rl={};_NDP_SIGS.forEach(k=>rl[k]=valid?sumL[k]/valid:0);
+  let mean=0;_NDP_SIGS.forEach(k=>mean+=rl[k]);mean/=_NDP_SIGS.length;
+  let sd2=0;_NDP_SIGS.forEach(k=>sd2+=(rl[k]-mean)**2);
+  const sd=Math.sqrt(sd2/_NDP_SIGS.length)||1e-6;
+  const w={};let sum=0;
+  _NDP_SIGS.forEach(k=>{
+    let v=Math.exp(2.2*((rl[k]-mean)/sd));
+    if(rl[k]<0)v*=0.10;
+    v=Math.max(v,0.01);w[k]=v;sum+=v;
+  });
+  _NDP_SIGS.forEach(k=>w[k]=w[k]/sum);
+  return w;
+}
+function _nextDrawCompute(draws,game,calW){
+  const gmax=game.max,cnt=game.count;
+  const w=calW||_ndpCalibrate(draws,game);
+  const sg=_ndpAllSigs(draws,game);
+  const score=new Float32Array(gmax+1);
+  _NDP_SIGS.forEach(k=>{
+    const nf=_b10Norm(sg[k],gmax);
+    for(let n=1;n<=gmax;n++)score[n]+=w[k]*nf[n];
+  });
   // Sırala
   const ranked=Array.from({length:gmax},(_,i)=>i+1).sort((a,b)=>score[b]-score[a]);
   const mainNums=ranked.slice(0,cnt).sort((a,b)=>a-b);
@@ -12413,11 +12458,11 @@ function _nextDrawCompute(draws,game){
   if((game.bonusCount||0)>0){
     const bmax=game.bonusMax||game.max;
     const bsc=new Float32Array(bmax+1);
-    draws.forEach((d,i)=>{const w=Math.exp(-0.08*i);(d.bonus||[]).forEach(n=>{if(n<=bmax)bsc[n]+=w;});});
+    draws.forEach((d,i)=>{const w2=Math.exp(-0.08*i);(d.bonus||[]).forEach(n=>{if(n<=bmax)bsc[n]+=w2;});});
     const bRanked=Array.from({length:bmax},(_,i)=>i+1).sort((a,b)=>bsc[b]-bsc[a]);
     bonusPred=bRanked.slice(0,game.bonusCount).sort((a,b)=>a-b);
   }
-  return{mainNums,altNums,bonusPred};
+  return{mainNums,altNums,bonusPred,weights:w};
 }
 function _nextDrawPredict(){
   const gameId=state.selectedGame;
@@ -12426,16 +12471,17 @@ function _nextDrawPredict(){
   if(!el||!game)return;
   const draws=_scanGetDraws(gameId);
   if(draws.length<5){el.innerHTML='<div style="color:var(--muted);font-size:.75rem;text-align:center;padding:16px">Yeterli çekiliş verisi yok</div>';return;}
-  const{mainNums,altNums,bonusPred}=_nextDrawCompute(draws,game);
+  const{mainNums,altNums,bonusPred,weights}=_nextDrawCompute(draws,game);
   let bonusHtml='';
   if(bonusPred.length){
     bonusHtml=`<span style="color:rgba(0,0,0,.12);margin:0 4px;align-self:center">|</span>`+bonusPred.map(n=>_ndpSpan(n,'bonus')).join('');
   }
   const nextDate=_predNextDrawDate(gameId);
+  const topSigs=Object.entries(weights||{}).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k])=>_NDP_SIG_NAMES[k]||k).join(' · ');
   let html=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">`;
   html+=`<span style="font-size:.72rem;color:var(--muted)">${game.emoji} ${game.name}</span>`;
   html+=`<span style="font-size:.72rem;color:var(--accent);font-weight:700">${nextDate||'—'}</span>`;
-  html+=`<span style="font-size:.6rem;color:rgba(0,0,0,.15);margin-left:auto">Frekans ×40 · NS Zincir ×35 · Gecikme ×25</span>`;
+  html+=`<span style="font-size:.6rem;color:rgba(0,0,0,.15);margin-left:auto">${topSigs?'Öne çıkan sinyaller: '+topSigs:''}</span>`;
   html+=`</div>`;
   html+=`<div style="margin-bottom:12px">`;
   html+=`<div style="font-size:.62rem;font-weight:800;color:var(--green);margin-bottom:7px;letter-spacing:.05em">🟢 TAHMİN GRUBU</div>`;
@@ -12447,6 +12493,12 @@ function _nextDrawPredict(){
   html+=`</div>`;
   el.innerHTML=html;
 }
+function _ndpBtSpan(n,hit,near){
+  const bg=hit?'rgba(0,230,118,.25)':near?'rgba(255,152,0,.22)':'var(--surface1)';
+  const bd=hit?'rgba(0,230,118,.45)':near?'rgba(255,152,0,.5)':'transparent';
+  const cl=hit?'var(--green)':near?'#e8820c':'var(--muted)';
+  return`<span style="font-size:.6rem;padding:1px 5px;border-radius:4px;font-weight:${hit||near?'800':'400'};background:${bg};color:${cl};border:1px solid ${bd}">${n}</span>`;
+}
 function _nextDrawBacktest(){
   const gameId=state.selectedGame;
   const game=getGame(gameId);
@@ -12455,11 +12507,14 @@ function _nextDrawBacktest(){
   el.innerHTML='<div style="color:var(--muted);font-size:.72rem;text-align:center;padding:10px">Hesaplanıyor…</div>';
   const draws=_scanGetDraws(gameId);
   const limit=Math.min(20,draws.length-6);
+  if(limit<1){el.innerHTML='<div style="color:var(--muted);font-size:.72rem;text-align:center;padding:10px">Test için yeterli çekiliş verisi yok.</div>';return;}
+  // Tek kalibrasyon — tüm backtest adımları aynı ağırlıkları kullanır (hız + tutarlılık, B10 ile aynı prensip)
+  const calW=_ndpCalibrate(draws,game);
   const rows=[];
   for(let i=0;i<limit;i++){
     const priorDraws=draws.slice(i+1);
     if(priorDraws.length<5)break;
-    const{mainNums,bonusPred}=_nextDrawCompute(priorDraws,game);
+    const{mainNums,bonusPred}=_nextDrawCompute(priorDraws,game,calW);
     const actualMain=draws[i].nums||[],actualBonus=draws[i].bonus||[];
     const hits=mainNums.filter(n=>actualMain.includes(n)).length;
     const bHits=bonusPred.filter(n=>actualBonus.includes(n)).length;
@@ -12480,11 +12535,21 @@ function _nextDrawBacktest(){
     const bg=r.hits>=Math.ceil(cnt/2)?'rgba(0,230,118,.06)':'var(--surface2)';
     html+=`<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;margin-bottom:4px;background:${bg};flex-wrap:wrap">`;
     html+=`<span style="font-size:.61rem;color:var(--muted);min-width:64px;flex-shrink:0">${r.date}</span>`;
-    html+=`<div style="display:flex;gap:3px;flex-wrap:wrap">`;
+    html+=`<div style="display:flex;flex-direction:column;gap:3px">`;
+    html+=`<div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center"><span style="font-size:.56rem;color:var(--muted);min-width:38px;flex-shrink:0">Tahmin</span>`;
     r.mainNums.forEach(n=>{
       const hit=r.actualMain.includes(n);
-      html+=`<span style="font-size:.6rem;padding:1px 5px;border-radius:4px;font-weight:${hit?'800':'400'};background:${hit?'rgba(0,230,118,.25)':'var(--surface1)'};color:${hit?'var(--green)':'var(--muted)'};border:1px solid ${hit?'rgba(0,230,118,.45)':'transparent'}">${n}</span>`;
+      const near=!hit&&r.actualMain.some(a=>Math.abs(a-n)===1);
+      html+=_ndpBtSpan(n,hit,near);
     });
+    html+=`</div>`;
+    html+=`<div style="display:flex;gap:3px;flex-wrap:wrap;align-items:center"><span style="font-size:.56rem;color:var(--muted);min-width:38px;flex-shrink:0">Sonuç</span>`;
+    r.actualMain.forEach(n=>{
+      const hit=r.mainNums.includes(n);
+      const near=!hit&&r.mainNums.some(p=>Math.abs(p-n)===1);
+      html+=_ndpBtSpan(n,hit,near);
+    });
+    html+=`</div>`;
     html+=`</div>`;
     if(r.hasBonus)html+=`<span style="font-size:.58rem;color:${r.bHits?'var(--accent)':'var(--muted)'};flex-shrink:0">${r.bHits?'🔵 bonus ✓':''}</span>`;
     html+=`<span style="font-size:.65rem;font-weight:800;margin-left:auto;flex-shrink:0;color:${r.hits>=Math.ceil(cnt/2)?'var(--green)':'var(--muted)'}">${r.hits}/${cnt}</span>`;
