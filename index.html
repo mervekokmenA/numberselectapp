@@ -13948,79 +13948,131 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   return h;
 }
 
-// ── AI Tahmin Sistemi — EWF + gecikme + şablon zinciri + Gülay fark-analizi sinyallerini birleştirir.
+// ── AI Tahmin Sistemi v2 — 6 bağımsız sinyali sıra-füzyonu (RRF) ile birleştirir;
+// ağırlıklar her hesaplamada walk-forward geçmiş test ile otomatik kalibre edilir.
 // Sayısal Loto'da sadece 7 ana sayıyı (Süperstar hariç) hedefler; bonus alanı olan oyunlarda ayrıca _naJokerScores ile bonus tahmini sunar.
 // Saf hesaplama — DOM/render'dan bağımsız, hem canlı sayfa hem de geçmiş testi (_soAiBacktest) tarafından paylaşılır.
-// "Agresif" bilet grubu için kombinasyon yardımcıları — havuzdaki her t'li alt kombinasyonun
-// en az bir bilette birlikte çıkmasını garanti eden greedy kapsama (wheeling) tasarımı.
-function _soCombinations(arr,k){
-  const result=[];const n=arr.length;
-  if(k>n||k<=0)return result;
-  const idx=Array.from({length:k},(_,i)=>i);
-  while(true){
-    result.push(idx.map(i=>arr[i]));
-    let i=k-1;
-    while(i>=0&&idx[i]===n-k+i)i--;
-    if(i<0)break;
-    idx[i]++;
-    for(let j=i+1;j<k;j++)idx[j]=idx[j-1]+1;
+
+// Her sinyal, 1..gmax için ham bir puan dizisi üretir (henüz birleştirilmemiş, henüz sıralanmamış).
+function _soAiSignals(draws,game,srcDraw){
+  const gmax=game.max;
+  // 1) EWF — üstel ağırlıklı frekans
+  const ewfRaw=buildEWF(draws,gmax,0.85);
+  const ewf=new Float64Array(gmax+1);
+  for(let n=1;n<=gmax;n++)ewf[n]=ewfRaw[n]||0;
+
+  // 2) Gecikme — kaç çekiliştir görünmüyor (uzun süredir çıkmayan = yüksek skor)
+  const delay=new Float64Array(gmax+1);
+  for(let n=1;n<=gmax;n++){const i=draws.findIndex(d=>[...d.nums,...(d.bonus||[])].includes(n));delay[n]=i===-1?draws.length:i;}
+
+  // 3) NS/NST şablon zinciri
+  const ns=new Float64Array(gmax+1);
+  try{
+    const{score}=_sablonScoreNext(srcDraw,game);
+    for(let n=1;n<=gmax;n++)ns[n]=score[n]||0;
+  }catch(e){}
+
+  // 4) Gülay'ın fark-analizi adayları (srcDraw için doğrudan hesaplanır, global cache'e bağımlı değil)
+  const gulay=new Float64Array(gmax+1);
+  const ga=_soGapAnalysisCompute(srcDraw,game);
+  if(ga&&ga.gulayCands.length)ga.gulayCands.forEach(({n,cnt})=>{if(n<=gmax)gulay[n]=cnt;});
+
+  // 5) Birliktelik (pair affinity) — kaynak çekilişin sayılarıyla geçmişte en çok birlikte çıkan sayılar
+  const srcNums=(srcDraw.nums||[]).filter(n=>n>=1&&n<=gmax);
+  const pair=new Float64Array(gmax+1);
+  if(srcNums.length){
+    draws.forEach(d=>{
+      const ds=[...(d.nums||[]),...(d.bonus||[])];
+      let overlap=0;for(const sn of srcNums)if(ds.includes(sn))overlap++;
+      if(!overlap)return;
+      ds.forEach(n=>{if(n>=1&&n<=gmax&&!srcNums.includes(n))pair[n]+=overlap;});
+    });
   }
-  return result;
-}
-function _soGreedyWheel(pool,k,t,cap){
-  if(pool.length<k||pool.length<t)return{tickets:[],totalT:0,coveredT:0,fullyCovered:false};
-  const allT=_soCombinations(pool,t).map(c=>c.join(','));
-  const allK=_soCombinations(pool,k);
-  const tSetOf=allK.map(ticket=>new Set(_soCombinations(ticket,t).map(c=>c.join(','))));
-  const uncovered=new Set(allT);
-  const chosen=[];
-  while(uncovered.size>0&&chosen.length<cap){
-    let bestI=-1,bestGain=-1;
-    for(let i=0;i<allK.length;i++){
-      let gain=0;
-      for(const key of tSetOf[i])if(uncovered.has(key))gain++;
-      if(gain>bestGain){bestGain=gain;bestI=i;}
-    }
-    if(bestGain<=0)break;
-    chosen.push(allK[bestI]);
-    for(const key of tSetOf[bestI])uncovered.delete(key);
+
+  // 6) Trend/momentum — son yarı pencere ile önceki yarı pencere arasındaki frekans farkı ("ısınan" sayılar)
+  const trend=new Float64Array(gmax+1);
+  {
+    const w=Math.min(draws.length,60),half=Math.floor(w/2);
+    const recent=draws.slice(0,half),older=draws.slice(half,w);
+    const rn=recent.length||1,on=older.length||1;
+    const rf=new Float64Array(gmax+1),of=new Float64Array(gmax+1);
+    recent.forEach(d=>[...(d.nums||[]),...(d.bonus||[])].forEach(n=>{if(n>=1&&n<=gmax)rf[n]++;}));
+    older.forEach(d=>[...(d.nums||[]),...(d.bonus||[])].forEach(n=>{if(n>=1&&n<=gmax)of[n]++;}));
+    for(let n=1;n<=gmax;n++)trend[n]=(rf[n]/rn)-(of[n]/on);
   }
-  return{tickets:chosen,totalT:allT.length,coveredT:allT.length-uncovered.size,fullyCovered:uncovered.size===0};
+
+  return{ewf,delay,ns,gulay,pair,trend};
 }
-// Her oyunun seçim sayısına (k) göre: havuzun en üst N adayı + bilet tavanı (cap).
-// N, tam kapsamayı (her 3'lü kombinasyon en az 1 biletle) makul bilet sayısıyla sağlayacak şekilde seçildi.
-const _SO_WHEEL_CFG={5:{n:9,cap:16},6:{n:11,cap:16},7:{n:11,cap:16},10:{n:11,cap:16}};
+
+// Sıra-füzyonu (Reciprocal Rank Fusion): her sinyal kendi içinde sıralanır, ardından
+// 1/(K+sıra) ile ağırlıklandırılıp toplanır — ham puan ölçeklerinin (frekans vs. gecikme vs. zincir skoru)
+// birbirini ezmesini önleyen, B10 motorundaki RRF füzyonuyla aynı prensip.
+function _soAiRankFuse(signals,weights,gmax){
+  const fused=new Float64Array(gmax+1);
+  const K=10;
+  Object.keys(signals).forEach(k=>{
+    const w=weights[k]||0;
+    if(!w)return;
+    const arr=signals[k];
+    const order=Array.from({length:gmax},(_,i)=>i+1).sort((a,b)=>arr[b]-arr[a]);
+    order.forEach((n,i)=>{fused[n]+=w/(K+i+1);});
+  });
+  return fused;
+}
+
+// Ağırlık ızgarası — her biri farklı bir sinyale öncelik veren 5 alternatif kombinasyon.
+const _SO_AI_WEIGHT_GRID=[
+  {ewf:2.5,delay:1.5,ns:2.5,gulay:4,  pair:0,  trend:0},
+  {ewf:2,  delay:1,  ns:2,  gulay:3.5,pair:2,  trend:1},
+  {ewf:1.5,delay:2,  ns:1.5,gulay:3,  pair:2.5,trend:1.5},
+  {ewf:3,  delay:1,  ns:1.5,gulay:3,  pair:1.5,trend:0.5},
+  {ewf:1.5,delay:1.5,ns:3,  gulay:2.5,pair:2,  trend:1.5},
+];
+// Walk-forward kalibrasyon: ızgaradaki her ağırlık kombinasyonu, eldeki veride mevcut olan
+// son N çekiliş üzerinde (lookahead yapmadan) test edilir; en yüksek ortalama isabeti veren kombinasyon seçilir.
+function _soAiCalibrateWeights(draws,game){
+  const gmax=game.max,cnt=game.count;
+  const testN=Math.min(10,draws.length-9);
+  if(testN<5)return{w:_SO_AI_WEIGHT_GRID[0],calibrated:false,n:0,avgHit:0};
+  const totals=new Array(_SO_AI_WEIGHT_GRID.length).fill(0);
+  let evaluated=0;
+  for(let i=0;i<testN;i++){
+    const target=draws[i],srcD=draws[i+1],hist=draws.slice(i+1);
+    if(!srcD||hist.length<8)continue;
+    const signals=_soAiSignals(hist,game,srcD);
+    const targetMain=new Set(target.nums||[]);
+    _SO_AI_WEIGHT_GRID.forEach((w,wi)=>{
+      const fused=_soAiRankFuse(signals,w,gmax);
+      const top=Array.from({length:gmax},(_,i)=>i+1).sort((a,b)=>fused[b]-fused[a]).slice(0,cnt);
+      totals[wi]+=top.filter(n=>targetMain.has(n)).length;
+    });
+    evaluated++;
+  }
+  if(!evaluated)return{w:_SO_AI_WEIGHT_GRID[0],calibrated:false,n:0,avgHit:0};
+  let bestI=0,bestV=-1;
+  totals.forEach((v,i)=>{if(v>bestV){bestV=v;bestI=i;}});
+  return{w:_SO_AI_WEIGHT_GRID[bestI],calibrated:true,n:evaluated,avgHit:bestV/evaluated};
+}
+
 function _soAiCompute(draws,game,srcDraw){
   if(!draws||draws.length<8||!srcDraw)return null;
   const gmax=game.max,mainCount=game.count;
+
+  const signals=_soAiSignals(draws,game,srcDraw);
+  const calib=_soAiCalibrateWeights(draws,game);
+  const fused=_soAiRankFuse(signals,calib.w,gmax);
+
+  // _listelerGenAiTickets'in çeşitlilik cezasıyla (-2.5/kullanım) uyumlu olması için 0..10 ölçeğine taşı
+  const maxFused=Math.max(0,...fused.slice(1));
   const numScore=new Array(gmax+1).fill(0);
+  if(maxFused>0)for(let n=1;n<=gmax;n++)numScore[n]=fused[n]/maxFused*10;
 
-  // 1) EWF — üstel ağırlıklı frekans
-  const ewf=buildEWF(draws,gmax,0.85);
-  const maxEwf=Math.max(0,...Object.values(ewf));
-  if(maxEwf>0)for(let n=1;n<=gmax;n++)numScore[n]+=((ewf[n]||0)/maxEwf)*2.5;
-
-  // 2) Gecikme — kaç çekiliştir görünmüyor (uzun süredir çıkmayan = yüksek skor)
-  const delay=new Float32Array(gmax+1);
-  for(let n=1;n<=gmax;n++){const i=draws.findIndex(d=>[...d.nums,...(d.bonus||[])].includes(n));delay[n]=i===-1?draws.length:i;}
-  const maxDelay=Math.max(...delay.slice(1),1);
-  for(let n=1;n<=gmax;n++)numScore[n]+=(delay[n]/maxDelay)*1.5;
-
-  // 3) NS/NST şablon zinciri
+  // Rozet işaretleme (Top 15 listesinde 🟣/🔗 göstergeleri için) — ham sinyal eşikleri
   const nsNums=new Set();
-  try{
-    const{score:ns}=_sablonScoreNext(srcDraw,game);
-    const maxNs=Math.max(...ns.slice(1),1);
-    for(let n=1;n<=gmax;n++){const s=(ns[n]||0)/maxNs*2.5;numScore[n]+=s;if(s>=1.5)nsNums.add(n);}
-  }catch(e){}
-
-  // 4) Gülay'ın fark-analizi adayları — bu sayfaya özel en güçlü sinyal (srcDraw için doğrudan hesaplanır, global cache'e bağımlı değil)
+  const maxNs=Math.max(...signals.ns.slice(1),1);
+  for(let n=1;n<=gmax;n++)if((signals.ns[n]||0)/maxNs>=0.6)nsNums.add(n);
   const gulaySet=new Set();
-  const ga=_soGapAnalysisCompute(srcDraw,game);
-  if(ga&&ga.gulayCands.length){
-    const maxCnt=Math.max(...ga.gulayCands.map(x=>x.cnt),1);
-    ga.gulayCands.forEach(({n,cnt})=>{numScore[n]+=(cnt/maxCnt)*4;if(cnt>=2)gulaySet.add(n);});
-  }
+  for(let n=1;n<=gmax;n++)if(signals.gulay[n]>=2)gulaySet.add(n);
 
   const ranked=[];
   for(let n=1;n<=gmax;n++)if(numScore[n]>0)ranked.push({n,s:numScore[n]});
@@ -14030,16 +14082,6 @@ function _soAiCompute(draws,game,srcDraw){
   // Listeler sayfasındaki çeşitlilik algoritmasıyla 3 farklı bilet üretir (bonus burada kapalı — Süperstar/Joker ayrı motorla hesaplanır)
   const tickets=_listelerGenAiTickets({...game,bonusCount:0,bonusMax:0},gmax,numScore);
 
-  // "Agresif" grup: en güçlü adaylardan daha sıkı bir havuz seçilir ve bu havuzdaki
-  // HER 3'lü sayı kombinasyonunun en az bir bilette birlikte çıkması garanti edilir
-  // (eğer fullyCovered=true ise). Bu, gerçek 3 sayının havuzda olması KOŞULUYLA geçerli bir garantidir —
-  // rastgele bir çekilişi "yenmenin" garantisi değildir.
-  const wCfg=_SO_WHEEL_CFG[mainCount]||{n:Math.min(11,ranked.length),cap:16};
-  const wheelPool=ranked.slice(0,wCfg.n).map(r=>r.n);
-  const wheel=_soGreedyWheel(wheelPool,mainCount,3,wCfg.cap);
-  const aggressiveTickets=wheel.tickets.map(main=>({main:[...main].sort((a,b)=>a-b),bonus:[]}));
-  const wheelInfo={pool:wheelPool,fullyCovered:wheel.fullyCovered,coveragePct:wheel.totalT?Math.round(100*wheel.coveredT/wheel.totalT):0};
-
   let joker=null;
   if(game.bonusCount>0&&game.bonusMax>0){
     try{
@@ -14048,12 +14090,12 @@ function _soAiCompute(draws,game,srcDraw){
     }catch(e){}
   }
 
-  return{gmax,mainCount,numScore,ranked,top15,gulaySet,nsNums,tickets,aggressiveTickets,wheelInfo,joker};
+  return{gmax,mainCount,numScore,ranked,top15,gulaySet,nsNums,tickets,joker,calib};
 }
 function _soAiSection(draws,game,srcDraw,nextDraw){
   const ai=_soAiCompute(draws,game,srcDraw);
   if(!ai)return'';
-  const{mainCount,top15,gulaySet,nsNums,tickets,aggressiveTickets,wheelInfo,joker}=ai;
+  const{mainCount,top15,gulaySet,nsNums,tickets,joker,calib}=ai;
   const maxTop=top15[0].s;
   const nextMainSet=nextDraw?new Set(nextDraw.nums||[]):null;
 
@@ -14069,7 +14111,8 @@ function _soAiSection(draws,game,srcDraw,nextDraw){
   let h='';
   h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
   h+=`<div style="font-size:.74rem;font-weight:800;margin-bottom:4px;color:var(--accent)">🤖 AI Tahmin Sistemi</div>`;
-  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:9px;line-height:1.6">EWF + gecikme + şablon zinciri + Gülay fark-analizi sinyallerini birleştirir. Süperstar/Joker hariç sadece ${mainCount} ana sayıyı hedefler.</div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:5px;line-height:1.6">6 sinyali (frekans, gecikme, şablon zinciri, Gülay fark-analizi, birliktelik, trend) sıra-füzyonu ile birleştirir. Süperstar/Joker hariç sadece ${mainCount} ana sayıyı hedefler.</div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:9px">⚙️ ${calib.calibrated?`Ağırlıklar son ${calib.n} çekiliş ile otomatik kalibre edildi · seçilen kombinasyon ort. <strong style="color:var(--accent)">${calib.avgHit.toFixed(2)}</strong> isabet/çekiliş verdi`:'Yeterli geçmiş veri yok — varsayılan ağırlıklar kullanılıyor'}</div>`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">`;
   h+=`<div style="font-size:.6rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.6px">🏆 Top 15 Aday</div>`;
   h+=`<button onclick="_kbCopy(window._soAiTop15Copy)" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(129,140,248,.35);background:rgba(129,140,248,.08);color:var(--accent);cursor:pointer">📋 Top 15 Kopyala</button>`;
@@ -14111,29 +14154,6 @@ function _soAiSection(draws,game,srcDraw,nextDraw){
   });
   window._soAiCopyNormal=`${game.name} AI Tahmin — Normal (${srcDraw.date} sonrası):\n${normalLines.join('\n')}${jokerLine}`;
 
-  // ── Agresif grup: havuz kapsama (wheeling) — havuzdaki her 3'lü kombinasyon en az 1 bilette garanti ──
-  h+=`<div style="margin-top:14px;padding-top:12px;border-top:1px dashed var(--border)">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">`;
-  h+=`<div style="font-size:.65rem;font-weight:700;color:#c2410c;text-transform:uppercase;letter-spacing:.7px">🔥 Agresif Tahmin (${aggressiveTickets.length} bilet · havuz kapsamalı)</div>`;
-  h+=`<button onclick="_kbCopy(window._soAiCopyAggressive)" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(194,65,12,.35);background:rgba(194,65,12,.08);color:#c2410c;cursor:pointer">📋 Agresif Kopyala</button>`;
-  h+=`</div>`;
-  const covText=wheelInfo.fullyCovered?`Havuzdaki (${wheelInfo.pool.join(' ')}) HER 3 sayı kombinasyonu, bu ${aggressiveTickets.length} biletten en az birinde birlikte bulunur (garanti — koşul: gerçek çekilen 3 sayının havuzda olması).`:`Havuzdaki (${wheelInfo.pool.join(' ')}) 3'lü kombinasyonların %${wheelInfo.coveragePct}'i bu biletlerle kapsanıyor (tam kapsama için daha fazla bilet gerekir).`;
-  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:9px;line-height:1.6">${covText} Daha az ama daha sıkı seçilmiş bir havuza odaklanır; daha fazla bilet = daha yüksek maliyet ama daha güçlü kapsama anlamına gelir.</div>`;
-  const aggLines=[];
-  aggressiveTickets.forEach((t,idx)=>{
-    const hitCount=nextMainSet?t.main.filter(n=>nextMainSet.has(n)).length:null;
-    h+=`<div style="margin-bottom:6px;padding:7px 9px;background:rgba(194,65,12,.04);border:1px solid rgba(194,65,12,.15);border-radius:8px">`;
-    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">`;
-    h+=`<span style="font-size:.6rem;font-weight:700;color:#c2410c">Bilet ${idx+1}</span>`;
-    if(hitCount!==null)h+=`<span style="font-size:.56rem;color:var(--muted)">İsabet: <strong style="color:${hitCount>0?'var(--green)':'var(--text)'}">${hitCount}/${mainCount}</strong></span>`;
-    h+=`</div>`;
-    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">${t.main.map(hitChip).join('')}</div>`;
-    h+=`</div>`;
-    aggLines.push(`Bilet ${idx+1}: ${t.main.join(' ')}`);
-  });
-  window._soAiCopyAggressive=`${game.name} AI Tahmin — Agresif (${srcDraw.date} sonrası):\n${aggLines.join('\n')}${jokerLine}`;
-  h+=`</div>`;
-
   // Süperstar/Joker (veya diğer oyunlarda bonus) — ayrı tahmin
   if(joker){
     const nextBonus=nextDraw&&nextDraw.bonus&&nextDraw.bonus.length?nextDraw.bonus[0]:null;
@@ -14167,7 +14187,7 @@ function _soAiBacktest(){
     const rows=[];
     let totalHits=0,bestHits=0,jokerHit=0,jokerTotal=0;
     let bestHit1=0,bestHit2=0,bestHit3=0;
-    let aggBestHits=0,aggBestHit1=0,aggBestHit2=0,aggBestHit3=0,poolHit3=0;
+    let calibSum=0,calibN=0;
     for(let i=0;i<tests;i++){
       const target=draws[i];
       const srcDraw=draws[i+1];
@@ -14181,29 +14201,21 @@ function _soAiBacktest(){
       const hBest=Math.max(...ticketHits);
       totalHits+=h0;bestHits+=hBest;
       if(hBest>=1)bestHit1++;if(hBest>=2)bestHit2++;if(hBest>=3)bestHit3++;
-      const aggTicketHits=ai.aggressiveTickets.map(t=>t.main.filter(n=>targetMain.has(n)).length);
-      const aggBest=aggTicketHits.length?Math.max(...aggTicketHits):0;
-      aggBestHits+=aggBest;
-      if(aggBest>=1)aggBestHit1++;if(aggBest>=2)aggBestHit2++;if(aggBest>=3)aggBestHit3++;
-      if(ai.wheelInfo.pool.filter(n=>targetMain.has(n)).length>=3)poolHit3++;
+      if(ai.calib&&ai.calib.calibrated){calibSum+=ai.calib.avgHit;calibN++;}
       if(ai.joker&&target.bonus&&target.bonus.length){
         jokerTotal++;
         if(ai.joker.some(j=>j.n===target.bonus[0]))jokerHit++;
       }
       const bestIdx=ticketHits.indexOf(hBest);
-      const aggBestIdx=aggTicketHits.indexOf(aggBest);
-      rows.push({srcDate:srcDraw.date,targetNums:[...(target.nums||[])].sort((a,b)=>a-b),tickets:ai.tickets,ticketHits,bestIdx,aggTickets:ai.aggressiveTickets,aggTicketHits,aggBestIdx});
+      rows.push({srcDate:srcDraw.date,targetNums:[...(target.nums||[])].sort((a,b)=>a-b),tickets:ai.tickets,ticketHits,bestIdx});
     }
     if(!rows.length){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Test satırı oluşturulamadı.</div>';return;}
     const N=rows.length;
     const avgHit=(totalHits/N).toFixed(2);
     const avgBest=(bestHits/N).toFixed(2);
     const bpct1=Math.round(bestHit1/N*100),bpct2=Math.round(bestHit2/N*100),bpct3=Math.round(bestHit3/N*100);
-    const avgAggBest=(aggBestHits/N).toFixed(2);
-    const apct1=Math.round(aggBestHit1/N*100),apct2=Math.round(aggBestHit2/N*100),apct3=Math.round(aggBestHit3/N*100);
-    const poolPct3=Math.round(poolHit3/N*100);
     const jPct=jokerTotal?Math.round(jokerHit/jokerTotal*100):null;
-    let html=`<div style="font-size:.62rem;font-weight:700;color:var(--accent);margin-bottom:5px">🎯 Normal grup</div>`;
+    let html=`<div style="font-size:.62rem;font-weight:700;color:var(--accent);margin-bottom:5px">🎯 Normal Tahmin</div>`;
     html+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">`;
     const statCard=(lbl,val,col)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${col}">${val}</div><div style="font-size:.6rem;color:var(--muted)">${lbl}</div></div>`;
     html+=statCard('Ort. isabet (1. bilet)',avgHit,'var(--accent)');
@@ -14214,28 +14226,19 @@ function _soAiBacktest(){
     if(jPct!==null)html+=statCard((game.id==='sayisal'?'Süperstar':'Bonus')+' isabet (top5)',jPct+'%',jPct>=20?'var(--green)':jPct>=10?'var(--gold)':'var(--muted)');
     html+=statCard('Test sayısı',N,'var(--text)');
     html+=`</div>`;
-    html+=`<div style="font-size:.62rem;font-weight:700;color:#c2410c;margin-bottom:5px">🔥 Agresif grup (havuz kapsamalı)</div>`;
-    html+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">`;
-    html+=statCard('Ort. isabet (en iyi bilet)',avgAggBest,'#c2410c');
-    html+=statCard('1+ isabet',apct1+'%',apct1>=60?'var(--green)':apct1>=40?'var(--gold)':'var(--muted)');
-    html+=statCard('2+ isabet',apct2+'%',apct2>=30?'var(--green)':apct2>=15?'var(--gold)':'var(--muted)');
-    html+=statCard('3+ isabet',apct3+'%',apct3>=15?'var(--green)':apct3>=5?'var(--gold)':'var(--muted)');
-    html+=statCard('Havuzda gerçekte 3+ vardı',poolPct3+'%','var(--muted)');
-    html+=`</div>`;
-    html+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:10px">"Havuzda gerçekte 3+ vardı" = gerçek çekilişin en az 3 sayısı havuzdaydı (önkoşul). Bu oran ne kadar düşükse, agresif grubun garantisi o kadar az devreye girer — havuzun kendisi zayıfsa kapsama da işe yaramaz.</div>`;
+    if(calibN)html+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:10px">⚙️ Her test penceresinde ağırlıklar o tarihte mevcut veriyle yeniden kalibre edildi · ortalama kalibrasyon isabeti <strong style="color:var(--accent)">${(calibSum/calibN).toFixed(2)}</strong>/çekiliş</div>`;
     html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — AI Tahmin Sistemi geçmiş testi · 🟢=isabetli · 🟠=±1 yakın · En iyi bilet vurgulanır</div>`;
     html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
     html+=`<thead><tr style="border-bottom:1px solid var(--border)">`;
     html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Kaynak</th>`;
     html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek çekiliş</th>`;
-    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Normal Biletler (isabet)</th>`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Biletler (isabet)</th>`;
     html+=`<th style="text-align:center;padding:4px 6px;color:var(--muted)">En iyi</th>`;
-    html+=`<th style="text-align:center;padding:4px 6px;color:var(--muted)">Agresif en iyi</th>`;
     html+=`</tr></thead><tbody>`;
     rows.forEach(r=>{
       const targetMain=new Set(r.targetNums);
       // Gerçek çekiliş sütunu: yeşil tik SADECE bir AI biletinin o sayıyı içerdiği (gerçekten tuttuğu) durumda
-      const predictedSet=new Set([...r.tickets.flatMap(t=>t.main),...r.aggTickets.flatMap(t=>t.main)]);
+      const predictedSet=new Set(r.tickets.flatMap(t=>t.main));
       const numSpan=n=>{
         const hit=predictedSet.has(n);
         return`<span style="font-family:monospace;font-size:.65rem;color:${hit?'var(--green)':'var(--text)'};font-weight:${hit?800:400}">${n}${hit?'✓':''}</span>`;
@@ -14249,13 +14252,11 @@ function _soAiBacktest(){
         return`<span style="font-family:monospace;font-size:.6rem;color:${col};font-weight:${fw}">${n}${hit?'✓':near?'~':''}</span>`;
       };
       const hitColor=val=>val>=3?'var(--green)':val>=2?'var(--gold)':val>=1?'var(--accent)':'var(--muted)';
-      const aggBestVal=r.aggTicketHits.length?r.aggTicketHits[r.aggBestIdx]:0;
       html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04)">`;
       html+=`<td style="padding:4px 6px;color:var(--muted);white-space:nowrap;font-size:.6rem">${r.srcDate}</td>`;
       html+=`<td style="padding:4px 6px"><div style="display:flex;gap:4px;flex-wrap:wrap">${r.targetNums.map(numSpan).join('')}</div></td>`;
       html+=`<td style="padding:4px 6px"><div style="display:flex;flex-direction:column;gap:2px">${r.tickets.map((t,ti)=>`<span style="font-size:.6rem;${ti===r.bestIdx?'font-weight:700':''}">${t.main.map(ticketNumSpan).join(' ')} <span style="color:var(--muted)">(${r.ticketHits[ti]})</span></span>`).join('')}</div></td>`;
       html+=`<td style="padding:4px 6px;text-align:center;font-weight:800;color:${hitColor(r.ticketHits[r.bestIdx])}">${r.ticketHits[r.bestIdx]}</td>`;
-      html+=`<td style="padding:4px 6px;text-align:center;font-weight:800;color:${hitColor(aggBestVal)}">${aggBestVal}</td>`;
       html+=`</tr>`;
     });
     html+=`</tbody></table></div>`;
