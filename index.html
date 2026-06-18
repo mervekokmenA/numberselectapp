@@ -815,9 +815,9 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <div id="nextDrawPredSection" style="grid-column:1/-1;margin-top:0;min-width:0">
  <div class="card">
-  <div class="card-title" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+  <div class="card-title" style="align-items:center;flex-wrap:wrap;gap:8px">
    <span>🔮 Sonraki Çekiliş Tahmin Grubu</span>
-   <div style="display:flex;gap:6px">
+   <div style="display:flex;gap:6px;margin-left:auto">
     <button onclick="_nextDrawBacktest()" style="font-size:.68rem;padding:4px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">📊 Geçmiş Test</button>
     <button onclick="_nextDrawPredict()" style="font-size:.68rem;padding:4px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">↺ Hesapla</button>
    </div>
@@ -12388,8 +12388,9 @@ function _kazananRender(){
 function _nextDrawCompute(draws,game){
   const gmax=game.max,cnt=game.count;
   const score=new Float32Array(gmax+1);
-  // Sinyal 1: Ağırlıklı frekans (40%)
-  const ewf=buildEWF(draws,gmax,0.08);
+  // Sinyal 1: Ağırlıklı frekans (40%) — draws[0] en güncel çekiliş, eskiye gidildikçe ağırlık üstel azalır
+  const ewf={};
+  draws.forEach((d,i)=>{const w=Math.exp(-0.08*i);[...(d.nums||[]),...(d.bonus||[])].forEach(n=>{if(n>=1&&n<=gmax)ewf[n]=(ewf[n]||0)+w;});});
   const maxEwf=Math.max(...Object.values(ewf),1);
   for(let n=1;n<=gmax;n++)score[n]+=(ewf[n]||0)/maxEwf*40;
   // Sinyal 2: NS/NST zincir skoru (35%)
