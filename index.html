@@ -338,6 +338,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
       <button class="nav-link" id="navBtn-gulayq" onclick="_gqOpenPopup()">✍️ Hızlı Gülay</button>
       <button class="nav-link" id="navBtn-capraz" onclick="showMainPage('capraz')">🔀 Çapraz</button>
+      <button class="nav-link" id="navBtn-hizlitahmin" onclick="showMainPage('hizlitahmin')">⚡ Hızlı Tahmin</button>
     </div>
     <button class="nav-scroll-btn" id="navScrollNext" onclick="_navScroll(1)">›</button>
   </div>
@@ -982,6 +983,100 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
  </div>
 </div>
+
+<!-- ═══════════ PAGE: HIZLI TAHMİN ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-hizlitahmin">
+
+ <!-- 1+2: Gülay Analiz + AI Biletler -->
+ <div class="card" style="margin-bottom:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">🔮 Gülay Analiz &amp; AI Biletler</div>
+   <button onclick="_htRenderSoz()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Güncelle</button>
+  </div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="htSozGameRow"></div>
+  <div id="htSozContent"><div class="empty-state"><span class="empty-icon">🔮</span>Yükleniyor…</div></div>
+ </div>
+
+ <!-- 3: Sisal-LCG Bilet Oluşturma -->
+ <div class="card" style="margin-bottom:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">🎲 Sisal-LCG Bilet Oluşturma</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+   <span style="font-size:.72rem;color:var(--muted)">Bilet sayısı:</span>
+   <input type="number" id="htSisalCount" value="4" min="1" max="50" style="width:64px;font-size:.8rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;text-align:center">
+   <button onclick="_htGenerateSisal()" style="font-size:.74rem;padding:7px 16px;border-radius:8px;border:1px solid rgba(0,150,58,.35);background:rgba(0,150,58,.1);color:var(--text);cursor:pointer;font-weight:700">🎲 Sisal-LCG Bilet Üret</button>
+  </div>
+  <div id="htSisalResult"></div>
+ </div>
+
+ <!-- 4: B10 Sistem Kuponu (4 çıkarsa 4 garanti) -->
+ <div class="card" style="margin-bottom:12px;border:1px solid rgba(0,150,58,.15);background:rgba(0,150,58,.03)">
+  <div class="card-title">🎟️ B10 Sistem Kuponu (Wheeling)</div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <div style="display:flex;align-items:center;gap:6px">
+    <span style="font-size:.72rem;color:var(--muted)">Analiz penceresi:</span>
+    <select id="b10WindowHt" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px">
+     <option value="30" selected>Son 30</option>
+     <option value="50">Son 50</option>
+     <option value="100">Son 100</option>
+     <option value="999">Tümü</option>
+    </select>
+   </div>
+   <div style="display:flex;align-items:center;gap:6px">
+    <span style="font-size:.72rem;color:var(--muted)">Sayı adedi:</span>
+    <select id="b10BankCountHt" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px">
+     <option value="3">3</option>
+     <option value="5">5</option>
+     <option value="7">7</option>
+     <option value="10" selected>10</option>
+    </select>
+   </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+   <span style="font-size:.72rem;color:var(--muted)">Garanti:</span>
+   <select id="b10WheelGuarHt" style="flex:1;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px">
+    <option value="2">2 çıkarsa 2 garanti (az kolon)</option>
+    <option value="3" selected>3 çıkarsa 3 garanti</option>
+    <option value="4">4 çıkarsa 4 garanti (çok kolon)</option>
+   </select>
+  </div>
+  <button onclick="runB10Wheel('Ht')" style="width:100%;padding:9px;background:linear-gradient(135deg,rgba(0,150,58,.13),rgba(255,140,0,.1));border:1px solid rgba(0,150,58,.35);color:var(--text);border-radius:10px;cursor:pointer;font-size:.8rem;font-weight:700;margin-bottom:10px">🎟️ Sistem Kuponu Üret</button>
+  <div id="b10WheelResultHt"></div>
+ </div>
+
+ <!-- 5: Listeler AI Biletleri (boş başlar, Listeler'den üretilince dolar) -->
+ <div class="card" style="margin-bottom:12px">
+  <div class="card-title">🤖 Listeler — AI Biletleri</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px">📋 Listeler sayfasında <strong>"🤖 Analiz Et &amp; Tahmin Üret"</strong> çalıştırınca burada da görünür.</div>
+  <div id="htListelerAiMirror"><div class="empty-state"><span class="empty-icon">🤖</span>Henüz veri yok — Listeler sayfasından AI analiz çalıştırın.</div></div>
+ </div>
+
+ <!-- 6: NSA + Banko — Son Analiz (açılır/kapanır) -->
+ <div class="card" style="margin-bottom:12px">
+  <details id="htGizliDetails" open>
+   <summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:var(--text);list-style:none">🔐 NSA — Banko ile Son Analiz</summary>
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 0 8px;flex-wrap:wrap">
+    <span style="font-size:.6rem;color:var(--muted)">NSA sayfasında "MODEL UYGULA" ile üretilen son kolon listesinin anlık görüntüsü.</span>
+    <div style="display:flex;gap:6px;flex-shrink:0">
+     <button onclick="_htRenderGizli()" style="font-size:.62rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔄 Yenile</button>
+     <button onclick="gizliKopyalaHepsi()" style="font-size:.62rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(129,140,248,.3);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer">📋 Kopyala</button>
+    </div>
+   </div>
+   <div id="htGizliMirror" style="max-height:420px;overflow-y:auto"><div class="empty-state"><span class="empty-icon">📊</span>Henüz veri yok — NSA sayfasından MODEL UYGULA çalıştırın.</div></div>
+  </details>
+ </div>
+
+ <!-- 7: Manuel Sayı Girişi -->
+ <div class="card">
+  <div class="card-title">✍️ Manuel Sayı Girişi</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Sayıları virgülle ayırarak yapıştırın, örn: <code style="background:rgba(0,0,0,.06);padding:1px 4px;border-radius:3px">2, 6, 9, 11, 15...</code></div>
+  <textarea id="htManualInput" rows="2" placeholder="2, 6, 9, 11, 15, 16, 19, 22, 23, 26, 28, 30, 32, 36, 38, 40, 43, 45, 47, 50, 51, 52, 56" style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;outline:none;margin-bottom:8px"></textarea>
+  <button onclick="_htShowManualNumbers()" style="font-size:.74rem;padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-weight:700;margin-bottom:10px">🔢 Göster</button>
+  <div id="htManualResult" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+ </div>
+
+</div><!-- /page-hizlitahmin -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-kapsamli">
@@ -10458,11 +10553,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-b10sistem','page-soz','page-capraz','page-nsa'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-b10sistem','page-soz','page-capraz','page-nsa','page-hizlitahmin'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem','navBtn-soz','navBtn-capraz','navBtn-nsa'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem','navBtn-soz','navBtn-capraz','navBtn-nsa','navBtn-hizlitahmin'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -10472,6 +10567,7 @@ function showMainPage(id){
   if(id==='soz')_soInit();
   if(id==='capraz')_cxInit();
   if(id==='nsa')_nsaInit();
+  if(id==='hizlitahmin')_htInit();
 }
 
 // Nav: always fixed, single row; scroll buttons on large screens, touch scroll on mobile
@@ -11372,6 +11468,7 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn){
 
   confEl.innerHTML=confHtml;
   finalEl.innerHTML=finalHtml;
+  {const htMirror=document.getElementById('htListelerAiMirror');if(htMirror)htMirror.innerHTML=finalHtml;}
   if(body)body.style.display='block';
   if(btn)btn.textContent='🤖 Analiz Et & Tahmin Üret';
 }
@@ -13072,6 +13169,64 @@ function _soRenderFull(){
   }
   el.innerHTML=h;
 }
+
+// ═══════════ HIZLI TAHMİN (özet/aggregator sayfası) ═══════════
+let _htGame=null;
+function _htInit(){
+  if(!_htGame)_htGame=state.selectedGame||'super';
+  _htRenderGameRow();
+  _htRenderSoz();
+  _htGenerateSisal();
+  if(typeof runB10Wheel==='function')runB10Wheel('Ht');
+  _htRenderGizli();
+}
+function _htRenderGameRow(){
+  const row=document.getElementById('htSozGameRow');if(!row)return;
+  const GLIST=[{id:'sayisal',e:'🔵',n:'Sayısal'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
+  row.innerHTML=GLIST.map(g=>{
+    const a=g.id===_htGame;
+    return `<button onclick="_htSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
+  }).join('');
+}
+function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_htGenerateSisal();}
+function _htRenderSoz(){
+  const el=document.getElementById('htSozContent');if(!el)return;
+  const game=getGame(_htGame);
+  const draws=_kbGetDraws(_htGame);
+  if(!draws||draws.length<2){el.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok.</div>';return;}
+  el.innerHTML=_soDoAnalysis(draws[0],game,null,true)+_soAiSection(draws,game,draws[0],null);
+}
+function _htGenerateSisal(){
+  const el=document.getElementById('htSisalResult');if(!el)return;
+  const game=getGame(_htGame);
+  const draws=_kbGetDraws(_htGame);
+  if(!draws||draws.length<2){el.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok.</div>';return;}
+  const n=Math.max(1,Math.min(50,parseInt(document.getElementById('htSisalCount')?.value)||4));
+  const seen=new Set();const tickets=[];let attempts=0;
+  while(tickets.length<n&&attempts<n*20){
+    attempts++;
+    const t=generateNumbers(game,'sislcg');
+    const k=[...t.main,...t.bonus].join(',');
+    if(!seen.has(k)){seen.add(k);tickets.push(t);}
+  }
+  window._htSisalCopyText='Sisal-LCG\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  el.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button onclick="_kbCopy(window._htSisalCopyText)" class="copy-btn">📋 Kopyala</button></div>`
+   +tickets.map((t,i)=>renderTicket(t,game,'sislcg',i,null,null,null,calcTicketScore(t,game),true)).join('');
+}
+function _htRenderGizli(){
+  const src=document.getElementById('gizliKolonlar');
+  const dst=document.getElementById('htGizliMirror');
+  if(!src||!dst)return;
+  dst.innerHTML=src.innerHTML;
+}
+function _htShowManualNumbers(){
+  const raw=document.getElementById('htManualInput')?.value||'';
+  const nums=[...new Set((raw.match(/\d+/g)||[]).map(Number))];
+  const el=document.getElementById('htManualResult');if(!el)return;
+  if(!nums.length){el.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Sayı girin.</div>';return;}
+  el.innerHTML=nums.map(n=>staticBall(n,'blue')).join('');
+}
+
 function _soGapAnalysisCompute(draw,game){
   const max=game.max;
   const nums=[...draw.nums].filter(n=>n>=1&&n<=max).sort((a,b)=>a-b);
