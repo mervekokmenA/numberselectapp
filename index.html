@@ -401,30 +401,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div id="ticketContainer"></div>
   </div>
 
-  <div class="card">
-    <div class="tabs">
-      <button class="tab-btn"        onclick="switchTab('algorank')">📊 Algo Rankı</button>
-      <button class="tab-btn"        onclick="switchTab('stats')">📈 İstatistikler</button>
-      <button class="tab-btn active" onclick="switchTab('hotcold')">🔥 Sıcak &amp; Soğuk</button>
-    </div>
-    <div class="tab-panel" id="tab-algorank">
-      <div id="algoRankPanel"><div class="empty-state"><span class="empty-icon">📊</span>Veri yükleyince analiz başlar.</div></div>
-    </div>
-    <div class="tab-panel" id="tab-stats">
-      <div class="stats-grid">
-        <div class="stat-box"><div class="stat-val" id="statGenerated">0</div><div class="stat-label">Üretilen</div></div>
-        <div class="stat-box"><div class="stat-val" id="statDraws">0</div><div class="stat-label">Çekiliş</div></div>
-        <div class="stat-box"><div class="stat-val" id="statUnique">—</div><div class="stat-label">Tekil Sayı</div></div>
-      </div>
-      <div style="margin-bottom:8px;font-size:.75rem;color:var(--muted)">Sayı Frekansı (geçmişten)</div>
-      <div class="freq-chart" id="freqChart">
-        <div class="empty-state" style="padding:16px 0"><span class="empty-icon">📊</span>Çekiliş verisi yükleyin.</div>
-      </div>
-    </div>
-    <div class="tab-panel active" id="tab-hotcold">
-      <div id="hotColdDisplay"><div class="empty-state"><span class="empty-icon">🌡️</span>Çekiliş verisi yükleyin.</div></div>
-    </div>
-  </div>
 </div><!-- /page-generator -->
 
 <!-- ═══════════ PAGE: BACKTEST ═══════════ -->
@@ -6987,6 +6963,7 @@ function updateStats(){
 }
 function renderFreqChart(){
   const chart=document.getElementById('freqChart'),freq=state.frequency;
+  if(!chart)return;
   if(!Object.keys(freq).length){chart.innerHTML='<div class="empty-state" style="padding:16px 0"><span class="empty-icon">📊</span>Veri yok.</div>';return;}
   const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,50);
   const mx=sorted[0][1],colors=['#6c63ff','#ff6584','var(--gold)','#00963a','#00b4d8','#5248d4'];
@@ -6999,6 +6976,7 @@ function renderFreqChart(){
 }
 function renderHotCold(){
   const el=document.getElementById('hotColdDisplay'),freq=state.frequency;
+  if(!el)return;
   if(!Object.keys(freq).length){el.innerHTML='<div class="empty-state"><span class="empty-icon">🌡️</span>Veri yok.</div>';return;}
   const sorted=Object.entries(freq).sort((a,b)=>b[1]-a[1]);
   const top=sorted.slice(0,12).map(([n])=>+n),bot=sorted.slice(-12).reverse().map(([n])=>+n);
