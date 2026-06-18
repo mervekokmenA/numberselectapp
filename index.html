@@ -610,46 +610,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
 </div>
 
-<!-- ═══════════ Oyun No → Sayı Üretimi ═══════════ -->
-<div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="oyunNoSection">
-  <div class="card">
-    <div class="card-title">🎫 Oyun Numarasına Göre Sayı Üretimi</div>
-    <div style="font-size:.74rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
-      Biletinizdeki <strong>Oyun No</strong>'yu girin. Aynı numara her zaman aynı sayı kolonlarını verir.
-    </div>
-    <input type="text" id="oyunNoInput" inputmode="numeric" placeholder="Oyun Numarası — örn: 3567472650"
-      style="width:100%;box-sizing:border-box;font-size:.88rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 12px;outline:none;margin-bottom:10px;display:block"
-      oninput="oyunNoHesapla()" onkeydown="if(event.key==='Enter')oyunNoHesapla()">
-    <div class="game-grid" id="oyunNoGameGrid" style="margin-bottom:10px"></div>
-    <div class="tabs" style="margin-bottom:10px">
-      <button class="tab-btn active" id="oyunNoTabBtn-tahmin" onclick="switchOyunNoTab('tahmin')">🎯 Tahmin</button>
-      <button class="tab-btn" id="oyunNoTabBtn-gecmis" onclick="switchOyunNoTab('gecmis')">📅 Geçmişle Karşılaştır</button>
-    </div>
-    <!-- Tab: Tahmin -->
-    <div class="tab-panel active" id="oyunNoTab-tahmin">
-      <div id="oyunNoResult1"><div class="empty-state"><span class="empty-icon">🎫</span>Oyun numarasını girin.</div></div>
-      <div id="oyunNoCopyBar1" style="display:none;margin-top:8px">
-        <button class="copy-btn" style="width:100%;padding:8px;justify-content:center" onclick="copyOyunNoAll(1)">📋 3 Kolonu Kopyala</button>
-      </div>
-    </div>
-    <!-- Tab: Geçmişle Karşılaştır -->
-    <div class="tab-panel" id="oyunNoTab-gecmis">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <span style="font-size:.74rem;color:var(--muted);flex-shrink:0">Çekiliş tarihi:</span>
-        <select id="oyunNoDate" onchange="renderOyunNoGecmis()" style="flex:1;min-width:0;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;font-size:.72rem">
-          <option value="">— Önce veri yükleyin —</option>
-        </select>
-        <button onclick="stepOyunNoDate(-1)" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▲</button>
-        <button onclick="stepOyunNoDate(1)" style="flex-shrink:0;padding:6px 9px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-size:.85rem;line-height:1">▼</button>
-      </div>
-      <div id="oyunNoResult2"><div class="empty-state"><span class="empty-icon">📅</span>Oyun numarasını girin ve tarih seçin.</div></div>
-      <div id="oyunNoCopyBar2" style="display:none;margin-top:8px">
-        <button class="copy-btn" style="width:100%;padding:8px;justify-content:center" onclick="copyOyunNoAll(2)">📋 Tahmin + Gerçek Çekilişi Kopyala</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- ═══════════ B10 Analizi ═══════════ -->
 <div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="b10Section">
   <div class="card">
@@ -8150,17 +8110,9 @@ function runNaJoker(){
 
   const hot=Object.entries(freq).map(([n,f])=>({n:+n,f})).sort((a,b)=>b.f-a.f||a.n-b.n).slice(0,10);
   const cold=Object.entries(lastSeen).map(([n,g])=>({n:+n,g,f:freq[n]||0})).sort((a,b)=>b.g-a.g||a.n-b.n).slice(0,10);
-  const topDeltas=Object.entries(dfreq).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const overlap=jokers.filter(j=>j.nums&&j.nums.includes(j.v)).length;
 
   const topCands=scored.slice(0,_NA_JOKER_K);
   const maxCandScore=topCands[0]?.score||1;
-
-  // Decade distribution
-  const decSize=Math.ceil(MAX/9);
-  const decades=new Array(9).fill(0);
-  jokers.forEach(j=>{const d=Math.min(Math.floor((j.v-1)/decSize),8);decades[d]++;});
-  const maxDec=Math.max(...decades);
 
   let html=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">`;
 
@@ -8169,8 +8121,7 @@ function runNaJoker(){
   hot.forEach(h=>{
     html+=`<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">`;
     html+=`<span style="width:28px;text-align:right;font-weight:800;font-size:.85rem;color:var(--text)">${h.n}</span>`;
-    html+=`<div style="flex:1;background:var(--surface2);border-radius:3px;height:8px;overflow:hidden"><div style="width:${Math.round(h.f/hot[0].f*100)}%;background:var(--accent2);height:100%;border-radius:3px"></div></div>`;
-    html+=`<span style="font-size:.63rem;color:var(--muted);min-width:60px">${h.f}× (${(h.f/total*100).toFixed(1)}%)</span>`;
+    html+=`<span style="font-size:.63rem;color:var(--muted)">${h.f}× (${(h.f/total*100).toFixed(1)}%)</span>`;
     html+=`</div>`;
   });
   html+=`</div>`;
@@ -8180,23 +8131,7 @@ function runNaJoker(){
   cold.forEach(c=>{
     html+=`<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">`;
     html+=`<span style="width:28px;text-align:right;font-weight:800;font-size:.85rem;color:var(--text)">${c.n}</span>`;
-    html+=`<div style="flex:1;background:var(--surface2);border-radius:3px;height:8px;overflow:hidden"><div style="width:${Math.round(c.g/cold[0].g*100)}%;background:var(--blue);height:100%;border-radius:3px"></div></div>`;
-    html+=`<span style="font-size:.63rem;color:var(--muted);min-width:55px">${c.g===total?'Hiç çıkmadı':`${c.g} çekiliş`}</span>`;
-    html+=`</div>`;
-  });
-  html+=`</div></div>`;
-
-  // Decade distribution bar chart
-  html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:12px">`;
-  html+=`<div style="font-size:.67rem;font-weight:700;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">📊 Onluk Dağılımı (1-${MAX})</div>`;
-  html+=`<div style="display:flex;gap:4px;align-items:flex-end;height:60px">`;
-  decades.forEach((cnt,i)=>{
-    const start=i*decSize+1;const end=Math.min((i+1)*decSize,MAX);
-    const h=Math.round(cnt/maxDec*52);
-    html+=`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px" title="${start}-${end}: ${cnt}×">`;
-    html+=`<span style="font-size:.55rem;color:var(--muted)">${cnt}</span>`;
-    html+=`<div style="width:100%;height:${h}px;background:var(--accent);border-radius:3px 3px 0 0;opacity:.8"></div>`;
-    html+=`<span style="font-size:.52rem;color:var(--muted)">${start}-${end}</span>`;
+    html+=`<span style="font-size:.63rem;color:var(--muted)">${c.g===total?'Hiç çıkmadı':`${c.g} çekiliş`}</span>`;
     html+=`</div>`;
   });
   html+=`</div></div>`;
@@ -8223,23 +8158,6 @@ function runNaJoker(){
   });
   html+=`</div></div>`;
 
-  // Stats + delta
-  html+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">`;
-  html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px">`;
-  html+=`<div style="font-size:.65rem;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase">İstatistikler</div>`;
-  html+=`<div style="font-size:.69rem;line-height:1.9">`;
-  html+=`<div>Toplam çekiliş: <strong>${total}</strong></div>`;
-  html+=`<div>Tekil Süperstar değeri: <strong>${Object.keys(freq).filter(k=>freq[k]>0).length}</strong> / ${MAX}</div>`;
-  html+=`<div>Hiç çıkmayan: <strong>${Object.keys(freq).filter(k=>freq[k]===0).length}</strong></div>`;
-  html+=`<div>Süperstar = Ana sayı: <strong>${overlap}×</strong> (${(overlap/total*100).toFixed(1)}%)</div>`;
-  html+=`<div>Ort. Süperstar: <strong>${(jokers.reduce((a,j)=>a+j.v,0)/total).toFixed(1)}</strong></div>`;
-  html+=`</div></div>`;
-  html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px">`;
-  html+=`<div style="font-size:.65rem;color:var(--muted);margin-bottom:6px;font-weight:700;text-transform:uppercase">En Sık Farklar (Δ)</div>`;
-  html+=`<div style="font-size:.69rem;line-height:1.9">`;
-  topDeltas.forEach(([d,c])=>{ html+=`<div>+${d}: <strong>${c}×</strong> (${(c/deltas.length*100).toFixed(1)}%)</div>`; });
-  html+=`</div></div></div>`;
-
   // Research note
   html+=`<details><summary style="cursor:pointer;font-size:.71rem;color:var(--accent);user-select:none">📖 Süperstar Tahmin Edilebilirliği Hakkında (Analiz)</summary>`;
   html+=`<div style="margin-top:10px;font-size:.69rem;color:var(--muted);line-height:1.8;background:var(--surface2);border-radius:8px;padding:14px">`;
@@ -8247,7 +8165,7 @@ function runNaJoker(){
   html+=`${total} Sayısal Loto çekilişindeki Süperstar sayıları üzerinde yapılan kapsamlı istatistiksel analiz:<br><br>`;
   html+=`• <strong style="color:var(--text)">Ana sayı korelasyonu:</strong> Ana 7 sayının toplamı mod 90, ortanca, min+max gibi dönüşümlerin gerçek Süperstar sayısıyla örtüşme oranı <strong>%0.9–2.4 arasında</strong> kaldı (beklenen %${(100/MAX).toFixed(1)}). Ana sayılardan Süperstar matematiksel olarak türetilemiyor.<br><br>`;
   html+=`• <strong style="color:var(--text)">Ardışık Süperstar ilişkisi:</strong> Üst üste aynı Süperstar %${(jokers.filter((j,i)=>i>0&&j.v===jokers[i-1].v).length/total*100).toFixed(1)} oranında gözlemlendi (beklenen: %${(100/MAX).toFixed(1)}). Hafif bir "sürüklenme" etkisi mevcut ama istatistiksel güvenilirliği düşük.<br><br>`;
-  html+=`• <strong style="color:var(--text)">Dağılım analizi:</strong> Süperstar teorik olarak 1–${MAX} arasında eşit dağılmalı. Yukarıdaki onluk grafiği gerçek dağılım sapmasını gösteriyor — fazla çıkan onluklar "borçlu" sayılabilir.<br><br>`;
+  html+=`• <strong style="color:var(--text)">Dağılım analizi:</strong> Süperstar teorik olarak 1–${MAX} arasında eşit dağılmalı; gerçekte bazı sayı aralıkları diğerlerinden daha sık çıkabilir.<br><br>`;
   html+=`• <strong style="color:var(--text)">En güçlü yöntem — Boşluk (Gap) Analizi:</strong> Uzun süredir çıkmayan Süperstar sayılarını takip etmek. ${cold[0].n} sayısı ${cold[0].g} çekiliştir görülmemiş (beklenen: ${(total/MAX).toFixed(1)} çekilişte bir).<br><br>`;
   html+=`• <strong style="color:var(--text)">Pratik öneri:</strong> "En Uzun Süredir Çıkmayan" listesindeki ilk 3–5 sayıyı Süperstar tahmini olarak kullanmak istatistiksel açıdan en savunulabilir yaklaşım. Her çekilişin bağımsız olduğu unutulmamalıdır.`;
   html+=`</div></details>`;
@@ -10488,7 +10406,7 @@ function _kbRenderKazanan(){
 }
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
-const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','oyunNoSection','b10Section','ortakSayilarSection','nextDrawPredSection'];
+const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','b10Section','ortakSayilarSection','nextDrawPredSection'];
 let _scanGame=null;
 
 function showMainPage(id){
