@@ -12433,11 +12433,15 @@ function _ndpCalibrate(draws,game){
   const sd=Math.sqrt(sd2/_NDP_SIGS.length)||1e-6;
   const w={};let sum=0;
   _NDP_SIGS.forEach(k=>{
-    let v=Math.exp(2.2*((rl[k]-mean)/sd));
+    let v=Math.exp(1.2*((rl[k]-mean)/sd));
     if(rl[k]<0)v*=0.10;
     v=Math.max(v,0.01);w[k]=v;sum+=v;
   });
   _NDP_SIGS.forEach(k=>w[k]=w[k]/sum);
+  // Küçük örneklemde tek bir sinyalin gürültüyle tüm ağırlığı kapmasını önlemek için
+  // eşit ağırlığa doğru hafif büzme (shrinkage) — daha kararlı, çeşitliliği koruyan bir ensemble
+  const uni=1/_NDP_SIGS.length;
+  _NDP_SIGS.forEach(k=>w[k]=0.6*w[k]+0.4*uni);
   return w;
 }
 function _nextDrawCompute(draws,game,calW){
@@ -12508,12 +12512,14 @@ function _nextDrawBacktest(){
   const draws=_scanGetDraws(gameId);
   const limit=Math.min(20,draws.length-6);
   if(limit<1){el.innerHTML='<div style="color:var(--muted);font-size:.72rem;text-align:center;padding:10px">Test için yeterli çekiliş verisi yok.</div>';return;}
-  // Tek kalibrasyon — tüm backtest adımları aynı ağırlıkları kullanır (hız + tutarlılık, B10 ile aynı prensip)
-  const calW=_ndpCalibrate(draws,game);
+  // Gerçek walk-forward: her satır SADECE o tarihten önceki veriyle kalibre edilir — gelecekteki
+  // çekilişlerden sızıntı (look-ahead bias) olmaz, gösterilen oran dürüst/gerçek bir ölçümdür.
+  setTimeout(()=>{
   const rows=[];
   for(let i=0;i<limit;i++){
     const priorDraws=draws.slice(i+1);
     if(priorDraws.length<5)break;
+    const calW=_ndpCalibrate(priorDraws,game);
     const{mainNums,bonusPred}=_nextDrawCompute(priorDraws,game,calW);
     const actualMain=draws[i].nums||[],actualBonus=draws[i].bonus||[];
     const hits=mainNums.filter(n=>actualMain.includes(n)).length;
@@ -12556,6 +12562,7 @@ function _nextDrawBacktest(){
     html+=`</div>`;
   });
   el.innerHTML=html;
+  },10);
 }
 function _ndpSpan(n,tier){
   const cfg={main:{bg:'rgba(0,230,118,.18)',bd:'rgba(0,230,118,.5)',cl:'var(--green)'},alt:{bg:'rgba(0,150,58,.09)',bd:'rgba(0,150,58,.35)',cl:'#8a6200'},bonus:{bg:'rgba(129,140,248,.18)',bd:'rgba(129,140,248,.5)',cl:'var(--accent)'}};
