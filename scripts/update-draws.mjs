@@ -1,0 +1,159 @@
+#!/usr/bin/env node
+// index.html'in tarayıcı içi otomatik güncelleme mantığının (autoUpdateDraw) sunucu
+// tarafı eşleniği. CORS proxy'sine gerek yok çünkü bu script doğrudan Node'dan
+// (GitHub Actions runner'ı üzerinden) lotobil.com'a istek atıyor. Günlük olarak
+// çalışır, kaynağın TÜM arşivini tarar, index.html'deki DRAW_DATA ile karşılaştırır
+// ve eksik tarih bulursa dosyayı günceller — böylece kullanıcı tarayıcıyı hiç açmasa
+// bile veri eksik kalmaz.
+import { readFileSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const INDEX_PATH = fileURLToPath(new URL('../index.html', import.meta.url));
+
+const _FETCH_URLS = {
+  sayisal: ['https://www.lotobil.com/Sayisal-Loto-Butun-Sonuc-Listesi', 'https://www.millipiyangoonline.com/sayisal-loto/cekilis-sonuclari'],
+  super: ['https://www.lotobil.com/Super-Loto-Butun-Sonuc-Listesi', 'https://www.millipiyangoonline.com/super-loto/cekilis-sonuclari'],
+  sans: ['https://www.lotobil.com/Sans-Topu-Butun-Sonuc-Listesi', 'https://www.millipiyangoonline.com/sans-topu/cekilis-sonuclari'],
+  // lotobil'in "Bütün Sonuç Listesi" arşivinde On Numara için tarih sütunu yok (sadece hafta no).
+  // Bu yüzden önce tarih içeren tekil "son çekiliş" sayfası denenir.
+  onnumara: ['https://www.lotobil.com/On-Numara', 'https://www.millipiyangoonline.com/on-numara/cekilis-sonuclari', 'https://www.lotobil.com/On-Numara-Butun-Sonuc-Listesi'],
+};
+
+function drawLineFromCells(gameId, date, cells) {
+  const drawNums = cells.slice(2).map(c => parseInt(c)).filter(n => Number.isFinite(n));
+  if (gameId === 'super' && drawNums.length >= 6)
+    return `${date} ${drawNums.slice(0, 6).sort((a, b) => a - b).join(' ')}`;
+  if (gameId === 'sans' && drawNums.length >= 6)
+    return `${date} ${drawNums.slice(0, 5).sort((a, b) => a - b).join(' ')} | ${drawNums[5]}`;
+  if (gameId === 'sayisal' && drawNums.length >= 8 && drawNums[7] > 0)
+    return `${date} ${drawNums.slice(0, 7).sort((a, b) => a - b).join(' ')} | ${drawNums[7]}`;
+  return null;
+}
+
+function parseArchiveMap(html, gameId) {
+  const map = new Map();
+  if (!html) return map;
+  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowMatch;
+  while ((rowMatch = rowRe.exec(html))) {
+    const cells = [...rowMatch[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(c => c[1].replace(/<[^>]+>/g, '').trim());
+    if (cells.length < 3) continue;
+    const dm = cells[0].match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+    if (!dm) continue;
+    const date = `${dm[3]}-${dm[2].padStart(2, '0')}-${dm[1].padStart(2, '0')}`;
+    const line = drawLineFromCells(gameId, date, cells);
+    if (line) map.set(date, line);
+  }
+  return map;
+}
+
+function parseLatestSingleResult(html, gameId) {
+  if (gameId !== 'onnumara' || !html) return null;
+  const dm = /id=["']ssayisaltarih["']>\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i.exec(html);
+  if (!dm) return null;
+  const date = `${dm[3]}-${dm[2].padStart(2, '0')}-${dm[1].padStart(2, '0')}`;
+  const after = html.slice(dm.index, dm.index + 6000);
+  const nums = [...after.matchAll(/id=["']sayisaltop\d+["'][^>]*\/(\d+)\.png/gi)].map(m => parseInt(m[1])).filter(n => Number.isFinite(n));
+  if (nums.length < 10) return null;
+  nums.sort((a, b) => a - b);
+  return { date, line: `${date} ${nums.join(' ')}` };
+}
+
+function resortLines(lines) {
+  return [...lines].sort((a, b) => {
+    const da = a.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || '';
+    const db = b.match(/^(\d{4}-\d{2}-\d{2})/)?.[1] || '';
+    return db.localeCompare(da);
+  });
+}
+
+async function fetchHtml(url) {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; numberselectapp-bot/1.0)' },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) return null;
+    const text = await res.text();
+    return text && text.length > 500 ? text : null;
+  } catch (e) {
+    console.warn(`[fetch] ${url} başarısız: ${e.message}`);
+    return null;
+  }
+}
+
+function trToday() {
+  const trNow = new Date(Date.now() + 3 * 3600 * 1000);
+  return { todayTR: trNow.toISOString().slice(0, 10), trHour: trNow.getUTCHours() };
+}
+
+async function updateGame(gameId, currentText) {
+  const { todayTR, trHour } = trToday();
+  const fetchableDate = date => date <= todayTR && !(date === todayTR && trHour < 22);
+
+  const existingLines = currentText.split('\n').filter(l => l.trim());
+  const existing = new Set(existingLines.map(l => l.match(/^(\d{4}-\d{2}-\d{2})/)?.[1]).filter(Boolean));
+  const inserted = [];
+
+  for (const url of _FETCH_URLS[gameId] || []) {
+    const html = await fetchHtml(url);
+    if (!html) continue;
+    const archiveMap = parseArchiveMap(html, gameId);
+    if (archiveMap.size) {
+      for (const [date, line] of archiveMap) {
+        if (existing.has(date) || !fetchableDate(date)) continue;
+        existing.add(date);
+        inserted.push(line);
+      }
+    } else {
+      const single = parseLatestSingleResult(html, gameId);
+      if (single && !existing.has(single.date) && fetchableDate(single.date)) {
+        existing.add(single.date);
+        inserted.push(single.line);
+      }
+    }
+  }
+
+  if (!inserted.length) return { text: currentText, inserted };
+  const merged = resortLines([...existingLines, ...inserted]);
+  return { text: merged.join('\n'), inserted };
+}
+
+async function main() {
+  const html = readFileSync(INDEX_PATH, 'utf8');
+  const blockRe = /const DRAW_DATA = \{([\s\S]*?)\n\};/;
+  const blockMatch = blockRe.exec(html);
+  if (!blockMatch) throw new Error('DRAW_DATA bloğu index.html içinde bulunamadı');
+
+  const gameRe = /(sayisal|super|sans|onnumara):`([^`]*)`/g;
+  const games = [];
+  let gm;
+  while ((gm = gameRe.exec(blockMatch[1]))) games.push({ id: gm[1], text: gm[2] });
+  if (games.length !== 4) throw new Error(`Beklenen 4 oyun, bulunan: ${games.length}`);
+
+  let anyChange = false;
+  const summary = [];
+  for (const g of games) {
+    const { text, inserted } = await updateGame(g.id, g.text);
+    if (inserted.length) {
+      anyChange = true;
+      g.text = text;
+      summary.push(`${g.id}: +${inserted.length} (${inserted.map(l => l.slice(0, 10)).join(', ')})`);
+    }
+  }
+
+  if (!anyChange) {
+    console.log('Yeni çekiliş verisi bulunamadı, dosya değiştirilmedi.');
+    return;
+  }
+
+  const newBlockInner = '\n' + games.map(g => `${g.id}:\`${g.text}\`,`).join('\n\n') + '\n';
+  const newHtml = html.slice(0, blockMatch.index) + `const DRAW_DATA = {${newBlockInner}};` + html.slice(blockMatch.index + blockMatch[0].length);
+  writeFileSync(INDEX_PATH, newHtml);
+  console.log('index.html güncellendi:\n' + summary.join('\n'));
+}
+
+main().catch(e => {
+  console.error(e);
+  process.exit(1);
+});

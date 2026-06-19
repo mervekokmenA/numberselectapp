@@ -1,0 +1,50 @@
+name: Çekiliş Verilerini Güncelle
+
+on:
+  schedule:
+    # 21:00 UTC = 00:00 Türkiye saati (UTC+3) — günde 1 kez
+    - cron: '0 21 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-draws
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: claude/lottery-guessing-machine-ODD1U
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Çekiliş verilerini çek ve index.html'i güncelle
+        run: node scripts/update-draws.mjs
+
+      - name: Değişiklik varsa commit ve push (sadece bu branch'e)
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "Yeni çekiliş verisi yok, commit atlanıyor."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Otomatik çekiliş güncellemesi $(date -u +%Y-%m-%d)"
+          for i in 1 2 3 4; do
+            if git pull --rebase origin claude/lottery-guessing-machine-ODD1U && git push origin HEAD:claude/lottery-guessing-machine-ODD1U; then
+              exit 0
+            fi
+            sleep $((i * 5))
+          done
+          echo "Push 4 denemeden sonra başarısız oldu." >&2
+          exit 1
