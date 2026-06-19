@@ -1045,13 +1045,15 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="b10WheelResultHt"></div>
  </div>
 
- <!-- 5: Listeler AI Biletleri (otomatik doldurulur) -->
+ <!-- 5: Listeler — Bulunan Sayılar & AI Biletleri (otomatik doldurulur) -->
  <div class="card" style="margin-bottom:12px">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <div class="card-title" style="margin:0">🤖 Listeler — AI Biletleri</div>
+   <div class="card-title" style="margin:0">🔎 Listeler — Bulunan Sayılar & AI Biletleri</div>
    <button onclick="_htAutoFillListelerAi()" style="font-size:.62rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔄 Yenile</button>
   </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px">🤖 Otomatik üretilir. Listeler sayfasında kendi tahmininizi/geçmiş testinizi çalıştırırsanız burada da güncellenir.</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px">🤖 Otomatik üretilir (son 2 çekiliş geri testi + 2000 biletlik Sisal-LCG yeni tahmin). Listeler sayfasında kendi tahmininizi/geçmiş testinizi çalıştırırsanız burada da güncellenir.</div>
+  <div id="htListelerBulunduMirror" style="margin-bottom:14px"><div class="empty-state"><span class="empty-icon">🔎</span>Yükleniyor…</div></div>
+  <div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:8px;padding-top:6px;border-top:1px solid var(--border)">🤖 AI Biletleri</div>
   <div id="htListelerAiMirror"><div class="empty-state"><span class="empty-icon">🤖</span>Yükleniyor…</div></div>
  </div>
 
@@ -1085,7 +1087,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <div class="card-title" style="margin:0">🧮 Konsensüs Analizi</div>
    <button onclick="_htRenderConsensus()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
   </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Bu sayfadaki sistemlerin (Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu, Listeler AI, NSA Banko) ürettiği sayıları karşılaştırır. Birden çok sistemde ortak çıkan sayı, tek bir sistemde çıkana göre daha güçlü adaydır.</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Bu sayfadaki tüm sistemlerin ürettiği sayıları karşılaştırır. Birden çok sistemde ortak çıkan sayı, tek bir sistemde çıkana göre daha güçlü adaydır.</div>
   <div class="tabs" style="margin-bottom:10px">
    <button class="tab-btn active" id="htConsTabBtn-pool" onclick="_htConsSwitchTab('pool')">📋 Havuzdan Seç</button>
    <button class="tab-btn" id="htConsTabBtn-all" onclick="_htConsSwitchTab('all')">🌐 Tüm Sistemler</button>
@@ -10924,19 +10926,13 @@ function listelerDateStep(dir){
   if(newIdx>=0&&newIdx<sel.options.length)sel.selectedIndex=newIdx;
 }
 
-function listelerRunBacktest(){
-  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
-  const game=getGame(gameId);if(!game)return;
-  const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
-  const testDate=document.getElementById('listelerDate')?.value;
-  if(!testDate){showToast('⚠️ Tarih seçin');return;}
-  if(_listelerHistory.some(h=>h.date===testDate&&h.game.id===gameId)){showToast('⚠️ Bu tarih için zaten bir sütun var');return;}
-  const win=document.getElementById('listelerWindow')?.value||'30';
-  const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||10));
+function _listelerBacktestCore(gameId,testDate,algoId,win,n){
+  const game=getGame(gameId);if(!game)return null;
+  if(_listelerHistory.some(h=>h.date===testDate&&h.game.id===gameId))return null;
   const draws=_scanGetDraws(gameId);
   let prior=draws.filter(d=>d.date<testDate);
   if(win!=='all')prior=prior.slice(-parseInt(win));
-  if(!prior.length){showToast('⚠️ Yeterli geçmiş veri yok');return;}
+  if(!prior.length)return null;
   const actual=draws.find(d=>d.date===testDate)||null;
   const freq=buildFreq(prior);
   const tickets=Array.from({length:n},()=>generateNumbers(game,algoId,freq,prior));
@@ -10945,9 +10941,22 @@ function listelerRunBacktest(){
   const greenCells=new Set();
   tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{if(actualSet.has(num))greenCells.add(`${ti}-${pi}`);}));
   const id=Date.now().toString(36)+Math.random().toString(36).slice(2,5);
-  _listelerHistory.push({id,date:testDate,actual,tickets,game,algoId,checked:true,greenCells});
+  const entry={id,date:testDate,actual,tickets,game,algoId,checked:true,greenCells};
+  _listelerHistory.push(entry);
   _listelerHistory.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
   _listelerRecompute();
+  return entry;
+}
+function listelerRunBacktest(){
+  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
+  const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
+  const testDate=document.getElementById('listelerDate')?.value;
+  if(!testDate){showToast('⚠️ Tarih seçin');return;}
+  if(_listelerHistory.some(h=>h.date===testDate&&h.game.id===gameId)){showToast('⚠️ Bu tarih için zaten bir sütun var');return;}
+  const win=document.getElementById('listelerWindow')?.value||'30';
+  const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||10));
+  const entry=_listelerBacktestCore(gameId,testDate,algoId,win,n);
+  if(!entry){showToast('⚠️ Yeterli geçmiş veri yok');return;}
   _renderListelerCols();
 }
 
@@ -10986,20 +10995,25 @@ function listelerVeriDurumu(){
   configCard.insertAdjacentHTML('beforeend',html);
 }
 
-function listelerRunNewPred(){
-  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
-  const game=getGame(gameId);if(!game)return;
-  const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
-  const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||10));
+function _listelerNewPredCore(gameId,algoId,win,n){
+  const game=getGame(gameId);if(!game)return null;
   const draws=_scanGetDraws(gameId);
-  if(!draws.length){showToast('⚠️ Veri yok');return;}
-  const win=document.getElementById('listelerWindow')?.value||'30';
+  if(!draws.length)return null;
   const prior=win==='all'?draws:draws.slice(0,Math.min(parseInt(win),draws.length));
   const freq=buildFreq(prior);
   const tickets=Array.from({length:n},()=>generateNumbers(game,algoId,freq,prior));
   tickets.sort((a,b)=>calcTicketScore(b,game)-calcTicketScore(a,game));
   _listelerNewPred={tickets,game,algoId};
   _listelerRedKeys=new Set();
+  return _listelerNewPred;
+}
+function listelerRunNewPred(){
+  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
+  const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
+  const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||10));
+  const win=document.getElementById('listelerWindow')?.value||'30';
+  const res=_listelerNewPredCore(gameId,algoId,win,n);
+  if(!res){showToast('⚠️ Veri yok');return;}
   document.getElementById('listelerBulundu').style.display='none';
   _renderListelerNewPred();
 }
@@ -13250,13 +13264,68 @@ function _htAutoFillGizli(){
   gizliModelUygula(true);
   _htRenderGizli();
 }
+let _htListelerAutoIds=new Set();
+let _htListelerAutoPredRef=null;
 function _htAutoFillListelerAi(){
-  if(!_listelerNewPred&&!_listelerHistory.length){
-    _listelerGame=_htGame;
-    const draws=_scanGetDraws(_listelerGame);
-    if(draws&&draws.length)listelerRunNewPred();
+  const gameId=_htGame;
+  // Başka bir oyun için otomatik eklenmiş geçmiş sütunları varsa, SADECE bizim eklediklerimizi temizle
+  if(_htListelerAutoIds.size&&_listelerHistory.some(h=>_htListelerAutoIds.has(h.id)&&h.game.id!==gameId)){
+    _listelerHistory=_listelerHistory.filter(h=>!_htListelerAutoIds.has(h.id));
+    _htListelerAutoIds.clear();
+    _listelerRecompute();
+  }
+  if(_htListelerAutoPredRef&&_listelerNewPred===_htListelerAutoPredRef&&_listelerNewPred.game.id!==gameId){
+    _listelerNewPred=null;
+    _htListelerAutoPredRef=null;
+  }
+  _listelerGame=gameId;
+  // Son 2 gerçek çekiliş için geri test sütunu — sadece bu oyun için hiç sütun yoksa (kullanıcının kendi verisini asla ezme)
+  if(!_listelerHistory.some(h=>h.game.id===gameId)){
+    const draws=_scanGetDraws(gameId);
+    if(draws&&draws.length>=2){
+      const e1=_listelerBacktestCore(gameId,draws[0].date,'sislcg','all',2000);
+      const e2=_listelerBacktestCore(gameId,draws[1].date,'sislcg','all',2000);
+      [e1,e2].forEach(e=>{if(e)_htListelerAutoIds.add(e.id);});
+    }
+  }
+  // Yeni oyun tahmini — sadece henüz yoksa
+  if(!_listelerNewPred||_listelerNewPred.game.id!==gameId){
+    const res=_listelerNewPredCore(gameId,'sislcg','all',2000);
+    if(res)_htListelerAutoPredRef=res;
+  }
+  if(_listelerNewPred&&_listelerNewPred.game.id===gameId){
+    listelerKontrol();
+    setTimeout(_htMirrorListelerBulundu,350);
   }
   listelerRunAi(true);
+}
+function _htMirrorListelerBulundu(){
+  const leftSrc=document.getElementById('listelerBulunduLeft');
+  const rightSrc=document.getElementById('listelerBulunduRight');
+  const dst=document.getElementById('htListelerBulunduMirror');
+  if(dst&&(leftSrc||rightSrc)){
+    dst.innerHTML=`<div style="font-size:.6rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">🔴 Kırmızı Hücrelerden Sayılar</div>
+      <div style="margin-bottom:12px">${leftSrc?leftSrc.innerHTML:''}</div>
+      <div style="font-size:.6rem;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px">🔗 Ortak Sayılar (B10 × Dönüşüm)</div>
+      <div>${rightSrc?rightSrc.innerHTML:''}</div>`;
+  }
+  // Konsensüs için sayı kümelerini doğrudan veri yapılarından çıkar (HTML kazıma yapmadan)
+  const kirmizi=new Set();
+  if(_listelerNewPred){
+    _listelerNewPred.tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
+      if(_listelerRedKeys.has(`${ti}-${pi}`))kirmizi.add(num);
+    }));
+  }
+  window._listelerKirmiziNums=[...kirmizi];
+  const ortak=new Set();
+  const d=window._ortakData;
+  if(d){
+    (d.exact||[]).forEach(e=>ortak.add(e.n));
+    (d.pm1Final||[]).forEach(r=>ortak.add(r.transN));
+    (d.b10Only||[]).forEach(s=>ortak.add(s.n));
+  }
+  window._listelerOrtakNums=[...ortak];
+  _htRenderConsensus();
 }
 function _htShowManualNumbers(){
   const raw=document.getElementById('htManualInput')?.value||'';
@@ -13284,6 +13353,8 @@ function _htCollectVotes(){
   sys['Sisal-LCG']=new Set(window._htSisalNums||[]);
   sys['B10 Kuponu']=new Set(window.b10WheelPoolHt||[]);
   sys['Listeler AI Biletler']=new Set(window._listelerAiNums||[]);
+  sys['Listeler Kırmızı']=new Set(window._listelerKirmiziNums||[]);
+  sys['Listeler Ortak']=new Set(window._listelerOrtakNums||[]);
   sys['NSA Banko']=new Set((typeof _gizliLastColumns!=='undefined'&&_gizliLastColumns)?_gizliLastColumns.flatMap(c=>c.col):[]);
   return sys;
 }
@@ -13318,13 +13389,13 @@ function _htRenderConsensus(){
   const sys=_htCollectVotes();
   const names=Object.keys(sys);
   const total=names.length;
-  const legend=`<div style="font-size:.56rem;color:var(--muted);margin-top:10px;line-height:1.6">🟢 4-6 sistem ortak · 🟡 2-3 sistem ortak · 🟣 1 sistemde · ⚪ hiçbirinde yok</div>`;
+  const legend=`<div style="font-size:.56rem;color:var(--muted);margin-top:10px;line-height:1.6">🟢 4+ sistem ortak · 🟡 2-3 sistem ortak · 🟣 1 sistemde · ⚪ hiçbirinde yok</div>`;
   if(_htConsMode==='pool'){
     const raw=document.getElementById('htManualInput')?.value||'';
     const pool=[...new Set((raw.match(/\d+/g)||[]).map(Number))];
     if(!pool.length){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Önce yukarıdaki "✍️ Manuel Sayı Girişi" kutusuna aday sayı grubunu yapıştırıp "🔢 Göster"e basın.</div>';return;}
     const scores=_htConsensusScores(pool);
-    el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">Havuzdaki <strong style="color:var(--text)">${pool.length}</strong> sayı, bu sayfadaki ${total} sistemle (Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu, Listeler AI, NSA Banko) karşılaştırıldı. Daha çok sistemde geçen sayı = daha güçlü aday.</div>`+
+    el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">Havuzdaki <strong style="color:var(--text)">${pool.length}</strong> sayı, bu sayfadaki ${total} sistemle (${names.join(', ')}) karşılaştırıldı. Daha çok sistemde geçen sayı = daha güçlü aday.</div>`+
       `<div style="display:flex;gap:6px;flex-wrap:wrap">${scores.map(s=>_htConsBadge(s,total)).join('')}</div>`+legend;
   }else{
     const scores=_htConsensusScores(null).filter(s=>s.cnt>0).slice(0,30);
