@@ -987,6 +987,15 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <!-- ═══════════ PAGE: HIZLI TAHMİN ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-hizlitahmin">
 
+ <!-- 0: Manuel Sayı Girişi (harici liste filtresi) -->
+ <div class="card" style="margin-bottom:12px">
+  <div class="card-title">✍️ Manuel Sayı Girişi</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Sayıları virgülle ayırarak yapıştırın, örn: <code style="background:rgba(0,0,0,.06);padding:1px 4px;border-radius:3px">2, 6, 9, 11, 15...</code>. Örneğin dışarıdan edindiğiniz bir aday sayı listesini buraya yapıştırabilirsiniz — aşağıdaki 🧮 Konsensüs Analizi kartının "📋 Havuzdan Seç" sekmesi bu havuzu sayfadaki diğer sistemlerle otomatik karşılaştırıp filtreler.</div>
+  <textarea id="htManualInput" rows="2" placeholder="2, 6, 9, 11, 15, 16, 19, 22, 23, 26, 28, 30, 32, 36, 38, 40, 43, 45, 47, 50, 51, 52, 56" style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;outline:none;margin-bottom:8px"></textarea>
+  <button onclick="_htShowManualNumbers()" style="font-size:.74rem;padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-weight:700;margin-bottom:10px">🔢 Göster</button>
+  <div id="htManualResult" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+ </div>
+
  <!-- 1+2: Gülay Analiz + AI Biletler -->
  <div class="card" style="margin-bottom:12px">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
@@ -1072,16 +1081,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </details>
  </div>
 
- <!-- 7: Manuel Sayı Girişi -->
- <div class="card">
-  <div class="card-title">✍️ Manuel Sayı Girişi</div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Sayıları virgülle ayırarak yapıştırın, örn: <code style="background:rgba(0,0,0,.06);padding:1px 4px;border-radius:3px">2, 6, 9, 11, 15...</code></div>
-  <textarea id="htManualInput" rows="2" placeholder="2, 6, 9, 11, 15, 16, 19, 22, 23, 26, 28, 30, 32, 36, 38, 40, 43, 45, 47, 50, 51, 52, 56" style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;outline:none;margin-bottom:8px"></textarea>
-  <button onclick="_htShowManualNumbers()" style="font-size:.74rem;padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-weight:700;margin-bottom:10px">🔢 Göster</button>
-  <div id="htManualResult" style="display:flex;gap:6px;flex-wrap:wrap"></div>
- </div>
-
- <!-- 8: Konsensüs Analizi -->
+ <!-- 7: Konsensüs Analizi -->
  <div class="card" style="margin-top:12px">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
    <div class="card-title" style="margin:0">🧮 Konsensüs Analizi</div>
@@ -1093,6 +1093,13 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button class="tab-btn" id="htConsTabBtn-all" onclick="_htConsSwitchTab('all')">🌐 Tüm Sistemler</button>
   </div>
   <div id="htConsensusResult"><div class="empty-state"><span class="empty-icon">🧮</span>Yükleniyor…</div></div>
+ </div>
+
+ <!-- 8: Geçmiş Test — Bu Sayfanın Başarısı -->
+ <div class="card" style="margin-top:12px">
+  <div class="card-title">📈 Geçmiş Test — Bu Sayfanın Başarısı</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Gülay Analiz, Gülay AI, Sisal-LCG ve B10 Kuponu kaynaklarını geçmiş çekilişler üzerinde geriye dönük test eder — her tur SADECE o tarihten önceki verilerle yeniden hesaplanır. NSA Banko (kullanıcı filtrelerine bağlı) ve Listeler'den gelen 3 kaynak (2000 biletlik, turlarca tekrarı pratik değil) bu otomatik teste dahil değildir.</div>
+  <div id="htBtBox"></div>
  </div>
 
 </div><!-- /page-hizlitahmin -->
@@ -10414,7 +10421,7 @@ function _kbRenderTest(){
   const comboKey=_kbGame+'|'+_kbBtRounds;
   h+=`<div id="kbComboBox" style="margin-top:14px">`;
   if(_kbComboCache[comboKey]){
-    h+=_kbRenderComboBlock(_kbComboCache[comboKey],bt,cnt);
+    h+=_kbRenderComboBlock(_kbComboCache[comboKey],bt);
   } else {
     h+=`<div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:16px;text-align:center">`;
     h+=`<div style="font-size:.78rem;font-weight:800;color:#8a6200;margin-bottom:6px">🧬 Hızlı Tahmin Birleşimi — Geriye Dönük Test (deneysel)</div>`;
@@ -10426,14 +10433,15 @@ function _kbRenderTest(){
   return h;
 }
 
-function _kbRenderComboBlock(combo,bt,cnt){
+function _kbRenderComboBlock(combo,bt){
+  const cnt=combo.cnt;
   const comboLift=combo.base>0?combo.comboAvg/combo.base:0;
   let h='';
   h+=`<div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:12px 14px">`;
   h+=`<div style="font-size:.78rem;font-weight:800;color:#8a6200">🧬 Hızlı Tahmin Birleşimi — Geriye Dönük Test (deneysel)</div>`;
   h+=`<div style="font-size:.6rem;color:var(--muted);margin-top:4px;margin-bottom:10px;line-height:1.6">Gülay Analiz, Gülay AI, Sisal-LCG ve B10 Kuponu — bu ${combo.sourceCount} kaynak her tur SADECE o tarihten önceki verilerle yeniden hesaplanıp en çok kaynakta ortak çıkan ${cnt} sayı gerçek sonuçla karşılaştırıldı. NSA Banko (kullanıcı filtrelerine bağlı) ve Listeler'den gelen 3 kaynak (2000 biletlik geri test/tahmin — bunu turlarca tekrarlamak pratik değil) bu otomatik teste dahil edilmedi.</div>`;
   h+=`<div class="b10-tahmin-grid" style="margin-bottom:10px"><div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Birleşim ort. isabet (üst ${cnt})</div><div style="font-size:1.6rem;font-weight:800;color:var(--green)">${combo.comboAvg.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">rastgele ≈ ${combo.base.toFixed(2)}</div></div><div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Kazanç (lift)</div><div style="font-size:1.6rem;font-weight:800;color:var(--accent)">${comboLift.toFixed(2)}×</div><div style="font-size:.58rem;color:var(--muted)">${combo.trials} tur test</div></div></div>`;
-  h+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:.64rem;color:var(--text);line-height:1.7">📊 Karşılaştırma — KB konsensüsü: <strong style="color:${bt.consAvg>combo.comboAvg?'var(--green)':'var(--text)'}">${bt.consAvg.toFixed(2)}</strong> · Hızlı Tahmin birleşimi: <strong style="color:${combo.comboAvg>bt.consAvg?'var(--green)':'var(--text)'}">${combo.comboAvg.toFixed(2)}</strong> · rastgele: ${bt.base.toFixed(2)}</div>`;
+  if(bt)h+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:.64rem;color:var(--text);line-height:1.7">📊 Karşılaştırma — KB konsensüsü: <strong style="color:${bt.consAvg>combo.comboAvg?'var(--green)':'var(--text)'}">${bt.consAvg.toFixed(2)}</strong> · Hızlı Tahmin birleşimi: <strong style="color:${combo.comboAvg>bt.consAvg?'var(--green)':'var(--text)'}">${combo.comboAvg.toFixed(2)}</strong> · rastgele: ${bt.base.toFixed(2)}</div>`;
   h+=`<div style="font-size:.64rem;color:var(--muted);line-height:1.6;margin-bottom:10px">Çekiliş başına ~${combo.strongPerDraw.toFixed(1)} kaynakların ≥3/${combo.sourceCount}'ünde ortak çıkan aday üretildi; bunların <strong style="color:var(--green)">%${Math.round(combo.strongPrec*100)}</strong>'i gerçekten çıktı (${combo.strongHit}/${combo.strongTot}).</div>`;
   if(combo.perRound&&combo.perRound.length){
     h+=`<div style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
@@ -10466,12 +10474,12 @@ function _kbRunCombo(){
   box.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted);font-size:.75rem">⏳ Hesaplanıyor… (birkaç saniye sürebilir)</div>';
   setTimeout(()=>{
     try{
-      const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame),cnt=Math.min(game.count,7);
+      const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame);
       const cal=_kbCalibrate(draws,game),bt=_kbBacktest(draws,game,cal,_kbBtRounds);
       const comboKey=_kbGame+'|'+_kbBtRounds;
       const combo=_kbHtComboBacktest(draws,game,_kbBtRounds);
       _kbComboCache[comboKey]=combo;
-      box.innerHTML=_kbRenderComboBlock(combo,bt,cnt);
+      box.innerHTML=_kbRenderComboBlock(combo,bt);
     }catch(e){box.innerHTML='<div style="padding:14px;color:#cc2222;font-size:.7rem">Hata: '+e.message+'</div>';}
   },40);
 }
@@ -13360,6 +13368,7 @@ function _htInit(){
   _htAutoFillGizli();
   _htAutoFillListelerAi();
   setTimeout(_htRenderConsensus,60);
+  _htRenderBtBox();
 }
 function _htRenderGameRow(){
   const row=document.getElementById('htSozGameRow');if(!row)return;
@@ -13369,7 +13378,7 @@ function _htRenderGameRow(){
     return `<button onclick="_htSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
   }).join('');
 }
-function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_htGenerateSisal();_htAutoFillGizli();_htAutoFillListelerAi();setTimeout(_htRenderConsensus,60);}
+function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_htGenerateSisal();_htAutoFillGizli();_htAutoFillListelerAi();setTimeout(_htRenderConsensus,60);_htRenderBtBox();}
 function _htRenderSoz(){
   const el=document.getElementById('htSozContent');if(!el)return;
   const game=getGame(_htGame);
@@ -13548,6 +13557,29 @@ function _htRenderConsensus(){
     el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">Sayfadaki ${total} sistemin ürettiği tüm sayılar birleştirildi, en çok sistemde ortak çıkanlar üstte (ilk 30).</div>`+
       `<div style="display:flex;gap:6px;flex-wrap:wrap">${scores.map(s=>_htConsBadge(s,total)).join('')}</div>`+legend;
   }
+}
+
+// ── Hızlı Tahmin — Geçmiş Test (bu sayfanın 4 ucuz kaynağının geriye dönük başarısı) ──
+const _htBtCache={};
+function _htRenderBtBox(){
+  const el=document.getElementById('htBtBox');if(!el)return;
+  if(_htBtCache[_htGame]){el.innerHTML=_kbRenderComboBlock(_htBtCache[_htGame]);return;}
+  el.innerHTML=`<div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:16px;text-align:center">
+    <button onclick="_htRunBacktest()" style="background:rgba(251,191,36,.18);border:1px solid rgba(251,191,36,.5);color:#8a6200;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:.72rem;font-weight:800">📈 Geçmiş Testi Çalıştır</button>
+  </div>`;
+}
+function _htRunBacktest(){
+  const el=document.getElementById('htBtBox');if(!el)return;
+  el.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted);font-size:.75rem">⏳ Hesaplanıyor… (birkaç saniye sürebilir)</div>';
+  setTimeout(()=>{
+    try{
+      const game=getGame(_htGame),draws=_kbGetDraws(_htGame);
+      if(!draws||draws.length<30){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Geri test için yeterli çekiliş verisi yok.</div>';return;}
+      const combo=_kbHtComboBacktest(draws,game,50);
+      _htBtCache[_htGame]=combo;
+      el.innerHTML=_kbRenderComboBlock(combo);
+    }catch(e){el.innerHTML='<div style="padding:14px;color:#cc2222;font-size:.7rem">Hata: '+e.message+'</div>';}
+  },40);
 }
 
 function _soGapAnalysisCompute(draw,game){
