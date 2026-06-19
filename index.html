@@ -990,9 +990,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <!-- 0: Manuel Sayı Girişi (harici liste filtresi) -->
  <div class="card" style="margin-bottom:12px">
   <div class="card-title">✍️ Manuel Sayı Girişi</div>
+  <div id="htDrawReminder"></div>
   <div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Sayıları virgülle ayırarak yapıştırın, örn: <code style="background:rgba(0,0,0,.06);padding:1px 4px;border-radius:3px">2, 6, 9, 11, 15...</code>. Örneğin dışarıdan edindiğiniz bir aday sayı listesini buraya yapıştırabilirsiniz — aşağıdaki 🧮 Konsensüs Analizi kartının "📋 Havuzdan Seç" sekmesi bu havuzu sayfadaki diğer sistemlerle otomatik karşılaştırıp filtreler.</div>
   <textarea id="htManualInput" rows="2" placeholder="2, 6, 9, 11, 15, 16, 19, 22, 23, 26, 28, 30, 32, 36, 38, 40, 43, 45, 47, 50, 51, 52, 56" style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;outline:none;margin-bottom:8px"></textarea>
   <button onclick="_htShowManualNumbers()" style="font-size:.74rem;padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-weight:700;margin-bottom:10px">🔢 Göster</button>
+  <button onclick="_htAutoFillManualPool()" style="font-size:.74rem;padding:7px 16px;border-radius:8px;border:1px solid rgba(129,140,248,.5);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700;margin-bottom:10px;margin-left:8px">🎲 Otomatik Doldur</button>
   <div id="htManualResult" style="display:flex;gap:6px;flex-wrap:wrap"></div>
  </div>
 
@@ -13375,6 +13377,7 @@ function _htInit(){
   _htAutoFillListelerAi();
   setTimeout(_htRenderConsensus,60);
   _htRenderBtBox();
+  _htRenderDrawReminder();
 }
 function _htRenderGameRow(){
   const row=document.getElementById('htSozGameRow');if(!row)return;
@@ -13384,7 +13387,7 @@ function _htRenderGameRow(){
     return `<button onclick="_htSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
   }).join('');
 }
-function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_htGenerateSisal();_htAutoFillGizli();_htAutoFillListelerAi();setTimeout(_htRenderConsensus,60);_htRenderBtBox();}
+function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_htGenerateSisal();_htAutoFillGizli();_htAutoFillListelerAi();setTimeout(_htRenderConsensus,60);_htRenderBtBox();_htRenderDrawReminder();}
 function _htRenderSoz(){
   const el=document.getElementById('htSozContent');if(!el)return;
   const game=getGame(_htGame);
@@ -13494,6 +13497,22 @@ function _htShowManualNumbers(){
   if(!nums.length){el.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Sayı girin.</div>';return;}
   el.innerHTML=nums.map(n=>staticBall(n,'blue')).join('');
   _htRenderConsensus();
+}
+// ── Çekiliş hatırlatması: bugün çekilmiş oyun varsa öner; doldurma her zaman butonla, isteğe bağlı ──
+function _htRenderDrawReminder(){
+  const el=document.getElementById('htDrawReminder');if(!el)return;
+  const todayTR=new Date(Date.now()+3*3600*1000).toISOString().slice(0,10);
+  const justDrawn=GAMES.filter(g=>{const d=_kbGetDraws(g.id);return d&&d[0]&&d[0].date===todayTR;});
+  if(!justDrawn.length){el.innerHTML='';return;}
+  const names=justDrawn.map(g=>g.emoji+' '+g.name).join(', ');
+  el.innerHTML=`<div style="background:rgba(129,140,248,.08);border:1px solid rgba(129,140,248,.3);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:.66rem;color:var(--text);line-height:1.6">🔔 <strong>${names}</strong> bugün çekildi — harici bir liste aldıysanız aşağıya yapıştırabilir, ya da <strong>🎲 Otomatik Doldur</strong> ile rastgele bir havuz oluşturabilirsiniz.</div>`;
+}
+function _htAutoFillManualPool(){
+  const game=getGame(_htGame);if(!game)return;
+  const r=generateNumbers(game,'random');
+  const ta=document.getElementById('htManualInput');if(!ta)return;
+  ta.value=[...r.main,...r.bonus].sort((a,b)=>a-b).join(', ');
+  _htShowManualNumbers();
 }
 
 // ── Konsensüs Analizi: sayfadaki sistemlerin ürettiği sayıları karşılaştırır ──
