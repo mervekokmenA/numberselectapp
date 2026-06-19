@@ -11105,7 +11105,13 @@ function listelerRunBacktest(){
   const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
   const testDate=document.getElementById('listelerDate')?.value;
   if(!testDate){showToast('⚠️ Tarih seçin');return;}
-  if(_listelerHistory.some(h=>h.date===testDate&&h.game.id===gameId)){showToast('⚠️ Bu tarih için zaten bir sütun var');return;}
+  const dup=_listelerHistory.find(h=>h.date===testDate&&h.game.id===gameId);
+  if(dup){
+    // Hızlı Tahmin sayfasının otomatik eklediği sütunu kullanıcı isteyince değiştirebilsin; kullanıcının kendi eklediği sütunu yine koru
+    if(!_htListelerAutoIds.has(dup.id)){showToast('⚠️ Bu tarih için zaten bir sütun var');return;}
+    _listelerHistory=_listelerHistory.filter(h=>h.id!==dup.id);
+    _htListelerAutoIds.delete(dup.id);
+  }
   const win=document.getElementById('listelerWindow')?.value||'30';
   const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||10));
   const entry=_listelerBacktestCore(gameId,testDate,algoId,win,n);
