@@ -10252,7 +10252,13 @@ function _b10Norm(obj,max){
 
 // Walk-forward kalibrasyon: her sinyalin precision@topK lift'i ölçülür.
 // Z-score softmax: zararlı sinyaller ağırlık=~0 alır.
+// draws değişmediği sürece (yeni çekiliş gelmediği sürece) aynı sonucu üretir, bu yüzden cache'lenir —
+// V=22 round × 6 sinyal × O(draws×max) maliyetli kalibrasyonun her sekme/oyun değişiminde tekrarlanmasını önler.
+const _b10CalibrateCache=new Map();
 function _b10Calibrate(draws,game){
+  const cacheKey=game.id+'|'+draws.length+'|'+(draws[0]&&draws[0].date||'');
+  const cached=_b10CalibrateCache.get(cacheKey);
+  if(cached){_b10CalibInfo=cached.info;return cached.w;}
   const max=game.max,cnt=Math.min(game.count,7);
   const V=Math.min(22,Math.max(8,Math.floor(draws.length*0.3)));
   const topK=Math.max(cnt,Math.round(max*0.14));
@@ -10285,6 +10291,7 @@ function _b10Calibrate(draws,game){
   });
   _B10_SIGS.forEach(k=>w[k]=w[k]/sum);
   _b10CalibInfo={rounds:valid,lift:rl,topK,base:baseHit};
+  _b10CalibrateCache.set(cacheKey,{w,info:_b10CalibInfo});
   return w;
 }
 
@@ -14308,6 +14315,8 @@ function _htRenderDrawReminder(){
 document.addEventListener('drawDataUpdated',e=>{
   const gid=e.detail&&e.detail.gameId;if(!gid)return;
   delete _htBtCache[gid];
+  for(const k of[..._soAiComputeCache.keys()])if(k.startsWith(gid+'|'))_soAiComputeCache.delete(k);
+  for(const k of[..._b10CalibrateCache.keys()])if(k.startsWith(gid+'|'))_b10CalibrateCache.delete(k);
   if(gid!==_htGame)return;
   _htRenderSoz();_htGenerateSisal();
   if(typeof runB10Wheel==='function')runB10Wheel('Ht');
@@ -14548,8 +14557,16 @@ function _soAiSignals(draws,game,srcDraw){
   for(let n=1;n<=gmax;n++)ewf[n]=ewfRaw[n]||0;
 
   // 2) Gecikme — kaç çekiliştir görünmüyor (uzun süredir çıkmayan = yüksek skor)
-  const delay=new Float64Array(gmax+1);
-  for(let n=1;n<=gmax;n++){const i=draws.findIndex(d=>[...d.nums,...(d.bonus||[])].includes(n));delay[n]=i===-1?draws.length:i;}
+  // Tek geçişte hesaplanır: önceden her sayı için ayrı bir findIndex taraması yapılıyordu
+  // (O(gmax×draws)); artık tüm sayıların ilk görüldüğü indeks bir kerede bulunuyor (O(draws)).
+  const delay=new Float64Array(gmax+1).fill(draws.length);
+  {
+    const seen=new Set();
+    for(let i=0;i<draws.length&&seen.size<gmax;i++){
+      const all=[...draws[i].nums,...(draws[i].bonus||[])];
+      for(const n of all)if(n>=1&&n<=gmax&&!seen.has(n)){delay[n]=i;seen.add(n);}
+    }
+  }
 
   // 3) NS/NST şablon zinciri
   const ns=new Float64Array(gmax+1);
@@ -14640,8 +14657,13 @@ function _soAiCalibrateWeights(draws,game){
   return{w:_SO_AI_WEIGHT_GRID[bestI],calibrated:true,n:evaluated,avgHit:bestV/evaluated};
 }
 
+// (game,srcDraw tarihi,draws uzunluğu) aynıyken aynı sonucu üretir — sekme değiştirip
+// geri dönmek veya aynı oyunu tekrar açmak, yeni çekiliş gelmediği sürece anında döner.
+const _soAiComputeCache=new Map();
 function _soAiCompute(draws,game,srcDraw){
   if(!draws||draws.length<8||!srcDraw)return null;
+  const cacheKey=game.id+'|'+srcDraw.date+'|'+draws.length;
+  if(_soAiComputeCache.has(cacheKey))return _soAiComputeCache.get(cacheKey);
   const gmax=game.max,mainCount=game.count;
 
   const signals=_soAiSignals(draws,game,srcDraw);
@@ -14676,7 +14698,9 @@ function _soAiCompute(draws,game,srcDraw){
     }catch(e){}
   }
 
-  return{gmax,mainCount,numScore,ranked,top15,gulaySet,nsNums,tickets,joker,calib};
+  const result={gmax,mainCount,numScore,ranked,top15,gulaySet,nsNums,tickets,joker,calib};
+  _soAiComputeCache.set(cacheKey,result);
+  return result;
 }
 function _soAiSection(draws,game,srcDraw,nextDraw){
   const ai=_soAiCompute(draws,game,srcDraw);
