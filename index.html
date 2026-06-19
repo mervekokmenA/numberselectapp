@@ -2082,7 +2082,8 @@ sayisal:`2026-06-17 7 18 22 31 55 76 79 | 45
 2020-08-05 46 56 59 65 83 84 48
 2020-08-03 4 34 39 42 47 61 72`,
 
-super:`2026-06-16 8 14 23 32 58 60
+super:`2026-06-18 3 27 29 33 34 58
+2026-06-16 8 14 23 32 58 60
 2026-06-14 3 26 27 32 44 46
 2026-06-11 15 19 30 38 57 60
 2026-06-09 10 11 35 38 41 57
@@ -5459,7 +5460,9 @@ const _FETCH_URLS={
   sayisal:['https://www.lotobil.com/Sayisal-Loto-Butun-Sonuc-Listesi','https://www.millipiyangoonline.com/sayisal-loto/cekilis-sonuclari'],
   super:['https://www.lotobil.com/Super-Loto-Butun-Sonuc-Listesi','https://www.millipiyangoonline.com/super-loto/cekilis-sonuclari'],
   sans:['https://www.lotobil.com/Sans-Topu-Butun-Sonuc-Listesi','https://www.millipiyangoonline.com/sans-topu/cekilis-sonuclari'],
-  onnumara:['https://www.millipiyangoonline.com/on-numara/cekilis-sonuclari','https://www.lotobil.com/On-Numara-Butun-Sonuc-Listesi']
+  // lotobil'in "Bütün Sonuç Listesi" arşivinde On Numara için tarih sütunu yok (sadece hafta no).
+  // Bu yüzden önce tarih içeren tekil "son çekiliş" sayfası denenir, arşiv ve millipiyango son çare olarak kalır.
+  onnumara:['https://www.lotobil.com/On-Numara','https://www.millipiyangoonline.com/on-numara/cekilis-sonuclari','https://www.lotobil.com/On-Numara-Butun-Sonuc-Listesi']
 };
 
 function _insertDrawLine(gameId,line){
@@ -5468,7 +5471,69 @@ function _insertDrawLine(gameId,line){
   if(!date)return false;
   if(new RegExp('(^|\\n)'+date+'\\s').test(DRAW_DATA[gameId]))return false;
   DRAW_DATA[gameId]=line.trim()+'\n'+DRAW_DATA[gameId].trimStart();
+  if(typeof _kbDrawCache!=='undefined')delete _kbDrawCache[gameId];
   return true;
+}
+
+// Bir oyunun DRAW_DATA'sını tarihe göre (en yeni en üstte) yeniden sıralar.
+// Toplu geçmiş doldurma sırasında satırlar bulunma sırasına göre eklendiğinden
+// bu olmadan liste karışık tarih sırasına düşebilir.
+function _resortDrawData(gameId){
+  const raw=DRAW_DATA[gameId];if(!raw)return;
+  const lines=raw.split('\n').filter(l=>l.trim());
+  lines.sort((a,b)=>{
+    const da=a.match(/^(\d{4}-\d{2}-\d{2})/)?.[1]||'';
+    const db=b.match(/^(\d{4}-\d{2}-\d{2})/)?.[1]||'';
+    return db.localeCompare(da);
+  });
+  DRAW_DATA[gameId]=lines.join('\n');
+}
+
+function _drawLineFromCells(gameId,date,cells){
+  const drawNums=cells.slice(2).map(c=>parseInt(c)).filter(n=>Number.isFinite(n));
+  if(gameId==='super'&&drawNums.length>=6)
+    return `${date} ${drawNums.slice(0,6).sort((a,b)=>a-b).join(' ')}`;
+  if(gameId==='sans'&&drawNums.length>=6)
+    return `${date} ${drawNums.slice(0,5).sort((a,b)=>a-b).join(' ')} | ${drawNums[5]}`;
+  if(gameId==='sayisal'&&drawNums.length>=8&&drawNums[7]>0)
+    return `${date} ${drawNums.slice(0,7).sort((a,b)=>a-b).join(' ')} | ${drawNums[7]}`;
+  return null;
+}
+
+// Kaynağın TÜM <tr> satırlarını TEK geçişte tarayıp tarih→satır eşlemesi çıkarır.
+// Böylece sadece son tarihten bugüne değil, arşivin tamamı kullanılabilir hale gelir:
+// geçmişte herhangi bir nedenle (ağ hatası, kaynağın o an güncel olmaması, vb.) atlanmış
+// tarihler de aynı taramada otomatik olarak yakalanıp doldurulur.
+function _parseLotteryArchiveMap(html,gameId){
+  const map=new Map();
+  if(!html)return map;
+  const rowRe=/<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowMatch;
+  while((rowMatch=rowRe.exec(html))){
+    const cells=[...rowMatch[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(c=>c[1].replace(/<[^>]+>/g,'').trim());
+    if(cells.length<3)continue;
+    const dm=cells[0].match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})$/);
+    if(!dm)continue;
+    const date=`${dm[3]}-${dm[2].padStart(2,'0')}-${dm[1].padStart(2,'0')}`;
+    const line=_drawLineFromCells(gameId,date,cells);
+    if(line)map.set(date,line);
+  }
+  return map;
+}
+
+// lotobil'in On Numara ana sayfası, tarihsiz arşiv tablosunun aksine sadece son çekilişi
+// (gerçek tarihiyle) gösterir. Sayı topları <img id="sayisaltopN" src=".../<num>.png"> olarak gömülü.
+function _parseLatestSingleResult(html,gameId){
+  if(gameId!=='onnumara'||!html)return null;
+  const dateRe=/id=["']ssayisaltarih["']>\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i;
+  const dm=dateRe.exec(html);
+  if(!dm)return null;
+  const date=`${dm[3]}-${dm[2].padStart(2,'0')}-${dm[1].padStart(2,'0')}`;
+  const after=html.slice(dm.index,dm.index+6000);
+  const nums=[...after.matchAll(/id=["']sayisaltop\d+["'][^>]*\/(\d+)\.png/gi)].map(m=>parseInt(m[1])).filter(n=>Number.isFinite(n));
+  if(nums.length<10)return null;
+  nums.sort((a,b)=>a-b);
+  return{date,line:`${date} ${nums.join(' ')}`};
 }
 
 function _parseLotteryHtml(html,gameId,date){
@@ -5485,15 +5550,10 @@ function _parseLotteryHtml(html,gameId,date){
     if(dateCandidates.some(c=>rowMatch[1].includes('>'+c+'<'))){row=rowMatch[1];break;}
   }
   if(row){
-    const cells=[...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(c=>c[1].replace(/<[^>]+>/g,'').trim());
     // cells[0]=Tarih, cells[1]=Hft (week no. — discard), rest are the actual draw numbers in column order
-    const drawNums=cells.slice(2).map(c=>parseInt(c)).filter(n=>Number.isFinite(n));
-    if(gameId==='super'&&drawNums.length>=6)
-      return `${date} ${drawNums.slice(0,6).sort((a,b)=>a-b).join(' ')}`;
-    if(gameId==='sans'&&drawNums.length>=6)
-      return `${date} ${drawNums.slice(0,5).sort((a,b)=>a-b).join(' ')} | ${drawNums[5]}`;
-    if(gameId==='sayisal'&&drawNums.length>=8&&drawNums[7]>0)
-      return `${date} ${drawNums.slice(0,7).sort((a,b)=>a-b).join(' ')} | ${drawNums[7]}`;
+    const cells=[...row.matchAll(/<td[^>]*>([\s\S]*?)<\/td>/gi)].map(c=>c[1].replace(/<[^>]+>/g,'').trim());
+    const line=_drawLineFromCells(gameId,date,cells);
+    if(line)return line;
   }
   // ── Fallback: flatten-and-scan (covers sources without a clean per-date table row, e.g. onnumara) ──
   const text=html.replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ')
@@ -5525,34 +5585,89 @@ function _parseLotteryHtml(html,gameId,date){
   return null;
 }
 
+// Her oyun için günde bir kez kaynağın TÜM arşivini tarayıp var olan veriyle karşılaştırır
+// (sadece son tarihten bugüne değil — geçmişte herhangi bir yerde kalmış boşluklar da dahil).
+// Trailing tazelik sorunu varsa (bugüne kadar eksik çekiliş) bu kontrolü atlamadan her zaman dener.
 async function autoUpdateDraw(gameId){
-  const fr=dataFreshnessMsg(gameId);
-  if(!fr||!fr.missingDates.length)return false;
   const now=new Date();
   const trNow=new Date(now.getTime()+3*3600*1000);
   const todayTR=trNow.toISOString().slice(0,10);
   const trHour=trNow.getUTCHours();
-  const fetchable=fr.missingDates.filter(date=>{
+  const fetchableDate=date=>{
     if(date>todayTR)return false;
     if(date===todayTR&&trHour<22)return false;
     return true;
-  });
-  if(!fetchable.length)return false;
+  };
+  const fr=dataFreshnessMsg(gameId);
+  const scanKey='fullScan_'+gameId;
+  let lastScan=null;try{lastScan=localStorage.getItem(scanKey);}catch(e){}
+  const needsScan=(fr&&fr.missing>0)||lastScan!==todayTR;
+  if(!needsScan)return false;
+
+  const existing=new Set((DRAW_DATA[gameId]||'').split('\n').map(l=>l.match(/^(\d{4}-\d{2}-\d{2})/)?.[1]).filter(Boolean));
   const urls=_FETCH_URLS[gameId]||[];
-  let html=null;
+  let latestInserted=null,scannedOk=false;
   for(const url of urls){
-    try{html=await proxyFetch(url);if(html)break;}catch(e){}
-  }
-  if(!html)return false;
-  let latestInserted=null;
-  for(const date of fetchable){
-    const line=_parseLotteryHtml(html,gameId,date);
-    if(line&&_insertDrawLine(gameId,line)){
-      if(!latestInserted||date>latestInserted)latestInserted=date;
+    let html=null;
+    try{html=await proxyFetch(url);}catch(e){console.warn('[autoUpdateDraw]',gameId,url,'proxy_fail',e&&e.message);}
+    if(!html)continue;
+    scannedOk=true;
+    const archiveMap=_parseLotteryArchiveMap(html,gameId);
+    if(archiveMap.size){
+      for(const[date,line]of archiveMap){
+        if(existing.has(date)||!fetchableDate(date))continue;
+        if(_insertDrawLine(gameId,line)){
+          existing.add(date);
+          if(!latestInserted||date>latestInserted)latestInserted=date;
+        }
+      }
+    }else{
+      const single=_parseLatestSingleResult(html,gameId);
+      if(single&&!existing.has(single.date)&&fetchableDate(single.date)&&_insertDrawLine(gameId,single.line)){
+        existing.add(single.date);
+        latestInserted=single.date;
+      }else if(!single){
+        console.warn('[autoUpdateDraw]',gameId,url,'parse_empty — kaynak yapısı değişmiş olabilir');
+      }
     }
+    // Bu kaynak zaten kapsamlıysa ve artık eksik kalmadıysa diğer (genelde daha kırılgan) kaynakları denemeye gerek yok
+    if(!(dataFreshnessMsg(gameId)||{missing:0}).missing)break;
   }
-  if(latestInserted)saveDrawCache(gameId);
+  if(latestInserted){_resortDrawData(gameId);saveDrawCache(gameId);}
+  if(scannedOk){try{localStorage.setItem(scanKey,todayTR);}catch(e){}}
   return latestInserted;
+}
+
+// Sayfa her açıldığında, kullanıcı hiçbir "Veri Yükle" düğmesine basmasa da
+// 4 oyunun da eksik çekilişlerini sessizce arka planda tamamlar. Aynı anda birden
+// fazla çağrı (örn. Hızlı Tahmin sayfası + diğer bir tetikleyici) tek seferlik
+// bu promise'i paylaşır, tekrar ağ isteği yapılmaz.
+let _autoUpdateAllPromise=null;
+function _autoUpdateAllGames(){
+  if(_autoUpdateAllPromise)return _autoUpdateAllPromise;
+  _autoUpdateAllPromise=(async()=>{
+    for(const g of GAMES){
+      try{
+        const inserted=await autoUpdateDraw(g.id);
+        if(inserted)document.dispatchEvent(new CustomEvent('drawDataUpdated',{detail:{gameId:g.id,date:inserted}}));
+      }catch(e){console.warn('[autoUpdateAllGames]',g.id,e);}
+    }
+  })();
+  return _autoUpdateAllPromise;
+}
+
+// Kaynaklar geçici olarak erişilemez/engelli olabilir (ücretsiz CORS proxy'leri zaman zaman
+// düşer). Veri hâlâ eksikse, sekme açık kaldığı sürece artan aralıklarla otomatik yeniden dener —
+// kullanıcının sayfayı yenilemesine gerek kalmadan kendi kendine iyileşir.
+let _autoUpdateRetries=0;
+function _scheduleAutoUpdateRetryIfNeeded(){
+  const stillMissing=GAMES.some(g=>{const fr=dataFreshnessMsg(g.id);return fr&&fr.missing>0;});
+  if(!stillMissing||_autoUpdateRetries>=3)return;
+  _autoUpdateRetries++;
+  setTimeout(()=>{
+    _autoUpdateAllPromise=null;
+    _autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);
+  },_autoUpdateRetries*90000);
 }
 
 function dataFreshnessMsg(gameId){
@@ -5597,8 +5712,8 @@ function _parseDrawDataDirect(id){
 async function loadBtHistory(forceRefresh=false){
   const id=state.selectedGame;
   if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
-  const hasCached=!!localStorage.getItem('drawCache_'+id);
-  if(!forceRefresh&&hasCached){
+  const frPre=dataFreshnessMsg(id);
+  if(!forceRefresh&&!(frPre&&frPre.missing>0)){
     showToast('✅ Önbellekten yüklendi');
   }else{
     showToast('⏳ Güncel çekiliş kontrol ediliyor...');
@@ -12053,6 +12168,7 @@ function runScanBacktest(){
 })();
 loadDrawCaches();
 initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();setTimeout(_nextDrawPredict,300);
+setTimeout(()=>{_autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);},800);
 
 // ══════════════════════════════════════════════════════════════
 // PREDICTION NOTES (Geçmiş Denemeler)
@@ -13379,6 +13495,7 @@ function _htInit(){
   setTimeout(_htRenderConsensus,60);
   _htRenderBtBox();
   _htRenderDrawReminder();
+  _autoUpdateAllGames();
 }
 function _htRenderGameRow(){
   const row=document.getElementById('htSozGameRow');if(!row)return;
@@ -13519,6 +13636,18 @@ function _htRenderDrawReminder(){
   const names=justDrawn.map(g=>g.emoji+' '+g.name).join(', ');
   el.innerHTML=`<div style="background:rgba(129,140,248,.08);border:1px solid rgba(129,140,248,.3);border-radius:8px;padding:8px 12px;margin-bottom:10px;font-size:.66rem;color:var(--text);line-height:1.6">🔔 <strong>${names}</strong> bugün çekildi — harici bir liste aldıysanız aşağıya yapıştırabilir, ya da <strong>🎲 Otomatik Doldur</strong> ile rastgele bir havuz oluşturabilirsiniz.</div>`;
 }
+// Arka planda (_autoUpdateAllGames) yeni bir çekiliş bulunup eklendiğinde,
+// o oyun şu an Hızlı Tahmin'de açıksa sayfayı taze veriyle yeniden çiz.
+document.addEventListener('drawDataUpdated',e=>{
+  const gid=e.detail&&e.detail.gameId;if(!gid)return;
+  delete _htBtCache[gid];
+  if(gid!==_htGame)return;
+  _htRenderSoz();_htGenerateSisal();
+  if(typeof runB10Wheel==='function')runB10Wheel('Ht');
+  _htAutoFillGizli();_htAutoFillListelerAi();
+  _htRenderConsensus();_htRenderBtBox();_htRenderDrawReminder();
+  showToast(`✅ ${getGame(gid).name}: yeni çekiliş bulundu (${e.detail.date}) — Hızlı Tahmin güncellendi`);
+});
 function _htAutoFillManualPool(){
   const game=getGame(_htGame);if(!game)return;
   const r=generateNumbers(game,'random');
