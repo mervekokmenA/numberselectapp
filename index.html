@@ -1076,6 +1076,20 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="htManualResult" style="display:flex;gap:6px;flex-wrap:wrap"></div>
  </div>
 
+ <!-- 8: Konsensüs Analizi -->
+ <div class="card" style="margin-top:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">🧮 Konsensüs Analizi</div>
+   <button onclick="_htRenderConsensus()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
+  </div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Bu sayfadaki sistemlerin (Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu, Listeler AI, NSA Banko) ürettiği sayıları karşılaştırır. Birden çok sistemde ortak çıkan sayı, tek bir sistemde çıkana göre daha güçlü adaydır.</div>
+  <div class="tabs" style="margin-bottom:10px">
+   <button class="tab-btn active" id="htConsTabBtn-pool" onclick="_htConsSwitchTab('pool')">📋 Havuzdan Seç</button>
+   <button class="tab-btn" id="htConsTabBtn-all" onclick="_htConsSwitchTab('all')">🌐 Tüm Sistemler</button>
+  </div>
+  <div id="htConsensusResult"><div class="empty-state"><span class="empty-icon">🧮</span>Yükleniyor…</div></div>
+ </div>
+
 </div><!-- /page-hizlitahmin -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
@@ -9657,6 +9671,7 @@ function runB10Wheel(suffix=''){
       </div>
       <div style="max-height:300px;overflow-y:auto;border:1px solid var(--border);border-radius:7px">${rows}</div>`;
     window['b10WheelCopy'+suffix]=copyTxt;
+    window['b10WheelPool'+suffix]=pool;
   },30);
 }
 function copyNumsRaw(text){
@@ -11464,6 +11479,7 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn){
     </div>`;
   });
   window._listelerAiCopyText=aiTickets.map((t,i)=>`AI Bilet ${i+1}: ${[...t.main,...t.bonus].join(' - ')}`).join('\n');
+  window._listelerAiNums=[...new Set(aiTickets.flatMap(t=>[...t.main,...t.bonus]))];
   finalHtml+=`<button onclick="navigator.clipboard.writeText(window._listelerAiCopyText||'').then(()=>showToast('📋 AI biletleri kopyalandı')).catch(()=>showToast('Kopyalanamadı'))" style="width:100%;padding:6px;background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.25);color:var(--accent);border-radius:7px;cursor:pointer;font-size:.7rem;font-weight:600">📋 AI Biletleri Kopyala</button>`;
 
   confEl.innerHTML=confHtml;
@@ -13179,6 +13195,7 @@ function _htInit(){
   _htGenerateSisal();
   if(typeof runB10Wheel==='function')runB10Wheel('Ht');
   _htRenderGizli();
+  setTimeout(_htRenderConsensus,60);
 }
 function _htRenderGameRow(){
   const row=document.getElementById('htSozGameRow');if(!row)return;
@@ -13188,13 +13205,14 @@ function _htRenderGameRow(){
     return `<button onclick="_htSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
   }).join('');
 }
-function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_htGenerateSisal();}
+function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_htGenerateSisal();setTimeout(_htRenderConsensus,60);}
 function _htRenderSoz(){
   const el=document.getElementById('htSozContent');if(!el)return;
   const game=getGame(_htGame);
   const draws=_kbGetDraws(_htGame);
   if(!draws||draws.length<2){el.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok.</div>';return;}
   el.innerHTML=_soDoAnalysis(draws[0],game,null,true)+_soAiSection(draws,game,draws[0],null);
+  _htRenderConsensus();
 }
 function _htGenerateSisal(){
   const el=document.getElementById('htSisalResult');if(!el)return;
@@ -13210,6 +13228,7 @@ function _htGenerateSisal(){
     if(!seen.has(k)){seen.add(k);tickets.push(t);}
   }
   window._htSisalCopyText='Sisal-LCG\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  window._htSisalNums=[...new Set(tickets.flatMap(t=>[...t.main,...t.bonus]))];
   el.innerHTML=`<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button onclick="_kbCopy(window._htSisalCopyText)" class="copy-btn">📋 Kopyala</button></div>`
    +tickets.map((t,i)=>renderTicket(t,game,'sislcg',i,null,null,null,calcTicketScore(t,game),true)).join('');
 }
@@ -13218,6 +13237,7 @@ function _htRenderGizli(){
   const dst=document.getElementById('htGizliMirror');
   if(!src||!dst)return;
   dst.innerHTML=src.innerHTML;
+  _htRenderConsensus();
 }
 function _htShowManualNumbers(){
   const raw=document.getElementById('htManualInput')?.value||'';
@@ -13225,6 +13245,74 @@ function _htShowManualNumbers(){
   const el=document.getElementById('htManualResult');if(!el)return;
   if(!nums.length){el.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Sayı girin.</div>';return;}
   el.innerHTML=nums.map(n=>staticBall(n,'blue')).join('');
+  _htRenderConsensus();
+}
+
+// ── Konsensüs Analizi: sayfadaki sistemlerin ürettiği sayıları karşılaştırır ──
+let _htConsMode='pool';
+function _htCollectVotes(){
+  const game=getGame(_htGame);
+  const draws=_kbGetDraws(_htGame);
+  const sys={};
+  try{
+    const ga=draws&&draws.length>1?_soGapAnalysisCompute(draws[0],game):null;
+    sys['Gülay Analiz']=new Set((ga?.gulayCands||[]).map(c=>c.n));
+  }catch(e){sys['Gülay Analiz']=new Set();}
+  try{
+    const ai=draws&&draws.length>=8?_soAiCompute(draws,game,draws[0]):null;
+    sys['Gülay AI Biletler']=new Set((ai?.top15||[]).map(t=>t.n));
+  }catch(e){sys['Gülay AI Biletler']=new Set();}
+  sys['Sisal-LCG']=new Set(window._htSisalNums||[]);
+  sys['B10 Kuponu']=new Set(window.b10WheelPoolHt||[]);
+  sys['Listeler AI Biletler']=new Set(window._listelerAiNums||[]);
+  sys['NSA Banko']=new Set((typeof _gizliLastColumns!=='undefined'&&_gizliLastColumns)?_gizliLastColumns.flatMap(c=>c.col):[]);
+  return sys;
+}
+function _htConsensusScores(pool){
+  const sys=_htCollectVotes();
+  const names=Object.keys(sys);
+  const candidateSet=new Set(pool||[]);
+  if(!pool)names.forEach(name=>sys[name].forEach(n=>candidateSet.add(n)));
+  return[...candidateSet].map(n=>{
+    const sources=names.filter(name=>sys[name].has(n));
+    return{n,cnt:sources.length,sources};
+  }).sort((a,b)=>b.cnt-a.cnt||a.n-b.n);
+}
+function _htConsBadge(s,total){
+  const{n,cnt,sources}=s;
+  const bg=cnt>=4?'rgba(0,230,118,.3)':cnt>=2?'rgba(251,191,36,.25)':cnt>=1?'rgba(129,140,248,.18)':'rgba(0,0,0,.04)';
+  const bd=cnt>=4?'rgba(0,230,118,.7)':cnt>=2?'rgba(251,191,36,.6)':cnt>=1?'rgba(129,140,248,.4)':'var(--border)';
+  const cl=cnt>=4?'var(--green)':cnt>=2?'#8a6200':cnt>=1?'var(--accent)':'var(--muted)';
+  return`<div title="${sources.join(', ')||'Hiçbir sistemde yok'}" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:${bg};border:1px solid ${bd};border-radius:8px;padding:6px 9px;min-width:42px">
+    <span style="font-size:.85rem;font-weight:800;font-family:monospace;color:${cl}">${n}</span>
+    <span style="font-size:.52rem;color:var(--muted)">${cnt}/${total}</span>
+  </div>`;
+}
+function _htConsSwitchTab(mode){
+  _htConsMode=mode;
+  document.getElementById('htConsTabBtn-pool')?.classList.toggle('active',mode==='pool');
+  document.getElementById('htConsTabBtn-all')?.classList.toggle('active',mode==='all');
+  _htRenderConsensus();
+}
+function _htRenderConsensus(){
+  const el=document.getElementById('htConsensusResult');if(!el)return;
+  const sys=_htCollectVotes();
+  const names=Object.keys(sys);
+  const total=names.length;
+  const legend=`<div style="font-size:.56rem;color:var(--muted);margin-top:10px;line-height:1.6">🟢 4-6 sistem ortak · 🟡 2-3 sistem ortak · 🟣 1 sistemde · ⚪ hiçbirinde yok</div>`;
+  if(_htConsMode==='pool'){
+    const raw=document.getElementById('htManualInput')?.value||'';
+    const pool=[...new Set((raw.match(/\d+/g)||[]).map(Number))];
+    if(!pool.length){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Önce yukarıdaki "✍️ Manuel Sayı Girişi" kutusuna aday sayı grubunu yapıştırıp "🔢 Göster"e basın.</div>';return;}
+    const scores=_htConsensusScores(pool);
+    el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">Havuzdaki <strong style="color:var(--text)">${pool.length}</strong> sayı, bu sayfadaki ${total} sistemle (Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu, Listeler AI, NSA Banko) karşılaştırıldı. Daha çok sistemde geçen sayı = daha güçlü aday.</div>`+
+      `<div style="display:flex;gap:6px;flex-wrap:wrap">${scores.map(s=>_htConsBadge(s,total)).join('')}</div>`+legend;
+  }else{
+    const scores=_htConsensusScores(null).filter(s=>s.cnt>0).slice(0,30);
+    if(!scores.length){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Henüz hiçbir sistemden veri yok — yukarıdaki bölümleri çalıştırın (Sisal-LCG ve B10 otomatik çalışır; Listeler AI ve NSA Banko için ilgili sayfalardan üretmeniz gerekir).</div>';return;}
+    el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">Sayfadaki ${total} sistemin ürettiği tüm sayılar birleştirildi, en çok sistemde ortak çıkanlar üstte (ilk 30).</div>`+
+      `<div style="display:flex;gap:6px;flex-wrap:wrap">${scores.map(s=>_htConsBadge(s,total)).join('')}</div>`+legend;
+  }
 }
 
 function _soGapAnalysisCompute(draw,game){
