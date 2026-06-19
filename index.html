@@ -1084,7 +1084,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  </div>
 
  <!-- 7: Konsensüs Analizi -->
- <div class="card" style="margin-top:12px">
+ <div class="card" id="htConsensusCard" style="margin-top:12px">
   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
    <div class="card-title" style="margin:0">🧮 Konsensüs Analizi</div>
    <button onclick="_htRenderConsensus()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
@@ -9644,8 +9644,9 @@ function _b10BuildWheel(pool,k,guarK){
 }
 
 function runB10Wheel(suffix=''){
-  const game=getGame(state.selectedGame);
-  const rawDraws=(state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws;
+  const isHt=suffix==='Ht';
+  const game=getGame(isHt?_htGame:state.selectedGame);
+  const rawDraws=isHt?_kbGetDraws(_htGame):((state.allDatedDraws&&state.allDatedDraws.length)?state.allDatedDraws:state.datedDraws);
   const draws=_b10CleanDraws(rawDraws,game);
   const out=document.getElementById('b10WheelResult'+suffix);
   if(!draws||draws.length<10){if(out)out.innerHTML='<div class="empty-state" style="padding:14px"><span class="empty-icon">⚠️</span>Önce veri yükleyin.</div>';return;}
@@ -13387,7 +13388,7 @@ function _htRenderGameRow(){
     return `<button onclick="_htSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
   }).join('');
 }
-function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_htGenerateSisal();_htAutoFillGizli();_htAutoFillListelerAi();setTimeout(_htRenderConsensus,60);_htRenderBtBox();_htRenderDrawReminder();}
+function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_htGenerateSisal();if(typeof runB10Wheel==='function')runB10Wheel('Ht');_htAutoFillGizli();_htAutoFillListelerAi();setTimeout(_htRenderConsensus,60);_htRenderBtBox();_htRenderDrawReminder();}
 function _htRenderSoz(){
   const el=document.getElementById('htSozContent');if(!el)return;
   const game=getGame(_htGame);
@@ -13495,8 +13496,19 @@ function _htShowManualNumbers(){
   const nums=[...new Set((raw.match(/\d+/g)||[]).map(Number))];
   const el=document.getElementById('htManualResult');if(!el)return;
   if(!nums.length){el.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Sayı girin.</div>';return;}
-  el.innerHTML=nums.map(n=>staticBall(n,'blue')).join('');
+  el.innerHTML=nums.map(n=>staticBall(n,'blue')).join('')+`<div style="width:100%;font-size:.62rem;color:var(--green);margin-top:4px">✅ ${nums.length} sayı aşağıdaki 🧮 Konsensüs Analizi'ne uygulandı</div>`;
+  _htConsMode='pool';
   _htRenderConsensus();
+  document.getElementById('htConsTabBtn-pool')?.classList.add('active');
+  document.getElementById('htConsTabBtn-all')?.classList.remove('active');
+  const card=document.getElementById('htConsensusCard');
+  if(card){
+    card.scrollIntoView({behavior:'smooth',block:'start'});
+    card.style.transition='background-color .3s';
+    const prevBg=card.style.backgroundColor;
+    card.style.backgroundColor='rgba(0,230,118,.1)';
+    setTimeout(()=>{card.style.backgroundColor=prevBg;},900);
+  }
 }
 // ── Çekiliş hatırlatması: bugün çekilmiş oyun varsa öner; doldurma her zaman butonla, isteğe bağlı ──
 function _htRenderDrawReminder(){
