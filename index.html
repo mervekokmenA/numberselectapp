@@ -10202,13 +10202,19 @@ function _kbBacktest(draws,game,cal,rounds){
   const R=Math.min(rounds||40,draws.length-20);
   let consHit=0,trials=0,actSum=0,strongHit=0,strongTot=0;
   const mHit={};_KB_METHODS.forEach(m=>mHit[m.id]=0);
+  const perRound=[];
   for(let t=0;t<R;t++){
     const prior=draws.slice(t+1);if(prior.length<15)break;
-    const actual=new Set(draws[t].nums.filter(n=>n>=1&&n<=max));if(actual.size<2)continue;
+    const actualNums=draws[t].nums.filter(n=>n>=1&&n<=max);
+    const actual=new Set(actualNums);if(actual.size<2)continue;
     const sig=_kbSignals(prior,game);
     const rows=_kbConsensusFromSig(sig,game,cal);
-    consHit+=rows.slice(0,bankoK).filter(r=>actual.has(r.n)).length;
-    rows.filter(r=>r.support>=3).slice(0,cnt).forEach(r=>{strongTot++;if(actual.has(r.n))strongHit++;});
+    const top=rows.slice(0,bankoK);
+    const topHit=top.filter(r=>actual.has(r.n)).length;
+    consHit+=topHit;
+    const strong=rows.filter(r=>r.support>=3).slice(0,cnt);
+    const strongHitN=strong.filter(r=>actual.has(r.n)).length;
+    strongTot+=strong.length;strongHit+=strongHitN;
     _KB_METHODS.forEach(m=>{
       const nf=_b10Norm(sig[m.id],max),ranked=[];
       for(let n=1;n<=max;n++)ranked.push([n,nf[n]]);
@@ -10216,11 +10222,12 @@ function _kbBacktest(draws,game,cal,rounds){
       mHit[m.id]+=ranked.slice(0,bankoK).filter(([n])=>actual.has(n)).length;
     });
     actSum+=actual.size;trials++;
+    perRound.push({date:draws[t].date,actual:actualNums,predicted:top.map(r=>r.n),hit:topHit,strong:strong.map(r=>r.n),strongHit:strongHitN});
   }
   const avgAct=trials?actSum/trials:cnt,base=bankoK*avgAct/max;
   const mAvg={};_KB_METHODS.forEach(m=>mAvg[m.id]=trials?mHit[m.id]/trials:0);
   return {trials,consAvg:trials?consHit/trials:0,mAvg,base,bankoK,
-    strongPrec:strongTot?strongHit/strongTot:0,strongHit,strongTot,strongPerDraw:trials?strongTot/trials:0};
+    strongPrec:strongTot?strongHit/strongTot:0,strongHit,strongTot,strongPerDraw:trials?strongTot/trials:0,perRound};
 }
 
 // ── KB yardımcılar ─────────────────────────────────────────────
@@ -10328,6 +10335,31 @@ function _kbRenderTest(){
   sortedM.forEach(m=>{h+=mk(m.icon+' '+m.name,m.avg,'rgba(129,140,248,.5)');});
   h+=mk('🎲 rastgele',bt.base,'rgba(0,0,0,.2)');
   h+=`</div>`;
+  if(bt.perRound&&bt.perRound.length){
+    h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:12px">`;
+    h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:9px">📅 Önceki Tahminler &amp; Sonuçlar (${bt.perRound.length} tur)</div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">Her satır, o tarihten önceki verilerle kurulan konsensüsün en üst ${cnt} adayı ile gerçek çekiliş karşılaştırması.</div>`;
+    h+=`<div style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
+    bt.perRound.forEach(r=>{
+      const actSet=new Set(r.actual);
+      const predBadges=r.predicted.map(n=>{
+        const ok=actSet.has(n);
+        return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 3px;border-radius:5px;font-size:.62rem;font-weight:700;font-family:monospace;background:${ok?'rgba(0,230,118,.25)':'rgba(0,0,0,.05)'};border:1px solid ${ok?'rgba(0,230,118,.6)':'var(--border)'};color:${ok?'var(--green)':'var(--muted)'}">${n}${ok?'✓':''}</span>`;
+      }).join('');
+      const actText=[...r.actual].sort((a,b)=>a-b).join(' ');
+      const hitColor=r.hit>=Math.ceil(r.predicted.length*0.5)?'var(--green)':r.hit>0?'var(--accent)':'var(--muted)';
+      const strongInfo=r.strong.length?` · güçlü banko: ${r.strong.join(', ')} (${r.strongHit}/${r.strong.length})`:'';
+      h+=`<div style="padding:6px 8px;background:rgba(0,0,0,.02);border-radius:8px">`;
+      h+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
+      h+=`<span style="font-size:.6rem;color:var(--muted);min-width:74px">${r.date}</span>`;
+      h+=`<div style="display:flex;gap:3px;flex-wrap:wrap">${predBadges}</div>`;
+      h+=`<span style="margin-left:auto;font-size:.66rem;font-weight:800;color:${hitColor}">${r.hit}/${r.predicted.length}</span>`;
+      h+=`</div>`;
+      h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:4px">gerçek çekiliş: ${actText}${strongInfo}</div>`;
+      h+=`</div>`;
+    });
+    h+=`</div></div>`;
+  }
   return h;
 }
 
