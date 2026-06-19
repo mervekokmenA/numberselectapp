@@ -10044,7 +10044,7 @@ function runB10Backtest(suffix=''){
 // tek konsensüs sıralaması + banko aday listesi üretir.
 // ═══════════════════════════════════════════════════════════════
 let _kbGame='sayisal',_kbMode='banko',_kbBtRounds=50;
-const _kbDrawCache={},_kbCalCache={};
+const _kbDrawCache={},_kbCalCache={},_kbComboCache={};
 const _KB_METHODS=[
   {id:'freq',    name:'Frekans',        icon:'📊'},
   {id:'ewf',     name:'Üstel Frekans',  icon:'📈'},
@@ -10230,6 +10230,56 @@ function _kbBacktest(draws,game,cal,rounds){
     strongPrec:strongTot?strongHit/strongTot:0,strongHit,strongTot,strongPerDraw:trials?strongTot/trials:0,perRound};
 }
 
+// ── Hızlı Tahmin birleşimi — geriye dönük test (deneysel) ───────
+// Tarihe bağlı/hesaplaması ucuz 4 kaynağı (Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu) her tur
+// SADECE o tarihten önceki verilerle yeniden üretir ve birleşik (en çok kaynakta ortak çıkan) adayları
+// gerçek sonuçla karşılaştırır. NSA Banko (kullanıcı filtrelerine bağlı) ve Listeler'den gelen 3 kaynak
+// (2000 biletlik geri test/tahmin — turlarca tekrarlamak pratik değil) bu otomatik teste dahil edilmez.
+function _kbHtComboBacktest(draws,game,rounds){
+  const max=game.max,cnt=Math.min(game.count,7);
+  const R=Math.min(rounds||40,draws.length-20);
+  let comboHit=0,trials=0,actSum=0,strongHit=0,strongTot=0;
+  const perRound=[];
+  for(let t=0;t<R;t++){
+    const prior=draws.slice(t+1);if(prior.length<15)break;
+    const actualNums=draws[t].nums.filter(n=>n>=1&&n<=max);
+    const actual=new Set(actualNums);if(actual.size<2)continue;
+    const sys={};
+    try{
+      const ga=_soGapAnalysisCompute(prior[0],game);
+      sys['Gülay Analiz']=new Set((ga?.gulayCands||[]).map(c=>c.n));
+    }catch(e){sys['Gülay Analiz']=new Set();}
+    try{
+      const ai=prior.length>=8?_soAiCompute(prior,game,prior[0]):null;
+      sys['Gülay AI']=new Set((ai?.top15||[]).map(x=>x.n));
+    }catch(e){sys['Gülay AI']=new Set();}
+    try{
+      const freq=buildFreq(prior);
+      const tks=Array.from({length:10},()=>generateNumbers(game,'sislcg',freq,prior));
+      sys['Sisal-LCG']=new Set(tks.flatMap(tk=>tk.main));
+    }catch(e){sys['Sisal-LCG']=new Set();}
+    try{
+      const b10=buildB10Scores(_b10CleanDraws(prior,game),game,30).slice(0,15);
+      sys['B10 Kuponu']=new Set(b10.map(s=>s.n));
+    }catch(e){sys['B10 Kuponu']=new Set();}
+    const names=Object.keys(sys);
+    const candPool=new Set();names.forEach(nm=>sys[nm].forEach(n=>candPool.add(n)));
+    const scored=[...candPool].map(n=>({n,support:names.filter(nm=>sys[nm].has(n)).length}));
+    scored.sort((a,b)=>b.support-a.support||a.n-b.n);
+    const predicted=scored.slice(0,cnt);
+    const hitN=predicted.filter(p=>actual.has(p.n)).length;
+    comboHit+=hitN;
+    const strong=scored.filter(s=>s.support>=3).slice(0,cnt);
+    const strongHitN=strong.filter(s=>actual.has(s.n)).length;
+    strongTot+=strong.length;strongHit+=strongHitN;
+    actSum+=actual.size;trials++;
+    perRound.push({date:draws[t].date,actual:actualNums,predicted:predicted.map(p=>({n:p.n,support:p.support})),hit:hitN,strong:strong.map(s=>s.n),strongHit:strongHitN});
+  }
+  const avgAct=trials?actSum/trials:cnt,base=cnt*avgAct/max;
+  return {trials,comboAvg:trials?comboHit/trials:0,base,cnt,sourceCount:4,
+    strongPrec:strongTot?strongHit/strongTot:0,strongHit,strongTot,strongPerDraw:trials?strongTot/trials:0,perRound};
+}
+
 // ── KB yardımcılar ─────────────────────────────────────────────
 function _kbBadge(n,strong,sub){
   const bg=strong?'rgba(0,230,118,.2)':'rgba(0,0,0,.05)',bd=strong?'rgba(0,230,118,.55)':'rgba(0,0,0,.1)',cl=strong?'var(--green)':'var(--text)';
@@ -10360,7 +10410,70 @@ function _kbRenderTest(){
     });
     h+=`</div></div>`;
   }
+  // ── Hızlı Tahmin birleşimi — aynı dönem için karşılaştırmalı geriye dönük test (isteğe bağlı: ağır hesaplama) ──
+  const comboKey=_kbGame+'|'+_kbBtRounds;
+  h+=`<div id="kbComboBox" style="margin-top:14px">`;
+  if(_kbComboCache[comboKey]){
+    h+=_kbRenderComboBlock(_kbComboCache[comboKey],bt,cnt);
+  } else {
+    h+=`<div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:16px;text-align:center">`;
+    h+=`<div style="font-size:.78rem;font-weight:800;color:#8a6200;margin-bottom:6px">🧬 Hızlı Tahmin Birleşimi — Geriye Dönük Test (deneysel)</div>`;
+    h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:12px;line-height:1.6">Gülay Analiz, Gülay AI, Sisal-LCG ve B10 Kuponu kaynaklarını ${_kbBtRounds} tur için tek tek yeniden hesaplar — birkaç saniye sürebilir, bu yüzden isteğe bağlı çalışır.</div>`;
+    h+=`<button onclick="_kbRunCombo()" style="background:rgba(251,191,36,.18);border:1px solid rgba(251,191,36,.5);color:#8a6200;border-radius:8px;padding:9px 18px;cursor:pointer;font-size:.72rem;font-weight:800">🧬 Hızlı Tahmin Birleşimini Test Et</button>`;
+    h+=`</div>`;
+  }
+  h+=`</div>`;
   return h;
+}
+
+function _kbRenderComboBlock(combo,bt,cnt){
+  const comboLift=combo.base>0?combo.comboAvg/combo.base:0;
+  let h='';
+  h+=`<div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:12px 14px">`;
+  h+=`<div style="font-size:.78rem;font-weight:800;color:#8a6200">🧬 Hızlı Tahmin Birleşimi — Geriye Dönük Test (deneysel)</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-top:4px;margin-bottom:10px;line-height:1.6">Gülay Analiz, Gülay AI, Sisal-LCG ve B10 Kuponu — bu ${combo.sourceCount} kaynak her tur SADECE o tarihten önceki verilerle yeniden hesaplanıp en çok kaynakta ortak çıkan ${cnt} sayı gerçek sonuçla karşılaştırıldı. NSA Banko (kullanıcı filtrelerine bağlı) ve Listeler'den gelen 3 kaynak (2000 biletlik geri test/tahmin — bunu turlarca tekrarlamak pratik değil) bu otomatik teste dahil edilmedi.</div>`;
+  h+=`<div class="b10-tahmin-grid" style="margin-bottom:10px"><div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Birleşim ort. isabet (üst ${cnt})</div><div style="font-size:1.6rem;font-weight:800;color:var(--green)">${combo.comboAvg.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">rastgele ≈ ${combo.base.toFixed(2)}</div></div><div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Kazanç (lift)</div><div style="font-size:1.6rem;font-weight:800;color:var(--accent)">${comboLift.toFixed(2)}×</div><div style="font-size:.58rem;color:var(--muted)">${combo.trials} tur test</div></div></div>`;
+  h+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:.64rem;color:var(--text);line-height:1.7">📊 Karşılaştırma — KB konsensüsü: <strong style="color:${bt.consAvg>combo.comboAvg?'var(--green)':'var(--text)'}">${bt.consAvg.toFixed(2)}</strong> · Hızlı Tahmin birleşimi: <strong style="color:${combo.comboAvg>bt.consAvg?'var(--green)':'var(--text)'}">${combo.comboAvg.toFixed(2)}</strong> · rastgele: ${bt.base.toFixed(2)}</div>`;
+  h+=`<div style="font-size:.64rem;color:var(--muted);line-height:1.6;margin-bottom:10px">Çekiliş başına ~${combo.strongPerDraw.toFixed(1)} kaynakların ≥3/${combo.sourceCount}'ünde ortak çıkan aday üretildi; bunların <strong style="color:var(--green)">%${Math.round(combo.strongPrec*100)}</strong>'i gerçekten çıktı (${combo.strongHit}/${combo.strongTot}).</div>`;
+  if(combo.perRound&&combo.perRound.length){
+    h+=`<div style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
+    combo.perRound.forEach(r=>{
+      const actSet=new Set(r.actual);
+      const predBadges=r.predicted.map(p=>{
+        const ok=actSet.has(p.n);
+        return `<span style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:24px;padding:2px 3px;border-radius:5px;font-family:monospace;background:${ok?'rgba(0,230,118,.25)':'rgba(0,0,0,.05)'};border:1px solid ${ok?'rgba(0,230,118,.6)':'var(--border)'}"><span style="font-size:.62rem;font-weight:700;color:${ok?'var(--green)':'var(--muted)'}">${p.n}${ok?'✓':''}</span><span style="font-size:.42rem;color:var(--muted)">${p.support}/${combo.sourceCount}</span></span>`;
+      }).join('');
+      const actText=[...r.actual].sort((a,b)=>a-b).join(' ');
+      const hitColor=r.hit>=Math.ceil(r.predicted.length*0.5)?'var(--green)':r.hit>0?'var(--accent)':'var(--muted)';
+      const strongInfo=r.strong.length?` · ≥3/${combo.sourceCount} ortak: ${r.strong.join(', ')} (${r.strongHit}/${r.strong.length})`:'';
+      h+=`<div style="padding:6px 8px;background:rgba(0,0,0,.02);border-radius:8px">`;
+      h+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
+      h+=`<span style="font-size:.6rem;color:var(--muted);min-width:74px">${r.date}</span>`;
+      h+=`<div style="display:flex;gap:3px;flex-wrap:wrap">${predBadges}</div>`;
+      h+=`<span style="margin-left:auto;font-size:.66rem;font-weight:800;color:${hitColor}">${r.hit}/${r.predicted.length}</span>`;
+      h+=`</div>`;
+      h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:4px">gerçek çekiliş: ${actText}${strongInfo}</div>`;
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+
+function _kbRunCombo(){
+  const box=document.getElementById('kbComboBox');if(!box)return;
+  box.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted);font-size:.75rem">⏳ Hesaplanıyor… (birkaç saniye sürebilir)</div>';
+  setTimeout(()=>{
+    try{
+      const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame),cnt=Math.min(game.count,7);
+      const cal=_kbCalibrate(draws,game),bt=_kbBacktest(draws,game,cal,_kbBtRounds);
+      const comboKey=_kbGame+'|'+_kbBtRounds;
+      const combo=_kbHtComboBacktest(draws,game,_kbBtRounds);
+      _kbComboCache[comboKey]=combo;
+      box.innerHTML=_kbRenderComboBlock(combo,bt,cnt);
+    }catch(e){box.innerHTML='<div style="padding:14px;color:#cc2222;font-size:.7rem">Hata: '+e.message+'</div>';}
+  },40);
 }
 
 const _kbBiletDateHTML={};
