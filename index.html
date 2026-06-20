@@ -11385,18 +11385,18 @@ function _kbRenderComboBlock(combo,bt){
   if(bt)h+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:.64rem;color:var(--text);line-height:1.7">📊 Karşılaştırma — KB konsensüsü: <strong style="color:${bt.consAvg>combo.comboAvg?'var(--green)':'var(--text)'}">${bt.consAvg.toFixed(2)}</strong> · Hızlı Tahmin birleşimi: <strong style="color:${combo.comboAvg>bt.consAvg?'var(--green)':'var(--text)'}">${combo.comboAvg.toFixed(2)}</strong> · rastgele: ${bt.base.toFixed(2)}</div>`;
   h+=`<div style="font-size:.64rem;color:var(--muted);line-height:1.6;margin-bottom:6px">Çekiliş başına ~${combo.strongPerDraw.toFixed(1)} kaynakların ≥3/${combo.sourceCount}'ünde ortak çıkan aday üretildi; bunların <strong style="color:var(--green)">%${Math.round(combo.strongPrec*100)}</strong>'i gerçekten çıktı (${combo.strongHit}/${combo.strongTot}).</div>`;
   h+=`<div style="font-size:.64rem;color:var(--muted);line-height:1.6;margin-bottom:10px">4 kaynağın birleşik <strong>tüm</strong> havuzu — çekiliş başına ~${combo.poolPerDraw.toFixed(1)} aday üretildi (Konsensüs Analizi kartındaki gibi, ilk ${cnt} ile sınırlı değil); bunların <strong style="color:var(--green)">%${Math.round(combo.poolPrec*100)}</strong>'i gerçekten çıktı (${combo.poolHit}/${combo.poolTot}). Aşağıda her turun havuzunun TAMAMI gösteriliyor.</div>`;
-  h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:8px;line-height:1.6">✓ yeşil = o turda gerçekten çıktı · <span style="border-bottom:2px solid rgba(251,191,36,.6)">sarı alt çizgi</span> = ilk ${cnt}'in (resmi tahminin) içindeydi · alt rakam = kaç/${combo.sourceCount} kaynakta ortak çıktı</div>`;
+  h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:8px;line-height:1.6">✓ yeşil = o turda gerçekten çıktı · ★ sarı = ilk ${cnt}'in (resmi tahminin) içindeydi ama çıkmadı · alt rakam = kaç/${combo.sourceCount} kaynakta ortak çıktı</div>`;
   if(combo.perRound&&combo.perRound.length){
     h+=`<div style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
     combo.perRound.forEach(r=>{
       const actSet=new Set(r.actual);
       const poolBadges=r.pool.map(p=>{
         const ok=actSet.has(p.n);
-        const bg=ok?'rgba(0,230,118,.25)':'rgba(0,0,0,.05)';
-        const bd=ok?'rgba(0,230,118,.6)':'var(--border)';
+        const bg=ok?'rgba(0,230,118,.25)':(p.top?'rgba(251,191,36,.25)':'rgba(0,0,0,.05)');
+        const bd=ok?'rgba(0,230,118,.6)':(p.top?'rgba(251,191,36,.7)':'var(--border)');
         const cl=ok?'var(--green)':(p.top?'#8a6200':'var(--muted)');
-        const ul=p.top?'border-bottom:2px solid rgba(251,191,36,.6);':'';
-        return `<span title="${p.top?`İlk ${cnt} resmi tahmindendi`:'Havuzda — ilk '+cnt+'\'e girmedi'}" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:24px;padding:2px 3px;border-radius:5px;font-family:monospace;background:${bg};border:1px solid ${bd};${ul}"><span style="font-size:.62rem;font-weight:700;color:${cl}">${p.n}${ok?'✓':''}</span><span style="font-size:.42rem;color:var(--muted)">${p.support}/${combo.sourceCount}</span></span>`;
+        const mark=ok?'✓':(p.top?'★':'');
+        return `<span title="${p.top?`İlk ${cnt} resmi tahmindendi`:'Havuzda — ilk '+cnt+'\'e girmedi'}" style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:24px;padding:2px 3px;border-radius:5px;font-family:monospace;background:${bg};border:1.5px solid ${bd}"><span style="font-size:.62rem;font-weight:700;color:${cl}">${p.n}${mark}</span><span style="font-size:.42rem;color:var(--muted)">${p.support}/${combo.sourceCount}</span></span>`;
       }).join('');
       const actText=[...r.actual].sort((a,b)=>a-b).join(' ');
       const hitColor=r.poolHit>=Math.ceil(r.poolTot*0.15)?'var(--green)':r.poolHit>0?'var(--accent)':'var(--muted)';
