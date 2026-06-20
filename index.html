@@ -8229,6 +8229,7 @@ function _sablonFindAnniversaryMatches(draws,game,refIdx,windowDays){
   const refDate=new Date(ref.date+'T00:00:00Z');
   const refExt=_sablonExtract(ref,game);
   const refSet=new Set([...refExt.mainSorted,...(refExt.bonus||[])]);
+  const refSig=_sablonPatternSignature(refExt.mainSorted);
   const out=[];
   for(let i=0;i<draws.length;i++){
     if(i===refIdx)continue;
@@ -8244,7 +8245,8 @@ function _sablonFindAnniversaryMatches(draws,game,refIdx,windowDays){
     if(Math.abs(shift)>windowDays)continue;
     const ext=_sablonExtract(d,game);
     const common=ext.mainSorted.filter(n=>refSet.has(n));
-    out.push({ext,years,shift,common});
+    const sig=_sablonPatternSignature(ext.mainSorted);
+    out.push({ext,years,shift,common,sig,sigMatch:sig===refSig});
   }
   out.sort((a,b)=>Math.abs(a.years)-Math.abs(b.years)||Math.abs(a.shift)-Math.abs(b.shift));
   return out;
@@ -10241,17 +10243,22 @@ function _sablonRenderPattern(panel,draws,game){
     if(matches.length>40)html+=`<div style="font-size:.58rem;color:var(--muted);text-align:center;padding:4px">+${matches.length-40} eşleşme daha (ilk 40 gösteriliyor)</div>`;
   }
 
-  html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:12px 0 5px;letter-spacing:.5px">▸ Yıl Dönümü Benzerleri (±3 gün)</div>`;
+  const annivSigMatchCount=anniv.filter(a=>a.sigMatch).length;
+  html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:12px 0 5px;letter-spacing:.5px">▸ Yıl Dönümü Benzerleri (±3 gün) — ${annivSigMatchCount} / ${anniv.length} aynı onluk deseninde</div>`;
+  html+=`<div style="font-size:.58rem;color:var(--muted);padding:0 2px 6px;line-height:1.4">Not: bu liste yalnızca takvim tarihine yakınlığa göre sıralanır, onluk deseni eşleşmesi şart değildir. Her satırda kendi deseni ve referansla eşleşip eşleşmediği (✓/✗) gösterilir.</div>`;
   if(!anniv.length){
     html+=`<div style="font-size:.65rem;color:var(--muted);padding:8px;text-align:center">Bu tarihe yakın yıl dönümü çekilişi bulunamadı.</div>`;
   }else{
     anniv.slice(0,20).forEach(a=>{
       const shiftTxt=a.shift===0?'tam isabet':`${a.shift>0?'+':''}${a.shift} gün kayma`;
+      const sigColor=a.sigMatch?'var(--green)':'var(--muted)';
       html+=`<div style="background:rgba(129,140,248,.04);border:1px solid rgba(129,140,248,.2);border-radius:7px;padding:6px 9px;margin-bottom:5px">`;
       html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px">`;
       html+=`<span style="font-size:.6rem;color:var(--muted);font-weight:700">${a.ext.date||'—'} · ${Math.abs(a.years)} yıl önce · ${shiftTxt}</span>`;
       html+=`<span style="font-size:.58rem;color:${a.common.length?'var(--green)':'var(--muted)'};font-weight:700">${a.common.length?`🟢 ${a.common.length} ortak sayı`:'ortak sayı yok'}</span>`;
-      html+=`</div><div style="display:flex;flex-wrap:wrap;gap:3px">`;
+      html+=`</div>`;
+      html+=`<div style="margin-bottom:4px"><span style="font-size:.56rem;color:${sigColor};font-weight:700;font-family:monospace">${a.sigMatch?'✓':'✗'} desen: ${a.sig}</span>${a.sigMatch?'':` <span style="font-size:.56rem;color:var(--muted)">(referans: ${refSig})</span>`}</div>`;
+      html+=`<div style="display:flex;flex-wrap:wrap;gap:3px">`;
       a.ext.mainSorted.forEach(v=>{html+=_sablonNumBadge(v,refSet.has(v));});
       html+=`</div></div>`;
     });
@@ -14801,15 +14808,21 @@ function _dnRenderComboBlock(r){
     `<div style="background:rgba(0,0,0,.03);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Eşit oylama (üst ${r.cnt})</div><div style="font-size:1.4rem;font-weight:800;color:var(--text)">${r.eqAvg.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">lift ${lift(r.eqAvg).toFixed(2)}×</div></div>`+
     `<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Ağırlıklı (üst ${r.cnt})</div><div style="font-size:1.4rem;font-weight:800;color:var(--accent)">${r.wAvg.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">lift ${lift(r.wAvg).toFixed(2)}×</div></div>`+
     `</div>`;
-  h+=`<div style="font-size:.66rem;font-weight:700;color:var(--${better});margin-bottom:10px">${betterTxt} (${r.trials} test turu, rastgele ≈ ${r.base.toFixed(2)})</div>`;
+  h+=`<div style="font-size:.66rem;font-weight:700;color:var(--${better});margin-bottom:6px">${betterTxt} (${r.trials} test turu, rastgele ≈ ${r.base.toFixed(2)})</div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:10px;line-height:1.5">Not: burada bir minimum oy/destek filtresi <strong>yok</strong> — her iki yöntem de havuzdaki sayıları en yüksek skora göre sıralayıp ilk ${r.cnt} sayıyı seçer (Eşit oylama: en çok kaynakta görülen ${r.cnt} sayı; Ağırlıklı: ağırlık toplamı en yüksek ${r.cnt} sayı). Aşağıda her turun gerçek çekiliş sayıları ve her iki yöntemin tahminleri var; <strong style="color:var(--green)">yeşil</strong> = isabet, gri = isabet değil.</div>`;
   if(r.perRound.length){
-    h+=`<div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">`;
+    const dnBadge=(n,hit)=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;padding:1px 6px;margin:1px;border-radius:5px;background:${hit?'rgba(0,230,118,.18)':'rgba(0,0,0,.03)'};border:1px solid ${hit?'rgba(0,230,118,.5)':'var(--border)'};color:${hit?'var(--green)':'var(--muted)'};font-size:.62rem;font-weight:${hit?800:400};font-family:monospace">${n}</span>`;
+    h+=`<div style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:7px">`;
     r.perRound.forEach(p=>{
-      h+=`<div style="padding:5px 7px;background:rgba(0,0,0,.02);border-radius:7px;font-size:.6rem;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center">`+
-        `<span style="min-width:70px">${p.date}</span>`+
-        `<span>Eşit: ${p.eqPicks.join(', ')} <strong style="color:${p.eqHit>0?'var(--text)':'var(--muted)'}">(${p.eqHit}/${p.eqPicks.length})</strong></span>`+
-        `<span>Ağırlıklı: ${p.wPicks.join(', ')} <strong style="color:${p.wHit>0?'var(--accent)':'var(--muted)'}">(${p.wHit}/${p.wPicks.length})</strong></span>`+
+      const actualSet=new Set(p.actual);
+      h+=`<div style="padding:7px 9px;background:rgba(0,0,0,.02);border-radius:7px;font-size:.6rem;color:var(--muted)">`;
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;flex-wrap:wrap;gap:6px">`+
+        `<strong style="color:var(--text)">${p.date}</strong>`+
+        `<span>Çekilen: ${p.actual.map(n=>`<strong style="color:var(--text);font-family:monospace">${n}</strong>`).join(', ')}</span>`+
         `</div>`;
+      h+=`<div style="margin-bottom:3px;display:flex;align-items:center;flex-wrap:wrap;gap:2px"><span style="margin-right:4px;white-space:nowrap">Eşit oylama <strong style="color:${p.eqHit>0?'var(--text)':'var(--muted)'}">(${p.eqHit}/${p.eqPicks.length})</strong>:</span>${p.eqPicks.map(n=>dnBadge(n,actualSet.has(n))).join('')}</div>`;
+      h+=`<div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px"><span style="margin-right:4px;white-space:nowrap">Ağırlıklı <strong style="color:${p.wHit>0?'var(--accent)':'var(--muted)'}">(${p.wHit}/${p.wPicks.length})</strong>:</span>${p.wPicks.map(n=>dnBadge(n,actualSet.has(n))).join('')}</div>`;
+      h+=`</div>`;
     });
     h+=`</div>`;
   }
