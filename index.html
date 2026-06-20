@@ -331,6 +331,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link active" id="navBtn-home" onclick="showMainPage('home')">🏠 Ana Sayfa</button>
       <button class="nav-link" id="navBtn-nsa" onclick="showMainPage('nsa')" style="border-color:rgba(184,134,11,.4);color:#8a6200">🔐 NSA</button>
       <button class="nav-link" id="navBtn-hizlitahmin" onclick="showMainPage('hizlitahmin')">⚡ Hızlı Tahmin</button>
+      <button class="nav-link" id="navBtn-deneysel" onclick="showMainPage('deneysel')" style="border-color:rgba(129,140,248,.4);color:var(--accent)">🧪 Deneysel</button>
       <button class="nav-link" id="navBtn-scan" onclick="showMainPage('scan')">🔍 Tarama</button>
       <button class="nav-link" id="navBtn-listeler" onclick="showMainPage('listeler')">📋 Listeler</button>
       <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Kazanan</button>
@@ -1108,6 +1109,19 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  </div>
 
 </div><!-- /page-hizlitahmin -->
+
+<!-- ═══════════ PAGE: DENEYSEL (Ağırlıklı Konsensüs denemesi — Hızlı Tahmin'in Geçmiş Test'inin kopyası) ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-deneysel">
+ <div class="card" style="margin-top:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">🧪 Deneysel: Ağırlıklı Konsensüs</div>
+   <button onclick="_dnRunBacktest()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
+  </div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Bu sayfa, "⚡ Hızlı Tahmin" sayfasındaki "Geçmiş Test"in bağımsız bir kopyasıdır — oradaki eşit-oylama (kaç kaynakta ortak çıktı) yöntemine dokunmadan, burada her kaynağı kendi geçmiş isabet oranına göre ağırlıklandıran alternatif bir yöntem deneniyor. Ağırlıklar daha <strong>eski</strong> bir eğitim penceresinden öğrenilip, hiç görmediği daha <strong>yeni</strong> bir test penceresinde değerlendiriliyor (sızıntı yok).</div>
+  <div id="dnGameRow" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+  <div id="dnBtBox"></div>
+ </div>
+</div><!-- /page-deneysel -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-kapsamli">
@@ -11736,11 +11750,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-b10sistem','page-soz','page-capraz','page-nsa','page-hizlitahmin'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-b10sistem','page-soz','page-capraz','page-nsa','page-hizlitahmin','page-deneysel'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem','navBtn-soz','navBtn-capraz','navBtn-nsa','navBtn-hizlitahmin'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-b10sistem','navBtn-soz','navBtn-capraz','navBtn-nsa','navBtn-hizlitahmin','navBtn-deneysel'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -11750,6 +11764,7 @@ function showMainPage(id){
   if(id==='soz')_soInit();
   if(id==='capraz')_cxInit();
   if(id==='nsa')_nsaInit();
+  if(id==='deneysel')_dnInit();
   if(id==='hizlitahmin')_htInit();
 }
 
@@ -14641,6 +14656,165 @@ function _htRunBacktest(){
       el.innerHTML=_kbRenderComboBlock(combo);
     }catch(e){el.innerHTML='<div style="padding:14px;color:#cc2222;font-size:.7rem">Hata: '+e.message+'</div>';}
   },40);
+}
+
+// ── 🧪 Deneysel sayfa — "Hızlı Tahmin / Geçmiş Test"in bağımsız kopyası ──
+// Amaç: eşit oylama (kaç kaynakta ortak çıktı) yerine, her kaynağı kendi geçmiş
+// isabetine göre ağırlıklandırmayı dene. Orijinal _kbHtComboBacktest/_kbRenderComboBlock'a
+// dokunulmuyor — bu fonksiyonlar tamamen ayrı, kendi kopyalarını kullanıyor.
+const _dnBtCache={};
+let _dnGame=null;
+const _DN_GLIST=[{id:'sayisal',e:'🔵',n:'Sayısal'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
+function _dnInit(){
+  if(!_dnGame)_dnGame=state.selectedGame||'super';
+  _dnRenderGameRow();
+  _dnRenderBox();
+}
+function _dnRenderGameRow(){
+  const row=document.getElementById('dnGameRow');if(!row)return;
+  row.innerHTML=_DN_GLIST.map(g=>{
+    const a=g.id===_dnGame;
+    return `<button onclick="_dnSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
+  }).join('');
+}
+function _dnSetGame(gid){_dnGame=gid;_dnRenderGameRow();_dnRenderBox();}
+function _dnRenderBox(){
+  const el=document.getElementById('dnBtBox');if(!el)return;
+  if(_dnBtCache[_dnGame]){el.innerHTML=_dnRenderComboBlock(_dnBtCache[_dnGame]);return;}
+  el.innerHTML=`<div style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:16px;text-align:center">
+    <button onclick="_dnRunBacktest()" style="background:rgba(129,140,248,.18);border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;padding:9px 18px;cursor:pointer;font-size:.72rem;font-weight:800">🧪 Ağırlıklı Testi Çalıştır</button>
+  </div>`;
+}
+function _dnRunBacktest(){
+  const el=document.getElementById('dnBtBox');if(!el)return;
+  el.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted);font-size:.75rem">⏳ Hesaplanıyor… (birkaç saniye sürebilir)</div>';
+  setTimeout(()=>{
+    try{
+      const game=getGame(_dnGame),draws=_kbGetDraws(_dnGame);
+      if(!draws||draws.length<85){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Eğitim + test için yeterli çekiliş verisi yok (en az ~85 çekiliş gerekir).</div>';return;}
+      const result=_dnComboBacktestWeighted(draws,game,30,40);
+      if(!result){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Yeterli veri yok.</div>';return;}
+      _dnBtCache[_dnGame]=result;
+      el.innerHTML=_dnRenderComboBlock(result);
+    }catch(e){el.innerHTML='<div style="padding:14px;color:#cc2222;font-size:.7rem">Hata: '+e.message+'</div>';}
+  },40);
+}
+// Her tur için 5 kaynağın o anki aday kümesini üretir (_kbHtComboBacktest'teki mantığın bire bir kopyası).
+function _dnSysForRound(prior,game){
+  const sys={};
+  try{
+    const ga=_soGapAnalysisCompute(prior[0],game);
+    sys['Gülay Analiz']=new Set((ga?.gulayCands||[]).map(c=>c.n));
+  }catch(e){sys['Gülay Analiz']=new Set();}
+  try{
+    const ai=prior.length>=8?_soAiCompute(prior,game,prior[0]):null;
+    sys['Gülay AI']=new Set((ai?.top15||[]).map(x=>x.n));
+  }catch(e){sys['Gülay AI']=new Set();}
+  try{
+    const freq=buildFreq(prior);
+    const tks=Array.from({length:10},()=>generateNumbers(game,'sislcg',freq,prior));
+    sys['Sisal-LCG']=new Set(tks.flatMap(tk=>tk.main));
+  }catch(e){sys['Sisal-LCG']=new Set();}
+  try{
+    const b10=buildB10Scores(_b10CleanDraws(prior,game),game,30).slice(0,15);
+    sys['B10 Kuponu']=new Set(b10.map(s=>s.n));
+  }catch(e){sys['B10 Kuponu']=new Set();}
+  try{
+    const gmax=game.max;
+    const numScore=new Array(gmax+1).fill(0);
+    const ewf=buildEWF(prior,gmax,0.85);
+    const maxEWF=Math.max(0,...Object.values(ewf));
+    if(maxEWF>0)for(let n=1;n<=gmax;n++)numScore[n]+=((ewf[n]||0)/maxEWF)*1.5;
+    const{score:ns}=_sablonScoreNext(prior[0],game);
+    const maxNS=Math.max(...ns.slice(1),1);
+    for(let n=1;n<=gmax;n++)numScore[n]+=(ns[n]||0)/maxNS*2.5;
+    const delay=new Float32Array(gmax+1);
+    for(let n=1;n<=gmax;n++){const i=prior.findIndex(d=>[...d.nums,...(d.bonus||[])].includes(n));delay[n]=i===-1?prior.length:i;}
+    const maxD=Math.max(...delay.slice(1),1);
+    for(let n=1;n<=gmax;n++)numScore[n]+=delay[n]/maxD*1.5;
+    const tickets=_listelerGenAiTickets(game,gmax,numScore);
+    sys['Listeler AI (basit)']=new Set(tickets.flatMap(tk=>[...tk.main,...tk.bonus]));
+  }catch(e){sys['Listeler AI (basit)']=new Set();}
+  return sys;
+}
+const _DN_SOURCES=['Gülay Analiz','Gülay AI','Sisal-LCG','B10 Kuponu','Listeler AI (basit)'];
+// Eğitim penceresi (daha eski turlar) → her kaynağın kendi isabet oranını öğren.
+// Test penceresi (daha yeni, eğitimde hiç görülmemiş turlar) → ağırlıklı skor ile eşit oylamayı kıyasla.
+function _dnComboBacktestWeighted(draws,game,testRounds,trainRounds){
+  const max=game.max,cnt=Math.min(game.count,7);
+  const R=Math.min(testRounds||30,Math.max(0,draws.length-20));
+  const T=Math.min(trainRounds||40,Math.max(0,draws.length-R-20));
+  if(R<5||T<5)return null;
+  const trainHit={},trainTot={};
+  _DN_SOURCES.forEach(nm=>{trainHit[nm]=0;trainTot[nm]=0;});
+  for(let t=R;t<R+T;t++){
+    const prior=draws.slice(t+1);if(prior.length<15)break;
+    const actual=new Set(draws[t].nums.filter(n=>n>=1&&n<=max));if(actual.size<2)continue;
+    const sys=_dnSysForRound(prior,game);
+    _DN_SOURCES.forEach(nm=>{
+      const cand=sys[nm]||new Set();
+      trainTot[nm]+=cand.size;
+      cand.forEach(n=>{if(actual.has(n))trainHit[nm]++;});
+    });
+  }
+  const weight={};
+  _DN_SOURCES.forEach(nm=>{weight[nm]=trainTot[nm]>0?trainHit[nm]/trainTot[nm]:0;});
+  const totalW=_DN_SOURCES.reduce((a,nm)=>a+weight[nm],0);
+  if(totalW<=0)_DN_SOURCES.forEach(nm=>weight[nm]=1/_DN_SOURCES.length);
+  let wHit=0,eqHit=0,trials=0,actSum=0;
+  const perRound=[];
+  for(let t=0;t<R;t++){
+    const prior=draws.slice(t+1);if(prior.length<15)break;
+    const actualNums=draws[t].nums.filter(n=>n>=1&&n<=max);
+    const actual=new Set(actualNums);if(actual.size<2)continue;
+    const sys=_dnSysForRound(prior,game);
+    const candPool=new Set();
+    _DN_SOURCES.forEach(nm=>(sys[nm]||new Set()).forEach(n=>candPool.add(n)));
+    const scored=[...candPool].map(n=>{
+      const supportSrc=_DN_SOURCES.filter(nm=>(sys[nm]||new Set()).has(n));
+      const wScore=supportSrc.reduce((a,nm)=>a+weight[nm],0);
+      return{n,support:supportSrc.length,wScore};
+    });
+    const wRanked=[...scored].sort((a,b)=>b.wScore-a.wScore||a.n-b.n).slice(0,cnt);
+    const wHitN=wRanked.filter(s=>actual.has(s.n)).length;
+    const eqRanked=[...scored].sort((a,b)=>b.support-a.support||a.n-b.n).slice(0,cnt);
+    const eqHitN=eqRanked.filter(s=>actual.has(s.n)).length;
+    wHit+=wHitN;eqHit+=eqHitN;trials++;actSum+=actual.size;
+    perRound.push({date:draws[t].date,actual:actualNums,wPicks:wRanked.map(s=>s.n),wHit:wHitN,eqPicks:eqRanked.map(s=>s.n),eqHit:eqHitN});
+  }
+  const avgAct=trials?actSum/trials:cnt,base=cnt*avgAct/max;
+  return{cnt,base,trials,trainRounds:T,testRounds:R,sourceNames:_DN_SOURCES,weight,
+    wAvg:trials?wHit/trials:0,eqAvg:trials?eqHit/trials:0,perRound};
+}
+function _dnRenderComboBlock(r){
+  if(!r||!r.trials)return'<div class="empty-state"><span class="empty-icon">📭</span>Eğitim + test için yeterli çekiliş verisi yok.</div>';
+  const lift=w=>r.base>0?w/r.base:0;
+  const better=r.wAvg>r.eqAvg?'green':r.wAvg<r.eqAvg?'red':'muted';
+  const betterTxt=r.wAvg>r.eqAvg?'🟢 Ağırlıklı yöntem bu test penceresinde daha iyi':r.wAvg<r.eqAvg?'🔴 Eşit oylama bu test penceresinde daha iyi':'⚪ Aralarında fark yok';
+  let h='';
+  h+=`<div style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:12px 14px">`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px;line-height:1.6">Her kaynağın ağırlığı, ondan <strong>${r.trainRounds}</strong> turluk daha eski bir eğitim penceresindeki kendi isabet oranından öğrenildi; bu ağırlıklar, eğitimde hiç görülmemiş <strong>${r.testRounds}</strong> turluk daha yeni bir test penceresinde değerlendirildi.</div>`;
+  h+=`<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;padding:8px 10px;background:rgba(0,0,0,.03);border-radius:8px">`+
+    r.sourceNames.map(nm=>`<div style="display:flex;justify-content:space-between;font-size:.62rem;color:var(--muted)"><span>${nm}</span><strong style="color:var(--text)">eğitimde %${Math.round(r.weight[nm]*100)} isabet → ağırlık ${r.weight[nm].toFixed(3)}</strong></div>`).join('')+
+    `</div>`;
+  h+=`<div class="b10-tahmin-grid" style="margin-bottom:10px">`+
+    `<div style="background:rgba(0,0,0,.03);border:1px solid var(--border);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Eşit oylama (üst ${r.cnt})</div><div style="font-size:1.4rem;font-weight:800;color:var(--text)">${r.eqAvg.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">lift ${lift(r.eqAvg).toFixed(2)}×</div></div>`+
+    `<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Ağırlıklı (üst ${r.cnt})</div><div style="font-size:1.4rem;font-weight:800;color:var(--accent)">${r.wAvg.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">lift ${lift(r.wAvg).toFixed(2)}×</div></div>`+
+    `</div>`;
+  h+=`<div style="font-size:.66rem;font-weight:700;color:var(--${better});margin-bottom:10px">${betterTxt} (${r.trials} test turu, rastgele ≈ ${r.base.toFixed(2)})</div>`;
+  if(r.perRound.length){
+    h+=`<div style="max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">`;
+    r.perRound.forEach(p=>{
+      h+=`<div style="padding:5px 7px;background:rgba(0,0,0,.02);border-radius:7px;font-size:.6rem;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center">`+
+        `<span style="min-width:70px">${p.date}</span>`+
+        `<span>Eşit: ${p.eqPicks.join(', ')} <strong style="color:${p.eqHit>0?'var(--text)':'var(--muted)'}">(${p.eqHit}/${p.eqPicks.length})</strong></span>`+
+        `<span>Ağırlıklı: ${p.wPicks.join(', ')} <strong style="color:${p.wHit>0?'var(--accent)':'var(--muted)'}">(${p.wHit}/${p.wPicks.length})</strong></span>`+
+        `</div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  return h;
 }
 
 function _soGapAnalysisCompute(draw,game){
