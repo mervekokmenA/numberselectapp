@@ -14324,12 +14324,14 @@ function _htMirrorListelerBulundu(){
   }
   // Konsensüs için sayı kümelerini doğrudan veri yapılarından çıkar (HTML kazıma yapmadan)
   const kirmizi=new Set();
+  const kirmiziCounts={};
   if(_listelerNewPred){
     _listelerNewPred.tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
-      if(_listelerRedKeys.has(`${ti}-${pi}`))kirmizi.add(num);
+      if(_listelerRedKeys.has(`${ti}-${pi}`)){kirmizi.add(num);kirmiziCounts[num]=(kirmiziCounts[num]||0)+1;}
     }));
   }
   window._listelerKirmiziNums=[...kirmizi];
+  window._listelerKirmiziCounts=kirmiziCounts;
   const ortak=new Set();
   const d=window._ortakData;
   if(d){
@@ -14418,19 +14420,29 @@ function _htConsensusScores(pool){
   const names=Object.keys(sys);
   const candidateSet=new Set(pool||[]);
   if(!pool)names.forEach(name=>sys[name].forEach(n=>candidateSet.add(n)));
+  const kCounts=window._listelerKirmiziCounts||{};
   return[...candidateSet].map(n=>{
     const sources=names.filter(name=>sys[name].has(n));
-    return{n,cnt:sources.length,sources};
-  }).sort((a,b)=>b.cnt-a.cnt||a.n-b.n);
+    const nearSources=names.filter(name=>!sys[name].has(n)&&(sys[name].has(n-1)||sys[name].has(n+1)));
+    const kCnt=kCounts[n]||0;
+    const kBonus=Math.min(1,Math.max(0,kCnt-1)*0.15);
+    const score=sources.length+nearSources.length*0.5+kBonus;
+    return{n,cnt:sources.length,sources,nearCnt:nearSources.length,nearSources,kCnt,score};
+  }).sort((a,b)=>b.score-a.score||b.cnt-a.cnt||a.n-b.n);
 }
 function _htConsBadge(s,total){
-  const{n,cnt,sources}=s;
-  const bg=cnt>=4?'rgba(0,230,118,.3)':cnt>=2?'rgba(251,191,36,.25)':cnt>=1?'rgba(129,140,248,.18)':'rgba(0,0,0,.04)';
-  const bd=cnt>=4?'rgba(0,230,118,.7)':cnt>=2?'rgba(251,191,36,.6)':cnt>=1?'rgba(129,140,248,.4)':'var(--border)';
-  const cl=cnt>=4?'var(--green)':cnt>=2?'#8a6200':cnt>=1?'var(--accent)':'var(--muted)';
-  return`<div title="${sources.join(', ')||'Hiçbir sistemde yok'}" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:${bg};border:1px solid ${bd};border-radius:8px;padding:6px 9px;min-width:42px">
+  const{n,cnt,sources,nearCnt,nearSources,kCnt,score}=s;
+  const bg=score>=4?'rgba(0,230,118,.3)':score>=2?'rgba(251,191,36,.25)':score>=1?'rgba(129,140,248,.18)':'rgba(0,0,0,.04)';
+  const bd=score>=4?'rgba(0,230,118,.7)':score>=2?'rgba(251,191,36,.6)':score>=1?'rgba(129,140,248,.4)':'var(--border)';
+  const cl=score>=4?'var(--green)':score>=2?'#8a6200':score>=1?'var(--accent)':'var(--muted)';
+  const extras=[];
+  if(nearCnt)extras.push(`±1: ${nearSources.join(', ')}`);
+  if(kCnt>1)extras.push(`🔴${kCnt}×`);
+  const titleParts=[sources.join(', ')||'Hiçbir sistemde yok',...extras];
+  const sub=kCnt>1?`${cnt}/${total} 🔴${kCnt}×`:nearCnt?`${cnt}/${total} ±${nearCnt}`:`${cnt}/${total}`;
+  return`<div title="${titleParts.join(' · ')}" style="display:flex;flex-direction:column;align-items:center;gap:2px;background:${bg};border:1px solid ${bd};border-radius:8px;padding:6px 9px;min-width:42px">
     <span style="font-size:.85rem;font-weight:800;font-family:monospace;color:${cl}">${n}</span>
-    <span style="font-size:.52rem;color:var(--muted)">${cnt}/${total}</span>
+    <span style="font-size:.52rem;color:var(--muted)">${sub}</span>
   </div>`;
 }
 function _htConsSwitchTab(mode){
@@ -14444,18 +14456,18 @@ function _htRenderConsensus(){
   const sys=_htCollectVotes();
   const names=Object.keys(sys);
   const total=names.length;
-  const legend=`<div style="font-size:.56rem;color:var(--muted);margin-top:10px;line-height:1.6">🟢 4+ sistem ortak · 🟡 2-3 sistem ortak · 🟣 1 sistemde · ⚪ hiçbirinde yok</div>`;
+  const legend=`<div style="font-size:.56rem;color:var(--muted);margin-top:10px;line-height:1.6">🟢 4+ puan (net aday) · 🟡 2-3 puan · 🟣 1 puan · ⚪ hiçbirinde yok — puan = sistemlerde tam geçiş + ±1 yakınlık (yarım puan) + 🔴 Kırmızı Hücre tekrar bonusu</div>`;
   if(_htConsMode==='pool'){
     const raw=document.getElementById('htManualInput')?.value||'';
     const pool=[...new Set((raw.match(/\d+/g)||[]).map(Number))];
     if(!pool.length){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Önce yukarıdaki "✍️ Manuel Sayı Girişi" kutusuna aday sayı grubunu yapıştırıp "🔢 Göster"e basın.</div>';return;}
     const scores=_htConsensusScores(pool);
-    el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">Havuzdaki <strong style="color:var(--text)">${pool.length}</strong> sayı, bu sayfadaki ${total} sistemle (${names.join(', ')}) karşılaştırıldı. Daha çok sistemde geçen sayı = daha güçlü aday.</div>`+
+    el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">Havuzdaki <strong style="color:var(--text)">${pool.length}</strong> sayı, bu sayfadaki ${total} sistemle (${names.join(', ')}) karşılaştırıldı. Daha yüksek puan = daha güçlü aday.</div>`+
       `<div style="display:flex;gap:6px;flex-wrap:wrap">${scores.map(s=>_htConsBadge(s,total)).join('')}</div>`+legend;
   }else{
-    const scores=_htConsensusScores(null).filter(s=>s.cnt>0).slice(0,30);
+    const scores=_htConsensusScores(null).filter(s=>s.score>0).slice(0,30);
     if(!scores.length){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Henüz hiçbir sistemden veri yok — bu oyun için yeterli çekiliş verisi olmayabilir.</div>';return;}
-    el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">Sayfadaki ${total} sistemin ürettiği tüm sayılar birleştirildi, en çok sistemde ortak çıkanlar üstte (ilk 30).</div>`+
+    el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">Sayfadaki ${total} sistemin ürettiği tüm sayılar birleştirildi, en yüksek puanlılar üstte (ilk 30).</div>`+
       `<div style="display:flex;gap:6px;flex-wrap:wrap">${scores.map(s=>_htConsBadge(s,total)).join('')}</div>`+legend;
   }
 }
