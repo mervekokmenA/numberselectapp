@@ -14938,6 +14938,32 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
     h+=`</div>`;
   });
   h+=`</div>`;
+  // ── Sabit (Toplama+Çıkarma) sayılarla Fark Zinciri kesişimi
+  // Toplama/Çıkarma tablolarındaki tüm sayılar "sabit" kabul edilir; Fark Zinciri'ndeki
+  // bir sayı bu sabit sayılardan birine doğrudan eşitse veya ±1 farkla yakınsa burada listelenir.
+  h+=`<div style="background:rgba(82,72,212,.05);border:1px solid rgba(82,72,212,.25);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800;color:var(--accent);margin-bottom:4px">🧩 Sabit Sayılarla Kesişim</div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.5">Toplama ve Çıkarma tablolarından çıkan sayılar <strong>sabit</strong> kabul edilir. Fark Zinciri'ndeki bir sayı bu sabit sayılardan birine <strong>doğrudan eşit</strong> ya da <strong>±1 fark</strong>la yakınsa burada listelenir.</div>`;
+  const sabitSet=new Set([...topRows.flat(),...cikRows.flat()]);
+  const chainNumSet=new Set();
+  chainRows.forEach(({chain})=>chain.forEach(n=>chainNumSet.add(n)));
+  const kesisimler=[];
+  chainNumSet.forEach(n=>{
+    if(sabitSet.has(n)){kesisimler.push({n,tip:'esit',kaynak:[n]});return;}
+    const near=[...sabitSet].filter(s=>Math.abs(s-n)===1);
+    if(near.length)kesisimler.push({n,tip:'yakin',kaynak:near});
+  });
+  kesisimler.sort((a,b)=>a.n-b.n);
+  if(!kesisimler.length){
+    h+=`<div style="font-size:.6rem;color:var(--muted);text-align:center;padding:6px">Bu turda kesişim bulunamadı.</div>`;
+  }else{
+    h+=`<div style="display:flex;flex-direction:column;gap:4px">`;
+    kesisimler.forEach(k=>{
+      h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${badge(k.n)}<span style="font-size:.56rem;color:var(--muted)">${k.tip==='esit'?'= sabit sayıyla aynı':`±1 yakın (sabit: ${k.kaynak.join(', ')})`}</span></div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</div>`;
   // ── Kopyala (tam analiz)
   const allCik=cikRows.map((r,i)=>`-f${i+1}(${gaps[i]}): ${r.join(' ')}`).join('\n');
   const allTop=topRows.map((r,i)=>`+f${i+1}(${gaps[i]}): ${r.join(' ')}`).join('\n');
