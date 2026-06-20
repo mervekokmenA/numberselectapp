@@ -8183,6 +8183,69 @@ function _sablonBacktestTopK(draws,game,K,limit){
   return {trials,hitTotal,avg:trials?hitTotal/trials:0,histo,K};
 }
 
+// ── Desen Eşleşmesi: onlar-basamağı (decade) imzasına göre geçmişte aynı
+// deseni taşıyan çekilişleri bulur + ~yıl dönümü tarih benzerlerini listeler.
+// Ortak sayılar yeşil rozetle işaretlenir (kaynak: harici "Word Arama Motoru" aracı).
+function _sablonPatternSignature(sortedMain){
+  return sortedMain.map(n=>Math.ceil(n/10)).join('-');
+}
+
+function _sablonFindPatternMatches(draws,game,refIdx){
+  const ref=draws[refIdx];
+  const refExt=_sablonExtract(ref,game);
+  const refSig=_sablonPatternSignature(refExt.mainSorted);
+  const refSet=new Set([...refExt.mainSorted,...(refExt.bonus||[])]);
+  const matches=[];
+  for(let i=0;i<draws.length;i++){
+    if(i===refIdx)continue;
+    const ext=_sablonExtract(draws[i],game);
+    if(_sablonPatternSignature(ext.mainSorted)!==refSig)continue;
+    const common=ext.mainSorted.filter(n=>refSet.has(n));
+    const nextExt=i>0?_sablonExtract(draws[i-1],game):null;
+    matches.push({ext,common,nextExt});
+  }
+  return {refExt,refSig,matches};
+}
+
+// Referans tarihten ~N yıl önce/sonra (±windowDays gün toleranslı) gerçekleşen çekilişler.
+function _sablonFindAnniversaryMatches(draws,game,refIdx,windowDays){
+  const ref=draws[refIdx];
+  const refDate=new Date(ref.date+'T00:00:00Z');
+  const refExt=_sablonExtract(ref,game);
+  const refSet=new Set([...refExt.mainSorted,...(refExt.bonus||[])]);
+  const out=[];
+  for(let i=0;i<draws.length;i++){
+    if(i===refIdx)continue;
+    const d=draws[i];
+    if(!d.date)continue;
+    const dt=new Date(d.date+'T00:00:00Z');
+    const diffDays=Math.round((refDate-dt)/86400000);
+    const years=Math.round(diffDays/365.25);
+    if(years===0)continue;
+    const shift365=diffDays-years*365;
+    const shift366=diffDays-years*366;
+    const shift=Math.abs(shift365)<=Math.abs(shift366)?shift365:shift366;
+    if(Math.abs(shift)>windowDays)continue;
+    const ext=_sablonExtract(d,game);
+    const common=ext.mainSorted.filter(n=>refSet.has(n));
+    out.push({ext,years,shift,common});
+  }
+  out.sort((a,b)=>Math.abs(a.years)-Math.abs(b.years)||Math.abs(a.shift)-Math.abs(b.shift));
+  return out;
+}
+
+const _sablonPatternCache=new Map();
+function _sablonPatternCompute(draws,game,refIdx){
+  const ref=draws[refIdx];
+  const cacheKey=game.id+'|'+(ref.date||'')+'|'+draws.length+'|'+refIdx;
+  if(_sablonPatternCache.has(cacheKey))return _sablonPatternCache.get(cacheKey);
+  const {refExt,refSig,matches}=_sablonFindPatternMatches(draws,game,refIdx);
+  const anniv=_sablonFindAnniversaryMatches(draws,game,refIdx,3);
+  const result={refExt,refSig,matches,anniv};
+  _sablonPatternCache.set(cacheKey,result);
+  return result;
+}
+
 // ══════════════════════════════════════════════════════════════
 // BACKTESTING
 // ══════════════════════════════════════════════════════════════
@@ -9746,9 +9809,10 @@ function gizliKopyalaHepsi(){
 // ── Şablon Analizi UI ─────────────────────────────────────────
 let _sablonView='last';
 let _sablonBtK=15;
+let _sablonPatternRefIdx=0;
 function _sablonViewSwitch(view){
   _sablonView=view;
-  ['last','next','history','backtest','banko'].forEach(v=>{
+  ['last','next','history','backtest','banko','pattern'].forEach(v=>{
     const b=document.getElementById('sablonView'+v.charAt(0).toUpperCase()+v.slice(1));
     if(!b)return;
     if(v===view){b.style.background='rgba(0,150,58,.13)';b.style.borderColor='rgba(0,150,58,.35)';b.style.color='var(--text)';}
@@ -9774,6 +9838,19 @@ function _sablonRender(){
   if(_sablonView==='history')return _sablonRenderHistory(panel,draws,game);
   if(_sablonView==='backtest')return _sablonRenderBacktest(panel,draws,game);
   if(_sablonView==='banko')return _sablonRenderBanko(panel,draws,game);
+  if(_sablonView==='pattern')return _sablonRenderPattern(panel,draws,game);
+}
+
+function _sablonPatternStep(delta){
+  const draws=_sablonGetDraws();
+  if(!draws||!draws.length)return;
+  _sablonPatternRefIdx=Math.max(0,Math.min(draws.length-1,_sablonPatternRefIdx+delta));
+  _sablonRender();
+}
+function _sablonPatternSetDate(dateStr){
+  const draws=_sablonGetDraws();
+  const idx=draws.findIndex(d=>d.date===dateStr);
+  if(idx>=0){_sablonPatternRefIdx=idx;_sablonRender();}
 }
 
 function _sablonChip(lbl,val,extra){
@@ -10097,6 +10174,75 @@ function _sablonRunBanko(){
   });
   out.innerHTML=html;
 }
+
+function _sablonRenderPattern(panel,draws,game){
+  if(_sablonPatternRefIdx>=draws.length)_sablonPatternRefIdx=0;
+  const refIdx=_sablonPatternRefIdx;
+  const ref=draws[refIdx];
+  const {refExt,refSig,matches,anniv}=_sablonPatternCompute(draws,game,refIdx);
+  const refSet=new Set([...refExt.mainSorted,...(refExt.bonus||[])]);
+
+  let html='';
+  html+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;flex-wrap:wrap">`;
+  html+=`<button onclick="_sablonPatternStep(1)" title="Daha eski çekiliş" style="background:rgba(0,0,0,.04);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.75rem">◀</button>`;
+  html+=`<select onchange="_sablonPatternSetDate(this.value)" style="font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;max-width:160px">`;
+  draws.forEach((d,i)=>{html+=`<option value="${d.date}" ${i===refIdx?'selected':''}>${d.date||'—'}</option>`;});
+  html+=`</select>`;
+  html+=`<button onclick="_sablonPatternStep(-1)" title="Daha yeni çekiliş" style="background:rgba(0,0,0,.04);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.75rem">▶</button>`;
+  html+=`<span style="font-size:.6rem;color:var(--muted)">${refIdx===0?'(en güncel çekiliş — gelecek tahmini için)':'(geçmiş çekiliş — yöntemi test etmek için)'}</span>`;
+  html+=`</div>`;
+
+  html+=`<div style="background:rgba(184,134,11,.05);border:1px solid rgba(184,134,11,.25);border-radius:8px;padding:9px 11px;margin-bottom:10px">`;
+  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">📅 ${ref.date||'—'} · ${game.emoji} ${game.name} · onlar-basamağı deseni: <strong style="color:var(--text);font-family:monospace">${refSig}</strong></div>`;
+  html+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`;
+  refExt.mainSorted.forEach(v=>{html+=_sablonNumBadge(v,true);});
+  if(refExt.bonus.length){
+    html+=`<span style="color:var(--muted);font-size:.7rem;padding:0 3px">|</span>`;
+    refExt.bonus.forEach(v=>{html+=_sablonNumBadge(v,false,'#ff6584');});
+  }
+  html+=`</div></div>`;
+
+  html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:8px 0 5px;letter-spacing:.5px">▸ Aynı Onluk Deseni — ${matches.length} eşleşme / ${draws.length-1} çekiliş (${(matches.length/Math.max(1,draws.length-1)*100).toFixed(1)}%)</div>`;
+  if(!matches.length){
+    html+=`<div style="font-size:.65rem;color:var(--muted);padding:8px;text-align:center">Bu desenle geçmişte eşleşen çekiliş bulunamadı.</div>`;
+  }else{
+    matches.slice(0,40).forEach(m=>{
+      html+=`<div style="background:rgba(0,230,118,.03);border:1px solid rgba(0,230,118,.18);border-radius:7px;padding:6px 9px;margin-bottom:5px">`;
+      html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px">`;
+      html+=`<span style="font-size:.6rem;color:var(--muted);font-weight:700">${m.ext.date||'—'}</span>`;
+      html+=`<span style="font-size:.58rem;color:${m.common.length?'var(--green)':'var(--muted)'};font-weight:700">${m.common.length?`🟢 ${m.common.length} ortak sayı`:'ortak sayı yok'}</span>`;
+      html+=`</div><div style="display:flex;flex-wrap:wrap;gap:3px">`;
+      m.ext.mainSorted.forEach(v=>{html+=_sablonNumBadge(v,refSet.has(v));});
+      html+=`</div>`;
+      if(m.nextExt){
+        html+=`<div style="margin-top:5px;padding-top:4px;border-top:1px solid rgba(0,0,0,.06);display:flex;flex-wrap:wrap;gap:3px;align-items:center">`;
+        html+=`<span style="font-size:.55rem;color:var(--muted);margin-right:3px">→ sonraki çekiliş (${m.nextExt.date||'—'}):</span>`;
+        m.nextExt.mainSorted.forEach(v=>{html+=_sablonNumBadge(v,refSet.has(v));});
+        html+=`</div>`;
+      }
+      html+=`</div>`;
+    });
+    if(matches.length>40)html+=`<div style="font-size:.58rem;color:var(--muted);text-align:center;padding:4px">+${matches.length-40} eşleşme daha (ilk 40 gösteriliyor)</div>`;
+  }
+
+  html+=`<div style="font-size:.62rem;font-weight:700;color:var(--muted);margin:12px 0 5px;letter-spacing:.5px">▸ Yıl Dönümü Benzerleri (±3 gün)</div>`;
+  if(!anniv.length){
+    html+=`<div style="font-size:.65rem;color:var(--muted);padding:8px;text-align:center">Bu tarihe yakın yıl dönümü çekilişi bulunamadı.</div>`;
+  }else{
+    anniv.slice(0,20).forEach(a=>{
+      const shiftTxt=a.shift===0?'tam isabet':`${a.shift>0?'+':''}${a.shift} gün kayma`;
+      html+=`<div style="background:rgba(129,140,248,.04);border:1px solid rgba(129,140,248,.2);border-radius:7px;padding:6px 9px;margin-bottom:5px">`;
+      html+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;flex-wrap:wrap;gap:6px">`;
+      html+=`<span style="font-size:.6rem;color:var(--muted);font-weight:700">${a.ext.date||'—'} · ${Math.abs(a.years)} yıl önce · ${shiftTxt}</span>`;
+      html+=`<span style="font-size:.58rem;color:${a.common.length?'var(--green)':'var(--muted)'};font-weight:700">${a.common.length?`🟢 ${a.common.length} ortak sayı`:'ortak sayı yok'}</span>`;
+      html+=`</div><div style="display:flex;flex-wrap:wrap;gap:3px">`;
+      a.ext.mainSorted.forEach(v=>{html+=_sablonNumBadge(v,refSet.has(v));});
+      html+=`</div></div>`;
+    });
+  }
+  panel.innerHTML=html;
+}
+
 function _gizliSwitchTab(tab){
   ['kolon','mpr'].forEach(t=>{
     const pg=document.getElementById('gizliPage'+{kolon:'Kolon',mpr:'MpR'}[t]);
@@ -14317,6 +14463,7 @@ document.addEventListener('drawDataUpdated',e=>{
   delete _htBtCache[gid];
   for(const k of[..._soAiComputeCache.keys()])if(k.startsWith(gid+'|'))_soAiComputeCache.delete(k);
   for(const k of[..._b10CalibrateCache.keys()])if(k.startsWith(gid+'|'))_b10CalibrateCache.delete(k);
+  for(const k of[..._sablonPatternCache.keys()])if(k.startsWith(gid+'|'))_sablonPatternCache.delete(k);
   if(gid!==_htGame)return;
   _htRenderSoz();_htGenerateSisal();
   if(typeof runB10Wheel==='function')runB10Wheel('Ht');
@@ -15223,7 +15370,8 @@ function _cxBacktest(){
       <strong style="color:var(--text)">NS</strong> = sıralı sayıların ardışık toplamı (NSA, NSAB, NSABC, ...).<br>
       <strong style="color:var(--text)">NST</strong> = NS değerlerinin ardışık toplamı (NST1, NST2, ...).<br>
       <strong style="color:var(--text)">XS / XST</strong> = bonusla birlikte 7-8 sayının versiyonu.<br>
-      Bir <em>V</em> değeri bir <em>N</em> sayısını <strong style="color:var(--text)">vurur</strong>: doğrudan, mod-100, mod-max, onluk sınıf, küçük sapma (±1..±5).
+      Bir <em>V</em> değeri bir <em>N</em> sayısını <strong style="color:var(--text)">vurur</strong>: doğrudan, mod-100, mod-max, onluk sınıf, küçük sapma (±1..±5).<br>
+      <strong style="color:var(--text)">🧬 Desen Eşleşmesi</strong> = seçilen çekilişin onlar-basamağı imzasıyla geçmişte eşleşen çekilişleri ve ~yıl dönümü benzerlerini bulur, ortak sayıları yeşille işaretler.
      </div>
      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
       <button onclick="_sablonViewSwitch('last')" id="sablonViewLast" style="background:rgba(0,150,58,.13);border:1px solid rgba(0,150,58,.35);color:var(--text);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">📅 Son Çekiliş</button>
@@ -15231,6 +15379,7 @@ function _cxBacktest(){
       <button onclick="_sablonViewSwitch('history')" id="sablonViewHistory" style="background:rgba(0,0,0,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">📜 Geçmiş Vuruşlar</button>
       <button onclick="_sablonViewSwitch('backtest')" id="sablonViewBacktest" style="background:rgba(0,0,0,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">🔬 Top-K Geri Test</button>
       <button onclick="_sablonViewSwitch('banko')" id="sablonViewBanko" style="background:rgba(0,0,0,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">🎰 Banko + Şablon</button>
+      <button onclick="_sablonViewSwitch('pattern')" id="sablonViewPattern" style="background:rgba(0,0,0,.04);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:5px 12px;cursor:pointer;font-size:.7rem;font-weight:700">🧬 Desen Eşleşmesi</button>
      </div>
      <div id="sablonPanel" style="font-size:.72rem"></div>
     </div>
