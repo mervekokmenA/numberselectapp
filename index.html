@@ -14587,26 +14587,32 @@ function _astroRunBacktest(){
       const draw=draws[i];
       const ticket=_astroComputeTicket({...d,targetDate:draw.date},game);
       const numSet=new Set(draw.nums);
-      const hitSet=new Set(),nearSet=new Set();
+      const hitSet=new Set(),nearSet=new Set(),tenSet=new Set();
       ticket.slots.forEach(s=>{
         if(!planetStats[s.planet])planetStats[s.planet]={tests:0,hits:0,nears:0};
         planetStats[s.planet].tests++;
         if(numSet.has(s.num)){hitSet.add(s.num);planetStats[s.planet].hits++;}
-        else if([...numSet].some(x=>Math.abs(x-s.num)<=10)){nearSet.add(s.num);planetStats[s.planet].nears++;}
+        else{
+          const minDist=Math.min(...[...numSet].map(x=>Math.abs(x-s.num)));
+          if(minDist<=10){nearSet.add(s.num);planetStats[s.planet].nears++;if(minDist===10)tenSet.add(s.num);}
+        }
       });
-      let bonusHit=false,bonusNear=false;
+      let bonusHit=false,bonusNear=false,bonusTen=false;
       if(ticket.bonus&&draw.bonus&&draw.bonus.length){
         const bp=ticket.bonus.planet;
         if(!planetStats[bp])planetStats[bp]={tests:0,hits:0,nears:0};
         planetStats[bp].tests++;
         if(draw.bonus.includes(ticket.bonus.num)){bonusHit=true;planetStats[bp].hits++;}
-        else if(draw.bonus.some(x=>Math.abs(x-ticket.bonus.num)<=10)){bonusNear=true;planetStats[bp].nears++;}
+        else{
+          const minDist=Math.min(...draw.bonus.map(x=>Math.abs(x-ticket.bonus.num)));
+          if(minDist<=10){bonusNear=true;planetStats[bp].nears++;if(minDist===10)bonusTen=true;}
+        }
       }
       totalHits+=hitSet.size;totalNear+=nearSet.size;
       if(hitSet.size>=1)hit1++;
       if(hitSet.size>=2)hit2++;
       if(hitSet.size>=3)hit3++;
-      rows.push({date:draw.date,drawNums:draw.nums,drawBonus:draw.bonus,slots:ticket.slots,bonus:ticket.bonus,hitSet,nearSet,bonusHit,bonusNear});
+      rows.push({date:draw.date,drawNums:draw.nums,drawBonus:draw.bonus,slots:ticket.slots,bonus:ticket.bonus,hitSet,nearSet,tenSet,bonusHit,bonusNear,bonusTen});
     }
     const N=rows.length;
     const avgHit=(totalHits/N).toFixed(2);
@@ -14619,7 +14625,7 @@ function _astroRunBacktest(){
     html+=statCard('3+ isabet',pct3+'%',pct3>=15?'var(--green)':pct3>=5?'var(--gold)':'var(--muted)');
     html+=statCard('Test sayısı',N,'var(--text)');
     html+='</div>';
-    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — her geçmiş çekiliş günü "Kozmik Hizalanma Tarihi" kabul edilip sayı üretildi · Yeşil=tuttu (net) · 🟠=±10 yakın</div>`;
+    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — her geçmiş çekiliş günü "Kozmik Hizalanma Tarihi" kabul edilip sayı üretildi · Yeşil=tuttu (net) · 🟠=1-9 fark yakın · 🔵=tam 10 fark</div>`;
     html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.65rem">`;
     html+=`<thead><tr style="border-bottom:1px solid var(--border)">`;
     html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th>`;
@@ -14631,8 +14637,8 @@ function _astroRunBacktest(){
     rows.forEach(r=>{
       const drawSpan=n2=>`<span style="font-family:monospace;font-size:.63rem;color:var(--text)">${n2}</span>`;
       const slotSpan=s=>{
-        const hit=r.hitSet.has(s.num),near=r.nearSet.has(s.num);
-        const col=hit?'var(--green)':near?'#e8820c':'var(--text)';
+        const hit=r.hitSet.has(s.num),ten=r.tenSet.has(s.num),near=r.nearSet.has(s.num);
+        const col=hit?'var(--green)':ten?'var(--blue)':near?'#e8820c':'var(--text)';
         const fw=hit||near?'800':'400';
         return`<span style="display:inline-flex;align-items:baseline;gap:2px;margin-right:6px;font-family:monospace;font-size:.63rem;color:${col};font-weight:${fw}">${s.num}${hit?'✓':near?'~':''}<span style="font-size:.52rem;opacity:.7">${ASTRO_PLANET_EMOJI[s.planet]||''}${s.planet}</span></span>`;
       };
@@ -14642,7 +14648,7 @@ function _astroRunBacktest(){
       html+=`<td style="padding:5px 6px;white-space:nowrap;color:var(--muted);font-size:.6rem">${r.date}</td>`;
       html+=`<td style="padding:5px 6px"><div style="display:flex;gap:4px;flex-wrap:wrap">${r.drawNums.map(drawSpan).join('')}${r.drawBonus&&r.drawBonus.length?'<span style="color:var(--muted);margin:0 2px">|</span>'+r.drawBonus.map(drawSpan).join(''):''}</div></td>`;
       const bonusSpan=b=>{
-        const col=r.bonusHit?'var(--green)':r.bonusNear?'#e8820c':'var(--text)';
+        const col=r.bonusHit?'var(--green)':r.bonusTen?'var(--blue)':r.bonusNear?'#e8820c':'var(--text)';
         const fw=r.bonusHit||r.bonusNear?'800':'400';
         return`<span style="display:inline-flex;align-items:baseline;gap:2px;font-family:monospace;font-size:.63rem;color:${col};font-weight:${fw}">${b.num}${r.bonusHit?'✓':r.bonusNear?'~':''}<span style="font-size:.52rem;opacity:.7">${ASTRO_PLANET_EMOJI[b.planet]||''}${b.planet}</span></span>`;
       };
@@ -14652,7 +14658,7 @@ function _astroRunBacktest(){
       html+=`</tr>`;
     });
     html+=`</tbody></table></div>`;
-    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=net isabet · ~=±10 yakın · Astro Tahmini sütunu her sayının üretildiği gezegeni gösterir.</div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=net isabet · 🟠 ~=1-9 fark yakın · 🔵 ~=tam 10 fark · Astro Tahmini sütunu her sayının üretildiği gezegeni gösterir.</div>`;
     // Gezegen güvenilirlik özeti
     const planetRows=Object.keys(planetStats).map(p=>{
       const s=planetStats[p];
