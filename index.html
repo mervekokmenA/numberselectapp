@@ -337,6 +337,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı</button>
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
       <button class="nav-link" id="navBtn-gulayq" onclick="_gqOpenPopup()">✍️ Hızlı Gülay</button>
+      <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
     </div>
     <button class="nav-scroll-btn" id="navScrollNext" onclick="_navScroll(1)">›</button>
   </div>
@@ -897,6 +898,61 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  </div>
 </div>
 
+<!-- ═══════════ PAGE: ASTRO TAHMİN ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-astro">
+ <div class="card">
+  <div class="card-title">🪐 Astro Tahmin</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:14px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Doğum tarihiniz, doğum saatiniz/yeriniz ve anne bilgilerinizden astrolojik profilinizi (Batı burcu, Çin burcu, yaklaşık yükselen) çıkarır; bunlardan ve seçtiğiniz <strong>Kozmik Hizalanma Tarihi</strong>'nden deterministik olarak, her biri bir <strong>gezegenle</strong> ilişkilendirilmiş sayılar üretir. Aynı bilgilerle her zaman aynı sayıları verir — eğlence/deneme amaçlıdır, astrolojik gerçeklik iddiası taşımaz. Aşağıdaki <strong>Geçmiş Test</strong> ile sizin verilerinizde hangi gezegenin daha sık "yakın" (±10) veya "net" çıktığını görebilirsiniz.</div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px">
+   <div>
+    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Oyun</label>
+    <select id="astroGame" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
+   </div>
+   <div>
+    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Doğum Tarihiniz *</label>
+    <input type="date" id="astroBirthDate" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+   </div>
+   <div>
+    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Doğum Saatiniz (opsiyonel)</label>
+    <input type="time" id="astroBirthTime" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+   </div>
+   <div>
+    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Doğum Yeriniz (opsiyonel)</label>
+    <input type="text" id="astroBirthPlace" placeholder="İstanbul, Türkiye" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+   </div>
+   <div>
+    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Annenizin Adı (opsiyonel)</label>
+    <input type="text" id="astroMotherName" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+   </div>
+   <div>
+    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Annenizin Doğum Tarihi (opsiyonel)</label>
+    <input type="date" id="astroMotherBirthDate" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+   </div>
+   <div>
+    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Kozmik Hizalanma Tarihi</label>
+    <input type="date" id="astroTargetDate" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+   </div>
+  </div>
+  <button onclick="_astroGenerate()" style="font-size:.78rem;padding:9px 20px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🪐 Kozmik Sayıları Üret</button>
+  <div id="astroResult" style="margin-top:14px"></div>
+ </div>
+
+ <div class="card" style="margin-top:12px">
+  <div class="card-title">📊 Geçmiş Test</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Yukarıdaki bilgilerinizle her geçmiş çekiliş gününü sırayla "Kozmik Hizalanma Tarihi" kabul edip sayı üretir ve gerçek çekilişle karşılaştırır. Her sayı hangi gezegenle üretildiyse, o gezegenin <strong>net isabet</strong> ve <strong>±10 yakın</strong> oranı ayrı ayrı hesaplanır — böylece sizin verilerinizde hangi gezegenin daha güvenilir olduğunu görebilirsiniz.</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+   <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
+   <select id="astroBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="50">50 çekiliş</option>
+    <option value="100">100 çekiliş</option>
+    <option value="200" selected>200 çekiliş</option>
+   </select>
+   <button onclick="_astroRunBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
+  </div>
+  <div id="astroBtResult"></div>
+ </div>
+</div>
+
 <!-- ═══════════ PAGE: HIZLI TAHMİN ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-hizlitahmin">
 
@@ -979,6 +1035,16 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="htListelerBulunduMirror" style="margin-bottom:14px"><div class="empty-state"><span class="empty-icon">🔎</span>Yükleniyor…</div></div>
   <div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:8px;padding-top:6px;border-top:1px solid var(--border)">🤖 AI Biletleri</div>
   <div id="htListelerAiMirror"><div class="empty-state"><span class="empty-icon">🤖</span>Yükleniyor…</div></div>
+ </div>
+
+ <!-- 5b: Astro Tahmin — Kozmik Sayılar (otomatik doldurulur) -->
+ <div class="card" style="margin-bottom:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">🪐 Astro Tahmin — Kozmik Sayılar</div>
+   <button onclick="showMainPage('astro')" style="font-size:.62rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(129,140,248,.3);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer">🪐 Astro Tahmin Sayfası</button>
+  </div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px">🤖 Astro Tahmin sayfasında girdiğiniz doğum bilgileriyle, bugünün tarihine göre otomatik üretilir. Bilgi girmediyseniz boş görünür.</div>
+  <div id="htAstroMirror"><div class="empty-state"><span class="empty-icon">🪐</span>Astro Tahmin sayfasında doğum bilgilerinizi girin.</div></div>
  </div>
 
  <!-- 6: NSA + Banko — Son Analiz (açılır/kapanır) -->
@@ -11588,11 +11654,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-nsa','page-hizlitahmin'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-nsa','page-hizlitahmin','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-nsa','navBtn-hizlitahmin'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-nsa','navBtn-hizlitahmin','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -11602,6 +11668,7 @@ function showMainPage(id){
   if(id==='soz')_soInit();
   if(id==='nsa')_nsaInit();
   if(id==='hizlitahmin')_htInit();
+  if(id==='astro')_astroInit();
 }
 
 // Nav: always fixed, single row; scroll buttons on large screens, touch scroll on mobile
@@ -14225,6 +14292,290 @@ function _soRenderFull(){
   el.innerHTML=h;
 }
 
+// ═══════════ ASTRO TAHMİN ═══════════════════════════════════
+const ASTRO_SIGNS=['Koç','Boğa','İkizler','Yengeç','Aslan','Başak','Terazi','Akrep','Yay','Oğlak','Kova','Balık'];
+const ASTRO_SIGN_RANGES=[
+  {sign:'Koç',from:[3,21],to:[4,19]},{sign:'Boğa',from:[4,20],to:[5,20]},{sign:'İkizler',from:[5,21],to:[6,20]},
+  {sign:'Yengeç',from:[6,21],to:[7,22]},{sign:'Aslan',from:[7,23],to:[8,22]},{sign:'Başak',from:[8,23],to:[9,22]},
+  {sign:'Terazi',from:[9,23],to:[10,22]},{sign:'Akrep',from:[10,23],to:[11,21]},{sign:'Yay',from:[11,22],to:[12,21]},
+  {sign:'Oğlak',from:[12,22],to:[1,19]},{sign:'Kova',from:[1,20],to:[2,18]},{sign:'Balık',from:[2,19],to:[3,20]},
+];
+const ASTRO_CHINESE=['Sıçan','Öküz','Kaplan','Tavşan','Ejderha','Yılan','At','Koyun','Maymun','Horoz','Köpek','Domuz'];
+const ASTRO_SIGN_RULER={'Koç':'Mars','Boğa':'Venüs','İkizler':'Merkür','Yengeç':'Ay','Aslan':'Güneş','Başak':'Merkür','Terazi':'Venüs','Akrep':'Plüton','Yay':'Jüpiter','Oğlak':'Satürn','Kova':'Uranüs','Balık':'Neptün'};
+const ASTRO_PLANETS=['Ay','Venüs','Merkür','Güneş','Mars','Jüpiter','Satürn','Uranüs','Neptün','Plüton'];
+const ASTRO_PLANET_EMOJI={'Ay':'🌙','Venüs':'♀','Merkür':'☿','Güneş':'☀','Mars':'♂','Jüpiter':'♃','Satürn':'♄','Uranüs':'⛢','Neptün':'♆','Plüton':'⯓'};
+
+function _astroWesternSign(dateStr){
+  if(!dateStr)return null;
+  const parts=dateStr.split('-');if(parts.length<3)return null;
+  const m=parseInt(parts[1],10),d=parseInt(parts[2],10);
+  for(const r of ASTRO_SIGN_RANGES){
+    const[fm,fd]=r.from,[tm,td]=r.to;
+    if(fm===tm){if(m===fm&&d>=fd&&d<=td)return r.sign;}
+    else if((m===fm&&d>=fd)||(m===tm&&d<=td))return r.sign;
+  }
+  return null;
+}
+function _astroChineseSign(dateStr){
+  if(!dateStr)return null;
+  const y=parseInt(dateStr.split('-')[0],10);if(!y)return null;
+  return ASTRO_CHINESE[((y-2020)%12+12)%12];
+}
+function _astroRisingSign(dateStr,timeStr){
+  const sun=_astroWesternSign(dateStr);
+  if(!sun||!timeStr)return null;
+  const sunIdx=ASTRO_SIGNS.indexOf(sun);
+  const[hh,mm]=timeStr.split(':').map(Number);
+  if(isNaN(hh))return null;
+  const hourFloat=hh+(mm||0)/60;
+  const shift=Math.floor(((hourFloat-6+24)%24)/2);
+  return ASTRO_SIGNS[(sunIdx+shift)%12];
+}
+function _astroBaseSeed(d){
+  return[d.birthDate||'',d.birthTime||'',(d.birthPlace||'').toLowerCase().trim(),(d.motherName||'').toLowerCase().trim(),d.motherBirthDate||'',d.targetDate||'',d.gameId||''].join('||');
+}
+function _astroPlanetOrder(baseSeed,profile){
+  const preferred=[];
+  if(profile.personalPlanet)preferred.push(profile.personalPlanet);
+  if(profile.motherPlanet&&!preferred.includes(profile.motherPlanet))preferred.push(profile.motherPlanet);
+  const rest=ASTRO_PLANETS.filter(p=>!preferred.includes(p));
+  const rng=_seededRng(_fnvHash(baseSeed+'|planetorder'));
+  for(let i=rest.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[rest[i],rest[j]]=[rest[j],rest[i]];}
+  return[...preferred,...rest];
+}
+function _astroNumberForSlot(baseSeed,planet,slotIdx,max,used){
+  let num,nonce=0;
+  do{
+    const h=_fnvHash(`${baseSeed}|${planet}|${slotIdx}|${nonce}`);
+    num=1+Math.floor(_seededRng(h)()*max);
+    nonce++;
+  }while(used.has(num)&&nonce<60);
+  used.add(num);
+  return num;
+}
+function _astroComputeProfile(d){
+  const sunSign=_astroWesternSign(d.birthDate);
+  const chineseSign=_astroChineseSign(d.birthDate);
+  const risingSign=_astroRisingSign(d.birthDate,d.birthTime);
+  const motherSunSign=d.motherBirthDate?_astroWesternSign(d.motherBirthDate):null;
+  const motherChineseSign=d.motherBirthDate?_astroChineseSign(d.motherBirthDate):null;
+  return{
+    sunSign,chineseSign,risingSign,motherSunSign,motherChineseSign,
+    personalPlanet:sunSign?ASTRO_SIGN_RULER[sunSign]:null,
+    motherPlanet:motherSunSign?ASTRO_SIGN_RULER[motherSunSign]:null,
+  };
+}
+function _astroComputeTicket(d,game){
+  const profile=_astroComputeProfile(d);
+  const baseSeed=_astroBaseSeed(d);
+  const order=_astroPlanetOrder(baseSeed,profile);
+  const used=new Set();
+  const slots=[];
+  for(let i=0;i<game.count;i++){
+    const planet=order[i%order.length];
+    slots.push({planet,num:_astroNumberForSlot(baseSeed,planet,i,game.max,used)});
+  }
+  let bonus=null;
+  if(game.bonusCount>0){
+    const planet=order[game.count%order.length];
+    bonus={planet,num:_astroNumberForSlot(baseSeed,planet,'bonus',game.bonusMax,new Set())};
+  }
+  return{profile,baseSeed,slots,bonus};
+}
+function _astroEnergyScore(baseSeed){return 35+(_fnvHash(baseSeed+'|energy')%61);}
+function _astroEnergyLabel(score){
+  if(score>=80)return{label:'Çok Yüksek',color:'var(--green)'};
+  if(score>=60)return{label:'Yüksek',color:'var(--accent)'};
+  if(score>=40)return{label:'Orta',color:'#8a6200'};
+  return{label:'Düşük',color:'var(--muted)'};
+}
+function _astroLuckyDays(baseSeed,targetDate){
+  const dt=targetDate?new Date(targetDate+'T00:00:00'):new Date();
+  const y=dt.getFullYear(),m=dt.getMonth()+1;
+  const daysInMonth=new Date(y,m,0).getDate();
+  const rng=_seededRng(_fnvHash(baseSeed+'|luckydays|'+y+'-'+m));
+  const set=new Set();let guard=0;
+  while(set.size<4&&guard<200){set.add(1+Math.floor(rng()*daysInMonth));guard++;}
+  return[...set].sort((a,b)=>a-b);
+}
+function _astroInit(){
+  const sel=document.getElementById('astroGame');
+  if(sel&&!sel.dataset.init){
+    sel.dataset.init='1';
+    sel.innerHTML=GAMES.map(g=>`<option value="${g.id}">${g.emoji} ${g.name}</option>`).join('');
+    sel.value=state.selectedGame||GAMES[0].id;
+  }
+  _astroLoadInputs();
+  const tEl=document.getElementById('astroTargetDate');
+  if(tEl&&!tEl.value)tEl.value=new Date().toISOString().slice(0,10);
+  if(document.getElementById('astroBirthDate')?.value)_astroGenerate();
+}
+function _astroSaveInputs(){
+  const data={
+    gameId:document.getElementById('astroGame')?.value,
+    birthDate:document.getElementById('astroBirthDate')?.value,
+    birthTime:document.getElementById('astroBirthTime')?.value,
+    birthPlace:document.getElementById('astroBirthPlace')?.value,
+    motherName:document.getElementById('astroMotherName')?.value,
+    motherBirthDate:document.getElementById('astroMotherBirthDate')?.value,
+    targetDate:document.getElementById('astroTargetDate')?.value,
+  };
+  try{localStorage.setItem('_astroInputs',JSON.stringify(data));}catch(e){}
+  return data;
+}
+function _astroLoadInputs(){
+  let data=null;
+  try{data=JSON.parse(localStorage.getItem('_astroInputs')||'null');}catch(e){}
+  if(!data)return;
+  if(data.gameId&&document.getElementById('astroGame'))document.getElementById('astroGame').value=data.gameId;
+  ['astroBirthDate','astroBirthTime','astroBirthPlace','astroMotherName','astroMotherBirthDate'].forEach(id=>{
+    const key=id.slice(5,6).toLowerCase()+id.slice(6);
+    if(document.getElementById(id))document.getElementById(id).value=data[key]||'';
+  });
+  if(document.getElementById('astroTargetDate')&&data.targetDate)document.getElementById('astroTargetDate').value=data.targetDate;
+}
+function _astroReadInputs(){
+  return{
+    gameId:document.getElementById('astroGame')?.value||GAMES[0].id,
+    birthDate:document.getElementById('astroBirthDate')?.value||'',
+    birthTime:document.getElementById('astroBirthTime')?.value||'',
+    birthPlace:document.getElementById('astroBirthPlace')?.value||'',
+    motherName:document.getElementById('astroMotherName')?.value||'',
+    motherBirthDate:document.getElementById('astroMotherBirthDate')?.value||'',
+    targetDate:document.getElementById('astroTargetDate')?.value||new Date().toISOString().slice(0,10),
+  };
+}
+function _astroGenerate(){
+  const d=_astroReadInputs();
+  if(!d.birthDate){showToast('⚠️ Doğum tarihi gerekli');return;}
+  _astroSaveInputs();
+  const game=getGame(d.gameId);
+  const ticket=_astroComputeTicket(d,game);
+  window._astroLastTicket=ticket;
+  window._astroLastGame=game;
+  const el=document.getElementById('astroResult');
+  if(el)el.innerHTML=_astroRenderResult(d,game,ticket);
+  _htAutoFillAstro();
+}
+function _astroSignLine(sun,chinese,rising){
+  const parts=[];
+  if(sun)parts.push(`☀ ${sun}`);
+  if(chinese)parts.push(`🐉 ${chinese}`);
+  if(rising)parts.push(`⬆ ${rising}`);
+  return parts.join(' &nbsp;·&nbsp; ')||'<span style="color:var(--muted)">Bilgi girilmedi</span>';
+}
+function _astroNumBadge(planet,num){
+  return`<div style="display:flex;flex-direction:column;align-items:center;gap:3px;background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.4);border-radius:10px;padding:8px 12px;min-width:50px">
+    <span style="font-size:1rem;font-weight:800;font-family:monospace;color:var(--accent)">${num}</span>
+    <span style="font-size:.56rem;color:var(--muted)">${ASTRO_PLANET_EMOJI[planet]||'🪐'} ${planet}</span>
+  </div>`;
+}
+function _astroRenderResult(d,game,ticket){
+  const{profile,slots,bonus}=ticket;
+  const energy=_astroEnergyScore(ticket.baseSeed);
+  const eLbl=_astroEnergyLabel(energy);
+  const luckyDays=_astroLuckyDays(ticket.baseSeed,d.targetDate);
+  let h='';
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">🌟 Astrolojik Profil</div>`;
+  h+=`<div style="font-size:.68rem;color:var(--text);margin-bottom:4px"><strong>Siz:</strong> ${_astroSignLine(profile.sunSign,profile.chineseSign,profile.risingSign)}</div>`;
+  if(d.motherBirthDate)h+=`<div style="font-size:.68rem;color:var(--text)"><strong>Anneniz${d.motherName?' ('+d.motherName+')':''}:</strong> ${_astroSignLine(profile.motherSunSign,profile.motherChineseSign,null)}</div>`;
+  if(!d.birthTime)h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:6px">⬆ Yükselen burç için doğum saati gerekir (yaklaşık hesaplama, doğum yeri hassasiyeti içermez).</div>`;
+  if(profile.personalPlanet)h+=`<div style="font-size:.6rem;color:var(--muted);margin-top:6px">Yönetici gezegeniniz: <strong style="color:var(--accent)">${ASTRO_PLANET_EMOJI[profile.personalPlanet]||''} ${profile.personalPlanet}</strong> — kozmik sayılarda öne çıkar.</div>`;
+  h+=`</div>`;
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">⚡ Kozmik Enerji Hizalaması</div>`;
+  h+=`<div style="background:rgba(0,0,0,.06);border-radius:6px;height:10px;overflow:hidden;margin-bottom:6px"><div style="height:100%;width:${energy}%;background:linear-gradient(90deg,var(--accent),rgba(99,102,241,.8))"></div></div>`;
+  h+=`<div style="font-size:.64rem;color:${eLbl.color};font-weight:700;margin-bottom:6px">${energy}/100 — ${eLbl.label}</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted)">Bu ay şanslı günleriniz: <strong style="color:var(--text)">${luckyDays.join(', ')}</strong></div>`;
+  h+=`</div>`;
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:.72rem;font-weight:800;color:var(--text)">🔢 Kozmik Sayılarınız — ${game.emoji} ${game.name}</div><button onclick="_astroCopyTicket()" style="font-size:.6rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer">📋 Kopyala</button></div>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${bonus?'10px':'0'}">${slots.map(s=>_astroNumBadge(s.planet,s.num)).join('')}</div>`;
+  if(bonus)h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">+ Bonus:</div><div style="display:flex;gap:8px">${_astroNumBadge(bonus.planet,bonus.num)}</div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-top:10px;line-height:1.5">🪐 Sayılar doğum/anne bilgileriniz + kozmik hizalanma tarihinden deterministik üretilir — aynı bilgilerle her zaman aynı sonucu verir. Eğlence amaçlıdır, gerçek çekiliş sonucunu garanti etmez.</div>`;
+  h+=`</div>`;
+  return h;
+}
+function _astroCopyTicket(){
+  const t=window._astroLastTicket;if(!t)return;
+  const lines=t.slots.map(s=>`${s.num} (${s.planet})`);
+  if(t.bonus)lines.push(`Bonus: ${t.bonus.num} (${t.bonus.planet})`);
+  _kbCopy('Astro Tahmin\n'+lines.join('\n'));
+}
+function _astroRunBacktest(){
+  const btEl=document.getElementById('astroBtResult');if(!btEl)return;
+  const d=_astroReadInputs();
+  if(!d.birthDate){showToast('⚠️ Doğum tarihi gerekli');return;}
+  const game=getGame(d.gameId);
+  const draws=_kbGetDraws(d.gameId);
+  if(!draws||draws.length<5){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (en az 5 gerekli).</div>';return;}
+  const n=Math.min(parseInt(document.getElementById('astroBtCount')?.value)||200,draws.length);
+  btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor…</div>';
+  setTimeout(()=>{
+    const stats={};
+    const profile=_astroComputeProfile(d);
+    for(let i=0;i<n;i++){
+      const draw=draws[i];
+      const ticket=_astroComputeTicket({...d,targetDate:draw.date},game);
+      const numSet=new Set(draw.nums);
+      ticket.slots.forEach(s=>{
+        if(!stats[s.planet])stats[s.planet]={tests:0,hits:0,nears:0};
+        stats[s.planet].tests++;
+        if(numSet.has(s.num))stats[s.planet].hits++;
+        else if([...numSet].some(x=>Math.abs(x-s.num)<=10))stats[s.planet].nears++;
+      });
+      if(ticket.bonus&&draw.bonus&&draw.bonus.length){
+        const bp=ticket.bonus.planet;
+        if(!stats[bp])stats[bp]={tests:0,hits:0,nears:0};
+        stats[bp].tests++;
+        if(draw.bonus.includes(ticket.bonus.num))stats[bp].hits++;
+        else if(draw.bonus.some(x=>Math.abs(x-ticket.bonus.num)<=10))stats[bp].nears++;
+      }
+    }
+    const rows=Object.keys(stats).map(p=>{
+      const s=stats[p];
+      const hitPct=s.tests?Math.round(s.hits/s.tests*100):0;
+      const nearPct=s.tests?Math.round(s.nears/s.tests*100):0;
+      return{planet:p,...s,hitPct,nearPct,score:s.hits*2+s.nears};
+    }).sort((a,b)=>b.score-a.score||b.hitPct-a.hitPct);
+    let html=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:10px">${game.emoji} ${game.name} — son ${n} çekiliş test edildi · Her satır: o gezegenle üretilen sayı, o turun gerçek çekilişinde tam çıktıysa <strong>net</strong>, ±10 yakınsa <strong>yakın</strong> sayılır.</div>`;
+    html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
+    html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:5px 7px;color:var(--muted)">Gezegen</th><th style="text-align:center;padding:5px 7px;color:var(--muted)">Test</th><th style="text-align:center;padding:5px 7px;color:var(--muted)">Net</th><th style="text-align:center;padding:5px 7px;color:var(--muted)">Yakın (±10)</th></tr></thead><tbody>`;
+    rows.forEach((r,i)=>{
+      const isPersonal=r.planet===profile.personalPlanet;
+      const isMother=r.planet===profile.motherPlanet;
+      const tag=isPersonal?' ⭐':isMother?' 👩':'';
+      const rowBg=i===0?'rgba(0,230,118,.05)':'';
+      html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04);background:${rowBg}">`;
+      html+=`<td style="padding:5px 7px;font-weight:700;color:var(--text)">${ASTRO_PLANET_EMOJI[r.planet]||''} ${r.planet}${tag}</td>`;
+      html+=`<td style="padding:5px 7px;text-align:center;color:var(--muted)">${r.tests}</td>`;
+      html+=`<td style="padding:5px 7px;text-align:center;font-weight:700;color:${r.hitPct>=10?'var(--green)':r.hitPct>0?'var(--accent)':'var(--muted)'}">${r.hits} (${r.hitPct}%)</td>`;
+      html+=`<td style="padding:5px 7px;text-align:center;font-weight:700;color:${r.nearPct>=40?'var(--gold)':'var(--muted)'}">${r.nears} (${r.nearPct}%)</td>`;
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table></div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:8px">⭐ = yönetici gezegeniniz · 👩 = annenizin yönetici gezegeni · En üstteki satır bu test setinde en güvenilir gezegen.</div>`;
+    btEl.innerHTML=html;
+  },20);
+}
+function _htAutoFillAstro(){
+  const dst=document.getElementById('htAstroMirror');if(!dst)return;
+  let saved=null;
+  try{saved=JSON.parse(localStorage.getItem('_astroInputs')||'null');}catch(e){}
+  if(!saved||!saved.birthDate){
+    window._astroNumsHt=[];
+    dst.innerHTML='<div class="empty-state"><span class="empty-icon">🪐</span>Astro Tahmin sayfasında doğum bilgilerinizi girin.</div>';
+    return;
+  }
+  const game=getGame(_htGame);
+  const d={...saved,gameId:_htGame,targetDate:new Date().toISOString().slice(0,10)};
+  const ticket=_astroComputeTicket(d,game);
+  window._astroNumsHt=[...ticket.slots.map(s=>s.num),...(ticket.bonus?[ticket.bonus.num]:[])];
+  dst.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${ticket.bonus?'8px':'0'}">${ticket.slots.map(s=>_astroNumBadge(s.planet,s.num)).join('')}</div>`+
+    (ticket.bonus?`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">+ Bonus:</div><div style="display:flex;gap:8px">${_astroNumBadge(ticket.bonus.planet,ticket.bonus.num)}</div>`:'');
+}
+
 // ═══════════ HIZLI TAHMİN (özet/aggregator sayfası) ═══════════
 let _htGame=null;
 function _htInit(){
@@ -14235,6 +14586,7 @@ function _htInit(){
   if(typeof runB10Wheel==='function')runB10Wheel('Ht');
   _htAutoFillGizli();
   _htAutoFillListelerAi();
+  _htAutoFillAstro();
   setTimeout(_htRenderConsensus,60);
   _htRenderBtBox();
   _htRenderDrawReminder();
@@ -14248,7 +14600,7 @@ function _htRenderGameRow(){
     return `<button onclick="_htSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
   }).join('');
 }
-function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_htGenerateSisal();if(typeof runB10Wheel==='function')runB10Wheel('Ht');_htAutoFillGizli();_htAutoFillListelerAi();setTimeout(_htRenderConsensus,60);_htRenderBtBox();_htRenderDrawReminder();}
+function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_htGenerateSisal();if(typeof runB10Wheel==='function')runB10Wheel('Ht');_htAutoFillGizli();_htAutoFillListelerAi();_htAutoFillAstro();setTimeout(_htRenderConsensus,60);_htRenderBtBox();_htRenderDrawReminder();}
 function _htRenderSoz(){
   const el=document.getElementById('htSozContent');if(!el)return;
   const game=getGame(_htGame);
@@ -14392,7 +14744,7 @@ document.addEventListener('drawDataUpdated',e=>{
   if(gid!==_htGame)return;
   _htRenderSoz();_htGenerateSisal();
   if(typeof runB10Wheel==='function')runB10Wheel('Ht');
-  _htAutoFillGizli();_htAutoFillListelerAi();
+  _htAutoFillGizli();_htAutoFillListelerAi();_htAutoFillAstro();
   _htRenderConsensus();_htRenderBtBox();_htRenderDrawReminder();
   showToast(`✅ ${getGame(gid).name}: yeni çekiliş bulundu (${e.detail.date}) — Hızlı Tahmin güncellendi`);
 });
@@ -14424,6 +14776,7 @@ function _htCollectVotes(){
   sys['Listeler Kırmızı']=new Set(window._listelerKirmiziNums||[]);
   sys['Listeler Ortak']=new Set(window._listelerOrtakNums||[]);
   sys['NSA Banko']=new Set((typeof _gizliLastColumns!=='undefined'&&_gizliLastColumns)?_gizliLastColumns.flatMap(c=>c.col):[]);
+  sys['Astro Tahmin']=new Set(window._astroNumsHt||[]);
   return sys;
 }
 function _htConsensusScores(pool){
