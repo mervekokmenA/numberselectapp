@@ -14513,49 +14513,105 @@ function _astroRunBacktest(){
   const n=Math.min(parseInt(document.getElementById('astroBtCount')?.value)||200,draws.length);
   btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor…</div>';
   setTimeout(()=>{
-    const stats={};
+    const planetStats={};
     const profile=_astroComputeProfile(d);
+    const rows=[];
+    let totalHits=0,totalNear=0,hit1=0,hit2=0,hit3=0;
     for(let i=0;i<n;i++){
       const draw=draws[i];
       const ticket=_astroComputeTicket({...d,targetDate:draw.date},game);
       const numSet=new Set(draw.nums);
+      const hitSet=new Set(),nearSet=new Set();
       ticket.slots.forEach(s=>{
-        if(!stats[s.planet])stats[s.planet]={tests:0,hits:0,nears:0};
-        stats[s.planet].tests++;
-        if(numSet.has(s.num))stats[s.planet].hits++;
-        else if([...numSet].some(x=>Math.abs(x-s.num)<=10))stats[s.planet].nears++;
+        if(!planetStats[s.planet])planetStats[s.planet]={tests:0,hits:0,nears:0};
+        planetStats[s.planet].tests++;
+        if(numSet.has(s.num)){hitSet.add(s.num);planetStats[s.planet].hits++;}
+        else if([...numSet].some(x=>Math.abs(x-s.num)<=10)){nearSet.add(s.num);planetStats[s.planet].nears++;}
       });
+      let bonusHit=false,bonusNear=false;
       if(ticket.bonus&&draw.bonus&&draw.bonus.length){
         const bp=ticket.bonus.planet;
-        if(!stats[bp])stats[bp]={tests:0,hits:0,nears:0};
-        stats[bp].tests++;
-        if(draw.bonus.includes(ticket.bonus.num))stats[bp].hits++;
-        else if(draw.bonus.some(x=>Math.abs(x-ticket.bonus.num)<=10))stats[bp].nears++;
+        if(!planetStats[bp])planetStats[bp]={tests:0,hits:0,nears:0};
+        planetStats[bp].tests++;
+        if(draw.bonus.includes(ticket.bonus.num)){bonusHit=true;planetStats[bp].hits++;}
+        else if(draw.bonus.some(x=>Math.abs(x-ticket.bonus.num)<=10)){bonusNear=true;planetStats[bp].nears++;}
       }
+      totalHits+=hitSet.size;totalNear+=nearSet.size;
+      if(hitSet.size>=1)hit1++;
+      if(hitSet.size>=2)hit2++;
+      if(hitSet.size>=3)hit3++;
+      rows.push({date:draw.date,drawNums:draw.nums,drawBonus:draw.bonus,slots:ticket.slots,bonus:ticket.bonus,hitSet,nearSet,bonusHit,bonusNear});
     }
-    const rows=Object.keys(stats).map(p=>{
-      const s=stats[p];
+    const N=rows.length;
+    const avgHit=(totalHits/N).toFixed(2);
+    const pct1=Math.round(hit1/N*100),pct2=Math.round(hit2/N*100),pct3=Math.round(hit3/N*100);
+    const statCard=(lbl,val,col)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${col}">${val}</div><div style="font-size:.6rem;color:var(--muted)">${lbl}</div></div>`;
+    let html=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">`;
+    html+=statCard('Ort. isabet',avgHit,'var(--accent)');
+    html+=statCard('1+ isabet',pct1+'%',pct1>=60?'var(--green)':pct1>=40?'var(--gold)':'var(--muted)');
+    html+=statCard('2+ isabet',pct2+'%',pct2>=30?'var(--green)':pct2>=15?'var(--gold)':'var(--muted)');
+    html+=statCard('3+ isabet',pct3+'%',pct3>=15?'var(--green)':pct3>=5?'var(--gold)':'var(--muted)');
+    html+=statCard('Test sayısı',N,'var(--text)');
+    html+='</div>';
+    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — her geçmiş çekiliş günü "Kozmik Hizalanma Tarihi" kabul edilip sayı üretildi · Yeşil=tuttu (net) · 🟠=±10 yakın</div>`;
+    html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.65rem">`;
+    html+=`<thead><tr style="border-bottom:1px solid var(--border)">`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th>`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek Çekiliş</th>`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Astro Tahmini (Gezegen)</th>`;
+    html+=`<th style="text-align:center;padding:4px 6px;color:var(--muted)">İsabet</th>`;
+    html+=`<th style="text-align:center;padding:4px 6px;color:var(--muted)">Yakın</th>`;
+    html+=`</tr></thead><tbody>`;
+    rows.forEach(r=>{
+      const drawSpan=n2=>`<span style="font-family:monospace;font-size:.63rem;color:var(--text)">${n2}</span>`;
+      const slotSpan=s=>{
+        const hit=r.hitSet.has(s.num),near=r.nearSet.has(s.num);
+        const col=hit?'var(--green)':near?'#e8820c':'var(--text)';
+        const fw=hit||near?'800':'400';
+        return`<span style="display:inline-flex;align-items:baseline;gap:2px;margin-right:6px;font-family:monospace;font-size:.63rem;color:${col};font-weight:${fw}">${s.num}${hit?'✓':near?'~':''}<span style="font-size:.52rem;opacity:.7">${ASTRO_PLANET_EMOJI[s.planet]||''}${s.planet}</span></span>`;
+      };
+      const hitColor=r.hitSet.size>=3?'var(--green)':r.hitSet.size>=2?'var(--gold)':r.hitSet.size>=1?'var(--accent)':'var(--muted)';
+      const nearColor=r.nearSet.size>=2?'#e8820c':'var(--muted)';
+      html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04)">`;
+      html+=`<td style="padding:5px 6px;white-space:nowrap;color:var(--muted);font-size:.6rem">${r.date}</td>`;
+      html+=`<td style="padding:5px 6px"><div style="display:flex;gap:4px;flex-wrap:wrap">${r.drawNums.map(drawSpan).join('')}${r.drawBonus&&r.drawBonus.length?'<span style="color:var(--muted);margin:0 2px">|</span>'+r.drawBonus.map(drawSpan).join(''):''}</div></td>`;
+      const bonusSpan=b=>{
+        const col=r.bonusHit?'var(--green)':r.bonusNear?'#e8820c':'var(--text)';
+        const fw=r.bonusHit||r.bonusNear?'800':'400';
+        return`<span style="display:inline-flex;align-items:baseline;gap:2px;font-family:monospace;font-size:.63rem;color:${col};font-weight:${fw}">${b.num}${r.bonusHit?'✓':r.bonusNear?'~':''}<span style="font-size:.52rem;opacity:.7">${ASTRO_PLANET_EMOJI[b.planet]||''}${b.planet}</span></span>`;
+      };
+      html+=`<td style="padding:5px 6px"><div style="display:flex;flex-wrap:wrap;align-items:center">${r.slots.map(slotSpan).join('')}${r.bonus?'<span style="color:var(--muted);margin-right:4px">|</span>'+bonusSpan(r.bonus):''}</div></td>`;
+      html+=`<td style="padding:5px 6px;text-align:center;font-weight:800;color:${hitColor}">${r.hitSet.size}${r.bonusHit?'+B':''}</td>`;
+      html+=`<td style="padding:5px 6px;text-align:center;font-weight:700;color:${nearColor}">${r.nearSet.size}${r.bonusNear?'+B':''}</td>`;
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table></div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=net isabet · ~=±10 yakın · Astro Tahmini sütunu her sayının üretildiği gezegeni gösterir.</div>`;
+    // Gezegen güvenilirlik özeti
+    const planetRows=Object.keys(planetStats).map(p=>{
+      const s=planetStats[p];
       const hitPct=s.tests?Math.round(s.hits/s.tests*100):0;
       const nearPct=s.tests?Math.round(s.nears/s.tests*100):0;
       return{planet:p,...s,hitPct,nearPct,score:s.hits*2+s.nears};
     }).sort((a,b)=>b.score-a.score||b.hitPct-a.hitPct);
-    let html=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:10px">${game.emoji} ${game.name} — son ${n} çekiliş test edildi · Her satır: o gezegenle üretilen sayı, o turun gerçek çekilişinde tam çıktıysa <strong>net</strong>, ±10 yakınsa <strong>yakın</strong> sayılır.</div>`;
-    html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
-    html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:5px 7px;color:var(--muted)">Gezegen</th><th style="text-align:center;padding:5px 7px;color:var(--muted)">Test</th><th style="text-align:center;padding:5px 7px;color:var(--muted)">Net</th><th style="text-align:center;padding:5px 7px;color:var(--muted)">Yakın (±10)</th></tr></thead><tbody>`;
-    rows.forEach((r,i)=>{
+    html+=`<details style="margin-top:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">`;
+    html+=`<summary style="cursor:pointer;font-size:.68rem;font-weight:700;color:var(--text)">🪐 Gezegen Güvenilirlik Özeti</summary>`;
+    html+=`<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:.64rem">`;
+    html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Gezegen</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Test</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Net</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Yakın (±10)</th></tr></thead><tbody>`;
+    planetRows.forEach((r,i)=>{
       const isPersonal=r.planet===profile.personalPlanet;
       const isMother=r.planet===profile.motherPlanet;
       const tag=isPersonal?' ⭐':isMother?' 👩':'';
-      const rowBg=i===0?'rgba(0,230,118,.05)':'';
-      html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04);background:${rowBg}">`;
-      html+=`<td style="padding:5px 7px;font-weight:700;color:var(--text)">${ASTRO_PLANET_EMOJI[r.planet]||''} ${r.planet}${tag}</td>`;
-      html+=`<td style="padding:5px 7px;text-align:center;color:var(--muted)">${r.tests}</td>`;
-      html+=`<td style="padding:5px 7px;text-align:center;font-weight:700;color:${r.hitPct>=10?'var(--green)':r.hitPct>0?'var(--accent)':'var(--muted)'}">${r.hits} (${r.hitPct}%)</td>`;
-      html+=`<td style="padding:5px 7px;text-align:center;font-weight:700;color:${r.nearPct>=40?'var(--gold)':'var(--muted)'}">${r.nears} (${r.nearPct}%)</td>`;
+      html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04);background:${i===0?'rgba(0,230,118,.05)':''}">`;
+      html+=`<td style="padding:4px 6px;font-weight:700;color:var(--text)">${ASTRO_PLANET_EMOJI[r.planet]||''} ${r.planet}${tag}</td>`;
+      html+=`<td style="padding:4px 6px;text-align:center;color:var(--muted)">${r.tests}</td>`;
+      html+=`<td style="padding:4px 6px;text-align:center;font-weight:700;color:${r.hitPct>=10?'var(--green)':r.hitPct>0?'var(--accent)':'var(--muted)'}">${r.hits} (${r.hitPct}%)</td>`;
+      html+=`<td style="padding:4px 6px;text-align:center;font-weight:700;color:${r.nearPct>=40?'#e8820c':'var(--muted)'}">${r.nears} (${r.nearPct}%)</td>`;
       html+=`</tr>`;
     });
     html+=`</tbody></table></div>`;
-    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:8px">⭐ = yönetici gezegeniniz · 👩 = annenizin yönetici gezegeni · En üstteki satır bu test setinde en güvenilir gezegen.</div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:8px">⭐ = yönetici gezegeniniz · 👩 = annenizin yönetici gezegeni</div>`;
+    html+=`</details>`;
     btEl.innerHTML=html;
   },20);
 }
