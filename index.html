@@ -338,6 +338,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
       <button class="nav-link" id="navBtn-gulayq" onclick="_gqOpenPopup()">✍️ Hızlı Gülay</button>
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
+      <button class="nav-link" id="navBtn-kronoloji" onclick="showMainPage('kronoloji')">📜 Kronoloji</button>
     </div>
     <button class="nav-scroll-btn" id="navScrollNext" onclick="_navScroll(1)">›</button>
   </div>
@@ -950,6 +951,18 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_astroRunBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
   </div>
   <div id="astroBtResult"></div>
+ </div>
+</div>
+
+<!-- ═══════════ PAGE: KRONOLOJİ ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-kronoloji">
+ <div class="card">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">📜 Tüm Çekilişler — Kronolojik Liste</div>
+   <button onclick="_kronRender()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
+  </div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Şans Topu, Süper Loto ve Sayısal Loto çekilişleri (On Numara hariç) oyun ayrımı yapılmadan, geçmişten günümüze tek bir tarih sırasıyla listelenir. Hafta değiştiğinde aralarına boş bir satır bırakılır.</div>
+  <div id="kronResult"><div class="empty-state"><span class="empty-icon">📜</span>Yükleniyor…</div></div>
  </div>
 </div>
 
@@ -11659,11 +11672,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-nsa','page-hizlitahmin','page-astro'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-nsa','page-hizlitahmin','page-astro','page-kronoloji'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-nsa','navBtn-hizlitahmin','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-nsa','navBtn-hizlitahmin','navBtn-astro','navBtn-kronoloji'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -11674,6 +11687,7 @@ function showMainPage(id){
   if(id==='nsa')_nsaInit();
   if(id==='hizlitahmin')_htInit();
   if(id==='astro')_astroInit();
+  if(id==='kronoloji')_kronRender();
 }
 
 // Nav: always fixed, single row; scroll buttons on large screens, touch scroll on mobile
@@ -14468,6 +14482,44 @@ function _astroLuckyDays(d,nowDate){
     if(!days.includes(day))days.push(day);
   }
   return days.sort((a,b)=>a-b);
+}
+// ═══════════ KRONOLOJİ — tüm çekilişler tek tarih sırasıyla (On Numara hariç) ═══════════
+function _kronCollectDraws(){
+  const all=[];
+  GAMES.filter(g=>g.id!=='onnumara').forEach(g=>{
+    (_kbGetDraws(g.id)||[]).forEach(d=>all.push({date:d.date,nums:d.nums,bonus:d.bonus,gameId:g.id,gameName:g.name,gameEmoji:g.emoji}));
+  });
+  all.sort((a,b)=>a.date.localeCompare(b.date)||a.gameName.localeCompare(b.gameName));
+  return all;
+}
+function _kronWeekStart(dateStr){
+  const d=new Date(dateStr+'T00:00:00');
+  const day=d.getDay();
+  d.setDate(d.getDate()+(day===0?-6:1-day));
+  return d.toISOString().slice(0,10);
+}
+function _kronRender(){
+  const el=document.getElementById('kronResult');if(!el)return;
+  const draws=_kronCollectDraws();
+  if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Henüz çekiliş verisi yok.</div>';return;}
+  let html=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Toplam <strong style="color:var(--text)">${draws.length}</strong> çekiliş.</div>`;
+  html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.68rem">`;
+  html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Oyun</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Sonuç</th></tr></thead><tbody>`;
+  let prevWeek=null;
+  draws.forEach(d=>{
+    const wk=_kronWeekStart(d.date);
+    if(prevWeek!==null&&wk!==prevWeek)html+=`<tr><td colspan="3" style="height:12px;border:none"></td></tr>`;
+    prevWeek=wk;
+    const numsStr=d.nums.join(', ');
+    const bonusStr=d.bonus&&d.bonus.length?` <span style="color:var(--muted)">|</span> ${d.bonus.join(', ')}`:'';
+    html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04)">`;
+    html+=`<td style="padding:5px 6px;white-space:nowrap;color:var(--muted)">${d.date}</td>`;
+    html+=`<td style="padding:5px 6px;white-space:nowrap;font-weight:700;color:var(--text)">${d.gameEmoji} ${d.gameName}</td>`;
+    html+=`<td style="padding:5px 6px;font-family:monospace;color:var(--text)">${numsStr}${bonusStr}</td>`;
+    html+=`</tr>`;
+  });
+  html+=`</tbody></table></div>`;
+  el.innerHTML=html;
 }
 function _astroInit(){
   const sel=document.getElementById('astroGame');
