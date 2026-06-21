@@ -14302,8 +14302,19 @@ const ASTRO_SIGN_RANGES=[
 ];
 const ASTRO_CHINESE=['Sıçan','Öküz','Kaplan','Tavşan','Ejderha','Yılan','At','Koyun','Maymun','Horoz','Köpek','Domuz'];
 const ASTRO_SIGN_RULER={'Koç':'Mars','Boğa':'Venüs','İkizler':'Merkür','Yengeç':'Ay','Aslan':'Güneş','Başak':'Merkür','Terazi':'Venüs','Akrep':'Plüton','Yay':'Jüpiter','Oğlak':'Satürn','Kova':'Uranüs','Balık':'Neptün'};
-const ASTRO_PLANETS=['Ay','Venüs','Merkür','Güneş','Mars','Jüpiter','Satürn','Uranüs','Neptün','Plüton'];
-const ASTRO_PLANET_EMOJI={'Ay':'🌙','Venüs':'♀','Merkür':'☿','Güneş':'☀','Mars':'♂','Jüpiter':'♃','Satürn':'♄','Uranüs':'⛢','Neptün':'♆','Plüton':'⯓'};
+// Sıra önemli: gezegen ataması "sayı % 10" ile yapılır (index 0=Güneş ... 9=Plüton)
+const ASTRO_PLANETS=['Güneş','Ay','Merkür','Venüs','Mars','Jüpiter','Satürn','Uranüs','Neptün','Plüton'];
+const ASTRO_PLANET_EMOJI={'Güneş':'☀','Ay':'🌙','Merkür':'☿','Venüs':'♀','Mars':'♂','Jüpiter':'♃','Satürn':'♄','Uranüs':'⛢','Neptün':'♆','Plüton':'⯓'};
+// Çin burcu için ay takvimi yeni yıl tarihleriyle hizalı baz tablo (1984 = Sıçan yılı)
+const ASTRO_LUNAR_NEWYEAR=[
+  {y:1984,m:2,d:2},{y:1985,m:2,d:20},{y:1986,m:2,d:9},{y:1987,m:1,d:29},{y:1988,m:2,d:17},{y:1989,m:2,d:6},
+  {y:1990,m:1,d:27},{y:1991,m:2,d:15},{y:1992,m:2,d:4},{y:1993,m:1,d:23},{y:1994,m:2,d:10},{y:1995,m:1,d:31},
+  {y:1996,m:2,d:19},{y:1997,m:2,d:7},{y:1998,m:1,d:28},{y:1999,m:2,d:16},{y:2000,m:2,d:5},{y:2001,m:1,d:24},
+  {y:2002,m:2,d:12},{y:2003,m:2,d:1},{y:2004,m:1,d:22},{y:2005,m:2,d:9},{y:2006,m:1,d:29},{y:2007,m:2,d:18},
+  {y:2008,m:2,d:7},{y:2009,m:1,d:26},{y:2010,m:2,d:14},{y:2011,m:2,d:3},{y:2012,m:1,d:23},{y:2013,m:2,d:10},
+  {y:2014,m:1,d:31},{y:2015,m:2,d:19},{y:2016,m:2,d:8},{y:2017,m:1,d:28},{y:2018,m:2,d:16},{y:2019,m:2,d:5},
+  {y:2020,m:1,d:25},{y:2021,m:2,d:12},{y:2022,m:2,d:1},{y:2023,m:1,d:22},{y:2024,m:2,d:10},{y:2025,m:1,d:29},
+];
 
 function _astroWesternSign(dateStr){
   if(!dateStr)return null;
@@ -14318,40 +14329,34 @@ function _astroWesternSign(dateStr){
 }
 function _astroChineseSign(dateStr){
   if(!dateStr)return null;
-  const y=parseInt(dateStr.split('-')[0],10);if(!y)return null;
-  return ASTRO_CHINESE[((y-2020)%12+12)%12];
+  const dt=new Date(dateStr);
+  const year=dt.getFullYear(),month=dt.getMonth()+1,day=dt.getDate();
+  if(isNaN(year))return null;
+  let zodiacYear=year;
+  for(let i=0;i<ASTRO_LUNAR_NEWYEAR.length;i++){
+    const ny=ASTRO_LUNAR_NEWYEAR[i];
+    if(year<ny.y||(year===ny.y&&(month<ny.m||(month===ny.m&&day<ny.d)))){
+      zodiacYear=(ASTRO_LUNAR_NEWYEAR[i-1]&&ASTRO_LUNAR_NEWYEAR[i-1].y)||year;
+      break;
+    }
+  }
+  if(zodiacYear===year&&ASTRO_LUNAR_NEWYEAR[ASTRO_LUNAR_NEWYEAR.length-1].y<year){
+    zodiacYear=ASTRO_LUNAR_NEWYEAR[ASTRO_LUNAR_NEWYEAR.length-1].y;
+  }
+  const baseYear=1984;
+  const index=(zodiacYear-baseYear)%12;
+  return ASTRO_CHINESE[index>=0?index:index+12];
 }
 function _astroRisingSign(dateStr,timeStr){
-  const sun=_astroWesternSign(dateStr);
-  if(!sun||!timeStr)return null;
-  const sunIdx=ASTRO_SIGNS.indexOf(sun);
+  if(!dateStr||!timeStr)return null;
+  const dt=new Date(dateStr);
   const[hh,mm]=timeStr.split(':').map(Number);
   if(isNaN(hh))return null;
-  const hourFloat=hh+(mm||0)/60;
-  const shift=Math.floor(((hourFloat-6+24)%24)/2);
-  return ASTRO_SIGNS[(sunIdx+shift)%12];
-}
-function _astroBaseSeed(d){
-  return[d.birthDate||'',d.birthTime||'',(d.birthPlace||'').toLowerCase().trim(),(d.motherName||'').toLowerCase().trim(),d.motherBirthDate||'',d.targetDate||'',d.gameId||''].join('||');
-}
-function _astroPlanetOrder(baseSeed,profile){
-  const preferred=[];
-  if(profile.personalPlanet)preferred.push(profile.personalPlanet);
-  if(profile.motherPlanet&&!preferred.includes(profile.motherPlanet))preferred.push(profile.motherPlanet);
-  const rest=ASTRO_PLANETS.filter(p=>!preferred.includes(p));
-  const rng=_seededRng(_fnvHash(baseSeed+'|planetorder'));
-  for(let i=rest.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[rest[i],rest[j]]=[rest[j],rest[i]];}
-  return[...preferred,...rest];
-}
-function _astroNumberForSlot(baseSeed,planet,slotIdx,max,used){
-  let num,nonce=0;
-  do{
-    const h=_fnvHash(`${baseSeed}|${planet}|${slotIdx}|${nonce}`);
-    num=1+Math.floor(_seededRng(h)()*max);
-    nonce++;
-  }while(used.has(num)&&nonce<60);
-  used.add(num);
-  return num;
+  const totalMinutes=hh*60+(mm||0);
+  const timeSegment=Math.floor(totalMinutes/120);
+  const monthOffset=dt.getMonth();
+  const risingIdx=(timeSegment+monthOffset)%12;
+  return ASTRO_SIGNS[risingIdx];
 }
 function _astroComputeProfile(d){
   const sunSign=_astroWesternSign(d.birthDate);
@@ -14365,38 +14370,99 @@ function _astroComputeProfile(d){
     motherPlanet:motherSunSign?ASTRO_SIGN_RULER[motherSunSign]:null,
   };
 }
-function _astroComputeTicket(d,game){
-  const profile=_astroComputeProfile(d);
-  const baseSeed=_astroBaseSeed(d);
-  const order=_astroPlanetOrder(baseSeed,profile);
+// Aşağıdaki tohum/üretim mantığı, zodiacslotto.com'un herkese açık (gizlenmemiş)
+// istemci tarafı kaynak kodundaki generateLotteryNumbers() fonksiyonunun satır
+// satır eşdeğeridir: aynı LCG katsayıları (9301 / 49297 / 233280), aynı tohum
+// toplama sırası ve aynı "sayı % 10 → gezegen" eşlemesi kullanılır.
+function _astroComputeSeed(d,nowDate){
+  let seed=0;
+  if(d.birthDate){
+    const bd=new Date(d.birthDate);
+    seed+=bd.getFullYear()+bd.getMonth()+bd.getDate();
+  }
+  if(d.birthTime){
+    const parts=d.birthTime.split(':').map(Number);
+    seed+=(parts[0]||0)+(parts[1]||0);
+  }
+  if(d.motherName){
+    for(let i=0;i<d.motherName.length;i++)seed+=d.motherName.charCodeAt(i);
+  }
+  if(d.targetDate){
+    const td=new Date(d.targetDate);
+    seed+=td.getFullYear()+td.getMonth()+td.getDate();
+  }
+  if(d.motherBirthDate){
+    const md=new Date(d.motherBirthDate);
+    seed+=md.getFullYear()+md.getMonth()+md.getDate();
+  }
+  const moonPhaseInfluence=Math.sin(nowDate.getTime()/(24*60*60*1000)*0.2618)*10;
+  seed+=Math.round(moonPhaseInfluence);
+  return seed;
+}
+function _astroMakeRng(seed){
+  return function(){seed=(seed*9301+49297)%233280;return seed/233280;};
+}
+function _astroDrawUnique(rng,count,max){
   const used=new Set();
   const slots=[];
-  for(let i=0;i<game.count;i++){
-    const planet=order[i%order.length];
-    slots.push({planet,num:_astroNumberForSlot(baseSeed,planet,i,game.max,used)});
+  let guard=0;
+  while(slots.length<count&&guard<count*200+200){
+    guard++;
+    const num=Math.floor(rng()*max)+1;
+    if(!used.has(num)){used.add(num);slots.push({num,planet:ASTRO_PLANETS[num%10]});}
   }
-  let bonus=null;
-  if(game.bonusCount>0){
-    const planet=order[game.count%order.length];
-    bonus={planet,num:_astroNumberForSlot(baseSeed,planet,'bonus',game.bonusMax,new Set())};
-  }
-  return{profile,baseSeed,slots,bonus};
+  slots.sort((a,b)=>a.num-b.num);
+  return slots;
 }
-function _astroEnergyScore(baseSeed){return 35+(_fnvHash(baseSeed+'|energy')%61);}
+function _astroComputeTicket(d,game,nowDate){
+  nowDate=nowDate||new Date();
+  const profile=_astroComputeProfile(d);
+  const seed=_astroComputeSeed(d,nowDate);
+  const rng=_astroMakeRng(seed);
+  const slots=_astroDrawUnique(rng,game.count,game.max);
+  let bonus=null;
+  if(game.bonusCount>0&&game.bonusMax>0){
+    bonus=_astroDrawUnique(rng,game.bonusCount,game.bonusMax)[0]||null;
+  }
+  return{profile,seed,slots,bonus};
+}
+function _astroEnergyScore(d,nowDate){
+  nowDate=nowDate||new Date();
+  if(!d.birthDate)return 50;
+  const bd=new Date(d.birthDate);
+  const moonPhase=(nowDate.getDate()/29.5)*100;
+  const day=nowDate.getDate(),month=nowDate.getMonth()+1,year=nowDate.getFullYear();
+  const personalDay=(day+month+year)%9||9;
+  let energy=50;
+  if(bd.getDate()===nowDate.getDate())energy+=15;
+  if(moonPhase<15||moonPhase>85)energy+=10;
+  if(personalDay===1||personalDay===3||personalDay===9)energy+=10;
+  const birthMonth=bd.getMonth(),currentMonth=nowDate.getMonth();
+  if(Math.abs(birthMonth-currentMonth)<=1||Math.abs(birthMonth-currentMonth)>=11)energy+=5;
+  return Math.max(30,Math.min(energy,95));
+}
 function _astroEnergyLabel(score){
   if(score>=80)return{label:'Çok Yüksek',color:'var(--green)'};
   if(score>=60)return{label:'Yüksek',color:'var(--accent)'};
   if(score>=40)return{label:'Orta',color:'#8a6200'};
   return{label:'Düşük',color:'var(--muted)'};
 }
-function _astroLuckyDays(baseSeed,targetDate){
-  const dt=targetDate?new Date(targetDate+'T00:00:00'):new Date();
-  const y=dt.getFullYear(),m=dt.getMonth()+1;
-  const daysInMonth=new Date(y,m,0).getDate();
-  const rng=_seededRng(_fnvHash(baseSeed+'|luckydays|'+y+'-'+m));
-  const set=new Set();let guard=0;
-  while(set.size<4&&guard<200){set.add(1+Math.floor(rng()*daysInMonth));guard++;}
-  return[...set].sort((a,b)=>a-b);
+function _astroLuckyDays(d,nowDate){
+  nowDate=nowDate||new Date();
+  if(!d.birthDate)return[];
+  const bd=new Date(d.birthDate);
+  let seed=bd.getTime();
+  const rng=function(){seed=(seed*9301+49297)%233280;return seed/233280;};
+  const daysInMonth=new Date(nowDate.getFullYear(),nowDate.getMonth()+1,0).getDate();
+  const luckyDayCount=Math.floor(rng()*3)+3;
+  const days=[];
+  let guard=0;
+  while(days.length<luckyDayCount&&guard<500){
+    guard++;
+    const day=Math.floor(rng()*daysInMonth)+1;
+    if(!days.includes(day))days.push(day);
+  }
+  return days.sort((a,b)=>a-b);
 }
 function _astroInit(){
   const sel=document.getElementById('astroGame');
@@ -14472,16 +14538,16 @@ function _astroNumBadge(planet,num){
 }
 function _astroRenderResult(d,game,ticket){
   const{profile,slots,bonus}=ticket;
-  const energy=_astroEnergyScore(ticket.baseSeed);
+  const energy=_astroEnergyScore(d);
   const eLbl=_astroEnergyLabel(energy);
-  const luckyDays=_astroLuckyDays(ticket.baseSeed,d.targetDate);
+  const luckyDays=_astroLuckyDays(d);
   let h='';
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
   h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">🌟 Astrolojik Profil</div>`;
   h+=`<div style="font-size:.68rem;color:var(--text);margin-bottom:4px"><strong>Siz:</strong> ${_astroSignLine(profile.sunSign,profile.chineseSign,profile.risingSign)}</div>`;
   if(d.motherBirthDate)h+=`<div style="font-size:.68rem;color:var(--text)"><strong>Anneniz${d.motherName?' ('+d.motherName+')':''}:</strong> ${_astroSignLine(profile.motherSunSign,profile.motherChineseSign,null)}</div>`;
   if(!d.birthTime)h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:6px">⬆ Yükselen burç için doğum saati gerekir (yaklaşık hesaplama, doğum yeri hassasiyeti içermez).</div>`;
-  if(profile.personalPlanet)h+=`<div style="font-size:.6rem;color:var(--muted);margin-top:6px">Yönetici gezegeniniz: <strong style="color:var(--accent)">${ASTRO_PLANET_EMOJI[profile.personalPlanet]||''} ${profile.personalPlanet}</strong> — kozmik sayılarda öne çıkar.</div>`;
+  if(profile.personalPlanet)h+=`<div style="font-size:.6rem;color:var(--muted);margin-top:6px">Yönetici gezegeniniz: <strong style="color:var(--accent)">${ASTRO_PLANET_EMOJI[profile.personalPlanet]||''} ${profile.personalPlanet}</strong> — sayı/gezegen eşlemesi her sayının kendi son hanesine göre yapılır.</div>`;
   h+=`</div>`;
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
   h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">⚡ Kozmik Enerji Hizalaması</div>`;
@@ -14493,7 +14559,7 @@ function _astroRenderResult(d,game,ticket){
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:.72rem;font-weight:800;color:var(--text)">🔢 Kozmik Sayılarınız — ${game.emoji} ${game.name}</div><button onclick="_astroCopyTicket()" style="font-size:.6rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer">📋 Kopyala</button></div>`;
   h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${bonus?'10px':'0'}">${slots.map(s=>_astroNumBadge(s.planet,s.num)).join('')}</div>`;
   if(bonus)h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">+ Bonus:</div><div style="display:flex;gap:8px">${_astroNumBadge(bonus.planet,bonus.num)}</div>`;
-  h+=`<div style="font-size:.55rem;color:var(--muted);margin-top:10px;line-height:1.5">🪐 Sayılar doğum/anne bilgileriniz + kozmik hizalanma tarihinden deterministik üretilir — aynı bilgilerle her zaman aynı sonucu verir. Eğlence amaçlıdır, gerçek çekiliş sonucunu garanti etmez.</div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-top:10px;line-height:1.5">🪐 Sayılar doğum/anne bilgileriniz + kozmik hizalanma tarihinden üretilir; ayrıca günün kozmik enerjisi de hesaba katıldığından sonuç gün içinde sabit kalır ama günden güne yavaşça değişebilir. Eğlence amaçlıdır, gerçek çekiliş sonucunu garanti etmez.</div>`;
   h+=`</div>`;
   return h;
 }
