@@ -14594,7 +14594,8 @@ function _astroRunBacktest(){
         if(numSet.has(s.num)){hitSet.add(s.num);planetStats[s.planet].hits++;}
         else{
           const minDist=Math.min(...[...numSet].map(x=>Math.abs(x-s.num)));
-          if(minDist<=10){nearSet.add(s.num);planetStats[s.planet].nears++;if(minDist===10)tenSet.add(s.num);}
+          if(minDist===1){nearSet.add(s.num);planetStats[s.planet].nears++;}
+          else if(minDist===10){tenSet.add(s.num);}
         }
       });
       let bonusHit=false,bonusNear=false,bonusTen=false;
@@ -14605,7 +14606,8 @@ function _astroRunBacktest(){
         if(draw.bonus.includes(ticket.bonus.num)){bonusHit=true;planetStats[bp].hits++;}
         else{
           const minDist=Math.min(...draw.bonus.map(x=>Math.abs(x-ticket.bonus.num)));
-          if(minDist<=10){bonusNear=true;planetStats[bp].nears++;if(minDist===10)bonusTen=true;}
+          if(minDist===1){bonusNear=true;planetStats[bp].nears++;}
+          else if(minDist===10){bonusTen=true;}
         }
       }
       totalHits+=hitSet.size;totalNear+=nearSet.size;
@@ -14625,7 +14627,7 @@ function _astroRunBacktest(){
     html+=statCard('3+ isabet',pct3+'%',pct3>=15?'var(--green)':pct3>=5?'var(--gold)':'var(--muted)');
     html+=statCard('Test sayısı',N,'var(--text)');
     html+='</div>';
-    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — her geçmiş çekiliş günü "Kozmik Hizalanma Tarihi" kabul edilip sayı üretildi · Yeşil=tuttu (net) · 🟠=1-9 fark yakın · 🔵=tam 10 fark</div>`;
+    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — her geçmiş çekiliş günü "Kozmik Hizalanma Tarihi" kabul edilip sayı üretildi · Yeşil=tuttu (net) · 🟠=tam 1 fark (bitişik) · 🔵=tam 10 fark</div>`;
     html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.65rem">`;
     html+=`<thead><tr style="border-bottom:1px solid var(--border)">`;
     html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th>`;
@@ -14658,7 +14660,7 @@ function _astroRunBacktest(){
       html+=`</tr>`;
     });
     html+=`</tbody></table></div>`;
-    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=net isabet · 🟠 ~=1-9 fark yakın · 🔵 ~=tam 10 fark · Astro Tahmini sütunu her sayının üretildiği gezegeni gösterir.</div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=net isabet · 🟠 ~=tam 1 fark (bitişik) · 🔵 ~=tam 10 fark · Astro Tahmini sütunu her sayının üretildiği gezegeni gösterir.</div>`;
     // Gezegen güvenilirlik özeti
     const planetRows=Object.keys(planetStats).map(p=>{
       const s=planetStats[p];
@@ -14669,7 +14671,7 @@ function _astroRunBacktest(){
     html+=`<details style="margin-top:14px;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 12px">`;
     html+=`<summary style="cursor:pointer;font-size:.68rem;font-weight:700;color:var(--text)">🪐 Gezegen Güvenilirlik Özeti</summary>`;
     html+=`<div style="overflow-x:auto;margin-top:8px"><table style="width:100%;border-collapse:collapse;font-size:.64rem">`;
-    html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Gezegen</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Test</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Net</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Yakın (±10)</th></tr></thead><tbody>`;
+    html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Gezegen</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Test</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Net</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Bitişik (±1)</th></tr></thead><tbody>`;
     planetRows.forEach((r,i)=>{
       const isPersonal=r.planet===profile.personalPlanet;
       const isMother=r.planet===profile.motherPlanet;
