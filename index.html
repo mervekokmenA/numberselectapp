@@ -961,7 +961,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <div class="card-title" style="margin:0">📜 Tüm Çekilişler — Kronolojik Liste</div>
    <button onclick="_kronRender()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
   </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Şans Topu, Süper Loto ve Sayısal Loto çekilişleri (On Numara hariç) oyun ayrımı yapılmadan, geçmişten günümüze tek bir tarih sırasıyla listelenir. Hafta değiştiğinde aralarına boş bir satır bırakılır. İlk açılışta son 8 hafta gösterilir; daha eski haftaları görmek için "Daha Fazla Yükle" butonunu kullanın.</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Şans Topu, Süper Loto ve Sayısal Loto çekilişleri (On Numara hariç) oyun ayrımı yapılmadan, en güncel çekilişten geçmişe doğru tek bir tarih sırasıyla listelenir. Hafta değiştiğinde aralarına boş bir satır bırakılır. İlk açılışta son 20 hafta gösterilir; daha eski haftaları görmek için "Daha Fazla Yükle" butonunu kullanın.</div>
   <div id="kronResult"><div class="empty-state"><span class="empty-icon">📜</span>Yükleniyor…</div></div>
  </div>
 </div>
@@ -14484,12 +14484,13 @@ function _astroLuckyDays(d,nowDate){
   return days.sort((a,b)=>a-b);
 }
 // ═══════════ KRONOLOJİ — tüm çekilişler tek tarih sırasıyla (On Numara hariç) ═══════════
+const _KRON_GAME_PRIORITY={'super':0,'sayisal':1,'sans':2};
 function _kronCollectDraws(){
   const all=[];
   GAMES.filter(g=>g.id!=='onnumara').forEach(g=>{
     (_kbGetDraws(g.id)||[]).forEach(d=>all.push({date:d.date,nums:d.nums,bonus:d.bonus,gameId:g.id,gameName:g.name,gameEmoji:g.emoji}));
   });
-  all.sort((a,b)=>a.date.localeCompare(b.date)||a.gameName.localeCompare(b.gameName));
+  all.sort((a,b)=>b.date.localeCompare(a.date)||(_KRON_GAME_PRIORITY[a.gameId]??9)-(_KRON_GAME_PRIORITY[b.gameId]??9));
   return all;
 }
 function _kronWeekStart(dateStr){
@@ -14498,7 +14499,7 @@ function _kronWeekStart(dateStr){
   d.setDate(d.getDate()+(day===0?-6:1-day));
   return d.toISOString().slice(0,10);
 }
-const _KRON_PAGE_WEEKS=8;
+const _KRON_PAGE_WEEKS=20;
 let _kronWeeksLoaded=_KRON_PAGE_WEEKS;
 function _kronRender(){
   _kronWeeksLoaded=_KRON_PAGE_WEEKS;
@@ -14521,14 +14522,10 @@ function _kronRenderInner(){
   const weekKeys=[...weekMap.keys()];
   const totalWeeks=weekKeys.length;
   const visibleCount=Math.min(_kronWeeksLoaded,totalWeeks);
-  const visibleKeys=weekKeys.slice(totalWeeks-visibleCount);
+  const visibleKeys=weekKeys.slice(0,visibleCount);
   const remaining=totalWeeks-visibleCount;
   const visibleDrawCount=visibleKeys.reduce((s,k)=>s+weekMap.get(k).length,0);
-  let html='';
-  if(remaining>0){
-    html+=`<div style="text-align:center;margin-bottom:10px"><button onclick="_kronLoadMore()" style="font-size:.72rem;padding:7px 16px;border-radius:8px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">📥 Daha Fazla Yükle (${remaining} hafta daha)</button></div>`;
-  }
-  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Gösterilen: <strong style="color:var(--text)">${visibleCount}</strong> / ${totalWeeks} hafta · <strong style="color:var(--text)">${visibleDrawCount}</strong> / ${draws.length} çekiliş.</div>`;
+  let html=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Gösterilen: <strong style="color:var(--text)">${visibleCount}</strong> / ${totalWeeks} hafta · <strong style="color:var(--text)">${visibleDrawCount}</strong> / ${draws.length} çekiliş.</div>`;
   html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.68rem">`;
   html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Oyun</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Sonuç</th></tr></thead><tbody>`;
   visibleKeys.forEach((wk,idx)=>{
@@ -14544,6 +14541,9 @@ function _kronRenderInner(){
     });
   });
   html+=`</tbody></table></div>`;
+  if(remaining>0){
+    html+=`<div style="text-align:center;margin-top:12px"><button onclick="_kronLoadMore()" style="font-size:.72rem;padding:7px 16px;border-radius:8px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">📥 Daha Fazla Yükle (${remaining} hafta daha)</button></div>`;
+  }
   el.innerHTML=html;
 }
 function _astroInit(){
