@@ -956,6 +956,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <!-- ═══════════ PAGE: HIZLI TAHMİN ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-hizlitahmin">
 
+ <!-- Toplu Kopyala (sayfadaki tüm analizler) -->
+ <div style="margin-bottom:12px">
+  <button onclick="_htCopyAllAnalyses()" style="width:100%;padding:11px;background:linear-gradient(135deg,rgba(0,150,58,.16),rgba(129,140,248,.14));border:1px solid rgba(0,150,58,.4);color:var(--text);border-radius:10px;cursor:pointer;font-size:.82rem;font-weight:800">📋 Tüm Analizleri Toplu Kopyala</button>
+ </div>
+
  <!-- 0: Manuel Sayı Girişi (harici liste filtresi) -->
  <div class="card" style="margin-bottom:12px">
   <div class="card-title">✍️ Manuel Sayı Girişi</div>
@@ -14908,6 +14913,19 @@ function _htCollectVotes(){
   sys['NSA Banko']=new Set((typeof _gizliLastColumns!=='undefined'&&_gizliLastColumns)?_gizliLastColumns.flatMap(c=>c.col):[]);
   sys['Astro Tahmin']=new Set(window._astroNumsHt||[]);
   return sys;
+}
+const _htSysEmoji={'Gülay Analiz':'🔮','Gülay AI Biletler':'🤖','Sisal-LCG':'🎲','B10 Kuponu':'🎟️','Listeler AI Biletler':'🔎','Listeler Kırmızı':'🔴','Listeler Ortak':'🟢','NSA Banko':'🔐','Astro Tahmin':'🪐'};
+function _htCopyAllAnalyses(){
+  const sys=_htCollectVotes();
+  const game=getGame(_htGame);
+  const now=new Date();
+  const dateStr=now.toLocaleDateString('tr-TR')+' '+now.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+  const lines=[`${game?.emoji||''} ${game?.name||''} — Hızlı Tahmin Toplu Analiz (${dateStr})`,''];
+  Object.keys(sys).forEach(name=>{
+    const nums=[...sys[name]].sort((a,b)=>a-b);
+    lines.push(`${_htSysEmoji[name]||'•'} ${name}: ${nums.length?nums.join(', '):'(veri yok)'}`);
+  });
+  _kbCopy(lines.join('\n'));
 }
 function _htConsensusScores(pool){
   const sys=_htCollectVotes();
