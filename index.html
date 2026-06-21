@@ -961,7 +961,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <div class="card-title" style="margin:0">📜 Tüm Çekilişler — Kronolojik Liste</div>
    <button onclick="_kronRender()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
   </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Şans Topu, Süper Loto ve Sayısal Loto çekilişleri (On Numara hariç) oyun ayrımı yapılmadan, geçmişten günümüze tek bir tarih sırasıyla listelenir. Hafta değiştiğinde aralarına boş bir satır bırakılır.</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Şans Topu, Süper Loto ve Sayısal Loto çekilişleri (On Numara hariç) oyun ayrımı yapılmadan, geçmişten günümüze tek bir tarih sırasıyla listelenir. Hafta değiştiğinde aralarına boş bir satır bırakılır. İlk açılışta son 8 hafta gösterilir; daha eski haftaları görmek için "Daha Fazla Yükle" butonunu kullanın.</div>
   <div id="kronResult"><div class="empty-state"><span class="empty-icon">📜</span>Yükleniyor…</div></div>
  </div>
 </div>
@@ -14498,25 +14498,50 @@ function _kronWeekStart(dateStr){
   d.setDate(d.getDate()+(day===0?-6:1-day));
   return d.toISOString().slice(0,10);
 }
+const _KRON_PAGE_WEEKS=8;
+let _kronWeeksLoaded=_KRON_PAGE_WEEKS;
 function _kronRender(){
+  _kronWeeksLoaded=_KRON_PAGE_WEEKS;
+  _kronRenderInner();
+}
+function _kronLoadMore(){
+  _kronWeeksLoaded+=_KRON_PAGE_WEEKS;
+  _kronRenderInner();
+}
+function _kronRenderInner(){
   const el=document.getElementById('kronResult');if(!el)return;
   const draws=_kronCollectDraws();
   if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Henüz çekiliş verisi yok.</div>';return;}
-  let html=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Toplam <strong style="color:var(--text)">${draws.length}</strong> çekiliş.</div>`;
-  html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.68rem">`;
-  html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Oyun</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Sonuç</th></tr></thead><tbody>`;
-  let prevWeek=null;
+  const weekMap=new Map();
   draws.forEach(d=>{
     const wk=_kronWeekStart(d.date);
-    if(prevWeek!==null&&wk!==prevWeek)html+=`<tr><td colspan="3" style="height:12px;border:none"></td></tr>`;
-    prevWeek=wk;
-    const numsStr=d.nums.join(', ');
-    const bonusStr=d.bonus&&d.bonus.length?` <span style="color:var(--muted)">|</span> ${d.bonus.join(', ')}`:'';
-    html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04)">`;
-    html+=`<td style="padding:5px 6px;white-space:nowrap;color:var(--muted)">${d.date}</td>`;
-    html+=`<td style="padding:5px 6px;white-space:nowrap;font-weight:700;color:var(--text)">${d.gameEmoji} ${d.gameName}</td>`;
-    html+=`<td style="padding:5px 6px;font-family:monospace;color:var(--text)">${numsStr}${bonusStr}</td>`;
-    html+=`</tr>`;
+    if(!weekMap.has(wk))weekMap.set(wk,[]);
+    weekMap.get(wk).push(d);
+  });
+  const weekKeys=[...weekMap.keys()];
+  const totalWeeks=weekKeys.length;
+  const visibleCount=Math.min(_kronWeeksLoaded,totalWeeks);
+  const visibleKeys=weekKeys.slice(totalWeeks-visibleCount);
+  const remaining=totalWeeks-visibleCount;
+  const visibleDrawCount=visibleKeys.reduce((s,k)=>s+weekMap.get(k).length,0);
+  let html='';
+  if(remaining>0){
+    html+=`<div style="text-align:center;margin-bottom:10px"><button onclick="_kronLoadMore()" style="font-size:.72rem;padding:7px 16px;border-radius:8px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">📥 Daha Fazla Yükle (${remaining} hafta daha)</button></div>`;
+  }
+  html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Gösterilen: <strong style="color:var(--text)">${visibleCount}</strong> / ${totalWeeks} hafta · <strong style="color:var(--text)">${visibleDrawCount}</strong> / ${draws.length} çekiliş.</div>`;
+  html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.68rem">`;
+  html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Oyun</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Sonuç</th></tr></thead><tbody>`;
+  visibleKeys.forEach((wk,idx)=>{
+    if(idx>0)html+=`<tr><td colspan="3" style="height:12px;border:none"></td></tr>`;
+    weekMap.get(wk).forEach(d=>{
+      const numsStr=d.nums.join(', ');
+      const bonusStr=d.bonus&&d.bonus.length?` <span style="color:var(--muted)">|</span> ${d.bonus.join(', ')}`:'';
+      html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04)">`;
+      html+=`<td style="padding:5px 6px;white-space:nowrap;color:var(--muted)">${d.date}</td>`;
+      html+=`<td style="padding:5px 6px;white-space:nowrap;font-weight:700;color:var(--text)">${d.gameEmoji} ${d.gameName}</td>`;
+      html+=`<td style="padding:5px 6px;font-family:monospace;color:var(--text)">${numsStr}${bonusStr}</td>`;
+      html+=`</tr>`;
+    });
   });
   html+=`</tbody></table></div>`;
   el.innerHTML=html;
