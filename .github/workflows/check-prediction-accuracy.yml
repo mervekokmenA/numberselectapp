@@ -1,0 +1,48 @@
+name: Tahmin Doğruluğu Periyodik Kontrolü
+
+on:
+  schedule:
+    # Her Pazartesi 06:00 UTC = 09:00 Türkiye saati — haftada 1 kez
+    - cron: '0 6 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  issues: write
+
+concurrency:
+  group: check-prediction-accuracy
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: claude/lottery-guessing-machine-ODD1U
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bağımlılıkları kur
+        run: npm ci
+
+      - name: Tahmin algoritmalarını gerçek çekilişlere karşı analiz et
+        id: analyze
+        run: node scripts/check-prediction-accuracy.mjs
+
+      - name: Anormallik tespit edildiyse Issue aç (ya da mevcut olana yorum ekle)
+        if: always() && steps.analyze.outputs.anomaly == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="Tahmin algoritmaları periyodik analiz: anormallik tespit edildi"
+          EXISTING=$(gh issue list --search "\"$TITLE\" in:title" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body-file accuracy-report.md
+          else
+            gh issue create --title "$TITLE" --body-file accuracy-report.md
+          fi
