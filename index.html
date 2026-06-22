@@ -904,38 +904,61 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div class="card">
   <div class="card-title">🪐 Astro Tahmin</div>
   <div style="font-size:.63rem;color:var(--muted);margin-bottom:14px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Doğum tarihiniz, doğum saatiniz/yeriniz ve anne bilgilerinizden astrolojik profilinizi (Batı burcu, Çin burcu, yaklaşık yükselen) çıkarır; bunlardan ve seçtiğiniz <strong>Kozmik Hizalanma Tarihi</strong>'nden deterministik olarak, her biri bir <strong>gezegenle</strong> ilişkilendirilmiş sayılar üretir. Aynı bilgilerle her zaman aynı sayıları verir — eğlence/deneme amaçlıdır, astrolojik gerçeklik iddiası taşımaz. Aşağıdaki <strong>Geçmiş Test</strong> ile sizin verilerinizde hangi gezegenin daha sık "yakın" (±10) veya "net" çıktığını görebilirsiniz.</div>
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px">
-   <div>
-    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Oyun</label>
-    <select id="astroGame" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
-   </div>
-   <div>
-    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Doğum Tarihiniz *</label>
-    <input type="date" id="astroBirthDate" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
-   </div>
-   <div>
-    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Doğum Saatiniz (opsiyonel)</label>
-    <input type="time" id="astroBirthTime" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
-   </div>
-   <div>
-    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Doğum Yeriniz (opsiyonel)</label>
-    <input type="text" id="astroBirthPlace" onchange="_astroSaveInputs()" placeholder="İstanbul, Türkiye" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
-   </div>
-   <div>
-    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Annenizin Adı (opsiyonel)</label>
-    <input type="text" id="astroMotherName" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
-   </div>
-   <div>
-    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Annenizin Doğum Tarihi (opsiyonel)</label>
-    <input type="date" id="astroMotherBirthDate" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
-   </div>
-   <div>
-    <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Kozmik Hizalanma Tarihi</label>
-    <input type="date" id="astroTargetDate" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
-   </div>
+  <div class="tabs" id="astroTabs">
+   <button class="tab-btn active" id="astroTabBtn-classic" onclick="_astroSwitchTab('classic')">🪐 Klasik Yöntem</button>
+   <button class="tab-btn" id="astroTabBtn-real" onclick="_astroSwitchTab('real')">🌌 Gerçek Gezegen Konumları</button>
   </div>
-  <button onclick="_astroGenerate()" style="font-size:.78rem;padding:9px 20px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🪐 Kozmik Sayıları Üret</button>
-  <div id="astroResult" style="margin-top:14px"></div>
+
+  <div class="tab-panel active" id="astroTab-classic">
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px">
+    <div>
+     <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Oyun</label>
+     <select id="astroGame" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
+    </div>
+    <div>
+     <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Doğum Tarihiniz *</label>
+     <input type="date" id="astroBirthDate" value="1996-05-12" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    </div>
+    <div>
+     <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Doğum Saatiniz (opsiyonel)</label>
+     <input type="time" id="astroBirthTime" value="01:54" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    </div>
+    <div>
+     <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Doğum Yeriniz (opsiyonel)</label>
+     <input type="text" id="astroBirthPlace" value="Ordu, Turkey" onchange="_astroSaveInputs()" placeholder="İstanbul, Türkiye" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    </div>
+    <div>
+     <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Annenizin Adı (opsiyonel)</label>
+     <input type="text" id="astroMotherName" value="Emine" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    </div>
+    <div>
+     <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Annenizin Doğum Tarihi (opsiyonel)</label>
+     <input type="date" id="astroMotherBirthDate" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    </div>
+    <div>
+     <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Kozmik Hizalanma Tarihi</label>
+     <input type="date" id="astroTargetDate" onchange="_astroSaveInputs()" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    </div>
+   </div>
+   <button onclick="_astroGenerate()" style="font-size:.78rem;padding:9px 20px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🪐 Kozmik Sayıları Üret</button>
+   <div id="astroResult" style="margin-top:14px"></div>
+  </div>
+
+  <div class="tab-panel" id="astroTab-real">
+   <div style="font-size:.62rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Bu sekme, "Klasik Yöntem" sekmesindeki doğum bilgilerinizi kullanır ama oyun ve tarih seçimi <strong>tamamen bağımsızdır</strong>. Güneş, Ay ve 8 gezegenin Kepler yörünge denklemleriyle hesaplanan <strong>gerçek ekliptik (zodyak) derecesini</strong> hem doğum gününüz hem de aşağıda seçtiğiniz hedef tarih için hesaplar, ikisini birleştirip her gezegene bir sayı üretir. Plüton, yörüngesinin çok eğik/dışmerkezli olması nedeniyle basitleştirilmiş bir ortalama hareketle hesaplanır.</div>
+   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:12px">
+    <div>
+     <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Oyun</label>
+     <select id="astroRealGame" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
+    </div>
+    <div>
+     <label style="font-size:.62rem;color:var(--muted);display:block;margin-bottom:4px">Hedef Tarih</label>
+     <input type="date" id="astroRealTargetDate" style="width:100%;box-sizing:border-box;font-size:.74rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    </div>
+   </div>
+   <button onclick="_astroRealGenerate()" style="font-size:.78rem;padding:9px 20px;border-radius:9px;background:linear-gradient(135deg,rgba(56,189,248,.85),rgba(37,99,235,.7));border:1px solid rgba(56,189,248,.6);color:#fff;cursor:pointer;font-weight:700">🌌 Gerçek Gök Haritasından Üret</button>
+   <div id="astroRealResult" style="margin-top:14px"></div>
+  </div>
  </div>
 
  <div class="card" style="margin-top:12px">
@@ -14485,6 +14508,154 @@ function _astroLuckyDays(d,nowDate){
     if(!days.includes(day))days.push(day);
   }
   return days.sort((a,b)=>a-b);
+}
+// ═══════════ ASTRO TAHMİN — Gerçek Gezegen Konumları (bağımsız 2. sekme) ═══════════
+// Kepler yörünge elemanları ve dönüşüm adımları Paul Schlyter'in kamuya açık
+// "How to compute planetary positions" düşük-hassasiyet formülasyonuna dayanır
+// (epoch: 2000-01-01 00:00 UT). Plüton, yüksek dışmerkezlik/eğiklik nedeniyle
+// burada basitleştirilmiş bir ortalama dairesel hareketle yaklaşıklanmıştır.
+function _astroSinD(deg){return Math.sin(deg*Math.PI/180);}
+function _astroCosD(deg){return Math.cos(deg*Math.PI/180);}
+function _astroAtan2D(y,x){return Math.atan2(y,x)*180/Math.PI;}
+function _astroNorm360(deg){deg=deg%360;return deg<0?deg+360:deg;}
+function _astroJulianDay(dateStr,timeStr){
+  const[y,m,dd]=dateStr.split('-').map(Number);
+  const[hh,mi]=(timeStr||'12:00').split(':').map(Number);
+  const dayFrac=((hh||0)+(mi||0)/60)/24;
+  let Y=y,M=m;
+  if(M<=2){Y-=1;M+=12;}
+  const A=Math.floor(Y/100);
+  const B=2-A+Math.floor(A/4);
+  return Math.floor(365.25*(Y+4716))+Math.floor(30.6001*(M+1))+dd+dayFrac+B-1524.5;
+}
+function _astroDaysSinceEpoch(dateStr,timeStr){return _astroJulianDay(dateStr,timeStr)-2451543.5;}
+function _astroSolveKepler(Mdeg,e){
+  let E=Mdeg+(180/Math.PI)*e*_astroSinD(Mdeg)*(1+e*_astroCosD(Mdeg));
+  for(let i=0;i<10;i++){
+    const f=E-(180/Math.PI)*e*_astroSinD(E)-Mdeg;
+    const fp=1-e*_astroCosD(E);
+    const dE=f/fp;
+    E-=dE;
+    if(Math.abs(dE)<1e-6)break;
+  }
+  return E;
+}
+const _ASTRO_ORBITS={
+  sun:    {N:()=>0,                      i:()=>0,                   w:d=>282.9404+4.70935e-5*d, a:()=>1.000000,           e:d=>0.016709-1.151e-9*d, M:d=>356.0470+0.9856002585*d},
+  moon:   {N:d=>125.1228-0.0529538083*d, i:()=>5.1454,              w:d=>318.0634+0.1643573223*d,a:()=>60.2666,           e:()=>0.054900,           M:d=>115.3654+13.0649929509*d},
+  mercury:{N:d=>48.3313+3.24587e-5*d,    i:d=>7.0047+5.00e-8*d,     w:d=>29.1241+1.01444e-5*d,  a:()=>0.387098,           e:d=>0.205635+5.59e-10*d, M:d=>168.6562+4.0923344368*d},
+  venus:  {N:d=>76.6799+2.46590e-5*d,    i:d=>3.3946+2.75e-8*d,     w:d=>54.8910+1.38374e-5*d,  a:()=>0.723330,           e:d=>0.006773-1.302e-9*d, M:d=>48.0052+1.6021302244*d},
+  mars:   {N:d=>49.5574+2.11081e-5*d,    i:d=>1.8497-1.78e-8*d,     w:d=>286.5016+2.92961e-5*d, a:()=>1.523688,           e:d=>0.093405+2.516e-9*d, M:d=>18.6021+0.5240207766*d},
+  jupiter:{N:d=>100.4542+2.76854e-5*d,   i:d=>1.3030-1.557e-7*d,    w:d=>273.8777+1.64505e-5*d, a:()=>5.20256,            e:d=>0.048498+4.469e-9*d, M:d=>19.8950+0.0830853001*d},
+  saturn: {N:d=>113.6634+2.38980e-5*d,   i:d=>2.4886-1.081e-7*d,    w:d=>339.3939+2.97661e-5*d, a:()=>9.55475,            e:d=>0.055546-9.499e-9*d, M:d=>316.9670+0.0334442282*d},
+  uranus: {N:d=>74.0005+1.3978e-5*d,     i:d=>0.7733+1.9e-8*d,      w:d=>96.6612+3.0565e-5*d,   a:d=>19.18171-1.55e-8*d,  e:d=>0.047318+7.45e-9*d,  M:d=>142.5905+0.011725806*d},
+  neptune:{N:d=>131.7806+3.0173e-5*d,    i:d=>1.7700-2.55e-7*d,     w:d=>272.8461-6.027e-6*d,   a:d=>30.05826+3.313e-8*d, e:d=>0.008606+2.15e-9*d,  M:d=>260.2471+0.005995147*d},
+};
+function _astroHeliocentricXYZ(orb,d){
+  const N=orb.N(d),i=orb.i(d),w=orb.w(d),a=orb.a(d),e=orb.e(d),M=_astroNorm360(orb.M(d));
+  const E=_astroSolveKepler(M,e);
+  const xv=a*(_astroCosD(E)-e);
+  const yv=a*(Math.sqrt(1-e*e)*_astroSinD(E));
+  const v=_astroAtan2D(yv,xv);
+  const r=Math.sqrt(xv*xv+yv*yv);
+  const vw=v+w;
+  const xh=r*(_astroCosD(N)*_astroCosD(vw)-_astroSinD(N)*_astroSinD(vw)*_astroCosD(i));
+  const yh=r*(_astroSinD(N)*_astroCosD(vw)+_astroCosD(N)*_astroSinD(vw)*_astroCosD(i));
+  const zh=r*(_astroSinD(vw)*_astroSinD(i));
+  return{xh,yh,zh};
+}
+function _astroPlutoLongitude(d){return _astroNorm360(251.4+d*(360/90581.835));}
+const ASTRO_PLANET_KEY={'Güneş':'sun','Ay':'moon','Merkür':'mercury','Venüs':'venus','Mars':'mars','Jüpiter':'jupiter','Satürn':'saturn','Uranüs':'uranus','Neptün':'neptune','Plüton':'pluto'};
+function _astroGeocentricLongitude(planetKey,d){
+  if(planetKey==='pluto')return _astroPlutoLongitude(d);
+  if(planetKey==='moon'){
+    const m=_astroHeliocentricXYZ(_ASTRO_ORBITS.moon,d);
+    return _astroNorm360(_astroAtan2D(m.yh,m.xh));
+  }
+  const sun=_astroHeliocentricXYZ(_ASTRO_ORBITS.sun,d);
+  if(planetKey==='sun')return _astroNorm360(_astroAtan2D(sun.yh,sun.xh));
+  const xEarth=-sun.xh,yEarth=-sun.yh;
+  const p=_astroHeliocentricXYZ(_ASTRO_ORBITS[planetKey],d);
+  return _astroNorm360(_astroAtan2D(p.yh+yEarth,p.xh+xEarth));
+}
+function _astroRealLongitude(planetName,dateStr,timeStr){
+  if(!dateStr)return 0;
+  const d=_astroDaysSinceEpoch(dateStr,timeStr);
+  return _astroGeocentricLongitude(ASTRO_PLANET_KEY[planetName],d);
+}
+function _astroSignFromLongitude(lon){return ASTRO_SIGNS[Math.floor(_astroNorm360(lon)/30)%12];}
+function _astroRealNumberFor(combinedLon,max){
+  const n=Math.floor(_astroNorm360(combinedLon)/360*max)+1;
+  return Math.min(max,Math.max(1,n));
+}
+function _astroRealCompute(d,game){
+  const birthTime=d.birthTime||'12:00';
+  const planets=ASTRO_PLANETS.map(name=>{
+    const natal=_astroRealLongitude(name,d.birthDate,birthTime);
+    const transit=_astroRealLongitude(name,d.targetDate,'12:00');
+    return{name,natal,transit,combined:_astroNorm360(natal+transit)};
+  });
+  function pickFrom(p,max,usedSet){
+    let n=_astroRealNumberFor(p.combined,max);
+    let guard=0;
+    while(usedSet.has(n)&&guard<max){n=n>=max?1:n+1;guard++;}
+    usedSet.add(n);
+    return n;
+  }
+  const mainUsed=new Set();
+  const slots=planets.slice(0,game.count).map(p=>({num:pickFrom(p,game.max,mainUsed),planet:p.name,longitude:p.combined,sign:_astroSignFromLongitude(p.combined)}));
+  slots.sort((a,b)=>a.num-b.num);
+  let bonus=null;
+  if(game.bonusCount>0&&game.bonusMax>0&&planets[game.count]){
+    const bp=planets[game.count];
+    bonus={num:pickFrom(bp,game.bonusMax,new Set()),planet:bp.name,longitude:bp.combined,sign:_astroSignFromLongitude(bp.combined)};
+  }
+  return{planets,slots,bonus};
+}
+function _astroRealRenderResult(d,game,result){
+  let h=`<div style="font-size:.7rem;color:var(--muted);margin-bottom:8px">${game.emoji} ${game.name} — Doğum: ${d.birthDate} · Hedef: ${d.targetDate}</div>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${result.bonus?'10px':'0'}">${result.slots.map(s=>_astroNumBadge(s.planet,s.num)).join('')}</div>`;
+  if(result.bonus)h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">+ Bonus:</div><div style="display:flex;gap:8px">${_astroNumBadge(result.bonus.planet,result.bonus.num)}</div>`;
+  h+=`<div style="margin-top:12px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.62rem;color:var(--muted)">`+
+     `<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:3px 6px">Gezegen</th><th style="text-align:left;padding:3px 6px">Burç</th><th style="text-align:left;padding:3px 6px">Birleşik Derece</th></tr></thead><tbody>`+
+     result.planets.map(p=>`<tr><td style="padding:3px 6px;color:var(--text)">${ASTRO_PLANET_EMOJI[p.name]||''} ${p.name}</td><td style="padding:3px 6px">${_astroSignFromLongitude(p.combined)}</td><td style="padding:3px 6px;font-family:monospace">${p.combined.toFixed(1)}°</td></tr>`).join('')+
+     `</tbody></table></div>`;
+  return h;
+}
+function _astroRealInit(){
+  const sel=document.getElementById('astroRealGame');
+  if(sel&&!sel.dataset.init){
+    sel.dataset.init='1';
+    sel.innerHTML=GAMES.map(g=>`<option value="${g.id}">${g.emoji} ${g.name}</option>`).join('');
+  }
+  if(sel)sel.value=_astroTodayGameId();
+  const tEl=document.getElementById('astroRealTargetDate');
+  if(tEl)tEl.value=new Date().toISOString().slice(0,10);
+  if(document.getElementById('astroBirthDate')?.value)_astroRealGenerate();
+}
+function _astroRealReadInputs(){
+  const base=_astroReadInputs();
+  return{...base,
+    gameId:document.getElementById('astroRealGame')?.value||base.gameId,
+    targetDate:document.getElementById('astroRealTargetDate')?.value||new Date().toISOString().slice(0,10),
+  };
+}
+function _astroRealGenerate(){
+  const d=_astroRealReadInputs();
+  if(!d.birthDate){showToast('⚠️ Doğum tarihi gerekli (Klasik Yöntem sekmesinden girin)');return;}
+  const game=getGame(d.gameId);
+  const result=_astroRealCompute(d,game);
+  window._astroRealLastResult=result;
+  window._astroRealLastGame=game;
+  const el=document.getElementById('astroRealResult');
+  if(el)el.innerHTML=_astroRealRenderResult(d,game,result);
+}
+function _astroSwitchTab(id){
+  ['classic','real'].forEach(t=>{
+    document.getElementById('astroTabBtn-'+t)?.classList.toggle('active',t===id);
+    document.getElementById('astroTab-'+t)?.classList.toggle('active',t===id);
+  });
+  if(id==='real')_astroRealInit();
 }
 // ═══════════ KRONOLOJİ — tüm çekilişler tek tarih sırasıyla (On Numara hariç) ═══════════
 const _KRON_GAME_PRIORITY={'super':0,'sayisal':1,'sans':2};
