@@ -6676,7 +6676,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       break;
     case 'hot':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
-      const hDraws=drawsOverride||state.pastDraws||[];
+      const hDraws=(drawsOverride||state.pastDraws||[]).slice().reverse();
       const hIsSuper=game.id==='super';
       const hewf=buildEWF(hDraws,game.max,hIsSuper?0.60:0.75);
       const hN=hDraws.length;
@@ -6726,7 +6726,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       break;}
     case 'cold':{
       if(!hasHist)return generateNumbers(game,'random',freq);
-      const cDraws=drawsOverride||state.pastDraws||[];
+      const cDraws=(drawsOverride||state.pastDraws||[]).slice().reverse();
       const cewf=cDraws.length?buildEWF(cDraws,game.max,game.id==='super'?0.65:0.80):freq;
       const cmx=Math.max(...pool.map(n=>cewf[n]||0),1);
       mainNums=pickUnique(pool,game.count,pool.map(n=>Math.max(.1,cmx-(cewf[n]||0)+.5)));
@@ -6734,7 +6734,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       break;}
     case 'balanced':{
       if(!hasHist)return generateNumbers(game,'random',freq);
-      const bDraws=drawsOverride||state.pastDraws||[];
+      const bDraws=(drawsOverride||state.pastDraws||[]).slice().reverse();
       const bIsSuper=game.id==='super';
       const bewf=bDraws.length?buildEWF(bDraws,game.max,bIsSuper?0.60:0.75):freq;
       // Zone-aware selection: divide range into game.count bands
@@ -6794,7 +6794,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       let meanGap=Math.ceil(game.max/game.count);
       if(dDraws.length>=5){
         const allGaps=[];
-        dDraws.slice(-40).forEach(d=>{const ns=dGN(d).slice(0,game.count).sort((a,b)=>a-b);for(let i=1;i<ns.length;i++)allGaps.push(ns[i]-ns[i-1]);});
+        dDraws.slice(0,40).forEach(d=>{const ns=dGN(d).slice(0,game.count).sort((a,b)=>a-b);for(let i=1;i<ns.length;i++)allGaps.push(ns[i]-ns[i-1]);});
         if(allGaps.length)meanGap=allGaps.reduce((s,g)=>s+g,0)/allGaps.length;
       }
       // Generate with historically-calibrated gaps (randomized around mean)
@@ -6812,7 +6812,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       break;}
     case 'entropy':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
-      const eDraws=drawsOverride||state.pastDraws||[];
+      const eDraws=(drawsOverride||state.pastDraws||[]).slice().reverse();
       const eIsSuper=game.id==='super';
       const eEwf=eDraws.length?buildEWF(eDraws,game.max,eIsSuper?0.60:0.75):freq;
       const totalF=Object.values(eEwf).reduce((s,v)=>s+v,0);
@@ -6840,7 +6840,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const sHot=sfByF.slice(0,12);
       const sTotalF=Object.values(freq).reduce((s,v)=>s+v,0)||1;
       const sDraws=drawsOverride||state.pastDraws||[];
-      const sLastNums=sDraws.length?(Array.isArray(sDraws[sDraws.length-1])?sDraws[sDraws.length-1]:(sDraws[sDraws.length-1].nums||[])):[];
+      const sLastNums=sDraws.length?(Array.isArray(sDraws[0])?sDraws[0]:(sDraws[0].nums||[])):[];
       const sLastSum=sLastNums.reduce((s,n)=>s+n,0)||0;
       // Mix deterministic seed with call-time entropy for unique tickets
       let sLcg=(((sHot.reduce((s,n)=>s+n*(freq[n]||1),0)*7+sTotalF*13+sLastSum*3)>>>0)+Math.floor(Math.random()*999983))%LCG_M;
@@ -6939,7 +6939,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
 
     case 'star':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
-      const stD=(drawsOverride||state.pastDraws||[]);
+      const stD=(drawsOverride||state.pastDraws||[]).slice().reverse();
       const stT=stD.length;if(stT<5)return generateNumbers(game,'hot',freq,drawsOverride);
       const stMAX=game.max,stN=game.count;
       const stGN=d=>(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=stMAX);
@@ -7076,7 +7076,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       break;}
     case 'starv2':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
-      const sv2D=(drawsOverride||state.pastDraws||[]);
+      const sv2D=(drawsOverride||state.pastDraws||[]).slice().reverse();
       const sv2T=sv2D.length;if(sv2T<5)return generateNumbers(game,'hot',freq,drawsOverride);
       const sv2MAX=game.max,sv2N=game.count;
       const gN=d=>(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).filter(n=>n>=1&&n<=sv2MAX);
@@ -7252,7 +7252,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       // EWF: ağırlıklı tarihsel frekans — en güçlü sinyal
       const ebRec=ebD.slice(0,Math.min(40,ebD.length)),ebNR=ebRec.length;
       const ebEWF={};
-      ebRec.forEach((d,j)=>{const w=Math.pow(0.80,ebNR-1-j);(d.nums||[]).forEach(n=>{ebEWF[n]=(ebEWF[n]||0)+w;});});
+      ebRec.forEach((d,j)=>{const w=Math.pow(0.80,j);(d.nums||[]).forEach(n=>{ebEWF[n]=(ebEWF[n]||0)+w;});});
       const ebMx=Math.max(...Object.values(ebEWF),1);
       Object.entries(ebEWF).forEach(([n,fw])=>ebA(+n,(fw/ebMx)*4.0));
       // En yüksek skorlu sayıları seç
@@ -7328,8 +7328,8 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       // ── Çapraz tetikleyici: g sonrası hangi grup çıkıyor? ──
       const gTrig={};
       for(let i=0;i<fbN-1;i++){
-        const cur=new Set((fbDraws[i].nums||[]).map(fbG));
-        const nxt=new Set((fbDraws[i+1].nums||[]).map(fbG));
+        const cur=new Set((fbDraws[i+1].nums||[]).map(fbG));
+        const nxt=new Set((fbDraws[i].nums||[]).map(fbG));
         cur.forEach(cg=>nxt.forEach(ng=>{const k=cg*10+ng;gTrig[k]=(gTrig[k]||0)+1;}));
       }
       // Son çekilişin grupları
@@ -7388,7 +7388,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       // Smart: EWF + zone soft-bias + sum targeting (P30-P70) + odd/even balance + recent penalty
       // Süper Loto uses flatter weights (cbrt) + weaker zone bias to allow natural clustering
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
-      const smD=drawsOverride||state.pastDraws||[];
+      const smD=(drawsOverride||state.pastDraws||[]).slice().reverse();
       const smN=smD.length;
       if(smN<5)return generateNumbers(game,'hot',freq,drawsOverride);
       const smMAX=game.max,smC=game.count;
@@ -8356,7 +8356,7 @@ function updateAlgoScores(){
   if(state._algoScoreCache[cKey]){panel.innerHTML=state._algoScoreCache[cKey];return;}
   const game=getGame(gameId);
   let prior=state.datedDraws.filter(d=>d.date<testDate);
-  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(win!=='all')prior=prior.slice(0,parseInt(win));
   if(!prior.length){panel.innerHTML='';return;}
   const actual=state.datedDraws.find(d=>d.date===testDate);
   if(!actual){panel.innerHTML='';return;}
@@ -8411,7 +8411,7 @@ function updateAlgoScores2(){
   if(state._algoScoreCache2[cKey]){panel.innerHTML=state._algoScoreCache2[cKey];return;}
   const game=getGame(gameId);
   let prior=state.datedDraws.filter(d=>d.date<testDate);
-  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(win!=='all')prior=prior.slice(0,parseInt(win));
   if(!prior.length){panel.innerHTML='';return;}
   const actual=state.datedDraws.find(d=>d.date===testDate);
   if(!actual){panel.innerHTML='';return;}
@@ -8443,7 +8443,7 @@ function runBacktest2(){
   if(!testDate){showToast('⚠️ Lütfen bir test tarihi seçin');return;}
   const game=getGame(gameId);
   let prior=state.datedDraws.filter(d=>d.date<testDate);
-  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(win!=='all')prior=prior.slice(0,parseInt(win));
   if(!prior.length){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
   const freq=buildFreq(prior);
   const n=state.btCount2||4;
@@ -8590,7 +8590,7 @@ async function runBacktest(){
   if(!testDate){showToast('⚠️ Lütfen bir test tarihi seçin');return;}
   const game=getGame(gameId);
   let prior=state.datedDraws.filter(d=>d.date<testDate);
-  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(win!=='all')prior=prior.slice(0,parseInt(win));
   if(!prior.length){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
   const freq=buildFreq(prior);
   const n=state.btCount||4;
@@ -11024,7 +11024,7 @@ function _kbSonHane(draws,max){
 function _kbSignals(draws,game){
   const max=game.max,cnt=Math.min(game.count,7);
   const freq=buildFreq(draws);
-  const ewf=buildEWF(draws,max);
+  const ewf=buildEWF([...draws].reverse(),max);
   const delay={};
   for(let n=1;n<=max;n++){let idx=-1;for(let i=0;i<draws.length;i++){const d=draws[i];if(d.nums.includes(n)||(d.bonus&&d.bonus.includes(n))){idx=i;break;}}delay[n]=idx===-1?draws.length:idx;}
   const pair=_b10SigPair(draws,max);
@@ -11190,7 +11190,7 @@ function _kbHtComboBacktest(draws,game,rounds){
       // canlı/oturum durumuna bağlı sinyaller (kırmızı hücreler, geçmiş kolon yeşil frekansı, mevcut tahmin) hariç — bu yüzden "(basit)"
       const gmax=game.max;
       const numScore=new Array(gmax+1).fill(0);
-      const ewf=buildEWF(prior,gmax,0.85);
+      const ewf=buildEWF([...prior].reverse(),gmax,0.85);
       const maxEWF=Math.max(0,...Object.values(ewf));
       if(maxEWF>0)for(let n=1;n<=gmax;n++)numScore[n]+=((ewf[n]||0)/maxEWF)*1.5;
       const{score:ns}=_sablonScoreNext(prior[0],game);
@@ -12071,7 +12071,7 @@ function _listelerBacktestCore(gameId,testDate,algoId,win,n){
   if(_listelerHistory.some(h=>h.date===testDate&&h.game.id===gameId))return null;
   const draws=_scanGetDraws(gameId);
   let prior=draws.filter(d=>d.date<testDate);
-  if(win!=='all')prior=prior.slice(-parseInt(win));
+  if(win!=='all')prior=prior.slice(0,parseInt(win));
   if(!prior.length)return null;
   const actual=draws.find(d=>d.date===testDate)||null;
   const freq=buildFreq(prior);
@@ -12527,7 +12527,7 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn,silent){
   // Sinyal 3: EWF üstel ağırlıklı frekans +1.5
   const draws=_scanGetDraws(gameId);
   if(draws.length>0){
-    const ewf=buildEWF(draws,gmax,0.85);
+    const ewf=buildEWF([...draws].reverse(),gmax,0.85);
     const maxEWF=Math.max(0,...Object.values(ewf));
     if(maxEWF>0){for(let n=1;n<=gmax;n++)numScore[n]+=((ewf[n]||0)/maxEWF)*1.5;}
   }
@@ -15544,7 +15544,7 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
 function _soAiSignals(draws,game,srcDraw){
   const gmax=game.max;
   // 1) EWF — üstel ağırlıklı frekans
-  const ewfRaw=buildEWF(draws,gmax,0.85);
+  const ewfRaw=buildEWF([...draws].reverse(),gmax,0.85);
   const ewf=new Float64Array(gmax+1);
   for(let n=1;n<=gmax;n++)ewf[n]=ewfRaw[n]||0;
 
