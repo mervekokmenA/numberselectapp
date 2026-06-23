@@ -1034,6 +1034,23 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="htSozContent"><div class="empty-state"><span class="empty-icon">🔮</span>Yükleniyor…</div></div>
  </div>
 
+ <!-- 2a: AI Tahmin — Geçmiş Test -->
+ <div class="card" style="margin-bottom:12px">
+  <div class="card-title">📊 AI Tahmin — Geçmiş Test</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">🤖 AI Tahmin Sistemi'nin ürettiği Top 15 aday ve biletleri geçmiş çekilişlere karşı test eder. Her test, o tarihte henüz gerçekleşmemiş (gelecek) verileri kullanmadan hesaplanır — gerçek bir tahmin senaryosunu simüle eder.</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+    <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
+    <select id="htSoAiBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+      <option value="10">10 çekiliş</option>
+      <option value="20" selected>20 çekiliş</option>
+      <option value="30">30 çekiliş</option>
+      <option value="50">50 çekiliş</option>
+    </select>
+    <button onclick="_soAiBacktest({gameId:_htGame,resultElId:'htSoAiBtResult',countElId:'htSoAiBtCount'})" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
+  </div>
+  <div id="htSoAiBtResult"></div>
+ </div>
+
  <!-- 2b: Sonraki Çekiliş Tahmin Grubu -->
  <div class="card" style="margin-bottom:12px">
   <div class="card-title" style="align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 8px">
@@ -15848,11 +15865,13 @@ function _soAiSection(draws,game,srcDraw,nextDraw){
   return h;
 }
 
-function _soAiBacktest(){
-  const game=_soGetGame();
-  const draws=_soGetDraws();
-  const btEl=document.getElementById('soAiBtResult');if(!btEl)return;
-  const btCount=parseInt(document.getElementById('soAiBtCount')?.value)||20;
+function _soAiBacktest(opts){
+  const o=opts||{};
+  const gameId=o.gameId||_soGame;
+  const game=gameId==='onnumarahizli'?_soHizliOnGame():getGame(gameId);
+  const draws=gameId==='onnumarahizli'?HIZLI_ON_DRAWS:_kbGetDraws(gameId);
+  const btEl=document.getElementById(o.resultElId||'soAiBtResult');if(!btEl)return;
+  const btCount=parseInt(document.getElementById(o.countElId||'soAiBtCount')?.value)||20;
   if(!draws||draws.length<10){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (en az 10 gerekli).</div>';return;}
   btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor…</div>';
   setTimeout(()=>{
@@ -15880,7 +15899,7 @@ function _soAiBacktest(){
         if(ai.joker.some(j=>j.n===target.bonus[0]))jokerHit++;
       }
       const bestIdx=ticketHits.indexOf(hBest);
-      rows.push({srcDate:srcDraw.date,targetNums:[...(target.nums||[])].sort((a,b)=>a-b),tickets:ai.tickets,ticketHits,bestIdx});
+      rows.push({srcDate:srcDraw.date,targetNums:[...(target.nums||[])].sort((a,b)=>a-b),tickets:ai.tickets,ticketHits,bestIdx,top15:ai.top15||[]});
     }
     if(!rows.length){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Test satırı oluşturulamadı.</div>';return;}
     const N=rows.length;
@@ -15905,7 +15924,7 @@ function _soAiBacktest(){
     html+=`<thead><tr style="border-bottom:1px solid var(--border)">`;
     html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Kaynak</th>`;
     html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek çekiliş</th>`;
-    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Biletler (isabet)</th>`;
+    html+=`<th style="text-align:left;padding:4px 6px;color:var(--muted)">Top 15 Aday &amp; Biletler (isabet)</th>`;
     html+=`<th style="text-align:center;padding:4px 6px;color:var(--muted)">En iyi</th>`;
     html+=`</tr></thead><tbody>`;
     rows.forEach(r=>{
@@ -15928,12 +15947,13 @@ function _soAiBacktest(){
       html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.04)">`;
       html+=`<td style="padding:4px 6px;color:var(--muted);white-space:nowrap;font-size:.6rem">${r.srcDate}</td>`;
       html+=`<td style="padding:4px 6px"><div style="display:flex;gap:4px;flex-wrap:wrap">${r.targetNums.map(numSpan).join('')}</div></td>`;
-      html+=`<td style="padding:4px 6px"><div style="display:flex;flex-direction:column;gap:2px">${r.tickets.map((t,ti)=>`<span style="font-size:.6rem;${ti===r.bestIdx?'font-weight:700':''}">${t.main.map(ticketNumSpan).join(' ')} <span style="color:var(--muted)">(${r.ticketHits[ti]})</span></span>`).join('')}</div></td>`;
+      const top15Line=r.top15.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin-bottom:4px;padding-bottom:4px;border-bottom:1px dashed var(--border)"><span style="font-size:.56rem;color:var(--muted);font-weight:700">Top15:</span>${r.top15.map(x=>ticketNumSpan(x.n)).join(' ')}</div>`:'';
+      html+=`<td style="padding:4px 6px"><div style="display:flex;flex-direction:column;gap:2px">${top15Line}${r.tickets.map((t,ti)=>`<span style="font-size:.6rem;${ti===r.bestIdx?'font-weight:700':''}">${t.main.map(ticketNumSpan).join(' ')} <span style="color:var(--muted)">(${r.ticketHits[ti]})</span></span>`).join('')}</div></td>`;
       html+=`<td style="padding:4px 6px;text-align:center;font-weight:800;color:${hitColor(r.ticketHits[r.bestIdx])}">${r.ticketHits[r.bestIdx]}</td>`;
       html+=`</tr>`;
     });
     html+=`</tbody></table></div>`;
-    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=isabetli · ~=±1 yakın · Gerçek çekiliş sütunundaki ✓ sadece bir AI biletinin o sayıyı içerdiğini gösterir · Her test, o tarihte henüz bilinmeyen (gelecek) verisi kullanılmadan hesaplanır</div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=isabetli · ~=±1 yakın · Gerçek çekiliş sütunundaki ✓ sadece bir AI biletinin o sayıyı içerdiğini gösterir · "Top15" satırı, AI Tahmin Sistemi'nin o tarih için ürettiği en güçlü 15 adayı gösterir · Her test, o tarihte henüz bilinmeyen (gelecek) verisi kullanılmadan hesaplanır</div>`;
     btEl.innerHTML=html;
   },20);
 }
