@@ -6459,9 +6459,15 @@ function _parseDrawDataDirect(id){
   state.datedDraws=draws;
 }
 
+let _btHistoryGen=0;
 async function loadBtHistory(forceRefresh=false){
   const id=state.selectedGame;
   if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
+  // Her çağrı kendi nesil numarasını alır; oyun hızla değiştirilirse (veya
+  // düğmeye birden çok kez basılırsa) yarışan eski çağrılar ağ isteği bitince
+  // artık güncel olmayan veriyi state'e yazıp ekranı yanlış oyunda dondurmasın.
+  const myGen=++_btHistoryGen;
+  const stale=()=>myGen!==_btHistoryGen;
   const frPre=dataFreshnessMsg(id);
   if(!forceRefresh&&!(frPre&&frPre.missing>0)){
     showToast('✅ Önbellekten yüklendi');
@@ -6469,6 +6475,7 @@ async function loadBtHistory(forceRefresh=false){
     showToast('⏳ Güncel çekiliş kontrol ediliyor...');
     let fetched=false;
     try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
+    if(stale())return;
     const fr=dataFreshnessMsg(id);
     if(fetched){
       showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
@@ -6482,6 +6489,7 @@ async function loadBtHistory(forceRefresh=false){
     else
       showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
   }
+  if(stale())return;
   // Parse draw data directly — skip DOM-mediated parseDatedDraws to avoid double work
   _parseDrawDataDirect(id);
   // Populate generator-side state
@@ -6497,6 +6505,7 @@ async function loadBtHistory(forceRefresh=false){
   // Non-critical UI updates deferred so data is available immediately
   const _deferredId=id;
   setTimeout(()=>{
+    if(stale())return;
     // Populate textareas so manual parse buttons and BT panel work
     const ddi=document.getElementById('datedDrawsInput');
     if(ddi&&DRAW_DATA[_deferredId])ddi.value=DRAW_DATA[_deferredId];
