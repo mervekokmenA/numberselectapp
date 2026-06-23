@@ -14871,6 +14871,19 @@ function _kronWeekStart(dateStr){
   d.setDate(d.getDate()+(day===0?-6:1-day));
   return d.toISOString().slice(0,10);
 }
+function _kronPredictionRows(){
+  const games=GAMES.filter(g=>g.id!=='onnumara'&&(!_kronGameFilter||g.id===_kronGameFilter));
+  const rows=[];
+  games.forEach(g=>{
+    const draws=_kbGetDraws(g.id);
+    if(!draws.length)return;
+    const game=getGame(g.id);
+    const ga=_soGapAnalysisCompute(draws[0],game);
+    rows.push({date:_predNextDrawDate(g.id),gameId:g.id,gameName:g.name,gameEmoji:g.emoji,ga,basedOn:draws[0].date});
+  });
+  rows.sort((a,b)=>(a.date||'9999-99-99').localeCompare(b.date||'9999-99-99'));
+  return rows;
+}
 const _KRON_PAGE_WEEKS=20;
 let _kronWeeksLoaded=_KRON_PAGE_WEEKS;
 function _kronRender(){
@@ -14909,6 +14922,24 @@ function _kronRenderInner(){
     +`<th style="${kronCell};text-align:left;color:var(--accent2)">➖ Çıkarma</th>`
     +`<th style="${kronCell};text-align:left;color:var(--accent)">📊 Fark Analizi</th>`
     +`</tr></thead><tbody>`;
+  const predRows=_kronPredictionRows();
+  if(predRows.length){
+    html+=`<tr><td colspan="6" style="${kronCell};background:rgba(129,140,248,.1);font-weight:700;color:var(--accent)">🔮 Yeni Tahmin — Sıradaki Çekiliş (henüz oynanmadı)</td></tr>`;
+    predRows.forEach(r=>{
+      const ga=r.ga;
+      const topStr=ga&&ga.topRows.flat().length?[...new Set(ga.topRows.flat())].sort((a,b)=>a-b).map(n=>_kronNumSpan(n,[])).join(', '):'-';
+      const cikStr=ga&&ga.cikRows.flat().length?[...new Set(ga.cikRows.flat())].sort((a,b)=>a-b).map(n=>_kronNumSpan(n,[])).join(', '):'-';
+      const farkStr=ga&&ga.gaps.length?ga.gaps.map(n=>_kronNumSpan(n,[])).join(', '):'-';
+      html+=`<tr style="background:rgba(129,140,248,.04)">`;
+      html+=`<td style="${kronCell};white-space:nowrap;color:var(--accent);font-weight:700">${r.date||'Sıradaki'}</td>`;
+      html+=`<td style="${kronCell};white-space:nowrap;font-weight:700;color:var(--text)">${r.gameEmoji} ${r.gameName}</td>`;
+      html+=`<td style="${kronCell};white-space:nowrap;color:var(--muted);font-style:italic">— henüz çekilmedi</td>`;
+      html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${topStr}</td>`;
+      html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${cikStr}</td>`;
+      html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${farkStr}</td>`;
+      html+=`</tr>`;
+    });
+  }
   visibleKeys.forEach((wk,idx)=>{
     if(idx>0)html+=`<tr><td colspan="6" style="height:12px;border:1px solid var(--border)"></td></tr>`;
     weekMap.get(wk).forEach(d=>{
