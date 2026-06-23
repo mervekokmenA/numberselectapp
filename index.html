@@ -1000,6 +1000,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_kronRender()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
   </div>
   <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Şans Topu, Süper Loto ve Sayısal Loto çekilişleri (On Numara hariç) oyun ayrımı yapılmadan, en güncel çekilişten geçmişe doğru tek bir tarih sırasıyla listelenir. Hafta değiştiğinde aralarına boş bir satır bırakılır. İlk açılışta son 20 hafta gösterilir; daha eski haftaları görmek için "Daha Fazla Yükle" butonunu kullanın.</div>
+  <div id="kronGameRow" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
   <div id="kronResult"><div class="empty-state"><span class="empty-icon">📜</span>Yükleniyor…</div></div>
  </div>
 </div>
@@ -14813,13 +14814,33 @@ function _astroRealRunBacktest(){
 }
 // ═══════════ KRONOLOJİ — tüm çekilişler tek tarih sırasıyla (On Numara hariç) ═══════════
 const _KRON_GAME_PRIORITY={'super':0,'sayisal':1,'sans':2};
+let _kronGameFilter=null;
 function _kronCollectDraws(){
   const all=[];
-  GAMES.filter(g=>g.id!=='onnumara').forEach(g=>{
+  GAMES.filter(g=>g.id!=='onnumara'&&(!_kronGameFilter||g.id===_kronGameFilter)).forEach(g=>{
     (_kbGetDraws(g.id)||[]).forEach(d=>all.push({date:d.date,nums:d.nums,bonus:d.bonus,gameId:g.id,gameName:g.name,gameEmoji:g.emoji}));
   });
   all.sort((a,b)=>b.date.localeCompare(a.date)||(_KRON_GAME_PRIORITY[a.gameId]??9)-(_KRON_GAME_PRIORITY[b.gameId]??9));
   return all;
+}
+function _kronRenderGameRow(){
+  const row=document.getElementById('kronGameRow');if(!row)return;
+  const opts=[{id:null,e:'📜',n:'Tümü'},...GAMES.filter(g=>g.id!=='onnumara')];
+  row.innerHTML=opts.map(g=>{
+    const a=g.id===_kronGameFilter;
+    return `<button onclick="_kronSetGameFilter(${g.id?`'${g.id}'`:'null'})" style="font-size:.7rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji||g.e} ${g.name||g.n}</button>`;
+  }).join('');
+}
+function _kronSetGameFilter(gid){
+  _kronGameFilter=gid;
+  _kronRenderGameRow();
+  _kronRender();
+}
+function _kronNumSpan(n,targets){
+  const hit=targets.includes(n);
+  const near=!hit&&targets.some(t=>Math.abs(t-n)===1);
+  const cl=hit?'var(--green)':near?'#e8820c':'var(--text)';
+  return`<span style="color:${cl};font-weight:${hit||near?800:400}">${n}</span>`;
 }
 function _kronWeekStart(dateStr){
   const d=new Date(dateStr+'T00:00:00');
@@ -14831,6 +14852,7 @@ const _KRON_PAGE_WEEKS=20;
 let _kronWeeksLoaded=_KRON_PAGE_WEEKS;
 function _kronRender(){
   _kronWeeksLoaded=_KRON_PAGE_WEEKS;
+  _kronRenderGameRow();
   _kronRenderInner();
 }
 function _kronLoadMore(){
@@ -14871,16 +14893,17 @@ function _kronRenderInner(){
       const bonusStr=d.bonus&&d.bonus.length?` <span style="color:var(--muted)">|</span> ${d.bonus.join(', ')}`:'';
       const game=getGame(d.gameId);
       const ga=game?_soGapAnalysisCompute(d,game):null;
-      const topStr=ga&&ga.topRows.flat().length?[...new Set(ga.topRows.flat())].sort((a,b)=>a-b).join(', '):'-';
-      const cikStr=ga&&ga.cikRows.flat().length?[...new Set(ga.cikRows.flat())].sort((a,b)=>a-b).join(', '):'-';
-      const farkStr=ga&&ga.gaps.length?ga.gaps.join(', '):'-';
+      const target=[...d.nums,...(d.bonus||[])];
+      const topStr=ga&&ga.topRows.flat().length?[...new Set(ga.topRows.flat())].sort((a,b)=>a-b).map(n=>_kronNumSpan(n,target)).join(', '):'-';
+      const cikStr=ga&&ga.cikRows.flat().length?[...new Set(ga.cikRows.flat())].sort((a,b)=>a-b).map(n=>_kronNumSpan(n,target)).join(', '):'-';
+      const farkStr=ga&&ga.gaps.length?ga.gaps.map(n=>_kronNumSpan(n,target)).join(', '):'-';
       html+=`<tr>`;
       html+=`<td style="${kronCell};white-space:nowrap;color:var(--muted)">${d.date}</td>`;
       html+=`<td style="${kronCell};white-space:nowrap;font-weight:700;color:var(--text)">${d.gameEmoji} ${d.gameName}</td>`;
-      html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${numsStr}${bonusStr}</td>`;
-      html+=`<td style="${kronCell};font-family:monospace;color:var(--green)">${topStr}</td>`;
-      html+=`<td style="${kronCell};font-family:monospace;color:var(--accent2)">${cikStr}</td>`;
-      html+=`<td style="${kronCell};font-family:monospace;color:var(--accent)">${farkStr}</td>`;
+      html+=`<td style="${kronCell};white-space:nowrap;font-family:monospace;color:var(--text)">${numsStr}${bonusStr}</td>`;
+      html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${topStr}</td>`;
+      html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${cikStr}</td>`;
+      html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${farkStr}</td>`;
       html+=`</tr>`;
     });
   });
