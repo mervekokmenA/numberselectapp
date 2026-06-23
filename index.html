@@ -999,7 +999,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <div class="card-title" style="margin:0">📜 Tüm Çekilişler — Kronolojik Liste</div>
    <button onclick="_kronRender()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
   </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Şans Topu, Süper Loto ve Sayısal Loto çekilişleri (On Numara hariç) oyun ayrımı yapılmadan, en güncel çekilişten geçmişe doğru tek bir tarih sırasıyla listelenir. Hafta değiştiğinde aralarına boş bir satır bırakılır. İlk açılışta son 20 hafta gösterilir; daha eski haftaları görmek için "Daha Fazla Yükle" butonunu kullanın.</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Şans Topu, Süper Loto ve Sayısal Loto çekilişleri (On Numara hariç) oyun ayrımı yapılmadan, en güncel çekilişten geçmişe doğru tek bir tarih sırasıyla listelenir. Hafta değiştiğinde aralarına boş bir satır bırakılır. İlk açılışta son 20 hafta gösterilir; daha eski haftaları görmek için "Daha Fazla Yükle" butonunu kullanın. Her satırın Toplama/Çıkarma/Fark Analizi sütunları, o oyunun <strong>kendisinden önceki çekilişinin</strong> Gülay fark analizinden hesaplanır ve bu satırdaki gerçek sonuçla karşılaştırılır (Gülay sayfasındaki Kaynak → Hedef mantığıyla aynı) — en üstteki "Yeni Tahmin" satırı ise henüz oynanmamış sıradaki çekiliş için en son gerçek çekilişten hesaplanan adayları gösterir.</div>
   <div id="kronGameRow" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
   <div id="kronResult"><div class="empty-state"><span class="empty-icon">📜</span>Yükleniyor…</div></div>
  </div>
@@ -14838,6 +14838,18 @@ function _astroRealRunBacktest(){
 // ═══════════ KRONOLOJİ — tüm çekilişler tek tarih sırasıyla (On Numara hariç) ═══════════
 const _KRON_GAME_PRIORITY={'super':0,'sayisal':1,'sans':2};
 let _kronGameFilter=null;
+let _kronPrevDrawIdx={};
+function _kronPrevDraw(d){
+  if(!_kronPrevDrawIdx[d.gameId]){
+    const arr=_kbGetDraws(d.gameId)||[];
+    const idx={};
+    arr.forEach((dd,i)=>{idx[dd.date]=i;});
+    _kronPrevDrawIdx[d.gameId]={arr,idx};
+  }
+  const{arr,idx}=_kronPrevDrawIdx[d.gameId];
+  const i=idx[d.date];
+  return(i!=null&&i+1<arr.length)?arr[i+1]:null;
+}
 function _kronCollectDraws(){
   const all=[];
   GAMES.filter(g=>g.id!=='onnumara'&&(!_kronGameFilter||g.id===_kronGameFilter)).forEach(g=>{
@@ -14897,6 +14909,7 @@ function _kronLoadMore(){
 }
 function _kronRenderInner(){
   const el=document.getElementById('kronResult');if(!el)return;
+  _kronPrevDrawIdx={};
   const draws=_kronCollectDraws();
   if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Henüz çekiliş verisi yok.</div>';return;}
   const weekMap=new Map();
@@ -14946,7 +14959,8 @@ function _kronRenderInner(){
       const numsStr=d.nums.join(', ');
       const bonusStr=d.bonus&&d.bonus.length?` <span style="color:var(--muted)">|</span> ${d.bonus.join(', ')}`:'';
       const game=getGame(d.gameId);
-      const ga=game?_soGapAnalysisCompute(d,game):null;
+      const srcDraw=game?_kronPrevDraw(d):null;
+      const ga=srcDraw?_soGapAnalysisCompute(srcDraw,game):null;
       const target=[...d.nums,...(d.bonus||[])];
       const topStr=ga&&ga.topRows.flat().length?[...new Set(ga.topRows.flat())].sort((a,b)=>a-b).map(n=>_kronNumSpan(n,target)).join(', '):'-';
       const cikStr=ga&&ga.cikRows.flat().length?[...new Set(ga.cikRows.flat())].sort((a,b)=>a-b).map(n=>_kronNumSpan(n,target)).join(', '):'-';
