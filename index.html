@@ -14179,7 +14179,12 @@ function _gqAnalyze(){
   }
   const out=document.getElementById('gqResult');
   _gqSel.clear();
-  if(out)out.innerHTML=_soDoAnalysis(draw,game,nextDraw,false);
+  let html=_soDoAnalysis(draw,game,nextDraw,false);
+  if(_gqGame!=='onnumarahizli'){
+    const histDraws=_kbGetDraws(_gqGame);
+    html+=_soAiSection(histDraws,game,draw,nextDraw);
+  }
+  if(out)out.innerHTML=html;
   _gqUpdateSelBar();
 }
 // Sayı seçim ve kopyalama
@@ -15719,7 +15724,7 @@ function _soAiCalibrateWeights(draws,game){
 const _soAiComputeCache=new Map();
 function _soAiCompute(draws,game,srcDraw){
   if(!draws||draws.length<8||!srcDraw)return null;
-  const cacheKey=game.id+'|'+srcDraw.date+'|'+draws.length;
+  const cacheKey=game.id+'|'+srcDraw.date+'|'+draws.length+'|'+(srcDraw.nums||[]).join(',');
   if(_soAiComputeCache.has(cacheKey))return _soAiComputeCache.get(cacheKey);
   const gmax=game.max,mainCount=game.count;
 
