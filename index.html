@@ -14687,9 +14687,11 @@ function _astroRealCompute(d,game){
   return{planets,slots,bonus};
 }
 function _astroRealRenderResult(d,game,result){
+  const signal=_astroRecentPlanetSignal(d,game,_astroRealCompute,15);
   let h=`<div style="font-size:.7rem;color:var(--muted);margin-bottom:8px">${game.emoji} ${game.name} — Doğum: ${d.birthDate} · Hedef: ${d.targetDate}</div>`;
-  h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${result.bonus?'10px':'0'}">${result.slots.map(s=>_astroNumBadge(s.planet,s.num)).join('')}</div>`;
-  if(result.bonus)h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">+ Bonus:</div><div style="display:flex;gap:8px">${_astroNumBadge(result.bonus.planet,result.bonus.num)}</div>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${result.bonus?'10px':'0'}">${result.slots.map(s=>_astroNumBadge(s.planet,s.num,signal[s.planet])).join('')}</div>`;
+  if(result.bonus)h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">+ Bonus:</div><div style="display:flex;gap:8px">${_astroNumBadge(result.bonus.planet,result.bonus.num,signal[result.bonus.planet])}</div>`;
+  if(Object.keys(signal).length)h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:6px">⭐✨ olası = bu gezegen son 15 geçmiş testte net ya da yakın isabet vermiş.</div>`;
   h+=`<div style="margin-top:12px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.62rem;color:var(--muted)">`+
      `<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:3px 6px">Gezegen</th><th style="text-align:left;padding:3px 6px">Burç</th><th style="text-align:left;padding:3px 6px">Birleşik Derece</th></tr></thead><tbody>`+
      result.planets.map(p=>`<tr><td style="padding:3px 6px;color:var(--text)">${ASTRO_PLANET_EMOJI[p.name]||''} ${p.name}</td><td style="padding:3px 6px">${_astroSignFromLongitude(p.combined)}</td><td style="padding:3px 6px;font-family:monospace">${p.combined.toFixed(1)}°</td></tr>`).join('')+
@@ -14747,7 +14749,10 @@ function _astroRealRunBacktest(){
     for(let i=0;i<n;i++){
       const draw=draws[i];
       const ticket=_astroRealCompute({...d,targetDate:draw.date},game);
-      const numSet=new Set(draw.nums);
+      // Gerçek sonuç = ana sayılar + bonus birlikte: bonus tahmini ana çekilişten birini
+      // tutturursa (ya da tersi) bu da net/yakın sayılmalı — sadece kendi sütununa karşı
+      // kıyaslamak gerçek isabetleri görmezden bırakıyordu.
+      const numSet=new Set([...draw.nums,...(draw.bonus||[])]);
       const hitSet=new Set(),nearSet=new Set(),tenSet=new Set();
       ticket.slots.forEach(s=>{
         if(!planetStats[s.planet])planetStats[s.planet]={tests:0,hits:0,nears:0};
@@ -14764,9 +14769,9 @@ function _astroRealRunBacktest(){
         const bp=ticket.bonus.planet;
         if(!planetStats[bp])planetStats[bp]={tests:0,hits:0,nears:0};
         planetStats[bp].tests++;
-        if(draw.bonus.includes(ticket.bonus.num)){bonusHit=true;planetStats[bp].hits++;}
+        if(numSet.has(ticket.bonus.num)){bonusHit=true;planetStats[bp].hits++;}
         else{
-          const minDist=Math.min(...draw.bonus.map(x=>Math.abs(x-ticket.bonus.num)));
+          const minDist=Math.min(...[...numSet].map(x=>Math.abs(x-ticket.bonus.num)));
           if(minDist===1){bonusNear=true;planetStats[bp].nears++;}
           else if(minDist===10){bonusTen=true;}
         }
@@ -15063,10 +15068,52 @@ function _astroSignLine(sun,chinese,rising){
   if(rising)parts.push(`⬆ ${rising}`);
   return parts.join(' &nbsp;·&nbsp; ')||'<span style="color:var(--muted)">Bilgi girilmedi</span>';
 }
-function _astroNumBadge(planet,num){
-  return`<div style="display:flex;flex-direction:column;align-items:center;gap:3px;background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.4);border-radius:10px;padding:8px 12px;min-width:50px">
-    <span style="font-size:1rem;font-weight:800;font-family:monospace;color:var(--accent)">${num}</span>
+// Son N geçmiş çekilişte bir gezegenin tahmini net (✓) ya da yakın (~) çıkıp çıkmadığını
+// hesaplar — sonuç {[gezegen]:'hit'|'near'} şeklinde, üstteki yeni tahmini "olası" diye
+// işaretlemek için kullanılır. computeFn klasik (_astroComputeTicket) ya da gerçek
+// (_astroRealCompute) yöntemden biri olabilir; her ikisi de aynı {slots,bonus} şeklini döner.
+function _astroRecentPlanetSignal(d,game,computeFn,count){
+  count=count||15;
+  const draws=_kbGetDraws(d.gameId);
+  if(!draws||!draws.length)return{};
+  const n=Math.min(count,draws.length);
+  const signal={};
+  const mark=(planet,level)=>{
+    if(!planet)return;
+    if(level==='hit')signal[planet]='hit';
+    else if(level==='near'&&signal[planet]!=='hit')signal[planet]='near';
+  };
+  for(let i=0;i<n;i++){
+    const draw=draws[i];
+    const ticket=computeFn({...d,targetDate:draw.date},game);
+    const numSet=new Set([...draw.nums,...(draw.bonus||[])]);
+    (ticket.slots||[]).forEach(s=>{
+      if(numSet.has(s.num))mark(s.planet,'hit');
+      else{
+        const minDist=Math.min(...[...numSet].map(x=>Math.abs(x-s.num)));
+        if(minDist===1)mark(s.planet,'near');
+      }
+    });
+    if(ticket.bonus){
+      if(numSet.has(ticket.bonus.num))mark(ticket.bonus.planet,'hit');
+      else{
+        const minDist=Math.min(...[...numSet].map(x=>Math.abs(x-ticket.bonus.num)));
+        if(minDist===1)mark(ticket.bonus.planet,'near');
+      }
+    }
+  }
+  return signal;
+}
+function _astroNumBadge(planet,num,signal){
+  const hit=signal==='hit',near=!hit&&signal==='near';
+  const bg=hit?'rgba(0,230,118,.12)':near?'rgba(232,130,12,.12)':'rgba(129,140,248,.1)';
+  const bd=hit?'rgba(0,230,118,.55)':near?'rgba(232,130,12,.55)':'rgba(129,140,248,.4)';
+  const numColor=hit?'var(--green)':near?'#e8820c':'var(--accent)';
+  const tag=hit?'<span style="font-size:.5rem;font-weight:700;color:var(--green)">⭐ olası</span>':near?'<span style="font-size:.5rem;font-weight:700;color:#e8820c">✨ olası</span>':'';
+  return`<div style="display:flex;flex-direction:column;align-items:center;gap:3px;background:${bg};border:1px solid ${bd};border-radius:10px;padding:8px 12px;min-width:50px">
+    <span style="font-size:1rem;font-weight:800;font-family:monospace;color:${numColor}">${num}</span>
     <span style="font-size:.56rem;color:var(--muted)">${ASTRO_PLANET_EMOJI[planet]||'🪐'} ${planet}</span>
+    ${tag}
   </div>`;
 }
 function _astroRenderResult(d,game,ticket){
@@ -15074,6 +15121,7 @@ function _astroRenderResult(d,game,ticket){
   const energy=_astroEnergyScore(d);
   const eLbl=_astroEnergyLabel(energy);
   const luckyDays=_astroLuckyDays(d);
+  const signal=_astroRecentPlanetSignal(d,game,_astroComputeTicket,15);
   let h='';
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
   h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">🌟 Astrolojik Profil</div>`;
@@ -15090,9 +15138,10 @@ function _astroRenderResult(d,game,ticket){
   h+=`</div>`;
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:.72rem;font-weight:800;color:var(--text)">🔢 Kozmik Sayılarınız — ${game.emoji} ${game.name}</div><button onclick="_astroCopyTicket()" style="font-size:.6rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer">📋 Kopyala</button></div>`;
-  h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${bonus?'10px':'0'}">${slots.map(s=>_astroNumBadge(s.planet,s.num)).join('')}</div>`;
-  if(bonus)h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">+ Bonus:</div><div style="display:flex;gap:8px">${_astroNumBadge(bonus.planet,bonus.num)}</div>`;
+  h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${bonus?'10px':'0'}">${slots.map(s=>_astroNumBadge(s.planet,s.num,signal[s.planet])).join('')}</div>`;
+  if(bonus)h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">+ Bonus:</div><div style="display:flex;gap:8px">${_astroNumBadge(bonus.planet,bonus.num,signal[bonus.planet])}</div>`;
   h+=`<div style="font-size:.55rem;color:var(--muted);margin-top:10px;line-height:1.5">🪐 Sayılar doğum/anne bilgileriniz + kozmik hizalanma tarihinden üretilir; ayrıca günün kozmik enerjisi de hesaba katıldığından sonuç gün içinde sabit kalır ama günden güne yavaşça değişebilir. Eğlence amaçlıdır, gerçek çekiliş sonucunu garanti etmez.</div>`;
+  if(Object.keys(signal).length)h+=`<div style="font-size:.54rem;color:var(--muted);margin-top:6px">⭐✨ olası = bu gezegen son 15 geçmiş testte net ya da yakın isabet vermiş.</div>`;
   h+=`</div>`;
   return h;
 }
@@ -15119,7 +15168,10 @@ function _astroRunBacktest(){
     for(let i=0;i<n;i++){
       const draw=draws[i];
       const ticket=_astroComputeTicket({...d,targetDate:draw.date},game);
-      const numSet=new Set(draw.nums);
+      // Gerçek sonuç = ana sayılar + bonus birlikte: bonus tahmini ana çekilişten birini
+      // tutturursa (ya da tersi) bu da net/yakın sayılmalı — sadece kendi sütununa karşı
+      // kıyaslamak gerçek isabetleri görmezden bırakıyordu.
+      const numSet=new Set([...draw.nums,...(draw.bonus||[])]);
       const hitSet=new Set(),nearSet=new Set(),tenSet=new Set();
       ticket.slots.forEach(s=>{
         if(!planetStats[s.planet])planetStats[s.planet]={tests:0,hits:0,nears:0};
@@ -15136,9 +15188,9 @@ function _astroRunBacktest(){
         const bp=ticket.bonus.planet;
         if(!planetStats[bp])planetStats[bp]={tests:0,hits:0,nears:0};
         planetStats[bp].tests++;
-        if(draw.bonus.includes(ticket.bonus.num)){bonusHit=true;planetStats[bp].hits++;}
+        if(numSet.has(ticket.bonus.num)){bonusHit=true;planetStats[bp].hits++;}
         else{
-          const minDist=Math.min(...draw.bonus.map(x=>Math.abs(x-ticket.bonus.num)));
+          const minDist=Math.min(...[...numSet].map(x=>Math.abs(x-ticket.bonus.num)));
           if(minDist===1){bonusNear=true;planetStats[bp].nears++;}
           else if(minDist===10){bonusTen=true;}
         }
