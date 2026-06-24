@@ -316,7 +316,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 #gqOverlay{display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.68);align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
 #gqOverlay.open{display:flex}
 #gqBox{background:var(--surface);border:1px solid var(--border);border-radius:16px;width:min(720px,95vw);max-height:calc(100vh - 56px);display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.4);margin:auto}
-#gqHeader{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+#gqHeader{display:flex;justify-content:space-between;align-items:center;padding:14px 16px 10px;border-bottom:1px solid var(--border);flex-shrink:0;cursor:move;touch-action:none}
 #gqBody{overflow-y:auto;padding:14px 16px;flex:1}
 .soq-sel{outline:2px solid var(--accent)!important;outline-offset:1px;box-shadow:0 0 0 3px rgba(108,99,255,.28)!important;border-radius:5px}
 </style>
@@ -14170,9 +14170,42 @@ function _gqGetGame(){
 function _gqOpenPopup(){
   document.getElementById('gqOverlay').classList.add('open');
   _gqInit();
+  _gqInitDrag();
 }
 function _gqClosePopup(){
   document.getElementById('gqOverlay').classList.remove('open');
+  const box=document.getElementById('gqBox');
+  if(box){box.style.position='';box.style.left='';box.style.top='';box.style.margin='';box.style.right='';}
+}
+function _gqInitDrag(){
+  const header=document.getElementById('gqHeader');
+  const box=document.getElementById('gqBox');
+  if(!header||!box||header._gqDragInit)return;
+  header._gqDragInit=true;
+  let sx=0,sy=0,bx=0,by=0,dragging=false;
+  header.addEventListener('pointerdown',e=>{
+    if(e.target.closest('button'))return;
+    const r=box.getBoundingClientRect();
+    box.style.position='fixed';
+    box.style.margin='0';
+    box.style.right='auto';
+    box.style.left=r.left+'px';
+    box.style.top=r.top+'px';
+    bx=r.left;by=r.top;sx=e.clientX;sy=e.clientY;
+    dragging=true;
+    header.setPointerCapture(e.pointerId);
+  });
+  header.addEventListener('pointermove',e=>{
+    if(!dragging)return;
+    const maxX=Math.max(0,window.innerWidth-box.offsetWidth);
+    const maxY=Math.max(0,window.innerHeight-box.offsetHeight);
+    const nx=Math.min(maxX,Math.max(0,bx+(e.clientX-sx)));
+    const ny=Math.min(maxY,Math.max(0,by+(e.clientY-sy)));
+    box.style.left=nx+'px';
+    box.style.top=ny+'px';
+  });
+  header.addEventListener('pointerup',()=>{dragging=false;});
+  header.addEventListener('pointercancel',()=>{dragging=false;});
 }
 function _gqInit(){
   if(state.selectedGame&&getGame(state.selectedGame))_gqGame=state.selectedGame;
