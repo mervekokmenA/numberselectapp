@@ -9117,26 +9117,25 @@ function runNaTransform(){
     html+=`</span><span style="font-size:.65rem;color:var(--muted);margin-left:auto">${hitCount} tahmin tuttu</span></div>`;
   }
 
-  html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-bottom:14px">`;
+  html+=`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;margin-bottom:14px">`;
   top.forEach(r=>{
     const pct=Math.round(r.v/maxVote*100);
     const hit=nextSet&&nextSet.has(r.n);
     const clr=hit?'var(--green)':r.v>=5?'var(--green)':r.v>=3?'var(--accent)':r.v>=2?'var(--gold)':'var(--muted)';
     const bg=hit?'rgba(0,230,118,.18)':r.v>=5?'rgba(0,230,118,.12)':r.v>=3?'rgba(108,99,255,.12)':r.v>=2?'rgba(255,215,0,.08)':'transparent';
     const bc=hit?'var(--green)':r.v>=5?'rgba(0,230,118,.5)':r.v>=3?'rgba(108,99,255,.4)':r.v>=2?'rgba(255,215,0,.3)':'var(--border)';
-    const bw=hit?'3px':'1px';
-    html+=`<div style="background:${bg};border:${bw} solid ${bc};border-radius:8px;padding:9px 11px${hit?';box-shadow:0 0 10px rgba(0,230,118,.25)':''};cursor:pointer;user-select:none;-webkit-user-select:none"
+    const bw=hit?'2px':'1px';
+    html+=`<div title="Basılı tutarak kaynakları gör" style="background:${bg};border:${bw} solid ${bc};border-radius:6px;padding:5px 7px${hit?';box-shadow:0 0 8px rgba(0,230,118,.25)':''};cursor:pointer;user-select:none;-webkit-user-select:none"
       onpointerdown="naHoldStart(${r.n},event)" onpointerup="naHoldEnd()" onpointerleave="naHoldEnd()" oncontextmenu="return false">`;
-    html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">`;
-    html+=`<span style="font-size:1.15rem;font-weight:800;color:${clr};min-width:28px">${r.n}</span>`;
-    if(hit) html+=`<span style="font-size:.62rem;font-weight:700;color:var(--green);background:rgba(0,230,118,.2);border-radius:4px;padding:1px 5px">✓ Tuttu</span>`;
-    html+=`<div style="flex:1;background:var(--surface2);border-radius:3px;height:6px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${clr};border-radius:3px;transition:width .3s"></div></div>`;
-    html+=`<span style="font-size:.63rem;font-weight:700;color:${clr};min-width:32px;text-align:right">${r.v} oy</span>`;
+    html+=`<div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">`;
+    html+=`<span style="font-size:.88rem;font-weight:800;color:${clr};min-width:20px">${r.n}</span>`;
+    if(hit) html+=`<span style="font-size:.52rem;font-weight:700;color:var(--green)">✓</span>`;
+    html+=`<span style="font-size:.56rem;font-weight:700;color:${clr};margin-left:auto">${r.v}oy</span>`;
     html+=`</div>`;
-    html+=`<div id="naCardSrcs-${r.n}" style="display:none;font-size:.6rem;color:var(--muted);line-height:1.5">`;
+    html+=`<div style="background:var(--surface2);border-radius:3px;height:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${clr};border-radius:3px"></div></div>`;
+    html+=`<div id="naCardSrcs-${r.n}" style="display:none;font-size:.58rem;color:var(--muted);line-height:1.4;margin-top:3px">`;
     r.srcs.forEach(s=>{ html+=`<span style="display:inline-block;background:var(--surface);border-radius:3px;padding:1px 4px;margin:1px;border:1px solid var(--border);white-space:nowrap">${s.from}→${s.via}</span>`; });
     html+=`</div>`;
-    html+=`<div style="font-size:.55rem;color:var(--muted);opacity:.4;text-align:right;margin-top:2px">⋯ basılı tut</div>`;
     html+=`</div>`;
   });
   html+=`</div>`;
@@ -11264,7 +11263,11 @@ function _kbHtComboBacktest(draws,game,rounds,extra){
         Object.keys(extraSys).forEach(nm=>{sys[nm]=extraSys[nm];});
       }catch(e){}
     }
-    const names=Object.keys(sys);
+    // Destek/"Tüm Sistemler" filtresinin payda olarak gerçekten oy veren kaynak sayısını
+    // göstermesi için, o tur hiç aday üretmeyen (örn. doğum bilgisi kayıtlı olmadığında boş
+    // dönen Astro Tahmin) kaynaklar isim listesinden çıkarılır — yoksa "Tüm Sistemler (N/N)"
+    // hiçbir zaman ulaşılamayan, boş bir filtre seviyesi olurdu.
+    const names=Object.keys(sys).filter(nm=>sys[nm].size>0);
     sourceCount=names.length;
     const candPool=new Set();names.forEach(nm=>sys[nm].forEach(n=>candPool.add(n)));
     const scored=[...candPool].map(n=>({n,support:names.filter(nm=>sys[nm].has(n)).length}));
@@ -11461,16 +11464,26 @@ function _comboSetMinSupport(level){
 }
 function _kbRenderComboBlock(combo,bt,labelOverride){
   const cnt=combo.cnt;
-  const comboLift=combo.base>0?combo.comboAvg/combo.base:0;
   const title=labelOverride?.title||'🧬 Hızlı Tahmin Birleşimi — Geriye Dönük Test (deneysel)';
   const desc=labelOverride?.desc||`Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu ve Listeler AI (basit) — bu ${combo.sourceCount} kaynak her tur SADECE o tarihten önceki verilerle yeniden hesaplanıp en çok kaynakta ortak çıkan ${cnt} sayı gerçek sonuçla karşılaştırıldı. "Listeler AI (basit)", canlı sayfadaki Listeler AI'nin sadece tarihten önceki verilerle hesaplanabilen sinyallerini (frekans, NS zinciri, gecikme) kullanır. NSA Banko (kullanıcının o anki manuel filtrelerine bağlı) ve Listeler'den gelen Kırmızı/Ortak (canlı oturum verisine bağlı, 2000 biletlik geri test/tahmin — bunu turlarca tekrarlamak pratik değil) bu otomatik teste hâlâ dahil edilmedi.`;
+  // Destek filtresi seviyesi artık sadece açıklama metnini değil, üstteki başlık istatistiklerini
+  // (ort. isabet / kazanç) de belirler — eskiden bu kutular her zaman sabit "üst N" seçimini
+  // gösteriyordu ve filtre butonlarına tıklamak hiçbir şeyi değiştirmiyordu. Çok az gözlemli
+  // (örn. "Tüm Sistemler") seviyelerde de yanıltıcı yüzde göstermek yerine "az örnek" uyarısı verilir.
+  const level=Math.min(Math.max(_comboMinSupport||1,1),combo.sourceCount);
+  const fStats=_comboFilterStats(combo,level);
+  const filterLabel=level===combo.sourceCount?'Tüm Sistemler ortak (tam uyum)':`≥${level}/${combo.sourceCount} kaynakta ortak`;
+  const randPerCand=combo.cnt?combo.base/combo.cnt:0;
+  const levelAvgHit=combo.trials?fStats.hit/combo.trials:0;
+  const levelBase=fStats.perDraw*randPerCand;
+  const levelLift=levelBase>0?levelAvgHit/levelBase:0;
+  const lowSample=fStats.tot<20;
   let h='';
   h+=`<div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:12px 14px">`;
   h+=`<div style="font-size:.78rem;font-weight:800;color:#8a6200">${title}</div>`;
   h+=`<div style="font-size:.6rem;color:var(--muted);margin-top:4px;margin-bottom:10px;line-height:1.6">${desc}</div>`;
-  h+=`<div class="b10-tahmin-grid" style="margin-bottom:10px"><div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Birleşim ort. isabet (üst ${cnt})</div><div style="font-size:1.6rem;font-weight:800;color:var(--green)">${combo.comboAvg.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">rastgele ≈ ${combo.base.toFixed(2)}</div></div><div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Kazanç (lift)</div><div style="font-size:1.6rem;font-weight:800;color:var(--accent)">${comboLift.toFixed(2)}×</div><div style="font-size:.58rem;color:var(--muted)">${combo.trials} tur test</div></div></div>`;
-  if(bt)h+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:.64rem;color:var(--text);line-height:1.7">📊 Karşılaştırma — KB konsensüsü: <strong style="color:${bt.consAvg>combo.comboAvg?'var(--green)':'var(--text)'}">${bt.consAvg.toFixed(2)}</strong> · Hızlı Tahmin birleşimi: <strong style="color:${combo.comboAvg>bt.consAvg?'var(--green)':'var(--text)'}">${combo.comboAvg.toFixed(2)}</strong> · rastgele: ${bt.base.toFixed(2)}</div>`;
-  const level=Math.min(Math.max(_comboMinSupport||1,1),combo.sourceCount);
+  h+=`<div class="b10-tahmin-grid" style="margin-bottom:10px"><div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Ort. isabet — ${filterLabel}</div><div style="font-size:1.6rem;font-weight:800;color:var(--green)">${lowSample?'—':levelAvgHit.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">${lowSample?`az örnek (n=${fStats.tot})`:`rastgele ≈ ${levelBase.toFixed(2)}`}</div></div><div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Kazanç (lift)</div><div style="font-size:1.6rem;font-weight:800;color:var(--accent)">${lowSample?'—':levelLift.toFixed(2)+'×'}</div><div style="font-size:.58rem;color:var(--muted)">${fStats.tot} aday gözlemi</div></div></div>`;
+  if(bt)h+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:.64rem;color:var(--text);line-height:1.7">📊 Karşılaştırma (sabit üst ${cnt} seçimiyle) — KB konsensüsü: <strong style="color:${bt.consAvg>combo.comboAvg?'var(--green)':'var(--text)'}">${bt.consAvg.toFixed(2)}</strong> · Hızlı Tahmin birleşimi: <strong style="color:${combo.comboAvg>bt.consAvg?'var(--green)':'var(--text)'}">${combo.comboAvg.toFixed(2)}</strong> · rastgele: ${bt.base.toFixed(2)}</div>`;
   h+=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:.58rem;color:var(--muted)">Destek filtresi:</span>`;
   for(let lvl=1;lvl<=combo.sourceCount;lvl++){
     const active=lvl===level;
@@ -11478,9 +11491,7 @@ function _kbRenderComboBlock(combo,bt,labelOverride){
     h+=`<button onclick="_comboSetMinSupport(${lvl})" style="font-size:.6rem;padding:4px 9px;border-radius:6px;border:1px solid ${active?'rgba(0,230,118,.6)':'var(--border)'};background:${active?'rgba(0,230,118,.18)':'var(--surface2)'};color:${active?'var(--green)':'var(--muted)'};cursor:pointer;font-weight:${active?800:600}">${label}</button>`;
   }
   h+=`</div>`;
-  const fStats=_comboFilterStats(combo,level);
-  const filterLabel=level===combo.sourceCount?'Tüm Sistemler ortak (tam uyum)':`≥${level}/${combo.sourceCount} kaynakta ortak`;
-  h+=`<div style="font-size:.64rem;color:var(--muted);line-height:1.6;margin-bottom:10px"><strong style="color:var(--text)">${filterLabel}</strong> — çekiliş başına ~${fStats.perDraw.toFixed(1)} aday üretildi${level===1?` (Konsensüs Analizi kartındaki gibi, ilk ${cnt} ile sınırlı değil)`:''}; bunların <strong style="color:var(--green)">%${Math.round(fStats.prec*100)}</strong>'i gerçekten çıktı (${fStats.hit}/${fStats.tot}). Aşağıda her tur için ${level===1?'havuzun TAMAMI':'bu filtreye uyan adaylar'} gösteriliyor.</div>`;
+  h+=`<div style="font-size:.64rem;color:var(--muted);line-height:1.6;margin-bottom:10px">${lowSample?`⚠️ <strong style="color:#b85c00">Bu filtre seviyesinde çok az gözlem var (n=${fStats.tot})</strong> — yüzde/kazanç istatistiksel olarak güvenilir değil. `:''}<strong style="color:var(--text)">${filterLabel}</strong> — çekiliş başına ~${fStats.perDraw.toFixed(1)} aday üretildi${level===1?` (Konsensüs Analizi kartındaki gibi, ilk ${cnt} ile sınırlı değil)`:''}; bunların <strong style="color:var(--green)">%${Math.round(fStats.prec*100)}</strong>'i gerçekten çıktı (${fStats.hit}/${fStats.tot}). Aşağıda her tur için ${level===1?'havuzun TAMAMI':'bu filtreye uyan adaylar'} gösteriliyor.</div>`;
   h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:8px;line-height:1.6">✓ yeşil = o turda gerçekten çıktı · ~ turuncu/sarı = gerçek çekilen bir sayıya ±1 yakın · alt rakam = kaç/${combo.sourceCount} kaynakta ortak çıktı</div>`;
   if(combo.perRound&&combo.perRound.length){
     h+=`<div style="max-height:380px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
@@ -15649,12 +15660,18 @@ function _htRunBacktest(){
 function _htAiRenderLive(){
   const el=document.getElementById('htAiLiveResult');if(!el)return;
   const sys=_htCollectVotes();
-  const names=Object.keys(sys);
+  const names=Object.keys(sys).filter(nm=>sys[nm].size>0);
   const total=names.length;
-  const scores=_htConsensusScores(null).filter(s=>s.score>0).slice(0,20);
+  const scores=_htConsensusScores(null).filter(s=>s.score>0);
   if(!scores.length){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Henüz hiçbir sistemden veri yok — bu oyun için yeterli çekiliş verisi olmayabilir.</div>';return;}
-  el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">${total} kaynağın (${names.map(n=>_htSysEmoji[n]||'•').join(' ')}) birleştirdiği en güçlü ${scores.length} aday — en çok kaynakta ortak çıkanlar üstte.</div>`+
-    `<div style="display:flex;gap:6px;flex-wrap:wrap">${scores.map(s=>_htConsBadge(s,total)).join('')}</div>`;
+  const game=getGame(_htGame);
+  const numScore=new Array(game.max+1).fill(0);
+  scores.forEach(s=>{if(s.n>=1&&s.n<=game.max)numScore[s.n]=s.score;});
+  const tickets=_listelerGenAiTickets(game,game.max,numScore);
+  window._htAiCopyText='Birleşik AI Tahmin\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">${total} kaynağın (${names.map(n=>_htSysEmoji[n]||'•').join(' ')}) oylarından üretilen ${tickets.length} bilet — en çok kaynakta ortak çıkan sayılar önceliklendirildi.</div>`+
+    `<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button onclick="_kbCopy(window._htAiCopyText)" class="copy-btn">📋 Kopyala</button></div>`+
+    tickets.map((t,i)=>renderTicket(t,game,null,i,null,null,null,calcTicketScore(t,game),true)).join('');
 }
 // Geriye dönük testte sadece o tarihten önceki verilerle hesaplanabilen 2 ek kaynak: Astro Tahmin
 // (Astro Tahmin sayfasında kayıtlı doğum bilgisi varsa o tarih için yeniden üretilir) ve Kronoloji
