@@ -11281,8 +11281,22 @@ function _kbHtComboBacktest(draws,game,rounds,extra){
     const poolHitN=scored.filter(s=>actual.has(s.n)).length;
     poolHit+=poolHitN;poolTot+=scored.length;
     actSum+=actual.size;trials++;
-    perRound.push({date:draws[t].date,actual:actualNums,predicted:predicted.map(p=>({n:p.n,support:p.support})),hit:hitN,strong:strong.map(s=>s.n),strongHit:strongHitN,
-      pool:scored.map((s,i)=>({n:s.n,support:s.support,top:i<cnt})),poolHit:poolHitN,poolTot:scored.length});
+    // Canlı sayfadaki "Birleşik AI Tahmin" bu kaynak desteğinden tam olarak bu yöntemle (_listelerGenAiTickets)
+    // bilet üretir; geçmiş test de o turun biletlerini aynı yöntemle yeniden üretip gerçek çekilişle karşılaştırır.
+    const actualBonus=(draws[t].bonus||[]).filter(n=>n>=1);
+    const actualBonusSet=new Set(actualBonus);
+    const numScore=new Array(max+1).fill(0);
+    scored.forEach(s=>{numScore[s.n]=s.support;});
+    let tickets=[];
+    try{
+      tickets=_listelerGenAiTickets(game,max,numScore).map(tk=>({
+        main:tk.main,bonus:tk.bonus,
+        mainHit:tk.main.filter(n=>actual.has(n)).length,
+        bonusHit:tk.bonus.filter(n=>actualBonusSet.has(n)).length
+      }));
+    }catch(e){}
+    perRound.push({date:draws[t].date,actual:actualNums,actualBonus,predicted:predicted.map(p=>({n:p.n,support:p.support})),hit:hitN,strong:strong.map(s=>s.n),strongHit:strongHitN,
+      pool:scored.map((s,i)=>({n:s.n,support:s.support,top:i<cnt})),poolHit:poolHitN,poolTot:scored.length,tickets});
   }
   const avgAct=trials?actSum/trials:cnt,base=cnt*avgAct/max;
   return {trials,comboAvg:trials?comboHit/trials:0,base,cnt,sourceCount,
@@ -11450,6 +11464,25 @@ function _comboFilterStats(combo,level){
   });
   return {hit,tot,prec:tot?hit/tot:0,perDraw:combo.trials?tot/combo.trials:0};
 }
+// Birleşik AI Tahmin'in geçmiş testi artık destek filtresine göre süzülen bir havuz değil,
+// canlı sayfadaki gibi üretilmiş tam biletler gösteriyor; bu yüzden bilet bazlı toplamlar.
+function _comboTicketStats(combo){
+  let mainHit=0,mainBalls=0,bonusHit=0,bonusBalls=0,totalTickets=0,actMainSum=0,actBonusSum=0,roundsWithTickets=0;
+  (combo.perRound||[]).forEach(r=>{
+    if(!r.tickets||!r.tickets.length)return;
+    roundsWithTickets++;
+    actMainSum+=r.actual.length;
+    actBonusSum+=(r.actualBonus||[]).length;
+    r.tickets.forEach(tk=>{
+      totalTickets++;
+      mainHit+=tk.mainHit;mainBalls+=tk.main.length;
+      bonusHit+=tk.bonusHit;bonusBalls+=tk.bonus.length;
+    });
+  });
+  return {mainHit,mainBalls,bonusHit,bonusBalls,totalTickets,roundsWithTickets,
+    avgActMain:roundsWithTickets?actMainSum/roundsWithTickets:0,
+    avgActBonus:roundsWithTickets?actBonusSum/roundsWithTickets:0};
+}
 function _comboSetMinSupport(level){
   _comboMinSupport=level;
   const htEl=document.getElementById('htBtBox');
@@ -11459,8 +11492,6 @@ function _comboSetMinSupport(level){
     const cached=_kbComboCache[_kbGame+'|'+_kbBtRounds];
     if(cached)kbEl.innerHTML=_kbRenderComboBlock(cached.combo,cached.bt);
   }
-  const aiEl=document.getElementById('htAiBtBox');
-  if(aiEl&&_htAiBtCache[_htGame])aiEl.innerHTML=_htAiRenderBtBlock(_htAiBtCache[_htGame]);
 }
 function _kbRenderComboBlock(combo,bt,labelOverride){
   const cnt=combo.cnt;
@@ -15725,16 +15756,69 @@ function _htAiExtraSources(prior,drawT,game){
   }catch(e){sys['Astro Tahmin']=new Set();}
   return sys;
 }
-function _htAiRenderBtBlock(combo){
-  return _kbRenderComboBlock(combo,null,{
-    title:'🧠 Birleşik AI Tahmin — Geriye Dönük Test',
-    desc:`Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu, Listeler AI (basit), Astro Tahmin ve Kronoloji Örüntü — bu ${combo.sourceCount} kaynak her tur SADECE o tarihten önceki verilerle yeniden hesaplanıp en çok kaynakta ortak çıkan ${combo.cnt} sayı gerçek sonuçla karşılaştırıldı. Astro Tahmin, Astro Tahmin sayfasında kayıtlı doğum bilgilerinizi kullanır (kayıtlı bilgi yoksa o tur boş geçilir); Kronoloji Örüntü, o tarihe kadarki çekilişlerde ortalama çıkış aralığını geçmiş "sırası gelmiş" sayıları işaretler. NSA Banko ve Listeler'den gelen Kırmızı/Ortak (canlı oturum verisine bağlı) bu otomatik teste hâlâ dahil değildir.`
-  });
+function _htAiTicketBall(n,isHit,isNear){
+  const bg=isHit?'rgba(0,230,118,.25)':(isNear?'rgba(251,191,36,.25)':'rgba(0,0,0,.05)');
+  const bd=isHit?'rgba(0,230,118,.6)':(isNear?'rgba(251,191,36,.7)':'var(--border)');
+  const cl=isHit?'var(--green)':(isNear?'#8a6200':'var(--text)');
+  const mark=isHit?'✓':(isNear?'~':'');
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:21px;padding:0 3px;border-radius:5px;font-size:.66rem;font-weight:700;font-family:monospace;background:${bg};border:1.5px solid ${bd};color:${cl}">${n}${mark}</span>`;
+}
+function _htAiRenderBtBlock(combo,game){
+  const stats=_comboTicketStats(combo);
+  const mainLen=stats.totalTickets?stats.mainBalls/stats.totalTickets:(game?.count||combo.cnt);
+  const bonusLen=stats.totalTickets?stats.bonusBalls/stats.totalTickets:0;
+  const gmax=game?.max||0,bmax=game?.bonusMax||0;
+  const mainBase=gmax?mainLen*stats.avgActMain/gmax:0;
+  const bonusBase=(bmax&&bonusLen)?bonusLen*stats.avgActBonus/bmax:0;
+  const ticketBase=mainBase+bonusBase;
+  const avgHit=stats.totalTickets?(stats.mainHit+stats.bonusHit)/stats.totalTickets:0;
+  const lift=ticketBase>0?avgHit/ticketBase:0;
+  const lowSample=stats.totalTickets<20;
+  let h='';
+  h+=`<div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:12px 14px">`;
+  h+=`<div style="font-size:.78rem;font-weight:800;color:#8a6200">🧠 Birleşik AI Tahmin — Geriye Dönük Test</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-top:4px;margin-bottom:10px;line-height:1.6">Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu, Listeler AI (basit), Astro Tahmin ve Kronoloji Örüntü — bu ${combo.sourceCount} kaynak her tur SADECE o tarihten önceki verilerle yeniden hesaplanıp, canlı sayfadaki "Birleşik AI Tahmin" ile <strong>aynı yöntemle (_listelerGenAiTickets)</strong> 3 bilet üretildi ve gerçek sonuçla karşılaştırıldı. Astro Tahmin, Astro Tahmin sayfasında kayıtlı doğum bilgilerinizi kullanır (kayıtlı bilgi yoksa o tur boş geçilir); Kronoloji Örüntü, o tarihe kadarki çekilişlerde ortalama çıkış aralığını geçmiş "sırası gelmiş" sayıları işaretler. NSA Banko ve Listeler'den gelen Kırmızı/Ortak (canlı oturum verisine bağlı) bu otomatik teste hâlâ dahil değildir.</div>`;
+  h+=`<div class="b10-tahmin-grid" style="margin-bottom:10px"><div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Ort. isabet — bilet başına</div><div style="font-size:1.6rem;font-weight:800;color:var(--green)">${lowSample?'—':avgHit.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">${lowSample?`az örnek (n=${stats.totalTickets})`:`rastgele ≈ ${ticketBase.toFixed(2)}`}</div></div><div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Kazanç (lift)</div><div style="font-size:1.6rem;font-weight:800;color:var(--accent)">${lowSample?'—':lift.toFixed(2)+'×'}</div><div style="font-size:.58rem;color:var(--muted)">${combo.trials} tur · ${stats.totalTickets} bilet</div></div></div>`;
+  h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:8px;line-height:1.6">✓ yeşil = o turda gerçekten çıktı · ~ turuncu/sarı = gerçek çekilen bir sayıya ±1 yakın</div>`;
+  if(combo.perRound&&combo.perRound.length){
+    h+=`<div style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">`;
+    combo.perRound.forEach(r=>{
+      const actMainSet=new Set(r.actual);
+      const actBonusSet=new Set(r.actualBonus||[]);
+      const ticketRows=(r.tickets||[]).map((tk,ti)=>{
+        const mainBalls=tk.main.map(n=>{
+          const isHit=actMainSet.has(n);
+          const isNear=!isHit&&(actMainSet.has(n-1)||actMainSet.has(n+1));
+          return _htAiTicketBall(n,isHit,isNear);
+        }).join('');
+        const bonusBalls=tk.bonus.map(n=>{
+          const isHit=actBonusSet.has(n);
+          const isNear=!isHit&&(actBonusSet.has(n-1)||actBonusSet.has(n+1));
+          return _htAiTicketBall(n,isHit,isNear);
+        }).join('');
+        const totalHit=tk.mainHit+tk.bonusHit;
+        return `<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:2px 0">
+          <span style="font-size:.56rem;color:var(--muted);min-width:20px">#${ti+1}</span>
+          <div style="display:flex;gap:3px;flex-wrap:wrap">${mainBalls}</div>
+          ${bonusBalls?`<span style="font-size:.6rem;color:var(--muted)">+</span><div style="display:flex;gap:3px;flex-wrap:wrap">${bonusBalls}</div>`:''}
+          <span style="margin-left:auto;font-size:.6rem;font-weight:800;color:${totalHit>0?'var(--green)':'var(--muted)'};white-space:nowrap">${totalHit} isabet</span>
+        </div>`;
+      }).join('');
+      const actText=[...r.actual].sort((a,b)=>a-b).join(' ')+((r.actualBonus&&r.actualBonus.length)?' | '+r.actualBonus.join(' '):'');
+      h+=`<div style="padding:7px 8px;background:rgba(0,0,0,.02);border-radius:8px">`;
+      h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">${r.date} · gerçek çekiliş: ${actText}</div>`;
+      h+=ticketRows;
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+  }
+  h+=`</div>`;
+  return h;
 }
 const _htAiBtCache={};
 function _htAiRenderBtBox(){
   const el=document.getElementById('htAiBtBox');if(!el)return;
-  if(_htAiBtCache[_htGame]){el.innerHTML=_htAiRenderBtBlock(_htAiBtCache[_htGame]);return;}
+  if(_htAiBtCache[_htGame]){el.innerHTML=_htAiRenderBtBlock(_htAiBtCache[_htGame],getGame(_htGame));return;}
   el.innerHTML=`<div style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:16px;text-align:center">
     <div style="font-size:.62rem;color:var(--muted);margin-bottom:12px;line-height:1.6">Hızlı Tahmin'in 5 otomatik kaynağına ek olarak Astro Tahmin ve Kronoloji Örüntü'yü de geçmiş çekilişler üzerinde geriye dönük test eder — birkaç saniye sürebilir.</div>
     <button onclick="_htAiRunBacktest()" style="background:rgba(129,140,248,.18);border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;padding:9px 18px;cursor:pointer;font-size:.72rem;font-weight:800">🧠 Birleşik AI Tahmini Test Et</button>
@@ -15749,7 +15833,7 @@ function _htAiRunBacktest(){
       if(!draws||draws.length<30){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Geri test için yeterli çekiliş verisi yok.</div>';return;}
       const combo=_kbHtComboBacktest(draws,game,50,(prior,drawT)=>_htAiExtraSources(prior,drawT,game));
       _htAiBtCache[_htGame]=combo;
-      el.innerHTML=_htAiRenderBtBlock(combo);
+      el.innerHTML=_htAiRenderBtBlock(combo,game);
     }catch(e){el.innerHTML='<div style="padding:14px;color:#cc2222;font-size:.7rem">Hata: '+e.message+'</div>';}
   },40);
 }
