@@ -9686,6 +9686,7 @@ function gizliArsivTemizle(){
   const kol=document.getElementById('gizliKolonlar');
   if(kol)kol.innerHTML='<div class="empty-state"><span class="empty-icon">📊</span>Beklenti girin ve TARA yapın.</div>';
   const btn=document.getElementById('gizliKopyaBtn');if(btn)btn.style.display='none';
+  const sr=document.getElementById('gizliKolSearchRow');if(sr)sr.innerHTML='';
   const mr=document.getElementById('gizliModelAraResult');if(mr){mr.style.display='none';mr.innerHTML='';}
 }
 function gizliTemizle(){
@@ -9774,7 +9775,6 @@ function gizliModelUygula(silent){
   const kol=document.getElementById('gizliKolonlar');
   const btn=document.getElementById('gizliKopyaBtn');
   if(need<0){if(!silent)showToast('⚠️ Çok fazla banko sayısı');return;}
-  const bankSet=new Set(bankos);
   const excl=_gizliExclude;
   // Position-aware model: each sorted slot keeps its own value distribution,
   // so position G naturally favours the high (70-90) range and bankos slot in by value.
@@ -9791,6 +9791,7 @@ function gizliModelUygula(silent){
   }
   if(!columns.length){
     if(kol)kol.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Kolon üretilemedi — banko sayıları beklentiyle uyumsuz olabilir.</div>';
+    const sr=document.getElementById('gizliKolSearchRow');if(sr)sr.innerHTML='';
     return;
   }
   columns.sort((a,b)=>b.guc-a.guc);
@@ -9798,9 +9799,18 @@ function gizliModelUygula(silent){
   const maxK=parseInt(document.getElementById('nsaKolonSayisi')?.value)||300;
   const topN=columns.slice(0,maxK);
   _gizliLastColumns=topN;
+  _gizliKolSearchRenderInputs();
+  if(kol)kol.innerHTML=_gizliRenderKolonRows(topN);
+  if(btn)btn.style.display='inline-block';
+  if(!silent)showToast(`✅ ${topN.length} kolon üretildi`);
+}
+function _gizliRenderKolonRows(columns){
   const labels='ABCDEFG';
+  const bankSet=new Set(_gizliGetBankos());
+  const excl=_gizliExclude;
   const exclNote=excl.size>0?`<div style="font-size:.6rem;color:#cc2222;margin-bottom:6px;padding:3px 7px;background:rgba(220,40,40,.06);border-radius:5px">⛔ Hariç: ${[...excl].sort((a,b)=>a-b).join(' ')}</div>`:'';
-  const rows=topN.map(({col,guc},idx)=>{
+  if(!columns.length)return exclNote+'<div class="empty-state"><span class="empty-icon">🔎</span>Aramayla eşleşen kolon yok.</div>';
+  const rows=columns.map(({col,guc},idx)=>{
     const colHtml=col.map((v,i)=>`<span style="${bankSet.has(v)?'color:var(--accent);font-weight:800':'color:var(--text)'}">${labels[i]}:${v}</span>`).join('  ');
     return `<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:${idx%2===0?'rgba(0,0,0,.022)':'transparent'};border-radius:5px">
       <span style="color:var(--muted);font-size:.62rem;min-width:26px;font-family:monospace">${idx+1})</span>
@@ -9808,9 +9818,46 @@ function gizliModelUygula(silent){
       <span style="color:var(--muted);font-size:.6rem;margin-left:8px;white-space:nowrap">güç:${guc}</span>
     </div>`;
   }).join('');
-  if(kol)kol.innerHTML=exclNote+rows;
-  if(btn)btn.style.display='inline-block';
-  if(!silent)showToast(`✅ ${topN.length} kolon üretildi`);
+  return exclNote+rows;
+}
+// Search box (üstten her sıra/pozisyon için sayı girerek üretilen kolonlar arasında arama)
+function _gizliKolSearchRenderInputs(){
+  const n=_gizliPositionCount();
+  const labels='ABCDEFG';
+  const ist='width:42px;text-align:center;padding:4px 3px;font-size:.78rem;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text)';
+  let html='<span style="font-size:.62rem;color:var(--muted)" title="Listede pozisyon başına kesin sayı arar">🔎 Ara:</span>';
+  for(let i=0;i<n;i++){
+    html+=`<input id="gks_${i}" type="text" inputmode="decimal" placeholder="${labels[i]}" title="${labels[i]} pozisyonunda kesin sayı" style="${ist}" oninput="_gizliKolSearchFilter()"/>`;
+  }
+  html+=`<button onclick="_gizliKolSearchClear()" style="background:rgba(0,0,0,.06);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 9px;cursor:pointer;font-size:.65rem">Temizle</button>`;
+  html+=`<span id="gizliKolSearchCount" style="font-size:.6rem;color:var(--muted)"></span>`;
+  const box=document.getElementById('gizliKolSearchRow');
+  if(box)box.innerHTML=html;
+}
+function _gizliKolSearchGet(){
+  const n=_gizliPositionCount();
+  return Array.from({length:n},(_,i)=>{
+    const v=(document.getElementById('gks_'+i)?.value||'').trim();
+    const num=parseInt(v);
+    return(!v||isNaN(num))?null:num;
+  });
+}
+function _gizliKolSearchClear(){
+  const n=_gizliPositionCount();
+  for(let i=0;i<n;i++){const el=document.getElementById('gks_'+i);if(el)el.value='';}
+  _gizliKolSearchFilter();
+}
+function _gizliKolSearchFilter(){
+  const kol=document.getElementById('gizliKolonlar');
+  if(!kol||!_gizliLastColumns||!_gizliLastColumns.length)return;
+  const search=_gizliKolSearchGet();
+  const anyC=search.some(b=>b!==null);
+  // Kesin değer eşleşmesi: üretilen kolonlar zaten sabit bir liste olduğundan
+  // (Beklenti filtresindeki gibi) onluk kısayolu değil, pozisyon başına birebir sayı arar.
+  const filtered=anyC?_gizliLastColumns.filter(({col})=>search.every((b,i)=>b===null||col[i]===b)):_gizliLastColumns;
+  kol.innerHTML=_gizliRenderKolonRows(filtered);
+  const cnt=document.getElementById('gizliKolSearchCount');
+  if(cnt)cnt.textContent=anyC?`${filtered.length} / ${_gizliLastColumns.length} eşleşti`:'';
 }
 const _gizliTestDateHTML={};
 function gizliTestInit(){
@@ -16494,6 +16541,7 @@ function _soAiBacktest(opts){
       <div style="font-size:.8rem;font-weight:700;color:var(--text)">📋 Üretilen Kolonlar</div>
       <button onclick="gizliKopyalaHepsi()" id="gizliKopyaBtn" style="display:none;background:rgba(129,140,248,.15);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:3px 10px;cursor:pointer;font-size:.65rem">📋 Kopyala</button>
      </div>
+     <div id="gizliKolSearchRow" style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
      <div id="gizliKolonlar" style="max-height:520px;overflow-y:auto"><div class="empty-state"><span class="empty-icon">📊</span>Filtreler girin, MODEL UYGULA'ya basın.</div></div>
     </div>
 
