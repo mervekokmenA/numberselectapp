@@ -6474,45 +6474,16 @@ function _parseDrawDataDirect(id){
 }
 
 let _btHistoryGen=0;
-async function loadBtHistory(forceRefresh=false){
-  const id=state.selectedGame;
-  if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
-  // Her çağrı kendi nesil numarasını alır; oyun hızla değiştirilirse (veya
-  // düğmeye birden çok kez basılırsa) yarışan eski çağrılar ağ isteği bitince
-  // artık güncel olmayan veriyi state'e yazıp ekranı yanlış oyunda dondurmasın.
-  const myGen=++_btHistoryGen;
-  const stale=()=>myGen!==_btHistoryGen;
-  const frPre=dataFreshnessMsg(id);
-  if(!forceRefresh&&!(frPre&&frPre.missing>0)){
-    showToast('✅ Önbellekten yüklendi');
-  }else{
-    showToast('⏳ Güncel çekiliş kontrol ediliyor...');
-    let fetched=false;
-    try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
-    if(stale())return;
-    const fr=dataFreshnessMsg(id);
-    if(fetched){
-      showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
-      // Invalidate analysis caches for this game so they re-run with new data
-      delete state.algoPositionScores[id];
-      if(state.algoNumberScores)delete state.algoNumberScores[id];
-      if(state.algoPerf)delete state.algoPerf[id];
-      try{localStorage.removeItem('algoPerf_'+id);}catch(e){}
-    } else if(fr&&fr.missing>0)
-      showToast(`⚠️ Kaynak henüz güncellemedi. Son bilinen: ${fr.lastDate}. Eksik: ${fr.missingDates.join(', ')}`);
-    else
-      showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
-  }
-  if(stale())return;
-  // Parse draw data directly — skip DOM-mediated parseDatedDraws to avoid double work
+function _renderBtHistoryFromLocalData(id,stale){
+  // Zaten paket içinde gömülü olan DRAW_DATA'yı hemen ayrıştırıp ekrana bas —
+  // ağ kontrolü bitmesini beklemeden. Bu sayede analiz tipi seçme paneli
+  // (algoScorePanel) ağ yavaş/başarısız olsa bile anında dolar.
   _parseDrawDataDirect(id);
-  // Populate generator-side state
   state._algoScoreCache={};
   state._algoScoreCache2={};
   state.allPastDraws=state.datedDraws.map(d=>([...d.nums,...(d.bonus||[])]));
   state.allDatedDraws=[...state.datedDraws];
   applyExcludeFilter();
-  // Frequency map for generator tab
   state.frequency=buildFreq(state.datedDraws);
   state.drawGameId=id;
   saveDrawCache(id);
@@ -6545,6 +6516,41 @@ async function loadBtHistory(forceRefresh=false){
     if(arTab&&arTab.classList.contains('active'))try{runAlgoRank();}catch(e){}
     analyzeAlgoPositions(_deferredId);
   }, 0);
+}
+async function loadBtHistory(forceRefresh=false){
+  const id=state.selectedGame;
+  if(!DRAW_DATA[id]){ showToast('Bu oyun için veri bulunamadı'); return; }
+  // Her çağrı kendi nesil numarasını alır; oyun hızla değiştirilirse (veya
+  // düğmeye birden çok kez basılırsa) yarışan eski çağrılar ağ isteği bitince
+  // artık güncel olmayan veriyi state'e yazıp ekranı yanlış oyunda dondurmasın.
+  const myGen=++_btHistoryGen;
+  const stale=()=>myGen!==_btHistoryGen;
+  // Önce yerel (gömülü) veriyi anında göster — ağ kontrolü hiçbir zaman
+  // ekranı bloklamaz, sadece arka planda yeni çekiliş arar.
+  _renderBtHistoryFromLocalData(id,stale);
+  const frPre=dataFreshnessMsg(id);
+  if(!forceRefresh&&!(frPre&&frPre.missing>0)){
+    showToast('✅ Önbellekten yüklendi');
+    return;
+  }
+  showToast('⏳ Güncel çekiliş kontrol ediliyor...');
+  let fetched=false;
+  try{ const d=await autoUpdateDraw(id); if(d)fetched=d; }catch(e){}
+  if(stale())return;
+  const fr=dataFreshnessMsg(id);
+  if(fetched){
+    showToast(`✅ Yeni çekiliş bulundu: ${fetched} — veriler güncellendi`);
+    // Invalidate analysis caches for this game so they re-run with new data
+    delete state.algoPositionScores[id];
+    if(state.algoNumberScores)delete state.algoNumberScores[id];
+    if(state.algoPerf)delete state.algoPerf[id];
+    try{localStorage.removeItem('algoPerf_'+id);}catch(e){}
+    // Yeni veri geldi — gömülü DRAW_DATA güncellenmiş olur, ekranı tazele
+    _renderBtHistoryFromLocalData(id,stale);
+  } else if(fr&&fr.missing>0)
+    showToast(`⚠️ Kaynak henüz güncellemedi. Son bilinen: ${fr.lastDate}. Eksik: ${fr.missingDates.join(', ')}`);
+  else
+    showToast('✅ '+getGame(id).name+' verileri yüklendi'+(fr?` (son: ${fr.lastDate})`:''));
 }
 
 // ── Past-draws parser (generator) ───────────────────────────
