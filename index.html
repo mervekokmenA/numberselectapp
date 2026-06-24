@@ -1173,6 +1173,18 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="htBtBox"></div>
  </div>
 
+ <!-- 9: Birleşik AI Tahmin -->
+ <div class="card" id="htAiCard" style="margin-top:12px">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">🧠 Birleşik AI Tahmin</div>
+   <button onclick="_htAiRenderLive()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
+  </div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Bu sayfadaki tüm sistemleri (Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu, Listeler, NSA Banko), Astro Tahmin'i ve Kronoloji'den çıkan "sırası gelmiş" sayı örüntüsünü tek bir tahminde birleştirir; en çok kaynakta ortak çıkan sayılar üstte. Aşağıdaki geçmiş test, bu kaynaklardan tarihten önceki verilerle yeniden hesaplanabilenleri (Astro Tahmin ve Kronoloji Örüntü dahil) geriye dönük doğrular.</div>
+  <div id="htAiLiveResult"><div class="empty-state"><span class="empty-icon">🧠</span>Yükleniyor…</div></div>
+  <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-top:14px;margin-bottom:8px">📈 Geçmiş Test</div>
+  <div id="htAiBtBox"></div>
+ </div>
+
 </div><!-- /page-hizlitahmin -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
@@ -11201,10 +11213,10 @@ function _kbBacktest(draws,game,cal,rounds){
 // SADECE o tarihten önceki verilerle yeniden üretir ve birleşik (en çok kaynakta ortak çıkan) adayları
 // gerçek sonuçla karşılaştırır. NSA Banko (kullanıcı filtrelerine bağlı) ve Listeler'den gelen 3 kaynak
 // (2000 biletlik geri test/tahmin — turlarca tekrarlamak pratik değil) bu otomatik teste dahil edilmez.
-function _kbHtComboBacktest(draws,game,rounds){
+function _kbHtComboBacktest(draws,game,rounds,extra){
   const max=game.max,cnt=Math.min(game.count,7);
   const R=Math.min(rounds||40,draws.length-20);
-  let comboHit=0,trials=0,actSum=0,strongHit=0,strongTot=0,poolHit=0,poolTot=0;
+  let comboHit=0,trials=0,actSum=0,strongHit=0,strongTot=0,poolHit=0,poolTot=0,sourceCount=5;
   const perRound=[];
   for(let t=0;t<R;t++){
     const prior=draws.slice(t+1);if(prior.length<15)break;
@@ -11246,7 +11258,14 @@ function _kbHtComboBacktest(draws,game,rounds){
       const tickets=_listelerGenAiTickets(game,gmax,numScore);
       sys['Listeler AI (basit)']=new Set(tickets.flatMap(tk=>[...tk.main,...tk.bonus]));
     }catch(e){sys['Listeler AI (basit)']=new Set();}
+    if(extra){
+      try{
+        const extraSys=extra(prior,draws[t])||{};
+        Object.keys(extraSys).forEach(nm=>{sys[nm]=extraSys[nm];});
+      }catch(e){}
+    }
     const names=Object.keys(sys);
+    sourceCount=names.length;
     const candPool=new Set();names.forEach(nm=>sys[nm].forEach(n=>candPool.add(n)));
     const scored=[...candPool].map(n=>({n,support:names.filter(nm=>sys[nm].has(n)).length}));
     scored.sort((a,b)=>b.support-a.support||a.n-b.n);
@@ -11263,7 +11282,7 @@ function _kbHtComboBacktest(draws,game,rounds){
       pool:scored.map((s,i)=>({n:s.n,support:s.support,top:i<cnt})),poolHit:poolHitN,poolTot:scored.length});
   }
   const avgAct=trials?actSum/trials:cnt,base=cnt*avgAct/max;
-  return {trials,comboAvg:trials?comboHit/trials:0,base,cnt,sourceCount:5,
+  return {trials,comboAvg:trials?comboHit/trials:0,base,cnt,sourceCount,
     strongPrec:strongTot?strongHit/strongTot:0,strongHit,strongTot,strongPerDraw:trials?strongTot/trials:0,
     poolPrec:poolTot?poolHit/poolTot:0,poolHit,poolTot,poolPerDraw:trials?poolTot/trials:0,perRound};
 }
@@ -11437,14 +11456,18 @@ function _comboSetMinSupport(level){
     const cached=_kbComboCache[_kbGame+'|'+_kbBtRounds];
     if(cached)kbEl.innerHTML=_kbRenderComboBlock(cached.combo,cached.bt);
   }
+  const aiEl=document.getElementById('htAiBtBox');
+  if(aiEl&&_htAiBtCache[_htGame])aiEl.innerHTML=_htAiRenderBtBlock(_htAiBtCache[_htGame]);
 }
-function _kbRenderComboBlock(combo,bt){
+function _kbRenderComboBlock(combo,bt,labelOverride){
   const cnt=combo.cnt;
   const comboLift=combo.base>0?combo.comboAvg/combo.base:0;
+  const title=labelOverride?.title||'🧬 Hızlı Tahmin Birleşimi — Geriye Dönük Test (deneysel)';
+  const desc=labelOverride?.desc||`Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu ve Listeler AI (basit) — bu ${combo.sourceCount} kaynak her tur SADECE o tarihten önceki verilerle yeniden hesaplanıp en çok kaynakta ortak çıkan ${cnt} sayı gerçek sonuçla karşılaştırıldı. "Listeler AI (basit)", canlı sayfadaki Listeler AI'nin sadece tarihten önceki verilerle hesaplanabilen sinyallerini (frekans, NS zinciri, gecikme) kullanır. NSA Banko (kullanıcının o anki manuel filtrelerine bağlı) ve Listeler'den gelen Kırmızı/Ortak (canlı oturum verisine bağlı, 2000 biletlik geri test/tahmin — bunu turlarca tekrarlamak pratik değil) bu otomatik teste hâlâ dahil edilmedi.`;
   let h='';
   h+=`<div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.3);border-radius:10px;padding:12px 14px">`;
-  h+=`<div style="font-size:.78rem;font-weight:800;color:#8a6200">🧬 Hızlı Tahmin Birleşimi — Geriye Dönük Test (deneysel)</div>`;
-  h+=`<div style="font-size:.6rem;color:var(--muted);margin-top:4px;margin-bottom:10px;line-height:1.6">Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu ve Listeler AI (basit) — bu ${combo.sourceCount} kaynak her tur SADECE o tarihten önceki verilerle yeniden hesaplanıp en çok kaynakta ortak çıkan ${cnt} sayı gerçek sonuçla karşılaştırıldı. "Listeler AI (basit)", canlı sayfadaki Listeler AI'nin sadece tarihten önceki verilerle hesaplanabilen sinyallerini (frekans, NS zinciri, gecikme) kullanır. NSA Banko (kullanıcının o anki manuel filtrelerine bağlı) ve Listeler'den gelen Kırmızı/Ortak (canlı oturum verisine bağlı, 2000 biletlik geri test/tahmin — bunu turlarca tekrarlamak pratik değil) bu otomatik teste hâlâ dahil edilmedi.</div>`;
+  h+=`<div style="font-size:.78rem;font-weight:800;color:#8a6200">${title}</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-top:4px;margin-bottom:10px;line-height:1.6">${desc}</div>`;
   h+=`<div class="b10-tahmin-grid" style="margin-bottom:10px"><div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Birleşim ort. isabet (üst ${cnt})</div><div style="font-size:1.6rem;font-weight:800;color:var(--green)">${combo.comboAvg.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">rastgele ≈ ${combo.base.toFixed(2)}</div></div><div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Kazanç (lift)</div><div style="font-size:1.6rem;font-weight:800;color:var(--accent)">${comboLift.toFixed(2)}×</div><div style="font-size:.58rem;color:var(--muted)">${combo.trials} tur test</div></div></div>`;
   if(bt)h+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:10px;font-size:.64rem;color:var(--text);line-height:1.7">📊 Karşılaştırma — KB konsensüsü: <strong style="color:${bt.consAvg>combo.comboAvg?'var(--green)':'var(--text)'}">${bt.consAvg.toFixed(2)}</strong> · Hızlı Tahmin birleşimi: <strong style="color:${combo.comboAvg>bt.consAvg?'var(--green)':'var(--text)'}">${combo.comboAvg.toFixed(2)}</strong> · rastgele: ${bt.base.toFixed(2)}</div>`;
   const level=Math.min(Math.max(_comboMinSupport||1,1),combo.sourceCount);
@@ -14996,6 +15019,34 @@ function _kronRenderInner(){
   }
   el.innerHTML=html;
 }
+// Kronoloji'nin tüm-oyunlar kronolojik geçmişinden bağımsız, tek bir oyun için "gecikmiş/sırası
+// gelmiş" sayı adaylarını çıkarır: her sayının geçmişte hangi çekilişlerde çıktığını bulup
+// ardışık çıkışlar arası ortalama aralığı (avgGap) ile en son çıkıştan bu yana geçen süreyi
+// (delay) kıyaslar — delay/avgGap oranı 1'e yaklaşan ya da geçen sayılar "sırası gelmiş" sayılır.
+function _kronDueCandidates(gameId,drawsOverride){
+  const game=getGame(gameId);
+  const draws=drawsOverride||_kbGetDraws(gameId);
+  if(!draws||draws.length<10||!game)return[];
+  const max=game.max;
+  const lastSeen={};
+  draws.forEach((d,i)=>{
+    const all=[...d.nums,...(d.bonus||[])];
+    all.forEach(n=>{ if(!lastSeen[n])lastSeen[n]=[]; lastSeen[n].push(i); });
+  });
+  const out=[];
+  for(let n=1;n<=max;n++){
+    const idxs=lastSeen[n];
+    if(!idxs||idxs.length<3)continue;
+    const gaps=[]; for(let k=1;k<idxs.length;k++)gaps.push(idxs[k]-idxs[k-1]);
+    const avgGap=gaps.reduce((a,b)=>a+b,0)/gaps.length;
+    const delay=idxs[0];
+    if(avgGap<=0)continue;
+    const dueScore=delay/avgGap;
+    if(dueScore>=0.85)out.push({n,delay,avgGap,dueScore});
+  }
+  out.sort((a,b)=>b.dueScore-a.dueScore);
+  return out;
+}
 function _astroTodayGameId(){
   const sch={super:[2,4,0],sayisal:[1,3,6],sans:[3,0]};
   const dow=new Date().getDay();
@@ -15304,7 +15355,9 @@ function _htInit(){
   _htAutoFillListelerAi();
   _htAutoFillAstro();
   setTimeout(_htRenderConsensus,60);
+  setTimeout(_htAiRenderLive,60);
   _htRenderBtBox();
+  _htAiRenderBtBox();
   _htRenderDrawReminder();
   _autoUpdateAllGames();
 }
@@ -15316,7 +15369,7 @@ function _htRenderGameRow(){
     return `<button onclick="_htSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
   }).join('');
 }
-function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_nextDrawPredict({gameId:_htGame,resultElId:'htNextDrawPredResult'});const ndbt=document.getElementById('htNextDrawBtResult');if(ndbt)ndbt.innerHTML='';_htGenerateSisal();if(typeof runB10Wheel==='function')runB10Wheel('Ht');_htAutoFillGizli();_htAutoFillListelerAi();_htAutoFillAstro();setTimeout(_htRenderConsensus,60);_htRenderBtBox();_htRenderDrawReminder();}
+function _htSetGame(gid){_htGame=gid;_htRenderGameRow();_htRenderSoz();_nextDrawPredict({gameId:_htGame,resultElId:'htNextDrawPredResult'});const ndbt=document.getElementById('htNextDrawBtResult');if(ndbt)ndbt.innerHTML='';_htGenerateSisal();if(typeof runB10Wheel==='function')runB10Wheel('Ht');_htAutoFillGizli();_htAutoFillListelerAi();_htAutoFillAstro();setTimeout(_htRenderConsensus,60);setTimeout(_htAiRenderLive,60);_htRenderBtBox();_htAiRenderBtBox();_htRenderDrawReminder();}
 function _htRenderSoz(){
   const el=document.getElementById('htSozContent');if(!el)return;
   const game=getGame(_htGame);
@@ -15454,6 +15507,7 @@ function _htRenderDrawReminder(){
 document.addEventListener('drawDataUpdated',e=>{
   const gid=e.detail&&e.detail.gameId;if(!gid)return;
   delete _htBtCache[gid];
+  delete _htAiBtCache[gid];
   for(const k of[..._soAiComputeCache.keys()])if(k.startsWith(gid+'|'))_soAiComputeCache.delete(k);
   for(const k of[..._b10CalibrateCache.keys()])if(k.startsWith(gid+'|'))_b10CalibrateCache.delete(k);
   for(const k of[..._sablonPatternCache.keys()])if(k.startsWith(gid+'|'))_sablonPatternCache.delete(k);
@@ -15461,7 +15515,7 @@ document.addEventListener('drawDataUpdated',e=>{
   _htRenderSoz();_htGenerateSisal();
   if(typeof runB10Wheel==='function')runB10Wheel('Ht');
   _htAutoFillGizli();_htAutoFillListelerAi();_htAutoFillAstro();
-  _htRenderConsensus();_htRenderBtBox();_htRenderDrawReminder();
+  _htRenderConsensus();_htAiRenderLive();_htRenderBtBox();_htAiRenderBtBox();_htRenderDrawReminder();
   showToast(`✅ ${getGame(gid).name}: yeni çekiliş bulundu (${e.detail.date}) — Hızlı Tahmin güncellendi`);
 });
 function _htAutoFillManualPool(){
@@ -15493,9 +15547,12 @@ function _htCollectVotes(){
   sys['Listeler Ortak']=new Set(window._listelerOrtakNums||[]);
   sys['NSA Banko']=new Set((typeof _gizliLastColumns!=='undefined'&&_gizliLastColumns)?_gizliLastColumns.flatMap(c=>c.col):[]);
   sys['Astro Tahmin']=new Set(window._astroNumsHt||[]);
+  try{
+    sys['Kronoloji Örüntü']=new Set(_kronDueCandidates(_htGame).slice(0,15).map(c=>c.n));
+  }catch(e){sys['Kronoloji Örüntü']=new Set();}
   return sys;
 }
-const _htSysEmoji={'Gülay Analiz':'🔮','Gülay AI Biletler':'🤖','Sisal-LCG':'🎲','B10 Kuponu':'🎟️','Listeler AI Biletler':'🔎','Listeler Kırmızı':'🔴','Listeler Ortak':'🟢','NSA Banko':'🔐','Astro Tahmin':'🪐'};
+const _htSysEmoji={'Gülay Analiz':'🔮','Gülay AI Biletler':'🤖','Sisal-LCG':'🎲','B10 Kuponu':'🎟️','Listeler AI Biletler':'🔎','Listeler Kırmızı':'🔴','Listeler Ortak':'🟢','NSA Banko':'🔐','Astro Tahmin':'🪐','Kronoloji Örüntü':'📜'};
 function _htCopyAllAnalyses(){
   const sys=_htCollectVotes();
   const game=getGame(_htGame);
@@ -15584,6 +15641,65 @@ function _htRunBacktest(){
       const combo=_kbHtComboBacktest(draws,game,50);
       _htBtCache[_htGame]=combo;
       el.innerHTML=_kbRenderComboBlock(combo);
+    }catch(e){el.innerHTML='<div style="padding:14px;color:#cc2222;font-size:.7rem">Hata: '+e.message+'</div>';}
+  },40);
+}
+
+// ── Birleşik AI Tahmin — canlı tahmin (tüm sistemler + Astro + Kronoloji) ve geriye dönük test ──
+function _htAiRenderLive(){
+  const el=document.getElementById('htAiLiveResult');if(!el)return;
+  const sys=_htCollectVotes();
+  const names=Object.keys(sys);
+  const total=names.length;
+  const scores=_htConsensusScores(null).filter(s=>s.score>0).slice(0,20);
+  if(!scores.length){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Henüz hiçbir sistemden veri yok — bu oyun için yeterli çekiliş verisi olmayabilir.</div>';return;}
+  el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">${total} kaynağın (${names.map(n=>_htSysEmoji[n]||'•').join(' ')}) birleştirdiği en güçlü ${scores.length} aday — en çok kaynakta ortak çıkanlar üstte.</div>`+
+    `<div style="display:flex;gap:6px;flex-wrap:wrap">${scores.map(s=>_htConsBadge(s,total)).join('')}</div>`;
+}
+// Geriye dönük testte sadece o tarihten önceki verilerle hesaplanabilen 2 ek kaynak: Astro Tahmin
+// (Astro Tahmin sayfasında kayıtlı doğum bilgisi varsa o tarih için yeniden üretilir) ve Kronoloji
+// Örüntü (_kronDueCandidates zaten saf/tarih-bağımsız bir drawsOverride parametresi alıyor).
+function _htAiExtraSources(prior,drawT,game){
+  const sys={};
+  try{
+    sys['Kronoloji Örüntü']=new Set(_kronDueCandidates(game.id,prior).slice(0,15).map(c=>c.n));
+  }catch(e){sys['Kronoloji Örüntü']=new Set();}
+  try{
+    let saved=null;
+    try{saved=JSON.parse(localStorage.getItem('_astroInputs')||'null');}catch(e){}
+    if(saved&&saved.birthDate){
+      const d={...saved,gameId:game.id,targetDate:drawT.date};
+      const ticket=_astroComputeTicket(d,game);
+      sys['Astro Tahmin']=new Set([...ticket.slots.map(s=>s.num),...(ticket.bonus?[ticket.bonus.num]:[])]);
+    }else sys['Astro Tahmin']=new Set();
+  }catch(e){sys['Astro Tahmin']=new Set();}
+  return sys;
+}
+function _htAiRenderBtBlock(combo){
+  return _kbRenderComboBlock(combo,null,{
+    title:'🧠 Birleşik AI Tahmin — Geriye Dönük Test',
+    desc:`Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu, Listeler AI (basit), Astro Tahmin ve Kronoloji Örüntü — bu ${combo.sourceCount} kaynak her tur SADECE o tarihten önceki verilerle yeniden hesaplanıp en çok kaynakta ortak çıkan ${combo.cnt} sayı gerçek sonuçla karşılaştırıldı. Astro Tahmin, Astro Tahmin sayfasında kayıtlı doğum bilgilerinizi kullanır (kayıtlı bilgi yoksa o tur boş geçilir); Kronoloji Örüntü, o tarihe kadarki çekilişlerde ortalama çıkış aralığını geçmiş "sırası gelmiş" sayıları işaretler. NSA Banko ve Listeler'den gelen Kırmızı/Ortak (canlı oturum verisine bağlı) bu otomatik teste hâlâ dahil değildir.`
+  });
+}
+const _htAiBtCache={};
+function _htAiRenderBtBox(){
+  const el=document.getElementById('htAiBtBox');if(!el)return;
+  if(_htAiBtCache[_htGame]){el.innerHTML=_htAiRenderBtBlock(_htAiBtCache[_htGame]);return;}
+  el.innerHTML=`<div style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:16px;text-align:center">
+    <div style="font-size:.62rem;color:var(--muted);margin-bottom:12px;line-height:1.6">Hızlı Tahmin'in 5 otomatik kaynağına ek olarak Astro Tahmin ve Kronoloji Örüntü'yü de geçmiş çekilişler üzerinde geriye dönük test eder — birkaç saniye sürebilir.</div>
+    <button onclick="_htAiRunBacktest()" style="background:rgba(129,140,248,.18);border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;padding:9px 18px;cursor:pointer;font-size:.72rem;font-weight:800">🧠 Birleşik AI Tahmini Test Et</button>
+  </div>`;
+}
+function _htAiRunBacktest(){
+  const el=document.getElementById('htAiBtBox');if(!el)return;
+  el.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted);font-size:.75rem">⏳ Hesaplanıyor… (birkaç saniye sürebilir)</div>';
+  setTimeout(()=>{
+    try{
+      const game=getGame(_htGame),draws=_kbGetDraws(_htGame);
+      if(!draws||draws.length<30){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Geri test için yeterli çekiliş verisi yok.</div>';return;}
+      const combo=_kbHtComboBacktest(draws,game,50,(prior,drawT)=>_htAiExtraSources(prior,drawT,game));
+      _htAiBtCache[_htGame]=combo;
+      el.innerHTML=_htAiRenderBtBlock(combo);
     }catch(e){el.innerHTML='<div style="padding:14px;color:#cc2222;font-size:.7rem">Hata: '+e.message+'</div>';}
   },40);
 }
