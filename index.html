@@ -1223,6 +1223,7 @@ const GAMES = [
 const ALGOS = [
   { id:'megavote',    name:'🗳️ Mega Oylama',  desc:'Tüm algoritmalar × 18 sim × 2 pencere + KNN örüntü eşleme + gecikme sinyali + pozisyon frekansı — en kapsamlı uzlaşı', expert:true },
   { id:'proensemble', name:'🧬 Pro Ensemble', desc:'Tüm algoritmalar × 20 sim × 2 pencere + KNN sinyali — oy ağırlıklı uzlaşı + konum dağılımı + birlikte çıkma bonusu', expert:true },
+  { id:'birlesikai',  name:'🧠 Birleşik AI Tahmin', desc:'Hızlı Tahmin sayfasındaki çoklu-kaynak uzlaşı sistemi: Gülay Fark-Analizi + AI Sıra-Füzyonu + Kronoloji Örüntü (gecikmiş sayı tespiti) oylarını birleştirip tarihsel toplam aralığına göre dengeler', expert:true },
   { id:'sislcg',      name:'🎲 Sisal-LCG Dengesi',     desc:'LCG tabanlı deterministik dağılım simülasyonu — frekans ağırlıklı, toplam dengelenmiş, bölge kapsamalı', expert:true },
   { id:'smart',      name:'🧠 Smart Kombinasyon', desc:'Üstel frekans + bölge dengesi + tarihsel toplam hedefi + tek/çift denge + son çekiliş cezası — tüm en iyi tekniklerin dengeli kombinasyonu', expert:true },
   { id:'random',   name:'Tam Rastgele',      desc:'Her sayının eşit şansa sahip olduğu gerçek rastgele seçim' },
@@ -6099,7 +6100,7 @@ async function analyzeAlgoPositions(gameId){
 
     for(const algo of ALGOS){
       // Ağır algoritmalar konum analizinden çıkarılıyor (UI performansı için)
-      if(algo.id==='proensemble'||algo.id==='megavote')continue;
+      if(algo.id==='proensemble'||algo.id==='megavote'||algo.id==='birlesikai')continue;
       try{
         const pred=generateNumbers(game,algo.id,freq,prior);
         const pSet=new Set(pred.main);
@@ -6884,6 +6885,33 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       [0,1].forEach(k=>{if(k<eN){const d=eDraws[eN-1-k];(Array.isArray(d)?d:(d.nums||[])).forEach(n=>eRecSet.add(n));}});
       const eFinalW=mid.map((n,i)=>midW[i]*(eRecSet.has(n)?(eIsSuper?0.45:0.3):1));
       mainNums=pickUnique(mid,game.count,eFinalW).sort((a,b)=>a-b);
+      bonusNums=smartBonus();
+      break;}
+    case 'birlesikai':{
+      // Birleşik AI Tahmin: Hızlı Tahmin sayfasındaki çoklu-kaynak uzlaşının sayfa durumuna
+      // (Sisal/B10/Listeler/NSA/Astro widget'ları) bağlı olmayan 3 kaynağını yeniden üretir:
+      // Gülay Fark-Analizi, Gülay AI Sıra-Füzyonu, Kronoloji Örüntü (gecikmiş sayı tespiti).
+      const baD=drawsOverride||state.pastDraws||[];
+      if(baD.length<10)return generateNumbers(game,'smart',freq,drawsOverride);
+      const baNorm=d=>Array.isArray(d)?{nums:d.slice(0,game.count),bonus:d.slice(game.count)}:{nums:d.nums||d,bonus:d.bonus||[]};
+      const baDraws=baD.map(baNorm);
+      const baScore=new Array(game.max+1).fill(0);
+      const baAdd=(nums,w)=>nums.forEach(n=>{if(n>=1&&n<=game.max)baScore[n]+=w;});
+      try{
+        const ga=_soGapAnalysisCompute(baDraws[0],game);
+        baAdd((ga?.gulayCands||[]).slice(0,15).map(c=>c.n),1);
+      }catch(e){}
+      try{
+        const ai=_soAiCompute(baDraws,game,baDraws[0]);
+        baAdd((ai?.top15||[]).map(t=>t.n),1);
+      }catch(e){}
+      try{
+        baAdd(_kronDueCandidates(game.id,baDraws).slice(0,15).map(c=>c.n),1);
+      }catch(e){}
+      if(!baScore.some(v=>v>0))return generateNumbers(game,'smart',freq,drawsOverride);
+      const baSumRange=_aiSumRange(baDraws,game.count);
+      const baTicket=_listelerGenAiTickets({...game,bonusCount:0,bonusMax:0},game.max,baScore,baSumRange)[0];
+      mainNums=baTicket.main;
       bonusNums=smartBonus();
       break;}
     case 'sislcg':{
@@ -11289,7 +11317,8 @@ function _kbHtComboBacktest(draws,game,rounds,extra){
     scored.forEach(s=>{numScore[s.n]=s.support;});
     let tickets=[];
     try{
-      tickets=_listelerGenAiTickets(game,max,numScore).map(tk=>({
+      const sumRange=_aiSumRange(prior,game.count);
+      tickets=_listelerGenAiTickets(game,max,numScore,sumRange).map(tk=>({
         main:tk.main,bonus:tk.bonus,
         mainHit:tk.main.filter(n=>actual.has(n)).length,
         bonusHit:tk.bonus.filter(n=>actualBonusSet.has(n)).length
@@ -12761,7 +12790,14 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn,silent){
   if(btn)btn.textContent='🤖 Analiz Et & Tahmin Üret';
 }
 
-function _listelerGenAiTickets(game,gmax,numScore){
+function _aiSumRange(draws,count){
+  if(!draws||draws.length<5)return null;
+  const gn=d=>Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])];
+  const sums=draws.map(d=>gn(d).slice(0,count).reduce((s,n)=>s+n,0)).filter(s=>s>0).sort((a,b)=>a-b);
+  if(sums.length<5)return null;
+  return[sums[Math.floor(sums.length*0.30)],sums[Math.floor(sums.length*0.70)]];
+}
+function _listelerGenAiTickets(game,gmax,numScore,sumRange){
   const count=game.count,bCount=game.bonusCount,bMax=game.bonusMax||0;
   const tickets=[],used=new Array(gmax+1).fill(0);
   for(let ti=0;ti<3;ti++){
@@ -12776,7 +12812,25 @@ function _listelerGenAiTickets(game,gmax,numScore){
       adj.push([n,numScore[n]-used[n]*2.5+balance]);
     }
     adj.sort((a,b)=>b[1]-a[1]);
-    const main=adj.slice(0,count).map(([n])=>n).sort((a,b)=>a-b);
+    let main=adj.slice(0,count).map(([n])=>n).sort((a,b)=>a-b);
+    // Tarihsel toplam aralığına yumuşak itme (smart/sislcg/balanced'da kanıtlanmış aynı teknik)
+    if(sumRange){
+      const[sumLo,sumHi]=sumRange;
+      let sum=main.reduce((s,n)=>s+n,0);
+      if(sum<sumLo||sum>sumHi){
+        const dir=sum<sumLo?1:-1;
+        const candidates=adj.map(([n])=>n);
+        for(const rn of[...main].sort((a,b)=>dir*(b-a))){
+          const opts=candidates.filter(n=>!main.includes(n)).sort((a,b)=>dir*(a-b));
+          for(const nc of opts){
+            const ns=sum-rn+nc;
+            if(ns>=sumLo&&ns<=sumHi){main[main.indexOf(rn)]=nc;sum=ns;break;}
+          }
+          if(sum>=sumLo&&sum<=sumHi)break;
+        }
+        main.sort((a,b)=>a-b);
+      }
+    }
     const bonus=[];
     if(bCount>0&&bMax>0){
       const bp=[];
@@ -15731,7 +15785,8 @@ function _htAiRenderLive(){
   const game=getGame(_htGame);
   const numScore=new Array(game.max+1).fill(0);
   scores.forEach(s=>{if(s.n>=1&&s.n<=game.max)numScore[s.n]=s.score;});
-  const tickets=_listelerGenAiTickets(game,game.max,numScore);
+  const sumRange=_aiSumRange(_kbGetDraws(_htGame),game.count);
+  const tickets=_listelerGenAiTickets(game,game.max,numScore,sumRange);
   window._htAiCopyText='Birleşik AI Tahmin\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
   el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px">${total} kaynağın (${names.map(n=>_htSysEmoji[n]||'•').join(' ')}) oylarından üretilen ${tickets.length} bilet — en çok kaynakta ortak çıkan sayılar önceliklendirildi.</div>`+
     `<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button onclick="_kbCopy(window._htAiCopyText)" class="copy-btn">📋 Kopyala</button></div>`+
