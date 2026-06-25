@@ -7089,7 +7089,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
       const gsTotalF=Object.values(freq).reduce((s,v)=>s+v,0)||1;
       const gsLastNums=gsDraws.length?gsNorm(gsDraws[0]).nums:[];
       const gsLastSum=gsLastNums.reduce((s,n)=>s+n,0)||0;
-      let gsLcg=((gsHot.reduce((s,n)=>s+n*(freq[n]||1),0)*7+gsTotalF*13+gsLastSum*3)>>>0)%LCG_M2;
+      let gsLcg=(((gsHot.reduce((s,n)=>s+n*(freq[n]||1),0)*7+gsTotalF*13+gsLastSum*3)>>>0)+Math.floor(Math.random()*999983))%LCG_M2;
       const gsNext=()=>{gsLcg=((LCG_A2*gsLcg+LCG_C2)%LCG_M2+LCG_M2)%LCG_M2;return gsLcg/LCG_M2;};
       // Frekans ağırlığını Gülay fark-analizi adaylarıyla harmanla
       const gsFW=pool.map(n=>Math.pow(freq[n]||.1,1.4)*(1+GS_GW*((gsGulay[n]||0)/gsGulayMax)));
@@ -7120,16 +7120,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
         if(score<gsBestScore){gsBestScore=score;gsBest=arr;}
       }
       mainNums=gsBest||gsByF.slice(0,game.count);
-      // smartBonus() yerine yerel LCG akışından örnekle — tamamen deterministik üretim için.
-      if(game.bonusCount>0){
-        const gsBRem=[...bonusPool],gsBW=gsBRem.map(n=>freq[n]||.1);
-        bonusNums=[];
-        for(let i=0;i<game.bonusCount&&gsBRem.length>0;i++){
-          const tot=gsBW.reduce((s,w)=>s+w,0);let r=gsNext()*tot,idx=0;
-          for(let j=0;j<gsBW.length;j++){r-=gsBW[j];if(r<=0){idx=j;break;}}
-          bonusNums.push(gsBRem[idx]);gsBRem.splice(idx,1);gsBW.splice(idx,1);
-        }
-      }else bonusNums=[];
+      bonusNums=smartBonus();
       break;}
     case 'proensemble':{
       const peSetup=_peGetProensembleSetup(game,freqOverride,drawsOverride);
