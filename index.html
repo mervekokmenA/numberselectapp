@@ -333,13 +333,12 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-hizlitahmin" onclick="showMainPage('hizlitahmin')">⚡ Hızlı Tahmin</button>
       <button class="nav-link" id="navBtn-scan" onclick="showMainPage('scan')">🔍 Tarama</button>
       <button class="nav-link" id="navBtn-listeler" onclick="showMainPage('listeler')">📋 Listeler</button>
-      <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Kazanan</button>
+      <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Kazanan/Kronoloji</button>
       <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı</button>
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
       <button class="nav-link" id="navBtn-gulsis" onclick="showMainPage('gulsis')">🎯 Gülsis</button>
       <button class="nav-link" id="navBtn-gulayq" onclick="_gqOpenPopup()">✍️ Hızlı Gülay</button>
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
-      <button class="nav-link" id="navBtn-kronoloji" onclick="showMainPage('kronoloji')">📜 Kronoloji</button>
     </div>
     <button class="nav-scroll-btn" id="navScrollNext" onclick="_navScroll(1)">›</button>
   </div>
@@ -853,26 +852,43 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
 </div>
 
-<!-- ═══════════ PAGE: GEÇMİŞ KAZANAN ═══════════ -->
+<!-- ═══════════ PAGE: GEÇMİŞ KAZANAN + KRONOLOJİ ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-kazanan">
- <div class="card">
-  <div class="card-title">🏆 Geçmiş Kazanan</div>
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-   <button id="kznShowAllBtn" onclick="_kazananToggleAll()" style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">📋 Tüm Çekilişler</button>
-   <label style="font-size:.72rem;color:var(--muted)">Bağlam ±</label>
-   <input type="number" id="kznCtxInput" min="0" max="100" value="0" onchange="_kazananSetCtx(this.value)" style="width:58px;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:.78rem;text-align:center;outline:none">
-   <span style="font-size:.65rem;color:var(--muted)">çekiliş</span>
+ <div class="tabs" id="kazTabs">
+  <button class="tab-btn active" id="kazTabBtn-kazanan" onclick="_kazSwitchTab('kazanan')">🏆 Kazanan</button>
+  <button class="tab-btn" id="kazTabBtn-kronoloji" onclick="_kazSwitchTab('kronoloji')">📜 Kronoloji</button>
+ </div>
+ <div class="tab-panel active" id="kazTab-kazanan">
+  <div class="card">
+   <div class="card-title">🏆 Geçmiş Kazanan</div>
+   <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <button id="kznShowAllBtn" onclick="_kazananToggleAll()" style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">📋 Tüm Çekilişler</button>
+    <label style="font-size:.72rem;color:var(--muted)">Bağlam ±</label>
+    <input type="number" id="kznCtxInput" min="0" max="100" value="0" onchange="_kazananSetCtx(this.value)" style="width:58px;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;font-size:.78rem;text-align:center;outline:none">
+    <span style="font-size:.65rem;color:var(--muted)">çekiliş</span>
+   </div>
+   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+    <button id="kznGameBtn-sans"     onclick="_kazananSetGame('sans')"     style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">🔴 Şans Topu</button>
+    <button id="kznGameBtn-super"    onclick="_kazananSetGame('super')"    style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">⭐ Süper Loto</button>
+    <button id="kznGameBtn-sayisal"  onclick="_kazananSetGame('sayisal')"  style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">🔵 Sayısal Loto</button>
+    <button id="kznGameBtn-onnumara" onclick="_kazananSetGame('onnumara')" style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">🟢 On Numara</button>
+   </div>
+   <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">
+    🏆 işaretli = büyük ikramiye kazanıldığı doğrulanmış çekiliş. Kutucukla kendi işaretlerini ekleyebilirsin. Bağlam değeri girersen kazanan çekilişin ± kadar öncesi ve sonrası da listelenir.
+   </div>
+   <div id="kznList"></div>
   </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-   <button id="kznGameBtn-sans"     onclick="_kazananSetGame('sans')"     style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">🔴 Şans Topu</button>
-   <button id="kznGameBtn-super"    onclick="_kazananSetGame('super')"    style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">⭐ Süper Loto</button>
-   <button id="kznGameBtn-sayisal"  onclick="_kazananSetGame('sayisal')"  style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">🔵 Sayısal Loto</button>
-   <button id="kznGameBtn-onnumara" onclick="_kazananSetGame('onnumara')" style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;transition:all .15s">🟢 On Numara</button>
+ </div>
+ <div class="tab-panel" id="kazTab-kronoloji">
+  <div class="card">
+   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <div class="card-title" style="margin:0">📜 Tüm Çekilişler — Kronolojik Liste</div>
+    <button onclick="_kronRender()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
+   </div>
+   <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Şans Topu, Süper Loto ve Sayısal Loto çekilişleri (On Numara hariç) oyun ayrımı yapılmadan, en güncel çekilişten geçmişe doğru tek bir tarih sırasıyla listelenir. Hafta değiştiğinde aralarına boş bir satır bırakılır. İlk açılışta son 20 hafta gösterilir; daha eski haftaları görmek için "Daha Fazla Yükle" butonunu kullanın. Her satırın Toplama/Çıkarma/Fark Analizi sütunları, o oyunun <strong>kendisinden önceki çekilişinin</strong> Gülay fark analizinden hesaplanır ve bu satırdaki gerçek sonuçla karşılaştırılır (Gülay sayfasındaki Kaynak → Hedef mantığıyla aynı) — en üstteki "Yeni Tahmin" satırı ise henüz oynanmamış sıradaki çekiliş için en son gerçek çekilişten hesaplanan adayları gösterir.</div>
+   <div id="kronGameRow" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+   <div id="kronResult"><div class="empty-state"><span class="empty-icon">📜</span>Yükleniyor…</div></div>
   </div>
-  <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">
-   🏆 işaretli = büyük ikramiye kazanıldığı doğrulanmış çekiliş. Kutucukla kendi işaretlerini ekleyebilirsin. Bağlam değeri girersen kazanan çekilişin ± kadar öncesi ve sonrası da listelenir.
-  </div>
-  <div id="kznList"></div>
  </div>
 </div>
 
@@ -904,7 +920,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <div style="grid-column:1/-1;display:none" id="page-gulsis">
  <div class="card">
   <div class="card-title">🎯 Gülsis Tahmin</div>
-  <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7"><strong>Gülsis</strong>, 🎲 Sisal-LCG Dengesi algoritmasının frekans+toplam+bölge dengeli örneklemesini, 🔮 Gülay Fark-Analizi'nin son çekilişten çıkardığı fark-zinciri adaylarıyla harmanlar. Şu an sadece <strong>Sayısal Loto</strong> ve <strong>Şans Topu</strong> için ayarlanmış ve geçmiş çekilişlerle test edilmiştir. Aşağıda seçtiğiniz tarih için bir <strong>bilet grubu</strong> üretir — hedef, tek bilete değil grubun <strong>en iyi biletine</strong> bakıp Şans Topu'nda 4 net (ya da yakını), Sayısal'da 4-5 net (ya da yakını) yakalama şansını yükseltmektir.</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7"><strong>Gülsis</strong>, 🎲 Sisal-LCG Dengesi algoritmasının frekans+toplam+bölge dengeli örneklemesini, 🔮 Gülay Fark-Analizi'nin son çekilişten çıkardığı fark-zinciri adaylarıyla harmanlar. <strong>Sayısal Loto, Şans Topu, Süper Loto ve On Numara</strong>'nın dördünde de çalışır ve geçmiş çekilişlerle test edilmiştir. Aşağıda seçtiğiniz tarih için bir <strong>bilet grubu</strong> üretir — hedef, tek bilete değil grubun <strong>en iyi biletine</strong> bakıp Şans Topu'nda 4 net (ya da yakını), Sayısal'da 4-5 net (ya da yakını) yakalama şansını yükseltmektir.</div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="gsGameRow"></div>
   <div style="margin-bottom:14px;display:flex;align-items:center;gap:6px">
    <select id="gsDateSel" onchange="_gsSetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:0"></select>
@@ -921,6 +937,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <option value="10">10 bilet</option>
     <option value="20">20 bilet</option>
    </select>
+   <button onclick="_gsRenderFull()" style="font-size:.72rem;padding:5px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🔄 Yeni Tahmin Üret</button>
   </div>
   <div id="gsContent"></div>
  </div>
@@ -945,6 +962,41 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_gsBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
   </div>
   <div id="gsBtResult"></div>
+ </div>
+ <div class="card">
+  <div class="card-title">🔬 Gülsis — Geçmiş Test (Bilet Grubu)</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Anasayfadaki <strong>Geçmiş Test</strong> ile aynı yapı ve mantık: seçtiğiniz <strong>tek bir tarih</strong> için Gülsis algoritmasıyla bir tahmin grubu üretir, her biletin gerçek çekilişle hangi sayılarda eşleştiğini (🟢 net, 🟠 ±1 yakın) tek tek gösterir. Yukarıdaki çoklu geçmiş test N çekilişin <strong>ortalamasını</strong> verir; bu bölüm seçtiğiniz o <strong>tek tarihteki</strong> bilet grubunun tamamını detaylı gösterir — iki ayrı geçmiş test tipi.</div>
+  <div style="margin-bottom:10px;display:flex;align-items:center;gap:6px">
+   <select id="gsTbDate" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:0"></select>
+   <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+    <button onclick="_gsTbStepDate(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:.75rem;line-height:1;flex-shrink:0;display:block" title="Daha yeni">▲</button>
+    <button onclick="_gsTbStepDate(1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:.75rem;line-height:1;flex-shrink:0;display:block" title="Daha eski">▼</button>
+   </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+   <label style="font-size:.72rem;color:var(--muted)">Eğitim Penceresi:</label>
+   <select id="gsTbWindow" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="all" selected>Tüm geçmiş çekilişler</option>
+    <option value="50">Son 50 çekiliş</option>
+    <option value="20">Son 20 çekiliş</option>
+    <option value="10">Son 10 çekiliş</option>
+   </select>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+   <span style="font-size:.72rem;color:var(--muted)">Tahmin Grubu:</span>
+   <div class="counter-ctrl">
+    <button onclick="_gsTbAdjustCount(-1)">−</button>
+    <input type="number" class="counter-val" id="gsTbCountVal" value="4" min="1" max="50"
+      oninput="this.value=Math.max(1,Math.min(50,parseInt(this.value)||1))">
+    <button onclick="_gsTbAdjustCount(1)">+</button>
+   </div>
+   <span style="font-size:.72rem;color:var(--muted)">bilet</span>
+   <button onclick="_gsRunTicketBacktest()" style="margin-left:auto;font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🔬 Geçmiş Testi Çalıştır</button>
+  </div>
+  <div id="gsTbResultSection" style="display:none">
+   <div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button onclick="copyBtAll()" class="copy-btn">📋 Tümünü Kopyala</button></div>
+   <div id="gsTbResultContent"></div>
+  </div>
  </div>
 </div>
 
@@ -1038,19 +1090,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_astroRunBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
   </div>
   <div id="astroBtResult"></div>
- </div>
-</div>
-
-<!-- ═══════════ PAGE: KRONOLOJİ ═══════════ -->
-<div style="grid-column:1/-1;display:none" id="page-kronoloji">
- <div class="card">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <div class="card-title" style="margin:0">📜 Tüm Çekilişler — Kronolojik Liste</div>
-   <button onclick="_kronRender()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
-  </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Şans Topu, Süper Loto ve Sayısal Loto çekilişleri (On Numara hariç) oyun ayrımı yapılmadan, en güncel çekilişten geçmişe doğru tek bir tarih sırasıyla listelenir. Hafta değiştiğinde aralarına boş bir satır bırakılır. İlk açılışta son 20 hafta gösterilir; daha eski haftaları görmek için "Daha Fazla Yükle" butonunu kullanın. Her satırın Toplama/Çıkarma/Fark Analizi sütunları, o oyunun <strong>kendisinden önceki çekilişinin</strong> Gülay fark analizinden hesaplanır ve bu satırdaki gerçek sonuçla karşılaştırılır (Gülay sayfasındaki Kaynak → Hedef mantığıyla aynı) — en üstteki "Yeni Tahmin" satırı ise henüz oynanmamış sıradaki çekiliş için en son gerçek çekilişten hesaplanan adayları gösterir.</div>
-  <div id="kronGameRow" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
-  <div id="kronResult"><div class="empty-state"><span class="empty-icon">📜</span>Yükleniyor…</div></div>
  </div>
 </div>
 
@@ -1275,6 +1314,7 @@ const ALGOS = [
   { id:'birlesikai',  name:'🧠 Birleşik AI Tahmin', desc:'Hızlı Tahmin sayfasındaki çoklu-kaynak uzlaşı sistemi: Gülay Fark-Analizi + AI Sıra-Füzyonu + Kronoloji Örüntü (gecikmiş sayı tespiti) oylarını birleştirip tarihsel toplam aralığına göre dengeler', expert:true },
   { id:'sislcg',      name:'🎲 Sisal-LCG Dengesi',     desc:'LCG tabanlı deterministik dağılım simülasyonu — frekans ağırlıklı, toplam dengelenmiş, bölge kapsamalı', expert:true },
   { id:'smart',      name:'🧠 Smart Kombinasyon', desc:'Üstel frekans + bölge dengesi + tarihsel toplam hedefi + tek/çift denge + son çekiliş cezası — tüm en iyi tekniklerin dengeli kombinasyonu', expert:true },
+  { id:'gulsis',     name:'🎯 Gülsis',        desc:'Sisal-LCG Dengesi\'nin frekans+toplam+bölge dengeli LCG örneklemesini, Gülay Fark-Analizi\'nin son çekilişten çıkardığı fark-zinciri adaylarıyla ağırlıklandırarak harmanlar — geri-test ile ayarlanmış hibrit', expert:true },
   { id:'random',   name:'Tam Rastgele',      desc:'Her sayının eşit şansa sahip olduğu gerçek rastgele seçim' },
   { id:'hot',      name:'🔥 Sıcak Sayılar',   desc:'Geçmişte en sık çekilen sayıları tercih eder' },
   { id:'cold',     name:'❄️ Soğuk Sayılar',   desc:'Son zamanlarda çekilmeyen gecikmiş sayıları seçer' },
@@ -2222,7 +2262,8 @@ sayisal:`2026-06-22 2 17 28 31 50 61 77 | 24
 2020-08-05 46 56 59 65 83 84 48
 2020-08-03 4 34 39 42 47 61 72`,
 
-super:`2026-06-21 5 6 24 37 43 48
+super:`2026-06-23 4 29 30 31 37 39
+2026-06-21 5 6 24 37 43 48
 2026-06-18 3 27 29 33 34 58
 2026-06-16 8 14 23 32 58 60
 2026-06-14 3 26 27 32 44 46
@@ -3810,7 +3851,8 @@ super:`2026-06-21 5 6 24 37 43 48
 2007-11-01 16 22 28 29 46 52
 2007-10-25 24 35 37 39 48 54`,
 
-sans:`2026-06-21 1 4 19 22 30 | 5
+sans:`2026-06-24 7 26 30 32 33 | 9
+2026-06-21 1 4 19 22 30 | 5
 2026-06-17 5 11 14 22 29 | 10
 2026-06-14 4 17 21 22 32 | 2
 2026-06-10 2 4 13 24 33 | 11
@@ -7804,7 +7846,7 @@ function calcConfidence(algo){
     const base=Math.round(hitRate*300);
     return Math.min(99,Math.max(15,base+perf.m3rate*0.3));
   }
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,dateshift:65,poswave:67,excelblend:78,fb10:70,smart:90};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,dateshift:65,poswave:67,excelblend:78,fb10:70,smart:90,gulsis:92};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -8534,7 +8576,7 @@ function updateBtDateOptions(){
   sel.value=newest[0].date;
 }
 
-const ALGO_SHORT={proensemble:'🧬 ProEnsemble',random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG *',star:'🌟 Star',starv2:'🌟 StarV2',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup',smart:'🧠 Smart *'};
+const ALGO_SHORT={proensemble:'🧬 ProEnsemble',random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG *',star:'🌟 Star',starv2:'🌟 StarV2',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup',smart:'🧠 Smart *',gulsis:'🎯 Gülsis *'};
 
 function updateAlgoScores(){
   const gameId=state.selectedGame;
@@ -9424,12 +9466,16 @@ function runNaJoker(){
   html+=`• <strong style="color:var(--text)">Ardışık Süperstar ilişkisi:</strong> Üst üste aynı Süperstar %${(jokers.filter((j,i)=>i>0&&j.v===jokers[i-1].v).length/total*100).toFixed(1)} oranında gözlemlendi (beklenen: %${(100/MAX).toFixed(1)}). Hafif bir "sürüklenme" etkisi mevcut ama istatistiksel güvenilirliği düşük.<br><br>`;
   html+=`• <strong style="color:var(--text)">Dağılım analizi:</strong> Süperstar teorik olarak 1–${MAX} arasında eşit dağılmalı; gerçekte bazı sayı aralıkları diğerlerinden daha sık çıkabilir.<br><br>`;
   html+=`• <strong style="color:var(--text)">En güçlü yöntem — Boşluk (Gap) Analizi:</strong> Uzun süredir çıkmayan Süperstar sayılarını takip etmek. ${cold[0].n} sayısı ${cold[0].g} çekiliştir görülmemiş (beklenen: ${(total/MAX).toFixed(1)} çekilişte bir).<br><br>`;
+  html+=`• <strong style="color:var(--text)">Ağırlık optimizasyonu denendi, kalıcı bir kazanç bulunamadı:</strong> Gap/frekans/Markov/delta sinyallerinin yüzlerce farklı ağırlık kombinasyonu, verinin eski yarısında "eğitilip" yeni yarısında (görülmemiş veri) test edildi. Eğitim setinde anlamlı görünen kombinasyonlar (örn. z≈2.9), test setinde tutarlı biçimde rastgele seviyeye geri düştü (z≈-0.4) — yani bu görünür "iyileşmeler" gerçek sinyal değil, geçmiş veriye aşırı uydurma (overfitting). Bu yüzden puanlama ağırlıkları olduğu gibi bırakıldı.<br><br>`;
   html+=`• <strong style="color:var(--text)">Pratik öneri:</strong> "En Uzun Süredir Çıkmayan" listesindeki ilk 3–5 sayıyı Süperstar tahmini olarak kullanmak istatistiksel açıdan en savunulabilir yaklaşım. Her çekilişin bağımsız olduğu unutulmamalıdır.`;
   html+=`</div></details>`;
 
   // ── Geçmiş Tahmin Testi (canlı tahmin ile birebir aynı motor) ──
+  // Not: 100 çekilişlik pencere, eski 30'luk pencereden daha az gürültülü bir
+  // isabet oranı verir; "anlamlı" etiketi artık gevşek bir 1.1x eşiği değil,
+  // gerçek bir binom z-testiyle belirleniyor (bkz. aşağıdaki araştırma notu).
   const btRows=[];
-  const btLimit=Math.min(30,draws.length-10);
+  const btLimit=Math.min(100,draws.length-10);
   for(let i=1;i<=btLimit;i++){
     const priorDraws=draws.slice(i); // i. çekilişten önceki tüm veri
     const actual=draws[i-1].bonus?.[0];
@@ -9445,16 +9491,22 @@ function runNaJoker(){
   html+=`<div style="margin-top:18px;border-top:1px solid var(--border);padding-top:14px">`;
   html+=`<div style="font-size:.67rem;font-weight:700;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">📊 Geçmiş Tahmin Testi (Son ${btRows.length} Çekiliş)</div>`;
   if(btRows.length){
-    const pct=(btHits/btRows.length*100).toFixed(1);
-    const expPct=(candCount/MAX*100).toFixed(1);
-    const isGood=btHits/btRows.length>candCount/MAX*1.1;
+    const n=btRows.length,p=candCount/MAX;
+    const pct=(btHits/n*100).toFixed(1);
+    const expPct=(p*100).toFixed(1);
+    const sd=Math.sqrt(n*p*(1-p));
+    const z=sd?(btHits-n*p)/sd:0;
+    const isGood=z>=1.64,isBad=z<=-1.64; // ~%95 güven; tek başına gürültüden ayırt etmek için
+    const statusColor=isGood?'var(--green)':isBad?'var(--accent2)':'var(--muted)';
     html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
-    html+=`<span style="font-size:.9rem;font-weight:800;color:${isGood?'var(--green)':'var(--text)'}">${btHits}/${btRows.length}</span>`;
-    html+=`<span style="font-size:.71rem;color:var(--muted)">isabet · <strong style="color:var(--text)">${pct}%</strong> · Beklenen: ${expPct}% (${candCount} aday / ${MAX} sayı)</span>`;
-    html+=`<span style="font-size:.68rem;color:${isGood?'var(--green)':'var(--muted)'}">`;
-    html+=isGood?`✓ Beklentinin üzerinde`:`≈ Rassal beklentiye yakın`;
+    html+=`<span style="font-size:.9rem;font-weight:800;color:${isGood?'var(--green)':isBad?'var(--accent2)':'var(--text)'}">${btHits}/${n}</span>`;
+    html+=`<span style="font-size:.71rem;color:var(--muted)">isabet · <strong style="color:var(--text)">${pct}%</strong> · Beklenen: ${expPct}% (${candCount} aday / ${MAX} sayı) · z=${z.toFixed(2)}</span>`;
+    html+=`<span style="font-size:.68rem;color:${statusColor}">`;
+    html+=isGood?`✓ İstatistiksel olarak anlamlı (≈%95)`:isBad?`✗ Beklentinin anlamlı şekilde altında`:`≈ Rastgele ile istatistiksel olarak ayırt edilemiyor`;
     html+=`</span></div>`;
+    html+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px;line-height:1.5">928 geçmiş çekiliş üzerinde yapılan kapsamlı geri-test, hiçbir ağırlık kombinasyonunun rastgeleden anlamlı ve <em>kalıcı</em> şekilde ayrışmadığını gösteriyor — küçük örneklemde "iyi" görünen sonuçlar genelde gürültüdür. Aşağıdaki z-skoru bu çekiliş penceresi için gerçek istatistiksel anlamlılığı gösterir.</div>`;
 
+    html+=`<div style="max-height:380px;overflow-y:auto">`;
     btRows.forEach(r=>{
       const bg=r.hit?'rgba(0,230,118,.06)':'var(--surface2)';
       html+=`<div style="display:flex;align-items:center;gap:7px;padding:5px 8px;border-radius:7px;margin-bottom:4px;background:${bg}">`;
@@ -9472,6 +9524,7 @@ function runNaJoker(){
       html+=`<span style="font-size:.78rem;flex-shrink:0;color:${r.hit?'var(--green)':'var(--muted)'}">${r.hit?'✓':'✗'}</span>`;
       html+=`</div>`;
     });
+    html+=`</div>`;
   } else {
     html+=`<div style="font-size:.72rem;color:var(--muted)">Test için yeterli veri yok.</div>`;
   }
@@ -12008,11 +12061,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis','page-nsa','page-hizlitahmin','page-astro','page-kronoloji'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis','page-nsa','page-hizlitahmin','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis','navBtn-nsa','navBtn-hizlitahmin','navBtn-astro','navBtn-kronoloji'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis','navBtn-nsa','navBtn-hizlitahmin','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -12024,7 +12077,6 @@ function showMainPage(id){
   if(id==='nsa')_nsaInit();
   if(id==='hizlitahmin')_htInit();
   if(id==='astro')_astroInit();
-  if(id==='kronoloji')_kronRender();
 }
 
 // Nav: always fixed, single row; scroll buttons on large screens, touch scroll on mobile
@@ -13890,9 +13942,17 @@ function _kazananToggleAll(){
   _kazananRender();
 }
 function _initKazananPage(){
+  _kazSwitchTab('kazanan');
   _kazananGame=state.selectedGame||GAMES[0].id;
   _kazananHighlightGame(_kazananGame);
   _kazananRender();
+}
+function _kazSwitchTab(id){
+  ['kazanan','kronoloji'].forEach(t=>{
+    document.getElementById('kazTabBtn-'+t)?.classList.toggle('active',t===id);
+    document.getElementById('kazTab-'+t)?.classList.toggle('active',t===id);
+  });
+  if(id==='kronoloji')_kronRender();
 }
 function _kazananSetGame(id){_kazananGame=id;_kazananHighlightGame(id);_kazananRender();}
 function _kazananHighlightGame(id){
@@ -16531,7 +16591,7 @@ function _soAiBacktest(opts){
 }
 
 // ═══════════ GÜLSİS — YENİ VE GEÇMİŞ TAHMİN ═══════════════════════════
-const _GS_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'sans',e:'🔴',n:'Şans Topu'}];
+const _GS_GAMES=GAMES.map(g=>({id:g.id,e:g.emoji,n:g.name}));
 const _GS_MIN_PRIOR=40;
 let _gsGame='sayisal',_gsDate='';
 function _gsInit(){
@@ -16539,10 +16599,14 @@ function _gsInit(){
   _gsDate='';
   _gsRenderFull();
   const btEl=document.getElementById('gsBtResult');if(btEl)btEl.innerHTML='';
+  _gsTbDateOptions();
+  const tbRs=document.getElementById('gsTbResultSection');if(tbRs)tbRs.style.display='none';
 }
 function _gsSetGame(g){
   _gsGame=g;_gsDate='';_gsRenderFull();
   const btEl=document.getElementById('gsBtResult');if(btEl)btEl.innerHTML='';
+  _gsTbDateOptions();
+  const tbRs=document.getElementById('gsTbResultSection');if(tbRs)tbRs.style.display='none';
 }
 function _gsStepDate(dir){
   const sel=document.getElementById('gsDateSel');if(!sel)return;
@@ -16563,11 +16627,24 @@ function _gsNearCount(ticket,actualSet){
 }
 function _gsGenBundle(game,freq,prior,size){
   const seen=new Set(),tickets=[];let attempts=0;
+  // Demet içindeki biletler arası örtüşmeyi azaltmak için, bilete giren sayıların ağırlığı
+  // sonraki bilet üretiminde cezalandırılır. "En iyi bilet" istatistiği için bu, demetin
+  // çektiği sayı havuzunu genişletir; train/val geri-testlerinde tüm oyunlarda avgBest'i
+  // tutarlı şekilde iyileştirdiği doğrulandı (bkz. gulsis_bundle_quality.mjs sonuçları).
+  const usage={};
   while(tickets.length<size&&attempts<size*25){
     attempts++;
-    const t=generateNumbers(game,'gulsis',freq,prior);
+    let useFreq=freq;
+    if(Object.keys(usage).length){
+      useFreq={...freq};
+      for(const n in usage)useFreq[n]=(useFreq[n]||0.1)/(1+usage[n]*1.0);
+    }
+    const t=generateNumbers(game,'gulsis',useFreq,prior);
     const k=[...t.main,...t.bonus].join(',');
-    if(!seen.has(k)){seen.add(k);tickets.push(t);}
+    if(!seen.has(k)){
+      seen.add(k);tickets.push(t);
+      [...t.main,...t.bonus].forEach(n=>{usage[n]=(usage[n]||0)+1;});
+    }
   }
   return tickets;
 }
@@ -16696,6 +16773,66 @@ function _gsBacktest(){
     html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=isabetli (net) · ~=±1 yakın · Her satır, o tarihte henüz bilinmeyen (gelecek) veri kullanılmadan, ${bundleSize} biletlik grup içindeki en iyi sonucu gösterir.</div>`;
     btEl.innerHTML=html;
   },20);
+}
+
+// ── İkinci geçmiş test tipi: anasayfadaki tekil-tarih bilet grubu testiyle aynı yapı/mantık ──
+function _gsTbDateOptions(){
+  const sel=document.getElementById('gsTbDate');if(!sel)return;
+  const draws=_kbGetDraws(_gsGame);
+  const usable=draws.filter((d,i)=>draws.length-i-1>=_GS_MIN_PRIOR);
+  if(!usable.length){sel.innerHTML='<option value="">— Yeterli veri yok —</option>';return;}
+  const cur=sel.value;
+  sel.innerHTML=usable.map(d=>`<option value="${d.date}">${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`).join('');
+  sel.value=usable.some(d=>d.date===cur)?cur:usable[0].date;
+}
+function _gsTbStepDate(dir){
+  const sel=document.getElementById('gsTbDate');if(!sel)return;
+  const opts=Array.from(sel.options);
+  const cur=opts.findIndex(o=>o.value===sel.value);
+  const next=cur+dir;
+  if(next<0||next>=opts.length)return;
+  sel.value=opts[next].value;
+}
+function _gsTbAdjustCount(d){
+  const el=document.getElementById('gsTbCountVal');if(!el)return;
+  el.value=Math.max(1,Math.min(50,(parseInt(el.value)||4)+d));
+}
+function _gsRunTicketBacktest(){
+  const game=getGame(_gsGame);
+  const draws=_kbGetDraws(_gsGame);
+  const testDate=document.getElementById('gsTbDate')?.value;
+  const rs=document.getElementById('gsTbResultSection'),rc=document.getElementById('gsTbResultContent');
+  if(!rs||!rc)return;
+  if(!testDate){showToast('⚠️ Lütfen bir test tarihi seçin');return;}
+  const win=document.getElementById('gsTbWindow')?.value||'all';
+  let prior=draws.filter(d=>d.date<testDate);
+  if(win!=='all')prior=prior.slice(0,parseInt(win));
+  if(prior.length<_GS_MIN_PRIOR){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
+  const freq=buildFreq(prior);
+  const actual=draws.find(d=>d.date===testDate)||null;
+  const n=Math.max(1,Math.min(50,parseInt(document.getElementById('gsTbCountVal')?.value)||4));
+  rs.style.display='block';
+  rc.innerHTML=`<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82rem">⏳ Hesaplanıyor...</div>`;
+  setTimeout(()=>{
+    const results=[];
+    for(let t=0;t<n;t++){
+      const pred=generateNumbers(game,'gulsis',freq,prior);
+      let mMain=0,mBonus=0,nearTotal=0;
+      if(actual){
+        const aS=new Set(actual.nums);
+        mMain=pred.main.filter(x=>aS.has(x)).length;
+        nearTotal=pred.main.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length;
+        if(game.bonusCount>0){
+          const aBs=new Set(actual.bonus);
+          mBonus=pred.bonus.filter(x=>aBs.has(x)).length;
+          nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
+        }
+      }
+      results.push({pred,mMain,mBonus,nearTotal,tryNum:t+1});
+    }
+    results.sort((a,b)=>calcTicketScore(b.pred,game)-calcTicketScore(a.pred,game));
+    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,'gulsis',prior.length,false,'');
+  },10);
 }
 
 </script>
