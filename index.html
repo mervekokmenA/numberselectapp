@@ -1037,7 +1037,42 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
   <div>
    <div class="card">
-    <div class="card-title">📊 Gülsis Sıfır — Geçmiş Test</div>
+    <div class="card-title">🔬 Gülsis Sıfır — Geçmiş Test (Bilet Grubu)</div>
+    <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(16,185,129,.06);border-radius:6px;line-height:1.7">Seçtiğiniz <strong>tek bir tarih</strong> için kapsama-optimal bir bilet grubu üretir ve <strong>her biletin</strong> gerçek çekilişle hangi sayılarda eşleştiğini (🟢 net, 🟠 ±1 yakın) tek tek gösterir. Aşağıdaki çoklu geçmiş test N çekilişin <strong>ortalamasını</strong> verir; bu bölüm seçtiğiniz o <strong>tek tarihteki</strong> bilet grubunun tamamını detaylı gösterir.</div>
+    <div style="margin-bottom:10px;display:flex;align-items:center;gap:6px">
+     <select id="g0TbDate" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:0"></select>
+     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+      <button onclick="_g0TbStepDate(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:.75rem;line-height:1;flex-shrink:0;display:block" title="Daha yeni">▲</button>
+      <button onclick="_g0TbStepDate(1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:.75rem;line-height:1;flex-shrink:0;display:block" title="Daha eski">▼</button>
+     </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+     <label style="font-size:.72rem;color:var(--muted)">Eğitim Penceresi:</label>
+     <select id="g0TbWindow" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+      <option value="all" selected>Tüm geçmiş çekilişler</option>
+      <option value="200">Son 200 çekiliş</option>
+      <option value="100">Son 100 çekiliş</option>
+      <option value="50">Son 50 çekiliş</option>
+     </select>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+     <span style="font-size:.72rem;color:var(--muted)">Bilet grubu:</span>
+     <div class="counter-ctrl">
+      <button onclick="_g0TbAdjustCount(-1)">−</button>
+      <input type="number" class="counter-val" id="g0TbCountVal" value="10" min="1" max="50"
+        oninput="this.value=Math.max(1,Math.min(50,parseInt(this.value)||1))">
+      <button onclick="_g0TbAdjustCount(1)">+</button>
+     </div>
+     <span style="font-size:.72rem;color:var(--muted)">bilet</span>
+     <button onclick="_g0RunTicketBacktest()" style="margin-left:auto;font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(16,185,129,.85),rgba(5,150,105,.7));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🔬 Geçmiş Testi Çalıştır</button>
+    </div>
+    <div id="g0TbResultSection" style="display:none">
+     <div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button onclick="copyBtAll()" class="copy-btn">📋 Tümünü Kopyala</button></div>
+     <div id="g0TbResultContent"></div>
+    </div>
+   </div>
+   <div class="card">
+    <div class="card-title">📊 Gülsis Sıfır — Çoklu Geçmiş Test</div>
     <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(16,185,129,.06);border-radius:6px;line-height:1.7">Seçilen oyunda son N çekilişin <strong>her biri için</strong>, o tarihten önceki verilerle (lookahead yok) kapsama-optimal bir bilet grubu üretir ve grubun en iyi biletinin gerçek çekilişle kaç <strong>net</strong> ve kaç <strong>±1 yakın</strong> numara paylaştığını ölçer. <strong>"≥4 NET (birebir)" sütunu kasıtlı olarak gösterilir</strong> — bu oranın düşük/şans seviyesinde kalması, sistemin abartısız ve dürüst olduğunun kanıtıdır.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
      <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
@@ -17003,8 +17038,15 @@ function _g0Init(){
   _g0Date='';
   _g0RenderFull();
   const btEl=document.getElementById('g0BtResult');if(btEl)btEl.innerHTML='';
+  _g0TbDateOptions();
+  const tbRs=document.getElementById('g0TbResultSection');if(tbRs)tbRs.style.display='none';
 }
-function _g0SetGame(g){_g0Game=g;_g0Date='';_g0RenderFull();const btEl=document.getElementById('g0BtResult');if(btEl)btEl.innerHTML='';}
+function _g0SetGame(g){
+  _g0Game=g;_g0Date='';_g0RenderFull();
+  const btEl=document.getElementById('g0BtResult');if(btEl)btEl.innerHTML='';
+  _g0TbDateOptions();
+  const tbRs=document.getElementById('g0TbResultSection');if(tbRs)tbRs.style.display='none';
+}
 function _g0StepDate(dir){
   const sel=document.getElementById('g0DateSel');if(!sel)return;
   const opts=Array.from(sel.options);const cur=opts.findIndex(o=>o.value===sel.value);const next=cur+dir;
@@ -17132,6 +17174,63 @@ function _g0Backtest(){
     html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=net · ~=±1 yakın · Her satır, o tarihte henüz bilinmeyen veri kullanılmadan, ${K} biletlik kapsama-optimal grup içindeki "net+yakın" açısından en iyi sonucu gösterir.</div>`;
     btEl.innerHTML=html;
   },20);
+}
+
+// ── Biletli (tek-tarih) geçmiş test — kapsama-optimal grubu detaylı gösterir ──
+function _g0TbDateOptions(){
+  const sel=document.getElementById('g0TbDate');if(!sel)return;
+  const draws=_kbGetDraws(_g0Game);
+  const usable=draws.filter((d,i)=>draws.length-i-1>=_G0_MIN_PRIOR);
+  if(!usable.length){sel.innerHTML='<option value="">— Yeterli veri yok —</option>';return;}
+  const cur=sel.value;
+  sel.innerHTML=usable.map(d=>`<option value="${d.date}">${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`).join('');
+  sel.value=usable.some(d=>d.date===cur)?cur:usable[0].date;
+}
+function _g0TbStepDate(dir){
+  const sel=document.getElementById('g0TbDate');if(!sel)return;
+  const opts=Array.from(sel.options);const cur=opts.findIndex(o=>o.value===sel.value);const next=cur+dir;
+  if(next<0||next>=opts.length)return;sel.value=opts[next].value;
+}
+function _g0TbAdjustCount(d){
+  const el=document.getElementById('g0TbCountVal');if(!el)return;
+  el.value=Math.max(1,Math.min(50,(parseInt(el.value)||10)+d));
+}
+function _g0RunTicketBacktest(){
+  const game=getGame(_g0Game);
+  const draws=_kbGetDraws(_g0Game);
+  const testDate=document.getElementById('g0TbDate')?.value;
+  const rs=document.getElementById('g0TbResultSection'),rc=document.getElementById('g0TbResultContent');
+  if(!rs||!rc)return;
+  if(!testDate){showToast('⚠️ Lütfen bir test tarihi seçin');return;}
+  const win=document.getElementById('g0TbWindow')?.value||'all';
+  let prior=draws.filter(d=>d.date<testDate);
+  if(win!=='all')prior=prior.slice(0,parseInt(win));
+  if(prior.length<_G0_MIN_PRIOR){showToast('⚠️ Seçilen tarihten önce yeterli veri yok');return;}
+  const actual=draws.find(d=>d.date===testDate)||null;
+  const K=Math.max(1,Math.min(50,parseInt(document.getElementById('g0TbCountVal')?.value)||10));
+  rs.style.display='block';
+  rc.innerHTML=`<div style="padding:16px;text-align:center;color:var(--muted);font-size:.82rem">⏳ Kapsama-optimal grup hesaplanıyor...</div>`;
+  setTimeout(()=>{
+    const tickets=_g0GenBundle(game,prior,K);
+    if(!tickets.length){rc.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bilet üretilemedi.</div>';return;}
+    const results=tickets.map((pred,t)=>{
+      let mMain=0,mBonus=0,nearTotal=0;
+      if(actual){
+        const aS=new Set(actual.nums);
+        mMain=pred.main.filter(x=>aS.has(x)).length;
+        nearTotal=pred.main.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length;
+        if(game.bonusCount>0){
+          const aBs=new Set(actual.bonus);
+          mBonus=pred.bonus.filter(x=>aBs.has(x)).length;
+          nearTotal+=pred.bonus.filter(x=>!aBs.has(x)&&(aBs.has(x-1)||aBs.has(x+1))).length;
+        }
+      }
+      return{pred,mMain,mBonus,nearTotal,tryNum:t+1};
+    });
+    // En iyi (net+yakın) bilet en üstte olacak şekilde sırala
+    results.sort((a,b)=>((b.mMain+b.mBonus+b.nearTotal)-(a.mMain+a.mBonus+a.nearTotal))||(calcTicketScore(b.pred,game)-calcTicketScore(a.pred,game)));
+    rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,'',prior.length,false,'');
+  },10);
 }
 
 </script>
