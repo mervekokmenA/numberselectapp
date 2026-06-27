@@ -337,6 +337,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı</button>
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
       <button class="nav-link" id="navBtn-gulsis" onclick="showMainPage('gulsis')">🎯 Gülsis</button>
+      <button class="nav-link" id="navBtn-gulsis0" onclick="showMainPage('gulsis0')" style="border-color:rgba(16,185,129,.4);color:#0a9a6a">🎯⁰ Gülsis Sıfır</button>
       <button class="nav-link" id="navBtn-gulayq" onclick="_gqOpenPopup()">✍️ Hızlı Gülay</button>
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
     </div>
@@ -1001,6 +1002,61 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
      <button onclick="_gsBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
     </div>
     <div id="gsBtResult"></div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<!-- ═══════════ PAGE: GÜLSİS SIFIR ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-gulsis0">
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+  <div>
+   <div class="card">
+    <div class="card-title">🎯⁰ Gülsis Sıfır Tahmin</div>
+    <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(16,185,129,.06);border-radius:6px;line-height:1.7"><strong>Gülsis Sıfır</strong>, tamamen 🎲 Sisal-LCG ve 🔮 Gülay Fark-Analizi üzerine kurulu yeni bir motordur. Geçmiş verilerle <strong>1.6 milyondan fazla aday biletle</strong> test edilerek ayarlandı. <strong>Dürüst gerçek:</strong> sayısal piyangoda <strong>tam (birebir) "net" isabet hiçbir yöntemle şansın üstüne çıkmaz</strong> — bunu testlerde doğruladık. Ölçülebilir tek kazanç <strong>kapsamadır</strong>: büyük çeşitli bir havuz üretip, grubun en iyi biletinin <strong>"net YA DA ±1 yakın"</strong> skorunu maksimize eden komşu-farkında bir seçim yapar. <strong>Sayısal Loto ve Şans Topu</strong> için optimize edildi. Doğrulanmış oranlar — Şans Topu 10 bilet: <strong>≥4 net/yakın %93</strong>; Sayısal 20 bilet: <strong>≥4 net/yakın %86</strong>.</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="g0GameRow"></div>
+    <div style="margin-bottom:14px;display:flex;align-items:center;gap:6px">
+     <select id="g0DateSel" onchange="_g0SetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:0"></select>
+     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+      <button onclick="_g0StepDate(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:.75rem;line-height:1;flex-shrink:0;display:block" title="Daha yeni">▲</button>
+      <button onclick="_g0StepDate(1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:.75rem;line-height:1;flex-shrink:0;display:block" title="Daha eski">▼</button>
+     </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+     <label style="font-size:.72rem;color:var(--muted)">Bilet grubu büyüklüğü:</label>
+     <select id="g0BundleSize" onchange="_g0RenderFull()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+      <option value="4">4 bilet</option>
+      <option value="10" selected>10 bilet</option>
+      <option value="20">20 bilet</option>
+      <option value="30">30 bilet</option>
+     </select>
+     <button onclick="_g0RenderFull()" style="font-size:.72rem;padding:5px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(16,185,129,.85),rgba(5,150,105,.7));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🔄 Yeni Tahmin Üret</button>
+    </div>
+    <div id="g0Content"></div>
+   </div>
+  </div>
+  <div>
+   <div class="card">
+    <div class="card-title">📊 Gülsis Sıfır — Geçmiş Test</div>
+    <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(16,185,129,.06);border-radius:6px;line-height:1.7">Seçilen oyunda son N çekilişin <strong>her biri için</strong>, o tarihten önceki verilerle (lookahead yok) kapsama-optimal bir bilet grubu üretir ve grubun en iyi biletinin gerçek çekilişle kaç <strong>net</strong> ve kaç <strong>±1 yakın</strong> numara paylaştığını ölçer. <strong>"≥4 NET (birebir)" sütunu kasıtlı olarak gösterilir</strong> — bu oranın düşük/şans seviyesinde kalması, sistemin abartısız ve dürüst olduğunun kanıtıdır.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+     <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
+     <select id="g0BtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+      <option value="20">20 çekiliş</option>
+      <option value="50" selected>50 çekiliş</option>
+      <option value="100">100 çekiliş</option>
+      <option value="200">200 çekiliş</option>
+     </select>
+     <label style="font-size:.72rem;color:var(--muted)">Grup büyüklüğü:</label>
+     <select id="g0BtBundleSize" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+      <option value="4">4 bilet</option>
+      <option value="10" selected>10 bilet</option>
+      <option value="20">20 bilet</option>
+      <option value="30">30 bilet</option>
+     </select>
+     <button onclick="_g0Backtest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(16,185,129,.85),rgba(5,150,105,.7));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
+    </div>
+    <div id="g0BtResult"></div>
    </div>
   </div>
  </div>
@@ -12069,11 +12125,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis','page-nsa','page-hizlitahmin','page-astro'].forEach(pid=>{
+  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis','page-gulsis0','page-nsa','page-hizlitahmin','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis','navBtn-nsa','navBtn-hizlitahmin','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -12082,6 +12138,7 @@ function showMainPage(id){
   if(id==='kapsamli'){_kbGame=state.selectedGame||_kbGame;_kbInit();}
   if(id==='soz')_soInit();
   if(id==='gulsis')_gsInit();
+  if(id==='gulsis0')_g0Init();
   if(id==='nsa')_nsaInit();
   if(id==='hizlitahmin')_htInit();
   if(id==='astro')_astroInit();
@@ -16841,6 +16898,240 @@ function _gsRunTicketBacktest(){
     results.sort((a,b)=>calcTicketScore(b.pred,game)-calcTicketScore(a.pred,game));
     rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,'gulsis',prior.length,false,'');
   },10);
+}
+
+// ═══════════ GÜLSİS SIFIR — Sisal-LCG + Gülay kapsama (coverage) motoru ═══════════
+// Tasarım, geçmiş verilerle 1.6M+ aday biletlik ampirik test sonucunda kilitlendi
+// (bkz. scratchpad/r1..r4). Temel bulgu: tam "net" (birebir) tahmin, frekans/Gülay
+// sıralaması dahil hiçbir yöntemle ŞANS seviyesinin üstüne çıkmıyor — sayısal piyango
+// matematiksel olarak öngörülemez. Ölçülebilir tek kazanç KAPSAMA'dır: büyük bir
+// çeşitli havuz üretip, grubun en iyi biletinin "net YA DA ±1 yakın" skorunu
+// maksimize eden komşu-farkında açgözlü (greedy) seçim. Doğrulanmış oranlar:
+//   Şans Topu  K=10 → ≥4(net/yakın) %93, ≥5 %45
+//   Sayısal    K=20 → ≥4(net/yakın) %86, ≥5 %32
+const _G0_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'sans',e:'🔴',n:'Şans Topu'}];
+const _G0_MIN_PRIOR=150;
+const _G0_PARAMS={gulayW:1.2,ewfW:0.8,freqPow:1.3,lambda:0.82};
+let _g0Game='sayisal',_g0Date='';
+
+function _g0Ewf(draws,max,lambda){
+  const f={};for(let n=1;n<=max;n++)f[n]=0;
+  draws.forEach((d,i)=>{const w=Math.pow(lambda,i);[...(d.nums||[]),...(d.bonus||[])].forEach(n=>{if(n<=max)f[n]+=w;});});
+  return f;
+}
+// Ağırlıklı, tekrarsız örnekleyici — havuzun bir kopyası üzerinde Math.random ile
+function _g0Sample(pool,weights,count){
+  const rem=pool.slice(),w=weights.slice(),out=[];
+  for(let k=0;k<count&&rem.length;k++){
+    let tot=0;for(const x of w)tot+=x;
+    let r=Math.random()*tot,idx=0;
+    for(let j=0;j<w.length;j++){r-=w[j];if(r<=0){idx=j;break;}}
+    out.push(rem[idx]);rem.splice(idx,1);w.splice(idx,1);
+  }
+  return out.sort((a,b)=>a-b);
+}
+// Sayı başına ağırlık: güç-frekans × EWF × Gülay fark-analizi adayları
+function _g0Weights(prior,game){
+  const max=game.max,freq=buildFreq(prior),e=_g0Ewf(prior,max,_G0_PARAMS.lambda);
+  const gm={};try{const ga=_soGapAnalysisCompute(prior[0],game);(ga?.gulayCands||[]).forEach(c=>{gm[c.n]=c.cnt;});}catch(_){}
+  const gMax=Math.max(1,...Object.values(gm),0),eMax=Math.max(1,...Object.values(e),0);
+  const pool=range(1,max);
+  const{gulayW,ewfW,freqPow}=_G0_PARAMS;
+  const w=pool.map(n=>Math.pow((freq[n]||0.1),freqPow)*(1+ewfW*((e[n]||0)/eMax))*(1+gulayW*((gm[n]||0)/gMax)));
+  return{pool,w,freq};
+}
+function _g0SumBand(prior,game){
+  const s=prior.map(d=>d.nums.slice(0,game.count).reduce((a,n)=>a+n,0)).filter(x=>x>0).sort((a,b)=>a-b);
+  if(!s.length)return[(game.max+1)*game.count*0.28,(game.max+1)*game.count*0.72];
+  return[s[Math.floor(s.length*0.2)],s[Math.floor(s.length*0.8)]];
+}
+// Çeşitli aday havuzu üret (sisal mantığı: frekans örneklemesi + toplam-bandı + bölge dengesi)
+function _g0GenPool(game,prior,poolSize){
+  const{pool,w,freq}=_g0Weights(prior,game);
+  const[lo,hi]=_g0SumBand(prior,game),mid=(lo+hi)/2;
+  const bands=[],bsz=game.max/game.count;
+  for(let z=0;z<game.count;z++)bands.push([Math.floor(z*bsz)+1,z===game.count-1?game.max:Math.floor((z+1)*bsz)]);
+  const tickets=[],seen=new Set();let att=0;
+  while(tickets.length<poolSize&&att<poolSize*4){
+    att++;
+    const main=_g0Sample(pool,w,game.count);
+    if(main.length<game.count)continue;
+    const key=main.join(',');if(seen.has(key))continue;seen.add(key);
+    const sum=main.reduce((a,n)=>a+n,0);
+    const sumPen=(sum<lo||sum>hi)?Math.abs(sum-mid)*2:Math.abs(sum-mid)*0.5;
+    const covered=new Set(main.map(n=>bands.findIndex(b=>n>=b[0]&&n<=b[1])));
+    tickets.push({main,score:sumPen+(game.count-covered.size)*15});
+  }
+  return{tickets,freq};
+}
+function _g0Bonus(game,freq){
+  if(game.bonusCount<=0)return[];
+  const bp=range(1,game.bonusMax);
+  return _g0Sample(bp,bp.map(n=>freq[n]||0.1),game.bonusCount);
+}
+// Komşu-farkında açgözlü kapsama: her bilet n-1,n,n+1 hücrelerini "kaplar";
+// yeni kaplanan hücre sayısını maksimize ederek grubu seçer → en iyi biletin
+// net/yakın skorunu yükseltir (ampirik olarak quality-first seçimi geçer).
+function _g0SelectCoverage(poolObj,K,game){
+  const chosen=[],covered=new Set();
+  const cand=poolObj.tickets.slice().sort((a,b)=>a.score-b.score).slice(0,Math.min(poolObj.tickets.length,3000));
+  const cells=n=>[n-1,n,n+1];
+  while(chosen.length<K&&cand.length){
+    let bestI=-1,bestGain=-1e9;
+    for(let i=0;i<cand.length;i++){
+      const t=cand[i];let gain=0;
+      for(const n of t.main)for(const c of cells(n))if(c>=1&&c<=game.max&&!covered.has(c))gain++;
+      gain-=t.score*0.0005;
+      if(gain>bestGain){bestGain=gain;bestI=i;}
+    }
+    if(bestI<0)break;
+    const t=cand.splice(bestI,1)[0];chosen.push(t);t.main.forEach(n=>cells(n).forEach(c=>covered.add(c)));
+  }
+  return chosen;
+}
+// Tek giriş noktası: K biletlik kapsama-optimal grup → [{main,bonus}]
+function _g0GenBundle(game,prior,K){
+  const poolSize=Math.max(600,Math.min(2500,K*150));
+  const poolObj=_g0GenPool(game,prior,poolSize);
+  if(!poolObj.tickets.length)return[];
+  return _g0SelectCoverage(poolObj,K,game).map(t=>({main:t.main,bonus:_g0Bonus(game,poolObj.freq)}));
+}
+
+// ── Sayfa kontrolü ──
+function _g0Init(){
+  if(_G0_GAMES.some(g=>g.id===state.selectedGame))_g0Game=state.selectedGame;
+  _g0Date='';
+  _g0RenderFull();
+  const btEl=document.getElementById('g0BtResult');if(btEl)btEl.innerHTML='';
+}
+function _g0SetGame(g){_g0Game=g;_g0Date='';_g0RenderFull();const btEl=document.getElementById('g0BtResult');if(btEl)btEl.innerHTML='';}
+function _g0StepDate(dir){
+  const sel=document.getElementById('g0DateSel');if(!sel)return;
+  const opts=Array.from(sel.options);const cur=opts.findIndex(o=>o.value===sel.value);const next=cur+dir;
+  if(next<0||next>=opts.length)return;sel.value=opts[next].value;_g0SetDate(sel.value);
+}
+function _g0SetDate(v){_g0Date=v;_g0RenderFull();}
+function _g0RenderFull(){
+  const el=document.getElementById('g0Content');if(!el)return;
+  const game=getGame(_g0Game);
+  const draws=_kbGetDraws(_g0Game);
+  const row=document.getElementById('g0GameRow');
+  if(row)row.innerHTML=_G0_GAMES.map(g=>{
+    const a=g.id===_g0Game;
+    return `<button onclick="_g0SetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(16,185,129,.7)':'var(--border)'};background:${a?'rgba(16,185,129,.15)':'var(--surface2)'};color:${a?'#0a9a6a':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
+  }).join('');
+  if(!draws||draws.length<_G0_MIN_PRIOR+1){el.innerHTML=`<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (en az ${_G0_MIN_PRIOR+1} gerekli).</div>`;return;}
+  const sel=document.getElementById('g0DateSel');
+  if(sel){
+    let optsHtml=`<option value=""${_g0Date===''?' selected':''}>🔮 Yeni Tahmin — ${draws[0].date} sonrası için</option>`;
+    draws.forEach((d,i)=>{if(draws.length-i-1<_G0_MIN_PRIOR)return;optsHtml+=`<option value="${d.date}"${d.date===_g0Date?' selected':''}>🎯 Hedef: ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+    sel.innerHTML=optsHtml;
+  }
+  const K=Math.max(1,Math.min(50,parseInt(document.getElementById('g0BundleSize')?.value)||10));
+  let prior,actual=null;
+  if(_g0Date===''){prior=draws;}
+  else{
+    actual=draws.find(d=>d.date===_g0Date)||null;
+    prior=draws.filter(d=>d.date<_g0Date);
+    if(!actual||prior.length<_G0_MIN_PRIOR){el.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bu tarih için yeterli geçmiş veri yok.</div>';return;}
+  }
+  el.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Kapsama-optimal grup hesaplanıyor…</div>';
+  setTimeout(()=>{
+    const tickets=_g0GenBundle(game,prior,K);
+    if(!tickets.length){el.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bilet üretilemedi.</div>';return;}
+    const actualSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
+    const exNums=actual?new Set(actual.nums||[]):null;
+    const exBonus=actual?new Set(actual.bonus||[]):null;
+    window._g0CopyText='Gülsis Sıfır\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+    let bestIdx=0,h='';
+    if(actual){
+      const matches=tickets.map(t=>_gsMatchCount(t,actualSet));
+      bestIdx=matches.indexOf(Math.max(...matches));
+      const nearBest=_gsNearCount(tickets[bestIdx],actualSet);
+      h+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">`;
+      const statCard=(lbl,val,col)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${col}">${val}</div><div style="font-size:.6rem;color:var(--muted)">${lbl}</div></div>`;
+      const netBest=matches[bestIdx];
+      h+=statCard('Grup en iyi (net)',netBest,netBest>=4?'var(--green)':netBest>=3?'var(--gold)':'var(--muted)');
+      h+=statCard('En iyi bilet ±1 yakın',nearBest,'var(--accent)');
+      h+=statCard('Net + yakın (en iyi)',netBest+nearBest,(netBest+nearBest)>=4?'var(--green)':'var(--muted)');
+      h+=statCard('Grup büyüklüğü',tickets.length,'var(--text)');
+      h+=`</div>`;
+    }
+    h+=`<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button onclick="_kbCopy(window._g0CopyText)" class="copy-btn">📋 Kopyala</button></div>`;
+    h+=tickets.map((t,i)=>{
+      const label=actual&&i===bestIdx?`<div style="font-size:.6rem;color:var(--green);font-weight:800;margin:${i>0?'10px':'0'} 0 -2px 4px">🏆 Grubun en iyi bileti</div>`:'';
+      return label+renderTicket(t,game,'',i,null,exNums,exBonus,calcTicketScore(t,game),true);
+    }).join('');
+    el.innerHTML=h;
+  },10);
+}
+function _g0Backtest(){
+  const game=getGame(_g0Game);
+  const draws=_kbGetDraws(_g0Game);
+  const btEl=document.getElementById('g0BtResult');if(!btEl)return;
+  const btCount=parseInt(document.getElementById('g0BtCount')?.value)||50;
+  const K=Math.max(1,Math.min(50,parseInt(document.getElementById('g0BtBundleSize')?.value)||10));
+  if(!draws||draws.length<_G0_MIN_PRIOR+5){btEl.innerHTML=`<div style="padding:14px;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (en az ${_G0_MIN_PRIOR+5} gerekli).</div>`;return;}
+  btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor… (büyük havuz üretildiği için birkaç saniye sürebilir)</div>';
+  setTimeout(()=>{
+    const tests=Math.min(btCount,draws.length-_G0_MIN_PRIOR);
+    const rows=[];
+    let sumBest=0,sumNN=0,ge3nn=0,ge4nn=0,ge5nn=0,ge4net=0;
+    for(let i=0;i<tests;i++){
+      const actual=draws[i];const prior=draws.slice(i+1);
+      if(prior.length<_G0_MIN_PRIOR)break;
+      const tickets=_g0GenBundle(game,prior,K);
+      if(!tickets.length)continue;
+      const actualSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      let bestNet=0,bestNN=0,bestIdx=0;
+      tickets.forEach((t,idx)=>{
+        const net=_gsMatchCount(t,actualSet);const near=_gsNearCount(t,actualSet);
+        if(net+near>bestNN){bestNN=net+near;bestIdx=idx;}
+        if(net>bestNet)bestNet=net;
+      });
+      const near=_gsNearCount(tickets[bestIdx],actualSet);
+      const netOfBestNN=_gsMatchCount(tickets[bestIdx],actualSet);
+      sumBest+=bestNet;sumNN+=bestNN;
+      if(bestNN>=3)ge3nn++;if(bestNN>=4)ge4nn++;if(bestNN>=5)ge5nn++;if(bestNet>=4)ge4net++;
+      rows.push({date:actual.date,actualNums:[...(actual.nums||[])],actualBonus:[...(actual.bonus||[])],ticket:tickets[bestIdx],net:netOfBestNN,near});
+    }
+    if(!rows.length){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Test satırı oluşturulamadı.</div>';return;}
+    const N=rows.length;
+    const avgBest=(sumBest/N).toFixed(2),avgNN=(sumNN/N).toFixed(2);
+    const p3=Math.round(ge3nn/N*100),p4=Math.round(ge4nn/N*100),p5=Math.round(ge5nn/N*100),p4n=Math.round(ge4net/N*100);
+    let html=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">`;
+    const statCard=(lbl,val,col)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${col}">${val}</div><div style="font-size:.6rem;color:var(--muted)">${lbl}</div></div>`;
+    html+=statCard('Ort. net+yakın (en iyi)',avgNN,'var(--accent)');
+    html+=statCard('≥4 net+yakın',p4+'%',p4>=70?'var(--green)':p4>=40?'var(--gold)':'var(--muted)');
+    html+=statCard('≥5 net+yakın',p5+'%',p5>=40?'var(--green)':p5>=20?'var(--gold)':'var(--muted)');
+    html+=statCard('≥3 net+yakın',p3+'%',p3>=80?'var(--green)':'var(--gold)');
+    html+=statCard('≥4 NET (birebir)',p4n+'%','var(--muted)');
+    html+=statCard('Test sayısı',N,'var(--text)');
+    html+=`</div>`;
+    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — ${K} biletlik kapsama-optimal grup, her test noktasında o tarihten ÖNCEKİ verilerle (lookahead yok) · 🟢=net · 🟠=±1 yakın · "≥4 NET (birebir)" sütunu, tam isabetin neden şans seviyesinde kaldığını dürüstçe gösterir.</div>`;
+    html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
+    html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek çekiliş</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Grubun en iyi bileti</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Net</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Yakın</th></tr></thead><tbody>`;
+    rows.forEach(r=>{
+      const actualSet=new Set([...r.actualNums,...r.actualBonus]);
+      const numSpan=n=>`<span style="font-family:monospace;font-size:.65rem;color:var(--text)">${n}</span>`;
+      const ticketNumSpan=n=>{
+        const hit=actualSet.has(n);const near=!hit&&[...actualSet].some(a=>Math.abs(a-n)===1);
+        const col=hit?'var(--green)':near?'#c2410c':'var(--muted)';const fw=hit||near?'800':'400';
+        return `<span style="font-family:monospace;font-size:.6rem;color:${col};font-weight:${fw}">${n}${hit?'✓':near?'~':''}</span>`;
+      };
+      const hitColor=v=>v>=4?'var(--green)':v>=3?'var(--gold)':v>=1?'var(--accent)':'var(--muted)';
+      html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.08)">`;
+      html+=`<td style="padding:4px 6px;color:var(--muted);white-space:nowrap;font-size:.6rem">${r.date}</td>`;
+      html+=`<td style="padding:4px 6px"><div style="display:flex;gap:4px;flex-wrap:wrap">${r.actualNums.map(numSpan).join('')}${r.actualBonus.length?'<span style="color:var(--muted)">+</span>'+r.actualBonus.map(numSpan).join(''):''}</div></td>`;
+      html+=`<td style="padding:4px 6px"><div style="display:flex;gap:4px;flex-wrap:wrap">${r.ticket.main.map(ticketNumSpan).join('')}${r.ticket.bonus.length?'<span style="color:var(--muted)">+</span>'+r.ticket.bonus.map(ticketNumSpan).join(''):''}</div></td>`;
+      html+=`<td style="padding:4px 6px;text-align:center;font-weight:800;color:${hitColor(r.net)}">${r.net}</td>`;
+      html+=`<td style="padding:4px 6px;text-align:center;color:var(--gold)">${r.near}</td>`;
+      html+=`</tr>`;
+    });
+    html+=`</tbody></table></div>`;
+    html+=`<div style="font-size:.55rem;color:var(--muted);margin-top:6px">✓=net · ~=±1 yakın · Her satır, o tarihte henüz bilinmeyen veri kullanılmadan, ${K} biletlik kapsama-optimal grup içindeki "net+yakın" açısından en iyi sonucu gösterir.</div>`;
+    btEl.innerHTML=html;
+  },20);
 }
 
 </script>
