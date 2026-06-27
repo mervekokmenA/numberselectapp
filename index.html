@@ -940,7 +940,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <option value="10">10 bilet</option>
       <option value="20">20 bilet</option>
      </select>
-     <button onclick="_gsRenderFull()" style="font-size:.72rem;padding:5px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🔄 Yeni Tahmin Üret</button>
+     <button onclick="_gsRenderFull(true)" style="font-size:.72rem;padding:5px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🔄 Yeni Tahmin Üret</button>
     </div>
     <div id="gsContent"></div>
    </div>
@@ -1030,7 +1030,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <option value="20">20 bilet</option>
       <option value="30">30 bilet</option>
      </select>
-     <button onclick="_g0RenderFull()" style="font-size:.72rem;padding:5px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(16,185,129,.85),rgba(5,150,105,.7));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🔄 Yeni Tahmin Üret</button>
+     <button onclick="_g0RenderFull(true)" style="font-size:.72rem;padding:5px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(16,185,129,.85),rgba(5,150,105,.7));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🔄 Yeni Tahmin Üret</button>
     </div>
     <div id="g0Content"></div>
    </div>
@@ -16748,7 +16748,7 @@ function _gsGenBundle(game,freq,prior,size){
   }
   return tickets;
 }
-function _gsRenderFull(){
+function _gsRenderFull(force){
   const el=document.getElementById('gsContent');if(!el)return;
   const game=getGame(_gsGame);
   const draws=_kbGetDraws(_gsGame);
@@ -16768,6 +16768,12 @@ function _gsRenderFull(){
     sel.innerHTML=optsHtml;
   }
   const bundleSize=Math.max(1,Math.min(50,parseInt(document.getElementById('gsBundleSize')?.value)||4));
+  // Yeni Tahmin modunda otomatik üretme — kullanıcı butona basana kadar bekle
+  if(_gsDate===''&&!force){
+    window._gsCopyText='';
+    el.innerHTML=`<div style="padding:18px;text-align:center;font-size:.72rem;color:var(--muted);line-height:1.7">🎲 ${bundleSize} biletlik yeni tahmin için<br><strong>“🔄 Yeni Tahmin Üret”</strong> butonuna basın.</div>`;
+    return;
+  }
   let prior,actual=null;
   if(_gsDate===''){
     prior=draws;
@@ -17053,7 +17059,7 @@ function _g0StepDate(dir){
   if(next<0||next>=opts.length)return;sel.value=opts[next].value;_g0SetDate(sel.value);
 }
 function _g0SetDate(v){_g0Date=v;_g0RenderFull();}
-function _g0RenderFull(){
+function _g0RenderFull(force){
   const el=document.getElementById('g0Content');if(!el)return;
   const game=getGame(_g0Game);
   const draws=_kbGetDraws(_g0Game);
@@ -17070,6 +17076,12 @@ function _g0RenderFull(){
     sel.innerHTML=optsHtml;
   }
   const K=Math.max(1,Math.min(50,parseInt(document.getElementById('g0BundleSize')?.value)||10));
+  // Yeni Tahmin modunda otomatik üretme — kullanıcı butona basana kadar bekle
+  if(_g0Date===''&&!force){
+    window._g0CopyText='';
+    el.innerHTML=`<div style="padding:18px;text-align:center;font-size:.72rem;color:var(--muted);line-height:1.7">🎲 ${K} biletlik kapsama-optimal yeni tahmin için<br><strong>“🔄 Yeni Tahmin Üret”</strong> butonuna basın.</div>`;
+    return;
+  }
   let prior,actual=null;
   if(_g0Date===''){prior=draws;}
   else{
