@@ -423,6 +423,26 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div class="parse-status" id="btParseStatus"></div>
   </div>
 
+  <!-- ── Elle Çekiliş Sonucu Ekle ── -->
+  <div class="card">
+    <div class="card-title">➕ Elle Çekiliş Sonucu Ekle</div>
+    <div style="font-size:.7rem;color:var(--muted);margin-bottom:10px;line-height:1.6">Çıkan bir çekilişin sonucunu kendiniz girin. Eklediğiniz sonuç <strong>tüm sayfalarda</strong> (Gülsis, Gülsis Sıfır, Astro, tahminler, geçmiş testler) kullanılır ve tarayıcınızda saklanır.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <select id="mrGame" onchange="_mrSync()" style="font-size:.78rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+      <input type="date" id="mrDate" style="font-size:.78rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    </div>
+    <div style="margin-bottom:8px">
+      <label id="mrNumsLbl" style="font-size:.66rem;color:var(--muted);display:block;margin-bottom:3px">Çıkan sayılar</label>
+      <input type="text" id="mrNums" placeholder="örn: 6 23 41 55 72 89" style="width:100%;box-sizing:border-box;font-size:.82rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 9px">
+    </div>
+    <div id="mrBonusWrap" style="margin-bottom:8px;display:none">
+      <label id="mrBonusLbl" style="font-size:.66rem;color:var(--muted);display:block;margin-bottom:3px">Bonus</label>
+      <input type="text" id="mrBonus" placeholder="örn: 34" style="width:100%;box-sizing:border-box;font-size:.82rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 9px">
+    </div>
+    <button class="parse-btn green-btn" onclick="_mrAdd()">➕ Sonucu Ekle</button>
+    <div class="parse-status" id="mrStatus"></div>
+  </div>
+
   <!-- ── BT1 config (left col) ── -->
   <div class="card">
     <div class="card-title">🔬 Geçmiş Test</div>
@@ -13504,13 +13524,76 @@ function runScanBacktest(){
   },20);
 }
 
+// ── Elle Çekiliş Sonucu Ekleme ────────────────────────────────
+// Kullanıcının arayüzden bir çekiliş sonucu (oyun + tarih + çıkan sayılar) eklemesini sağlar.
+// Sonuç kanonik DRAW_DATA deposuna yazılır, localStorage'a kaydedilir ve ilgili önbellekler
+// temizlenir; böylece tüm sayfalar (_kbGetDraws ile okuyanlar dahil) bu sonucu kullanır.
+function _mrInit(){
+  const sel=document.getElementById('mrGame');if(!sel)return;
+  sel.innerHTML=GAMES.map(g=>`<option value="${g.id}">${g.emoji} ${g.name}</option>`).join('');
+  sel.value=state.selectedGame||GAMES[0].id;
+  const dt=document.getElementById('mrDate');if(dt&&!dt.value)dt.value=new Date().toISOString().slice(0,10);
+  _mrSync();
+}
+function _mrSync(){
+  const sel=document.getElementById('mrGame');if(!sel)return;
+  const g=getGame(sel.value);if(!g)return;
+  const numsLbl=document.getElementById('mrNumsLbl');
+  if(numsLbl)numsLbl.textContent=`Çıkan sayılar — ${g.count} adet (1–${g.max})`;
+  const nums=document.getElementById('mrNums');
+  if(nums){const step=Math.max(1,Math.floor(g.max/(g.count+1)));const ex=[];for(let i=1;i<=g.count;i++)ex.push(i*step);nums.placeholder='örn: '+ex.join(' ');}
+  const bw=document.getElementById('mrBonusWrap'),bl=document.getElementById('mrBonusLbl');
+  if(g.bonusCount>0){
+    if(bw)bw.style.display='';
+    if(bl)bl.textContent=`${g.id==='sayisal'?'Süperstar':'Bonus'} — ${g.bonusCount} adet (1–${g.bonusMax}), opsiyonel`;
+  }else if(bw)bw.style.display='none';
+}
+function _mrAdd(){
+  const sel=document.getElementById('mrGame'),status=document.getElementById('mrStatus');
+  const set=(cls,msg)=>{if(status){status.className='parse-status '+cls;status.textContent=msg;}};
+  const g=getGame(sel?.value);
+  if(!g){set('error','⚠️ Oyun seçin.');return;}
+  const date=(document.getElementById('mrDate')?.value||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){set('error','⚠️ Geçerli bir tarih seçin.');return;}
+  const nums=((document.getElementById('mrNums')?.value||'').match(/\d+/g)||[]).map(Number);
+  if(nums.length!==g.count){set('error',`⚠️ ${g.count} adet sayı girin (girilen: ${nums.length}).`);return;}
+  if(nums.some(n=>n<1||n>g.max)){set('error',`⚠️ Sayılar 1–${g.max} aralığında olmalı.`);return;}
+  if(new Set(nums).size!==nums.length){set('error','⚠️ Sayılar tekrarsız olmalı.');return;}
+  let bonus=[];
+  if(g.bonusCount>0){
+    bonus=((document.getElementById('mrBonus')?.value||'').match(/\d+/g)||[]).map(Number);
+    if(bonus.length){
+      if(bonus.length!==g.bonusCount){set('error',`⚠️ ${g.bonusCount} adet bonus girin ya da boş bırakın.`);return;}
+      if(bonus.some(n=>n<1||n>g.bonusMax)){set('error',`⚠️ Bonus 1–${g.bonusMax} aralığında olmalı.`);return;}
+    }
+  }
+  const sortedNums=[...nums].sort((a,b)=>a-b);
+  const line=date+' '+sortedNums.join(' ')+(bonus.length?' | '+bonus.join(' '):'');
+  if(!DRAW_DATA[g.id])DRAW_DATA[g.id]='';
+  const existed=new RegExp('(^|\\n)'+date+'\\s').test(DRAW_DATA[g.id]);
+  // Aynı tarih varsa eski satırı çıkar, yenisini en üste koy
+  const rest=DRAW_DATA[g.id].split('\n').filter(l=>l.trim()&&!l.startsWith(date)).join('\n');
+  DRAW_DATA[g.id]=(line+'\n'+rest).trim();
+  _resortDrawData(g.id);
+  delete _kbDrawCache[g.id];
+  try{Object.keys(_kbCalCache).forEach(k=>delete _kbCalCache[k]);}catch(e){}
+  try{Object.keys(_kbComboCache).forEach(k=>delete _kbComboCache[k]);}catch(e){}
+  saveDrawCache(g.id);
+  state._algoScoreCache={};state._algoScoreCache2={};
+  // Seçili oyunsa anasayfa görünümlerini hemen tazele
+  if(g.id===state.selectedGame){try{_renderBtHistoryFromLocalData(g.id,()=>false);}catch(e){}}
+  set('success',`✅ ${date} sonucu ${existed?'güncellendi':'eklendi'}: ${sortedNums.join(' ')}${bonus.length?' | '+bonus.join(' '):''}. Tüm sayfalar bu sonucu kullanır (tarayıcıda saklandı).`);
+  const nEl=document.getElementById('mrNums');if(nEl)nEl.value='';
+  const bEl=document.getElementById('mrBonus');if(bEl)bEl.value='';
+}
+
 // ── Boot ──────────────────────────────────────────────────────
 (function(){
   try{const v=localStorage.getItem('excludeLastDraw');if(v!==null){state.excludeLastDraw=v==='1';}}catch(e){}
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();setTimeout(_nextDrawPredict,300);
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();_mrInit();setTimeout(_nextDrawPredict,300);
 setTimeout(()=>{_autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);},800);
 
 // ══════════════════════════════════════════════════════════════
