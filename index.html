@@ -13539,7 +13539,7 @@ function _mrSync(){
   const sel=document.getElementById('mrGame');if(!sel)return;
   const g=getGame(sel.value);if(!g)return;
   const numsLbl=document.getElementById('mrNumsLbl');
-  if(numsLbl)numsLbl.textContent=`Çıkan sayılar — ${g.count} adet (1–${g.max})`;
+  if(numsLbl)numsLbl.textContent=g.id==='sayisal'?`Çıkan sayılar — ${g.count} adet (1–${g.max}) · en sağa Joker'i yazın (sıra korunur)`:`Çıkan sayılar — ${g.count} adet (1–${g.max})`;
   const nums=document.getElementById('mrNums');
   if(nums){const step=Math.max(1,Math.floor(g.max/(g.count+1)));const ex=[];for(let i=1;i<=g.count;i++)ex.push(i*step);nums.placeholder='örn: '+ex.join(' ');}
   const bw=document.getElementById('mrBonusWrap'),bl=document.getElementById('mrBonusLbl');
@@ -13567,8 +13567,10 @@ function _mrAdd(){
       if(bonus.some(n=>n<1||n>g.bonusMax)){set('error',`⚠️ Bonus 1–${g.bonusMax} aralığında olmalı.`);return;}
     }
   }
-  const sortedNums=[...nums].sort((a,b)=>a-b);
-  const line=date+' '+sortedNums.join(' ')+(bonus.length?' | '+bonus.join(' '):'');
+  // Sayısal'da Joker, kullanıcının yazdığı en sağdaki sayıdır → sırayı KORU (sıralama yapma).
+  // Diğer oyunlarda standart artan sıralama uygulanır.
+  const orderedNums=g.id==='sayisal'?[...nums]:[...nums].sort((a,b)=>a-b);
+  const line=date+' '+orderedNums.join(' ')+(bonus.length?' | '+bonus.join(' '):'');
   if(!DRAW_DATA[g.id])DRAW_DATA[g.id]='';
   const existed=new RegExp('(^|\\n)'+date+'\\s').test(DRAW_DATA[g.id]);
   // Aynı tarih varsa eski satırı çıkar, yenisini en üste koy
@@ -13582,7 +13584,7 @@ function _mrAdd(){
   state._algoScoreCache={};state._algoScoreCache2={};
   // Seçili oyunsa anasayfa görünümlerini hemen tazele
   if(g.id===state.selectedGame){try{_renderBtHistoryFromLocalData(g.id,()=>false);}catch(e){}}
-  set('success',`✅ ${date} sonucu ${existed?'güncellendi':'eklendi'}: ${sortedNums.join(' ')}${bonus.length?' | '+bonus.join(' '):''}. Tüm sayfalar bu sonucu kullanır (tarayıcıda saklandı).`);
+  set('success',`✅ ${date} sonucu ${existed?'güncellendi':'eklendi'}: ${orderedNums.join(' ')}${bonus.length?' | '+bonus.join(' '):''}. Tüm sayfalar bu sonucu kullanır (tarayıcıda saklandı).`);
   const nEl=document.getElementById('mrNums');if(nEl)nEl.value='';
   const bEl=document.getElementById('mrBonus');if(bEl)bEl.value='';
 }
