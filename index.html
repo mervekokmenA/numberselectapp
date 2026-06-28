@@ -15167,6 +15167,7 @@ function _astroRealCompute(d,game){
 function _astroRealRenderResult(d,game,result){
   const signal=_astroRecentPlanetSignal(d,game,_astroRealCompute,15);
   let h=`<div style="font-size:.7rem;color:var(--muted);margin-bottom:8px">${game.emoji} ${game.name} — Doğum: ${d.birthDate} · Hedef: ${d.targetDate}</div>`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px"><div style="font-size:.72rem;font-weight:800;color:var(--text)">🌌 Gerçek Gezegen Konumları — ${game.emoji} ${game.name}</div><button onclick="_astroRealCopyTicket()" style="font-size:.6rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(56,189,248,.4);background:rgba(56,189,248,.1);color:#2563eb;cursor:pointer;white-space:nowrap">📋 Kopyala</button></div>`;
   h+=`<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:${result.bonus?'10px':'0'}">${result.slots.map(s=>_astroNumBadge(s.planet,s.num,signal[s.planet])).join('')}</div>`;
   if(result.bonus)h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">+ Bonus:</div><div style="display:flex;gap:8px">${_astroNumBadge(result.bonus.planet,result.bonus.num,signal[result.bonus.planet])}</div>`;
   if(Object.keys(signal).length)h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:6px">⭐✨ olası = bu gezegen son 15 geçmiş testte net ya da yakın isabet vermiş.</div>`;
@@ -15656,6 +15657,12 @@ function _astroCopyTicket(){
   const lines=t.slots.map(s=>`${s.num} (${s.planet})`);
   if(t.bonus)lines.push(`Bonus: ${t.bonus.num} (${t.bonus.planet})`);
   _kbCopy('Astro Tahmin\n'+lines.join('\n'));
+}
+function _astroRealCopyTicket(){
+  const t=window._astroRealLastResult;if(!t){showToast('⚠️ Önce sayıları üretin');return;}
+  const lines=(t.slots||[]).map(s=>`${s.num} (${s.planet})`);
+  if(t.bonus)lines.push(`Bonus: ${t.bonus.num} (${t.bonus.planet})`);
+  _kbCopy('Gerçek Gezegen Konumları\n'+lines.join('\n'));
 }
 function _astroRunBacktest(){
   const btEl=document.getElementById('astroBtResult');if(!btEl)return;
