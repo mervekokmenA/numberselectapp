@@ -14244,13 +14244,19 @@ function _nextDrawPredict(opts){
   }
   const nextDate=_predNextDrawDate(gameId);
   const topSigs=Object.entries(weights||{}).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k])=>_NDP_SIG_NAMES[k]||k).join(' · ');
+  // Kopyalama metni: tahmin grubu (+ bonus) ve alternatif
+  const elId=o.resultElId||'nextDrawPredResult';
+  const mainLine=mainNums.join(' - ')+(bonusPred.length?' | '+bonusPred.join(' - '):'');
+  const copyText=`${game.emoji} ${game.name}${nextDate?' · '+nextDate:''}\nTahmin Grubu: ${mainLine}\nAlternatif: ${altNums.join(' - ')}`;
+  window._ndpCopy=window._ndpCopy||{};window._ndpCopy[elId]=copyText;
   let html=`<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)">`;
   html+=`<span style="font-size:.72rem;color:var(--muted)">${game.emoji} ${game.name}</span>`;
   html+=`<span style="font-size:.72rem;color:var(--accent);font-weight:700">${nextDate||'—'}</span>`;
   html+=`<span style="font-size:.6rem;color:var(--muted);margin-left:auto">${topSigs?'Öne çıkan sinyaller: '+topSigs:''}</span>`;
   html+=`</div>`;
   html+=`<div style="margin-bottom:12px">`;
-  html+=`<div style="font-size:.62rem;font-weight:800;color:var(--green);margin-bottom:7px;letter-spacing:.05em">🟢 TAHMİN GRUBU</div>`;
+  html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><span style="font-size:.62rem;font-weight:800;color:var(--green);letter-spacing:.05em">🟢 TAHMİN GRUBU</span>`;
+  html+=`<button onclick="_kbCopy(window._ndpCopy['${elId}'])" class="copy-btn" style="margin-left:auto">📋 Kopyala</button></div>`;
   html+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">${mainNums.map(n=>_ndpSpan(n,'main')).join('')}${bonusHtml}</div>`;
   html+=`</div>`;
   html+=`<div>`;
