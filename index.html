@@ -1013,7 +1013,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div>
    <div class="card">
     <div class="card-title">🎯⁰ Gülsis Sıfır Tahmin</div>
-    <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(16,185,129,.06);border-radius:6px;line-height:1.7"><strong>Gülsis Sıfır</strong>, tamamen 🎲 Sisal-LCG ve 🔮 Gülay Fark-Analizi üzerine kurulu yeni bir motordur. Geçmiş verilerle <strong>1.6 milyondan fazla aday biletle</strong> test edilerek ayarlandı. <strong>Dürüst gerçek:</strong> sayısal piyangoda <strong>tam (birebir) "net" isabet hiçbir yöntemle şansın üstüne çıkmaz</strong> — bunu testlerde doğruladık. Ölçülebilir tek kazanç <strong>kapsamadır</strong>: büyük çeşitli bir havuz üretip, grubun en iyi biletinin <strong>"net YA DA ±1 yakın"</strong> skorunu maksimize eden komşu-farkında bir seçim yapar. Öncelikli olarak <strong>Sayısal Loto ve Şans Topu</strong> için optimize edildi; ayrıca <strong>Süper Loto ve On Numara</strong>'da da çalışır. Doğrulanmış oranlar — Şans Topu 10 bilet: <strong>≥4 net/yakın %93</strong>; Sayısal 20 bilet: <strong>≥4 net/yakın %86</strong>; Süper Loto 20 bilet: <strong>≥4 net/yakın %43</strong>; On Numara 10 bilet: <strong>≥4 net %97</strong> (oyunda 22 sayı çekildiği için doğal olarak yüksektir).</div>
+    <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(16,185,129,.06);border-radius:6px;line-height:1.7"><strong>Gülsis Sıfır</strong>, tamamen 🎲 Sisal-LCG ve 🔮 Gülay Fark-Analizi üzerine kurulu yeni bir motordur. Geçmiş verilerle <strong>1.6 milyondan fazla aday biletle</strong> test edilerek ayarlandı. <strong>Dürüst gerçek:</strong> sayısal piyangoda <strong>tam (birebir) "net" isabet hiçbir yöntemle şansın üstüne çıkmaz</strong> — bunu testlerde doğruladık. Ölçülebilir tek kazanç <strong>kapsamadır</strong>: büyük çeşitli bir havuz üretip, grubun en iyi biletinin <strong>"net YA DA ±1 yakın"</strong> skorunu maksimize eden komşu-farkında bir seçim yapar. Öncelikli olarak <strong>Sayısal Loto ve Şans Topu</strong> için optimize edildi; ayrıca <strong>Süper Loto ve On Numara</strong>'da da çalışır. Doğrulanmış oranlar — Şans Topu 10 bilet: <strong>≥4 net/yakın %93</strong>; Sayısal 20 bilet: <strong>≥4 net/yakın %86</strong>; Süper Loto 20 bilet: <strong>≥4 net/yakın %43</strong>; On Numara 10 bilet: <strong>≥7 net/yakın %100</strong> (≥8 %89; oyunda 22 sayı çekildiği için hedef <strong>7+</strong>'dır).</div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="g0GameRow"></div>
     <div style="margin-bottom:14px;display:flex;align-items:center;gap:6px">
      <select id="g0DateSel" onchange="_g0SetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:0"></select>
@@ -16959,6 +16959,9 @@ function _gsRunTicketBacktest(){
 const _G0_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'onnumara',e:'🟢',n:'On Numara'}];
 const _G0_MIN_PRIOR=150;
 const _G0_PARAMS={gulayW:1.2,ewfW:0.8,freqPow:1.3,lambda:0.82};
+// Anlamlı "hedef" eşiği: On Numara'da çekilişte 22 sayı olduğu için 4 net kolaydır →
+// hedef 7+. Diğer oyunlarda hedef 4+.
+const _g0Target=g=>g.id==='onnumara'?7:4;
 let _g0Game='sayisal',_g0Date='';
 
 function _g0Ewf(draws,max,lambda){
@@ -17111,9 +17114,10 @@ function _g0RenderFull(force){
       h+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">`;
       const statCard=(lbl,val,col)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${col}">${val}</div><div style="font-size:.6rem;color:var(--muted)">${lbl}</div></div>`;
       const netBest=matches[bestIdx];
-      h+=statCard('Grup en iyi (net)',netBest,netBest>=4?'var(--green)':netBest>=3?'var(--gold)':'var(--muted)');
+      const T=_g0Target(game);
+      h+=statCard('Grup en iyi (net)',netBest,netBest>=T?'var(--green)':netBest>=T-1?'var(--gold)':'var(--muted)');
       h+=statCard('En iyi bilet ±1 yakın',nearBest,'var(--accent)');
-      h+=statCard('Net + yakın (en iyi)',netBest+nearBest,(netBest+nearBest)>=4?'var(--green)':'var(--muted)');
+      h+=statCard(`Net + yakın (hedef ${T}+)`,netBest+nearBest,(netBest+nearBest)>=T?'var(--green)':'var(--muted)');
       h+=statCard('Grup büyüklüğü',tickets.length,'var(--text)');
       h+=`</div>`;
     }
@@ -17135,8 +17139,9 @@ function _g0Backtest(){
   btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor… (büyük havuz üretildiği için birkaç saniye sürebilir)</div>';
   setTimeout(()=>{
     const tests=Math.min(btCount,draws.length-_G0_MIN_PRIOR);
+    const T=_g0Target(game);
     const rows=[];
-    let sumBest=0,sumNN=0,ge3nn=0,ge4nn=0,ge5nn=0,ge4net=0;
+    let sumBest=0,sumNN=0,geLo=0,geT=0,geHi=0,geTnet=0;
     for(let i=0;i<tests;i++){
       const actual=draws[i];const prior=draws.slice(i+1);
       if(prior.length<_G0_MIN_PRIOR)break;
@@ -17152,23 +17157,23 @@ function _g0Backtest(){
       const near=_gsNearCount(tickets[bestIdx],actualSet);
       const netOfBestNN=_gsMatchCount(tickets[bestIdx],actualSet);
       sumBest+=bestNet;sumNN+=bestNN;
-      if(bestNN>=3)ge3nn++;if(bestNN>=4)ge4nn++;if(bestNN>=5)ge5nn++;if(bestNet>=4)ge4net++;
+      if(bestNN>=T-1)geLo++;if(bestNN>=T)geT++;if(bestNN>=T+1)geHi++;if(bestNet>=T)geTnet++;
       rows.push({date:actual.date,actualNums:[...(actual.nums||[])],actualBonus:[...(actual.bonus||[])],ticket:tickets[bestIdx],net:netOfBestNN,near});
     }
     if(!rows.length){btEl.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">Test satırı oluşturulamadı.</div>';return;}
     const N=rows.length;
     const avgBest=(sumBest/N).toFixed(2),avgNN=(sumNN/N).toFixed(2);
-    const p3=Math.round(ge3nn/N*100),p4=Math.round(ge4nn/N*100),p5=Math.round(ge5nn/N*100),p4n=Math.round(ge4net/N*100);
+    const pLo=Math.round(geLo/N*100),pT=Math.round(geT/N*100),pHi=Math.round(geHi/N*100),pTnet=Math.round(geTnet/N*100);
     let html=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">`;
     const statCard=(lbl,val,col)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${col}">${val}</div><div style="font-size:.6rem;color:var(--muted)">${lbl}</div></div>`;
     html+=statCard('Ort. net+yakın (en iyi)',avgNN,'var(--accent)');
-    html+=statCard('≥4 net+yakın',p4+'%',p4>=70?'var(--green)':p4>=40?'var(--gold)':'var(--muted)');
-    html+=statCard('≥5 net+yakın',p5+'%',p5>=40?'var(--green)':p5>=20?'var(--gold)':'var(--muted)');
-    html+=statCard('≥3 net+yakın',p3+'%',p3>=80?'var(--green)':'var(--gold)');
-    html+=statCard('≥4 NET (birebir)',p4n+'%','var(--muted)');
+    html+=statCard(`≥${T} net+yakın`,pT+'%',pT>=70?'var(--green)':pT>=40?'var(--gold)':'var(--muted)');
+    html+=statCard(`≥${T+1} net+yakın`,pHi+'%',pHi>=40?'var(--green)':pHi>=20?'var(--gold)':'var(--muted)');
+    html+=statCard(`≥${T-1} net+yakın`,pLo+'%',pLo>=80?'var(--green)':'var(--gold)');
+    html+=statCard(`≥${T} NET (birebir)`,pTnet+'%','var(--muted)');
     html+=statCard('Test sayısı',N,'var(--text)');
     html+=`</div>`;
-    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — ${K} biletlik kapsama-optimal grup, her test noktasında o tarihten ÖNCEKİ verilerle (lookahead yok) · 🟢=net · 🟠=±1 yakın · "≥4 NET (birebir)" sütunu, tam isabetin neden şans seviyesinde kaldığını dürüstçe gösterir.</div>`;
+    html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} — hedef <strong>${T}+</strong> · ${K} biletlik kapsama-optimal grup, her test noktasında o tarihten ÖNCEKİ verilerle (lookahead yok) · 🟢=net · 🟠=±1 yakın · "≥${T} NET (birebir)" sütunu tam isabet oranını dürüstçe gösterir.</div>`;
     html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
     html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek çekiliş</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Grubun en iyi bileti</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Net</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Yakın</th></tr></thead><tbody>`;
     rows.forEach(r=>{
@@ -17179,7 +17184,7 @@ function _g0Backtest(){
         const col=hit?'var(--green)':near?'#c2410c':'var(--muted)';const fw=hit||near?'800':'400';
         return `<span style="font-family:monospace;font-size:.6rem;color:${col};font-weight:${fw}">${n}${hit?'✓':near?'~':''}</span>`;
       };
-      const hitColor=v=>v>=4?'var(--green)':v>=3?'var(--gold)':v>=1?'var(--accent)':'var(--muted)';
+      const hitColor=v=>v>=T?'var(--green)':v>=T-1?'var(--gold)':v>=1?'var(--accent)':'var(--muted)';
       html+=`<tr style="border-bottom:1px solid rgba(0,0,0,.08)">`;
       html+=`<td style="padding:4px 6px;color:var(--muted);white-space:nowrap;font-size:.6rem">${r.date}</td>`;
       html+=`<td style="padding:4px 6px"><div style="display:flex;gap:4px;flex-wrap:wrap">${r.actualNums.map(numSpan).join('')}${r.actualBonus.length?'<span style="color:var(--muted)">+</span>'+r.actualBonus.map(numSpan).join(''):''}</div></td>`;
