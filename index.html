@@ -945,7 +945,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div class="card-title">🎯 Gülsis Tahmin</div>
     <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7"><strong>Gülsis</strong>, 🎲 Sisal-LCG Dengesi algoritmasının frekans+toplam+bölge dengeli örneklemesini, 🔮 Gülay Fark-Analizi'nin son çekilişten çıkardığı fark-zinciri adaylarıyla harmanlar. <strong>Sayısal Loto, Şans Topu, Süper Loto ve On Numara</strong>'nın dördünde de çalışır ve geçmiş çekilişlerle test edilmiştir. Aşağıda seçtiğiniz tarih için bir <strong>bilet grubu</strong> üretir — hedef, tek bilete değil grubun <strong>en iyi biletine</strong> bakıp Şans Topu'nda 4 net (ya da yakını), Sayısal'da 4-5 net (ya da yakını) yakalama şansını yükseltmektir.</div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="gsGameRow"></div>
-    <div style="margin-bottom:14px;display:flex;align-items:center;gap:6px">
+    <div id="gsDateRow" style="margin-bottom:14px;display:flex;align-items:center;gap:6px">
      <select id="gsDateSel" onchange="_gsSetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:0"></select>
      <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
       <button onclick="_gsStepDate(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:.75rem;line-height:1;flex-shrink:0;display:block" title="Daha yeni">▲</button>
@@ -1035,7 +1035,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div class="card-title">🎯⁰ Gülsis Sıfır Tahmin</div>
     <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(16,185,129,.06);border-radius:6px;line-height:1.7"><strong>Gülsis Sıfır</strong>, tamamen 🎲 Sisal-LCG ve 🔮 Gülay Fark-Analizi üzerine kurulu yeni bir motordur. Geçmiş verilerle <strong>1.6 milyondan fazla aday biletle</strong> test edilerek ayarlandı. <strong>Dürüst gerçek:</strong> sayısal piyangoda <strong>tam (birebir) "net" isabet hiçbir yöntemle şansın üstüne çıkmaz</strong> — bunu testlerde doğruladık. Ölçülebilir tek kazanç <strong>kapsamadır</strong>: büyük çeşitli bir havuz üretip, grubun en iyi biletinin <strong>"net YA DA ±1 yakın"</strong> skorunu maksimize eden komşu-farkında bir seçim yapar. Öncelikli olarak <strong>Sayısal Loto ve Şans Topu</strong> için optimize edildi; ayrıca <strong>Süper Loto ve On Numara</strong>'da da çalışır. Doğrulanmış oranlar — Şans Topu 10 bilet: <strong>≥4 net/yakın %93</strong>; Sayısal 20 bilet: <strong>≥4 net/yakın %86</strong>; Süper Loto 20 bilet: <strong>≥4 net/yakın %43</strong>; On Numara 10 bilet: <strong>≥7 net/yakın %100</strong> (≥8 %89; oyunda 22 sayı çekildiği için hedef <strong>7+</strong>'dır).</div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="g0GameRow"></div>
-    <div style="margin-bottom:14px;display:flex;align-items:center;gap:6px">
+    <div id="g0DateRow" style="margin-bottom:14px;display:flex;align-items:center;gap:6px">
      <select id="g0DateSel" onchange="_g0SetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:0"></select>
      <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
       <button onclick="_g0StepDate(-1)" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:.75rem;line-height:1;flex-shrink:0;display:block" title="Daha yeni">▲</button>
@@ -16789,9 +16789,11 @@ function _soAiBacktest(opts){
 }
 
 // ═══════════ GÜLSİS — YENİ VE GEÇMİŞ TAHMİN ═══════════════════════════
-const _GS_GAMES=GAMES.map(g=>({id:g.id,e:g.emoji,n:g.name}));
+const _GS_GAMES=[...GAMES.map(g=>({id:g.id,e:g.emoji,n:g.name})),{id:'onnumarahizli',e:'⚡',n:'Hızlı On Numara'}];
 const _GS_MIN_PRIOR=40;
-let _gsGame='sayisal',_gsDate='';
+let _gsGame='sayisal',_gsDate='',_gsHizliInput='';
+// Hızlı On Numara — manuel tek-çekiliş girişi için yerel game tanımı (renkli toplar dahil)
+function _gsHizliGameDef(){return{..._soHizliOnGame(),mainColor:'green',bonusColor:''};}
 function _gsInit(){
   if(_GS_GAMES.some(g=>g.id===state.selectedGame))_gsGame=state.selectedGame;
   _gsDate='';
@@ -16855,6 +16857,14 @@ function _gsRenderFull(force){
     const a=g.id===_gsGame;
     return `<button onclick="_gsSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
   }).join('');
+  // ⚡ Hızlı On Numara: arşiv yok, kullanıcı son çekilişi elle girer → izole akış (diğer oyunlar etkilenmez)
+  const gsDateRow=document.getElementById('gsDateRow');
+  if(_gsGame==='onnumarahizli'){
+    if(gsDateRow)gsDateRow.style.display='none';
+    _gsHizliRender(force);
+    return;
+  }
+  if(gsDateRow)gsDateRow.style.display='';
   if(!draws||draws.length<_GS_MIN_PRIOR+1){el.innerHTML=`<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (en az ${_GS_MIN_PRIOR+1} gerekli).</div>`;return;}
   const sel=document.getElementById('gsDateSel');
   if(sel){
@@ -16909,8 +16919,36 @@ function _gsRenderFull(force){
     el.innerHTML=h;
   },10);
 }
+// ⚡ Hızlı On Numara — manuel son-çekiliş girişinden Gülsis bilet grubu üretir
+function _gsHizliRender(force){
+  const el=document.getElementById('gsContent');if(!el)return;
+  const game=_gsHizliGameDef();
+  const bundleSize=Math.max(1,Math.min(50,parseInt(document.getElementById('gsBundleSize')?.value)||4));
+  const uniq=[...new Set((_gsHizliInput.match(/\d+/g)||[]).map(Number).filter(n=>n>=1&&n<=game.max))];
+  let h=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:9px;padding:7px 10px;background:rgba(255,196,0,.06);border:1px solid rgba(255,196,0,.2);border-radius:6px;line-height:1.6">⚡ <strong>Hızlı On Numara</strong> için geçmiş arşiv kullanılmaz. <strong>Son çekilişte çıkan sayıları</strong> (genelde 22 sayı) aşağıya girin; Gülsis, bu çekilişin 🔮 Gülay fark-analizi + 🎲 Sisal örneklemesiyle ${bundleSize} biletlik 10'luk grup üretir.</div>`;
+  h+=`<label style="font-size:.66rem;color:var(--muted);display:block;margin-bottom:3px">Son çekiliş sayıları (1–80, boşlukla ayır)</label>`;
+  h+=`<textarea id="gsHizliInput" oninput="_gsHizliInput=this.value" placeholder="örn: 2 5 9 13 17 ... (son çekilişte çıkan sayılar)" style="width:100%;box-sizing:border-box;min-height:54px;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 9px;resize:vertical">${_gsHizliInput.replace(/</g,'&lt;')}</textarea>`;
+  h+=`<div style="display:flex;align-items:center;gap:8px;margin:8px 0;flex-wrap:wrap"><button onclick="_gsRenderFull(true)" style="font-size:.74rem;padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🎯 Gülsis Bilet Üret</button><span style="font-size:.6rem;color:var(--muted)">${uniq.length} sayı girildi</span></div>`;
+  h+=`<div id="gsHizliResult"></div>`;
+  el.innerHTML=h;
+  if(!force)return;
+  const res=document.getElementById('gsHizliResult');
+  if(uniq.length<10){res.innerHTML=`<div style="padding:12px;text-align:center;font-size:.7rem;color:var(--muted)">En az 10 sayı girin (On Numara çekilişinde 22 sayı çıkar).</div>`;return;}
+  const prior=[{nums:uniq,bonus:[]}];
+  const freq=buildFreq(prior);
+  res.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor…</div>';
+  setTimeout(()=>{
+    const tickets=_gsGenBundle(game,freq,prior,bundleSize);
+    if(!tickets.length){res.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bilet üretilemedi.</div>';return;}
+    window._gsCopyText='Gülsis · Hızlı On Numara\n'+tickets.map(t=>t.main.join(' - ')).join('\n');
+    let hh=`<div style="display:flex;justify-content:flex-end;margin:6px 0 8px"><button onclick="_kbCopy(window._gsCopyText)" class="copy-btn">📋 Kopyala</button></div>`;
+    hh+=tickets.map((t,i)=>renderTicket(t,game,'gulsis',i,null,null,null,calcTicketScore(t,game),true)).join('');
+    res.innerHTML=hh;
+  },10);
+}
 function _gsBacktest(){
   const gameId=_gsGame;
+  if(gameId==='onnumarahizli'){const e=document.getElementById('gsBtResult');if(e)e.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⚡ Hızlı On Numara tek çekiliş girişine dayalıdır; geçmiş testi yoktur.</div>';return;}
   const game=getGame(gameId);
   const draws=_kbGetDraws(gameId);
   const btEl=document.getElementById('gsBtResult');if(!btEl)return;
@@ -17002,6 +17040,7 @@ function _gsTbAdjustCount(d){
   el.value=Math.max(1,Math.min(50,(parseInt(el.value)||4)+d));
 }
 function _gsRunTicketBacktest(){
+  if(_gsGame==='onnumarahizli'){const rc=document.getElementById('gsTbResultContent'),rs=document.getElementById('gsTbResultSection');if(rs)rs.style.display='block';if(rc)rc.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⚡ Hızlı On Numara tek çekiliş girişine dayalıdır; geçmiş testi yoktur.</div>';return;}
   const game=getGame(_gsGame);
   const draws=_kbGetDraws(_gsGame);
   const testDate=document.getElementById('gsTbDate')?.value;
@@ -17048,12 +17087,14 @@ function _gsRunTicketBacktest(){
 // maksimize eden komşu-farkında açgözlü (greedy) seçim. Doğrulanmış oranlar:
 //   Şans Topu  K=10 → ≥4(net/yakın) %93, ≥5 %45
 //   Sayısal    K=20 → ≥4(net/yakın) %86, ≥5 %32
-const _G0_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'onnumara',e:'🟢',n:'On Numara'}];
+const _G0_GAMES=[{id:'sayisal',e:'🔵',n:'Sayısal Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'onnumara',e:'🟢',n:'On Numara'},{id:'onnumarahizli',e:'⚡',n:'Hızlı On Numara'}];
+let _g0HizliInput='';
+function _g0HizliGameDef(){return{..._soHizliOnGame(),mainColor:'green',bonusColor:''};}
 const _G0_MIN_PRIOR=150;
 const _G0_PARAMS={gulayW:1.2,ewfW:0.8,freqPow:1.3,lambda:0.82};
 // Anlamlı "hedef" eşiği: On Numara'da çekilişte 22 sayı olduğu için 4 net kolaydır →
 // hedef 7+. Diğer oyunlarda hedef 4+.
-const _g0Target=g=>g.id==='onnumara'?7:4;
+const _g0Target=g=>(g.id==='onnumara'||g.id==='onnumarahizli')?7:4;
 let _g0Game='sayisal',_g0Date='';
 
 function _g0Ewf(draws,max,lambda){
@@ -17169,6 +17210,14 @@ function _g0RenderFull(force){
     const a=g.id===_g0Game;
     return `<button onclick="_g0SetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(16,185,129,.7)':'var(--border)'};background:${a?'rgba(16,185,129,.15)':'var(--surface2)'};color:${a?'#0a9a6a':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;
   }).join('');
+  // ⚡ Hızlı On Numara: arşiv yok, kullanıcı son çekilişi elle girer → izole akış (diğer oyunlar etkilenmez)
+  const g0DateRow=document.getElementById('g0DateRow');
+  if(_g0Game==='onnumarahizli'){
+    if(g0DateRow)g0DateRow.style.display='none';
+    _g0HizliRender(force);
+    return;
+  }
+  if(g0DateRow)g0DateRow.style.display='';
   if(!draws||draws.length<_G0_MIN_PRIOR+1){el.innerHTML=`<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (en az ${_G0_MIN_PRIOR+1} gerekli).</div>`;return;}
   const sel=document.getElementById('g0DateSel');
   if(sel){
@@ -17221,7 +17270,34 @@ function _g0RenderFull(force){
     el.innerHTML=h;
   },10);
 }
+// ⚡ Hızlı On Numara — manuel son-çekiliş girişinden kapsama-optimal Gülsis Sıfır grubu üretir
+function _g0HizliRender(force){
+  const el=document.getElementById('g0Content');if(!el)return;
+  const game=_g0HizliGameDef();
+  const K=Math.max(1,Math.min(50,parseInt(document.getElementById('g0BundleSize')?.value)||10));
+  const uniq=[...new Set((_g0HizliInput.match(/\d+/g)||[]).map(Number).filter(n=>n>=1&&n<=game.max))];
+  let h=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:9px;padding:7px 10px;background:rgba(255,196,0,.06);border:1px solid rgba(255,196,0,.2);border-radius:6px;line-height:1.6">⚡ <strong>Hızlı On Numara</strong> için geçmiş arşiv kullanılmaz. <strong>Son çekilişte çıkan sayıları</strong> (genelde 22 sayı) aşağıya girin; Gülsis Sıfır, bu çekilişin Gülay+Sisal havuzundan kapsama-optimal ${K} biletlik 10'luk grup üretir.</div>`;
+  h+=`<label style="font-size:.66rem;color:var(--muted);display:block;margin-bottom:3px">Son çekiliş sayıları (1–80, boşlukla ayır)</label>`;
+  h+=`<textarea id="g0HizliInput" oninput="_g0HizliInput=this.value" placeholder="örn: 2 5 9 13 17 ... (son çekilişte çıkan sayılar)" style="width:100%;box-sizing:border-box;min-height:54px;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 9px;resize:vertical">${_g0HizliInput.replace(/</g,'&lt;')}</textarea>`;
+  h+=`<div style="display:flex;align-items:center;gap:8px;margin:8px 0;flex-wrap:wrap"><button onclick="_g0RenderFull(true)" style="font-size:.74rem;padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,rgba(16,185,129,.85),rgba(5,150,105,.7));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🎯 Gülsis Sıfır Bilet Üret</button><span style="font-size:.6rem;color:var(--muted)">${uniq.length} sayı girildi</span></div>`;
+  h+=`<div id="g0HizliResult"></div>`;
+  el.innerHTML=h;
+  if(!force)return;
+  const res=document.getElementById('g0HizliResult');
+  if(uniq.length<10){res.innerHTML=`<div style="padding:12px;text-align:center;font-size:.7rem;color:var(--muted)">En az 10 sayı girin (On Numara çekilişinde 22 sayı çıkar).</div>`;return;}
+  const prior=[{nums:uniq,bonus:[]}];
+  res.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Kapsama-optimal grup hesaplanıyor…</div>';
+  setTimeout(()=>{
+    const tickets=_g0GenBundle(game,prior,K);
+    if(!tickets.length){res.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bilet üretilemedi.</div>';return;}
+    window._g0CopyText='Gülsis Sıfır · Hızlı On Numara\n'+tickets.map(t=>t.main.join(' - ')).join('\n');
+    let hh=`<div style="display:flex;justify-content:flex-end;margin:6px 0 8px"><button onclick="_kbCopy(window._g0CopyText)" class="copy-btn">📋 Kopyala</button></div>`;
+    hh+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,calcTicketScore(t,game),true)).join('');
+    res.innerHTML=hh;
+  },10);
+}
 function _g0Backtest(){
+  if(_g0Game==='onnumarahizli'){const e=document.getElementById('g0BtResult');if(e)e.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⚡ Hızlı On Numara tek çekiliş girişine dayalıdır; çoklu geçmiş testi yoktur.</div>';return;}
   const game=getGame(_g0Game);
   const draws=_kbGetDraws(_g0Game);
   const btEl=document.getElementById('g0BtResult');if(!btEl)return;
@@ -17311,6 +17387,7 @@ function _g0TbAdjustCount(d){
   el.value=Math.max(1,Math.min(50,(parseInt(el.value)||10)+d));
 }
 function _g0RunTicketBacktest(){
+  if(_g0Game==='onnumarahizli'){const rc=document.getElementById('g0TbResultContent'),rs=document.getElementById('g0TbResultSection');if(rs)rs.style.display='block';if(rc)rc.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⚡ Hızlı On Numara tek çekiliş girişine dayalıdır; geçmiş testi yoktur.</div>';return;}
   const game=getGame(_g0Game);
   const draws=_kbGetDraws(_g0Game);
   const testDate=document.getElementById('g0TbDate')?.value;
