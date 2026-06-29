@@ -1409,6 +1409,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button class="kb-mode-btn" data-mode="banko"   onclick="_kbSetMode('banko')"   style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🎯 Banko & Konsensüs</button>
    <button class="kb-mode-btn" data-mode="test"    onclick="_kbSetMode('test')"    style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🔬 Geri Test</button>
    <button class="kb-mode-btn" data-mode="bilet"   onclick="_kbSetMode('bilet')"   style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🎫 Bilet Testi</button>
+   <button class="kb-mode-btn" data-mode="gulsis0" onclick="_kbSetMode('gulsis0')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🎯⁰ Gülsis Sıfır Bilet</button>
    <button class="kb-mode-btn" data-mode="kazanan" onclick="_kbSetMode('kazanan')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🏆 Kazanan Bilet</button>
   </div>
   <div id="kbContent"></div>
@@ -11717,11 +11718,46 @@ function _kbRender(){
       if(_kbMode==='banko')el.innerHTML=_kbRenderBanko();
       else if(_kbMode==='test')el.innerHTML=_kbRenderTest();
       else if(_kbMode==='bilet'){el.innerHTML=_kbRenderBilet();_kbBiletInitDateSel();}
+      else if(_kbMode==='gulsis0')el.innerHTML=_kbRenderGulsis0();
       else if(_kbMode==='kazanan')el.innerHTML=_kbRenderKazanan();
     }catch(e){el.innerHTML='<div style="padding:20px;color:#cc2222;font-size:.75rem">Hata: '+e.message+'</div>';}
   },40);
 }
 
+// Gülsis Sıfır kapsama-optimal bilet grubu üreticisi — Kapsamlı'ya ayrı bir mod olarak entegre.
+// Konsensüsü HİÇ etkilemez; Gülsis Sıfır motorunu (_g0GenBundle) Kapsamlı'nın seçili oyununda çalıştırır.
+let _kbG0Tickets=null;
+function _kbRenderGulsis0(){
+  const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame);
+  if(!draws||draws.length<60)return '<div class="empty-state"><span class="empty-icon">📭</span>Gülsis Sıfır için yeterli geçmiş veri yok (en az 60 gerekli).</div>';
+  const T=(typeof _g0Target==='function')?_g0Target(game):4;
+  let h=`<div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.8rem;font-weight:800;color:#0a9a6a">🎯⁰ ${game.emoji} ${game.name} — Gülsis Sıfır Bilet Grubu</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-top:4px;line-height:1.6">Sisal-LCG + Gülay havuzundan, grubun en iyi biletinin <strong>"net YA DA ±1 yakın"</strong> skorunu maksimize eden komşu-farkında kapsama seçimi. Tam isabet şans seviyesindedir; kazanç kapsamadadır. Bu bölüm konsensüs bankosunu <strong>etkilemez</strong>. (Hedef: ${T}+ net/yakın)</div></div>`;
+  h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">`;
+  h+=`<label style="font-size:.72rem;color:var(--muted)">Bilet grubu büyüklüğü:</label>`;
+  h+=`<select id="kbG0Size" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"><option value="4">4 bilet</option><option value="10" selected>10 bilet</option><option value="20">20 bilet</option><option value="30">30 bilet</option></select>`;
+  h+=`<button onclick="_kbG0Gen()" style="font-size:.74rem;padding:6px 16px;border-radius:8px;background:linear-gradient(135deg,rgba(16,185,129,.85),rgba(5,150,105,.7));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🎯 Bilet Grubu Üret</button>`;
+  h+=`</div>`;
+  h+=`<div id="kbG0Result"><div style="padding:14px;text-align:center;font-size:.72rem;color:var(--muted)">🎲 Yukarıdan grup büyüklüğünü seçip <strong>“🎯 Bilet Grubu Üret”</strong> butonuna basın.</div></div>`;
+  return h;
+}
+function _kbG0Gen(){
+  const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame);
+  const res=document.getElementById('kbG0Result');if(!res)return;
+  if(typeof _g0GenBundle!=='function'){res.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.7rem">Gülsis Sıfır motoru yüklenemedi.</div>';return;}
+  const K=Math.max(1,Math.min(50,parseInt(document.getElementById('kbG0Size')?.value)||10));
+  res.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Kapsama-optimal grup hesaplanıyor…</div>';
+  setTimeout(()=>{
+    let tickets;try{tickets=_g0GenBundle(game,draws,K);}catch(e){res.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.7rem">Hata: '+e.message+'</div>';return;}
+    if(!tickets||!tickets.length){res.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bilet üretilemedi.</div>';return;}
+    _kbG0Tickets=tickets;
+    window._kbG0Copy='Gülsis Sıfır · '+game.name+'\n'+tickets.map(t=>[...t.main,...(t.bonus||[])].join(' - ')).join('\n');
+    let hh=`<div style="display:flex;justify-content:flex-end;margin:4px 0 8px"><button onclick="_kbCopy(window._kbG0Copy)" class="copy-btn">📋 Kopyala</button></div>`;
+    hh+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,calcTicketScore(t,game),true)).join('');
+    res.innerHTML=hh;
+  },10);
+}
 // Sisal-LCG & Gülsis Sıfır'ın çekirdek analizlerini (Gülay fark-analizi + Sisal-Gülsis harmanı)
 // tamamlayıcı bilgi olarak gösterir. Konsensüs OY mekanizmasına dahil DEĞİLDİR (geri-test gerekçesi
 // _KB_METHODS notunda). ✓ = sayı KB konsensüs bankosunda da var (ekstra uyum).
