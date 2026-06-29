@@ -11399,6 +11399,10 @@ const _KB_METHODS=[
   {id:'sumzone', name:'Toplam+Bölge',   icon:'📐'},
   {id:'conet',   name:'Birleşim Ağı',   icon:'🕸️'},
 ];
+// Not: Gülay fark-analizi ve Sisal-LCG/Gülsis sinyalleri _kbSignals'da HESAPLANIR ama bilerek
+// konsensüs OY mekanizmasına dahil EDİLMEZ — 3.6M biletlik geri-test bunların kanıtlanmış 9
+// yöntemli konsensüsü her oyunda kötüleştirdiğini gösterdi (freq ile korelasyon + şans seviyesi
+// sinyal). Bunun yerine tamamlayıcı/bilgilendirici bir panel olarak gösterilirler (bkz. _kbGulsisPanel).
 const _KB_MICON={};_KB_METHODS.forEach(m=>_KB_MICON[m.id]=m.icon);
 
 // Kazanan bilet verileri — oyun başına (biliniyorsa çok kolonlu sistem bileti)
@@ -11484,7 +11488,19 @@ function _kbSignals(draws,game){
   const bHit={},bApp={};for(let n=1;n<=max;n++){bHit[n]=0;bApp[n]=0;}
   draws.slice(0,60).forEach(d=>{const ns=d.nums.filter(n=>n>=1&&n<=max);ns.forEach(n=>{bApp[n]++;ns.forEach(m=>{if(m!==n&&hotSet.has(m))bHit[n]++;});});});
   for(let n=1;n<=max;n++)conet[n]=bApp[n]>2?bHit[n]/bApp[n]:0;
-  return {freq,ewf,delay,pair,sablon,bayes,sonhane,sumzone,conet};
+  // gulay: Gülay fark-analizi adayları — son çekilişin fark-zincirlerinden (cık/üst/zincir) çıkan aday gücü.
+  // Gülsis ve Sisal-Gülay'ın çekirdek sinyali; diğer yöntemlerden bağımsız (ortogonal) bilgi taşır.
+  const gulay={};for(let n=1;n<=max;n++)gulay[n]=0;
+  try{
+    const ga=_soGapAnalysisCompute(draws[0],game);
+    (ga&&ga.gulayCands||[]).forEach(c=>{if(c.n>=1&&c.n<=max)gulay[c.n]=c.cnt;});
+  }catch(e){}
+  // sislcg: Sisal-LCG / Gülsis Sıfır harmanı — güç-frekans × üstel frekans × (1+Gülay) çarpımsal etkileşimi.
+  // Hem sık hem de Gülay-adayı olan sayıları yükselten, lineer konsensüsün yakalayamadığı bileşik sinyal.
+  const sislcg={};
+  const _eMax=Math.max(1,...Object.values(ewf)),_gMax=Math.max(1,...Object.values(gulay));
+  for(let n=1;n<=max;n++)sislcg[n]=Math.pow((freq[n]||0.1),1.3)*(1+0.8*((ewf[n]||0)/_eMax))*(1+1.2*((gulay[n]||0)/_gMax));
+  return {freq,ewf,delay,pair,sablon,bayes,sonhane,sumzone,conet,gulay,sislcg};
 }
 
 function _kbCalibrate(draws,game){
@@ -11706,6 +11722,31 @@ function _kbRender(){
   },40);
 }
 
+// Sisal-LCG & Gülsis Sıfır'ın çekirdek analizlerini (Gülay fark-analizi + Sisal-Gülsis harmanı)
+// tamamlayıcı bilgi olarak gösterir. Konsensüs OY mekanizmasına dahil DEĞİLDİR (geri-test gerekçesi
+// _KB_METHODS notunda). ✓ = sayı KB konsensüs bankosunda da var (ekstra uyum).
+function _kbGulsisPanel(game,draws,cnt,bankoSet){
+  let sig;try{sig=_kbSignals(draws,game);}catch(e){return '';}
+  if(!sig||!sig.gulay)return '';
+  const topBySig=(map,k)=>{const a=[];for(let n=1;n<=game.max;n++)a.push([n,map[n]||0]);a.sort((x,y)=>y[1]-x[1]);return a.slice(0,k).filter(x=>x[1]>0).map(x=>x[0]);};
+  const gTop=topBySig(sig.gulay,cnt+3),sTop=topBySig(sig.sislcg,cnt+3);
+  if(!gTop.length&&!sTop.length)return '';
+  const badge=n=>{const on=bankoSet.has(n);return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:25px;padding:0 6px;border-radius:7px;font-family:monospace;font-weight:${on?800:600};font-size:.72rem;background:${on?'rgba(0,230,118,.18)':'var(--surface2)'};border:1px solid ${on?'rgba(0,230,118,.5)':'var(--border)'};color:${on?'var(--green)':'var(--text)'}">${n}${on?' ✓':''}</span>`;};
+  const gCopy=gTop.slice(0,cnt).sort((a,b)=>a-b).join(' '),sCopy=sTop.slice(0,cnt).sort((a,b)=>a-b).join(' ');
+  let h=`<div style="background:rgba(255,196,0,.05);border:1px solid rgba(255,196,0,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.75rem;font-weight:800;color:#b8860b;margin-bottom:3px">🔮🎲 Sisal-LCG & Gülsis Sıfır Bakışı</div>`;
+  h+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:9px;line-height:1.6">Gülsis ve Sisal-Gülay motorlarının çekirdek analizleri. <strong>Konsensüs oyuna katılmaz</strong> — 3.6M biletlik geri-testte oy hakkı verildiğinde konsensüsü zayıflattıkları için yalnızca tamamlayıcı bakış olarak gösterilir. <span style="color:var(--green)">✓</span> = sayı yukarıdaki KB konsensüs bankosunda da var (ekstra uyum).</div>`;
+  if(gTop.length){
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:.6rem;color:var(--muted)">🔮 Gülay fark-analizi adayları</span><button onclick="_kbCopy('Gülay Adayları\\n${gCopy}')" style="background:rgba(184,134,11,.1);border:1px solid rgba(184,134,11,.3);color:#b8860b;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.6rem">📋 Top ${cnt}</button></div>`;
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${gTop.map(badge).join('')}</div>`;
+  }
+  if(sTop.length){
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:.6rem;color:var(--muted)">🎲 Sisal-LCG / Gülsis harmanı</span><button onclick="_kbCopy('Sisal-Gülsis\\n${sCopy}')" style="background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.6rem">📋 Top ${cnt}</button></div>`;
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${sTop.map(badge).join('')}</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
 function _kbRenderBanko(){
   const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame);
   if(draws.length<20)return '<div class="empty-state"><span class="empty-icon">📭</span>Yeterli veri yok.</div>';
@@ -11714,6 +11755,7 @@ function _kbRenderBanko(){
   let h='';
   h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:11px 14px;margin-bottom:12px"><div style="font-size:.8rem;font-weight:800;color:var(--accent)">🎯 ${game.emoji} ${game.name} — Banko Konsensüsü</div><div style="font-size:.62rem;color:var(--muted);margin-top:3px">${draws.length} çekiliş · ${_KB_METHODS.length} yöntem · walk-forward kalibrasyon (${cal.valid} tur)</div></div>`;
   h+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px"><div style="font-size:.78rem;font-weight:800;color:var(--green)">🔒 En Güçlü Banko Adayları</div><button onclick="_kbCopy('${bankoList.slice(0,cnt).map(r=>r.n).sort((a,b)=>a-b).join(' ')}')" style="background:rgba(0,150,58,.1);border:1px solid rgba(0,150,58,.3);color:var(--green);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.65rem;font-weight:700">📋 Kopyala</button></div><div style="font-size:.6rem;color:var(--muted);margin-bottom:9px">Birden çok bağımsız yöntemin aynı anda öne çıkardığı sayılar. Alt rakam = kaç yöntemin desteklediği (0–6).</div><div style="display:flex;gap:6px;flex-wrap:wrap">${bankoList.map(r=>_kbBadge(r.n,r.support>=3,r.support+'/6')).join('')}</div></div>`;
+  h+=_kbGulsisPanel(game,draws,cnt,new Set(bankoList.map(r=>r.n)));
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:9px">📊 Konsensüs Sıralaması</div>`;
   rows.slice(0,18).forEach((r,i)=>{
     const icons=r.supBy.map(id=>_KB_MICON[id]).join('');
