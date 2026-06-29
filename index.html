@@ -10510,7 +10510,12 @@ function _sablonRenderHistory(panel,draws,game){
       pr.sort((a,b)=>b.s-a.s);
       const topC=pr.slice(0,20).map(x=>x.n);
       html+=`<div style="margin-top:6px;padding-top:5px;border-top:1px solid rgba(0,0,0,.06);font-size:.58rem;line-height:1.8"><span style="color:var(--muted);font-size:.52rem;margin-right:4px">📐 adaylar:</span>`;
-      html+=topC.map(n=>{const hit=numSet.has(n);return`<span style="color:${hit?'var(--green)':'rgba(0,0,0,.18)'};font-weight:${hit?'700':'400'}">${n}</span>`;}).join('<span style="color:rgba(0,0,0,.08)">, </span>');
+      html+=topC.map(n=>{
+        const hit=numSet.has(n);
+        const near=!hit&&(numSet.has(n-1)||numSet.has(n+1));
+        const col=hit?'var(--green)':near?'#e8820c':'rgba(0,0,0,.18)';
+        return`<span style="color:${col};font-weight:${hit||near?'700':'400'}">${n}${near?'~':''}</span>`;
+      }).join('<span style="color:rgba(0,0,0,.08)">, </span>');
       html+=`</div>`;
     }
     html+=`</div>`;
