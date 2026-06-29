@@ -11834,6 +11834,50 @@ function _kbRenderBanko(){
   return h;
 }
 
+// Güncel adayların ve onluk bölgelerin geçmiş çekilişlerde nasıl çıktığını gösterir.
+// "Bu sayılar / bu alanlar geçmişte çıkmış mı?" sorusuna doğrudan yanıt verir.
+function _kbRenderCandHistory(game,draws,cal,cnt){
+  const N=Math.min(30,draws.length);
+  const last=draws.slice(0,N);
+  const numIn=(d,n)=>d.nums.includes(n)||(d.bonus&&d.bonus.includes(n));
+  // Güncel konsensüs adayları (banko + en üst sıralar)
+  let rowsNow;try{rowsNow=_kbConsensus(draws,game,cal);}catch(e){return '';}
+  const strong=rowsNow.filter(r=>r.support>=3);
+  const cands=(strong.length?strong:rowsNow).slice(0,Math.max(cnt+3,10)).map(r=>({n:r.n,support:r.support}));
+  let h=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:4px">🎯 Güncel Adaylar Geçmişte Çıkmış mı? (son ${N} çekiliş)</div>`;
+  h+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:9px;line-height:1.5">Bugünkü en güçlü konsensüs adaylarının son ${N} çekilişteki çıkış izi. <span style="color:var(--green)">●</span>=çıktı · ○=çıkmadı · soldan sağa: en yeni → en eski. "Sayaç" = kaç çekilişte çıktığı.</div>`;
+  // tablo başlığı (her sütun bir çekiliş, sağdan eskiye)
+  cands.forEach(c=>{
+    let appeared=0,lastSeen=-1;
+    const cells=last.map((d,i)=>{const ok=numIn(d,c.n);if(ok){appeared++;if(lastSeen<0)lastSeen=i;}return ok;});
+    const strip=cells.map(ok=>`<span title="" style="display:inline-block;width:9px;height:9px;border-radius:2px;margin:1px;background:${ok?'var(--green)':'rgba(0,0,0,.10)'}"></span>`).join('');
+    const pct=Math.round(appeared/N*100);
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.04)">`;
+    h+=`<span style="font-size:.78rem;font-weight:800;font-family:monospace;color:${c.support>=3?'var(--green)':'var(--text)'};min-width:26px">${c.n}</span>`;
+    h+=`<div style="flex:1;line-height:0;white-space:nowrap;overflow:hidden">${strip}</div>`;
+    h+=`<span style="font-size:.58rem;color:var(--muted);min-width:64px;text-align:right">${appeared}/${N} ·${lastSeen===0?' bu hafta':lastSeen>0?' '+lastSeen+' önce':' —'}</span>`;
+    h+=`</div>`;
+  });
+  h+=`</div>`;
+  // Onluk bölge ısısı
+  const groupKey=n=>n<10?0:Math.floor(n/10)*10;
+  const groupLabel=g=>g===0?'1-9':g+'lar';
+  const groups={};for(let n=1;n<=game.max;n++){const g=groupKey(n);if(!(g in groups))groups[g]=0;}
+  let gTot=0;
+  last.forEach(d=>d.nums.filter(n=>n>=1&&n<=game.max).forEach(n=>{groups[groupKey(n)]++;gTot++;}));
+  const gKeys=Object.keys(groups).map(Number).sort((a,b)=>a-b);
+  const gMax=Math.max(1,...gKeys.map(g=>groups[g]));
+  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:4px">📐 Onluk Bölge Isısı (son ${N} çekiliş)</div>`;
+  h+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:9px;line-height:1.5">Her onluk bölgeden son ${N} çekilişte kaç sayı çıktığı — hangi alanlar sıcak/soğuk görün.</div>`;
+  gKeys.forEach(g=>{
+    const c=groups[g],pct=gTot?Math.round(c/gTot*100):0;
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span style="font-size:.64rem;min-width:46px;color:var(--muted)">${groupLabel(g)}</span><div style="flex:1;height:9px;border-radius:4px;background:rgba(0,0,0,.05);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;background:linear-gradient(90deg,rgba(129,140,248,.6),rgba(0,230,118,.6));width:${Math.round(c/gMax*100)}%"></div></div><span style="font-size:.6rem;font-weight:700;min-width:54px;text-align:right">${c} · %${pct}</span></div>`;
+  });
+  h+=`</div>`;
+  return h;
+}
 function _kbRenderTest(){
   const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame);
   if(draws.length<30)return '<div class="empty-state"><span class="empty-icon">📭</span>Geri test için yeterli veri yok.</div>';
@@ -11846,6 +11890,7 @@ function _kbRenderTest(){
   h+=`</div>`;
   h+=`<div class="b10-tahmin-grid" style="margin-bottom:12px"><div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Konsensüs ort. isabet (üst ${cnt})</div><div style="font-size:1.6rem;font-weight:800;color:var(--green)">${bt.consAvg.toFixed(2)}</div><div style="font-size:.58rem;color:var(--muted)">rastgele ≈ ${bt.base.toFixed(2)}</div></div><div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.3);border-radius:10px;padding:14px;text-align:center"><div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Kazanç (lift)</div><div style="font-size:1.6rem;font-weight:800;color:var(--accent)">${lift.toFixed(2)}×</div><div style="font-size:.58rem;color:var(--muted)">${bt.trials} tur test</div></div></div>`;
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:6px">🔒 Güçlü Banko İsabeti (≥3 yöntem)</div><div style="font-size:.64rem;color:var(--muted);line-height:1.6">Çekiliş başına ~${bt.strongPerDraw.toFixed(1)} güçlü banko adayı üretildi; bunların <strong style="color:var(--green)">%${Math.round(bt.strongPrec*100)}</strong>'i gerçekten çıktı (${bt.strongHit}/${bt.strongTot}). Rastgele beklenti ≈ %${Math.round(cnt/game.max*100)}.</div></div>`;
+  h+=_kbRenderCandHistory(game,draws,cal,cnt);
   const sortedM=[..._KB_METHODS].map(m=>({...m,avg:bt.mAvg[m.id]})).sort((a,b)=>b.avg-a.avg);
   const maxAvg=Math.max(bt.consAvg,...sortedM.map(m=>m.avg),bt.base)||1;
   const mk=(label,avg,col)=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0"><span style="font-size:.66rem;min-width:140px">${label}</span><div style="flex:1;height:9px;border-radius:4px;background:rgba(0,0,0,.05);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;background:${col};width:${Math.round(avg/maxAvg*100)}%"></div></div><span style="font-size:.62rem;font-weight:700;min-width:34px;text-align:right">${avg.toFixed(2)}</span></div>`;
