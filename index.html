@@ -439,7 +439,10 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <label id="mrBonusLbl" style="font-size:.66rem;color:var(--muted);display:block;margin-bottom:3px">Bonus</label>
       <input type="text" id="mrBonus" placeholder="örn: 34" style="width:100%;box-sizing:border-box;font-size:.82rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:7px 9px">
     </div>
-    <button class="parse-btn green-btn" onclick="_mrAdd()">➕ Sonucu Ekle</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="parse-btn green-btn" onclick="_mrAdd()">➕ Sonucu Ekle</button>
+      <button class="parse-btn" onclick="_mrDelete()" style="border-color:rgba(255,82,82,.4);color:#cc2222" title="Seçili oyun + tarihteki sonucu kalıcı olarak kaldır">🗑️ Bu Tarihi Sil</button>
+    </div>
     <div class="parse-status" id="mrStatus"></div>
   </div>
 
@@ -9676,14 +9679,21 @@ function loadDrawCaches(){
   Object.keys(DRAW_DATA).forEach(gameId=>{
     try{
       const cached=localStorage.getItem('drawCache_'+gameId);
-      if(!cached) return;
-      const existing=new Set(DRAW_DATA[gameId].split('\n').map(l=>{const m=l.match(/^(\d{4}-\d{2}-\d{2})/);return m?m[1]:null;}).filter(Boolean));
-      const extra=[];
-      cached.split('\n').filter(l=>l.trim()).forEach(line=>{
-        const m=line.match(/^(\d{4}-\d{2}-\d{2})/);
-        if(m && !existing.has(m[1])){extra.push(line.trim());existing.add(m[1]);}
-      });
-      if(extra.length) DRAW_DATA[gameId]+='\n'+extra.join('\n');
+      if(cached){
+        const existing=new Set(DRAW_DATA[gameId].split('\n').map(l=>{const m=l.match(/^(\d{4}-\d{2}-\d{2})/);return m?m[1]:null;}).filter(Boolean));
+        const extra=[];
+        cached.split('\n').filter(l=>l.trim()).forEach(line=>{
+          const m=line.match(/^(\d{4}-\d{2}-\d{2})/);
+          if(m && !existing.has(m[1])){extra.push(line.trim());existing.add(m[1]);}
+        });
+        if(extra.length) DRAW_DATA[gameId]+='\n'+extra.join('\n');
+      }
+      // Kullanıcının kaldırdığı tarihler (repo satırları dahil) kalıcı olarak gizlenir
+      const del=JSON.parse(localStorage.getItem('drawDel_'+gameId)||'[]');
+      if(del.length){
+        const ds=new Set(del);
+        DRAW_DATA[gameId]=DRAW_DATA[gameId].split('\n').filter(l=>{const m=l.match(/^(\d{4}-\d{2}-\d{2})/);return !(m&&ds.has(m[1]));}).join('\n');
+      }
     }catch(e){}
   });
 }
@@ -13653,6 +13663,8 @@ function _mrAdd(){
   const orderedNums=g.id==='sayisal'?[...nums]:[...nums].sort((a,b)=>a-b);
   const line=date+' '+orderedNums.join(' ')+(bonus.length?' | '+bonus.join(' '):'');
   if(!DRAW_DATA[g.id])DRAW_DATA[g.id]='';
+  // Bu tarih daha önce silinmişse, silinenler listesinden çıkar (yeniden eklenebilsin)
+  try{const dk='drawDel_'+g.id;const del=JSON.parse(localStorage.getItem(dk)||'[]').filter(d=>d!==date);localStorage.setItem(dk,JSON.stringify(del));}catch(e){}
   const existed=new RegExp('(^|\\n)'+date+'\\s').test(DRAW_DATA[g.id]);
   // Aynı tarih varsa eski satırı çıkar, yenisini en üste koy
   const rest=DRAW_DATA[g.id].split('\n').filter(l=>l.trim()&&!l.startsWith(date)).join('\n');
@@ -13668,6 +13680,25 @@ function _mrAdd(){
   set('success',`✅ ${date} sonucu ${existed?'güncellendi':'eklendi'}: ${orderedNums.join(' ')}${bonus.length?' | '+bonus.join(' '):''}. Tüm sayfalar bu sonucu kullanır (tarayıcıda saklandı).`);
   const nEl=document.getElementById('mrNums');if(nEl)nEl.value='';
   const bEl=document.getElementById('mrBonus');if(bEl)bEl.value='';
+}
+function _mrDelete(){
+  const sel=document.getElementById('mrGame'),status=document.getElementById('mrStatus');
+  const set=(cls,msg)=>{if(status){status.className='parse-status '+cls;status.textContent=msg;}};
+  const g=getGame(sel?.value);
+  if(!g){set('error','⚠️ Oyun seçin.');return;}
+  const date=(document.getElementById('mrDate')?.value||'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){set('error','⚠️ Silinecek tarihi seçin.');return;}
+  if(!DRAW_DATA[g.id]||!new RegExp('(^|\\n)'+date+'\\s').test(DRAW_DATA[g.id])){set('error',`⚠️ ${date} için ${g.name} sonucu bulunamadı.`);return;}
+  DRAW_DATA[g.id]=DRAW_DATA[g.id].split('\n').filter(l=>l.trim()&&!l.startsWith(date)).join('\n');
+  // Kalıcı silme listesine ekle — repo'daki satır olsa bile yeniden gelmesin
+  try{const dk='drawDel_'+g.id;const del=JSON.parse(localStorage.getItem(dk)||'[]');if(!del.includes(date)){del.push(date);localStorage.setItem(dk,JSON.stringify(del));}}catch(e){}
+  delete _kbDrawCache[g.id];
+  try{Object.keys(_kbCalCache).forEach(k=>delete _kbCalCache[k]);}catch(e){}
+  try{Object.keys(_kbComboCache).forEach(k=>delete _kbComboCache[k]);}catch(e){}
+  saveDrawCache(g.id);
+  state._algoScoreCache={};state._algoScoreCache2={};
+  if(g.id===state.selectedGame){try{_renderBtHistoryFromLocalData(g.id,()=>false);}catch(e){}}
+  set('success',`🗑️ ${date} ${g.name} sonucu kaldırıldı (kalıcı).`);
 }
 
 // ── Boot ──────────────────────────────────────────────────────
