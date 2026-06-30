@@ -1456,7 +1456,9 @@ const ALGOS = [
 // ── Real historical draw data ────────────────────────────────
 // Source: Milli Piyango / lotobil.com archive (Sep 2025 – May 2026). Sayısal Loto: 6 main + Joker merged into 7 main, with Süperstar bonus.
 const DRAW_DATA = {
-sayisal:`2026-06-24 3 12 37 61 62 64 70 | 10
+sayisal:`2026-06-29 30 35 42 58 83 84 55 | 4
+2026-06-27 12 22 28 37 88 89 86 | 54
+2026-06-24 3 12 37 61 62 64 70 | 10
 2026-06-22 2 17 28 31 50 61 77 | 24
 2026-06-20 4 13 21 27 44 79 90 | 36
 2026-06-17 7 18 22 31 55 76 79 | 45
@@ -6428,6 +6430,10 @@ async function proxyFetch(url){
   const ac=()=>{const c=new AbortController();setTimeout(()=>c.abort(),TO);return c.signal;};
   const ok=async r=>{if(!r||r.ok===false)throw 0;const t=await r.text();if(!t||t.length<500)throw 0;return t;};
   return Promise.any([
+    // r.jina.ai — sayfayı düz metin (tab/boşluk ayrımlı tablo) olarak döndürür; ücretsiz CORS
+    // proxy'leri (codetabs/corsproxy/allorigins) sık sık engellenince çalışan tek güvenilir yol.
+    // Çıktısı _parseLotteryArchiveMap'in düz-metin tablo dalı ile ayrıştırılır.
+    fetch(`https://r.jina.ai/${url}`,{signal:ac(),credentials:'omit'}).then(ok),
     fetch(`https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,{signal:ac(),credentials:'omit'}).then(ok),
     fetch(`https://corsproxy.io/?url=${encodeURIComponent(url)}`,{signal:ac(),credentials:'omit'}).then(ok),
     fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,{signal:ac(),credentials:'omit'}).then(ok),
@@ -6499,6 +6505,18 @@ function _parseLotteryArchiveMap(html,gameId){
     const line=_drawLineFromCells(gameId,date,cells);
     if(line)map.set(date,line);
   }
+  // Düz-metin tablo dalı (ör. r.jina.ai çıktısı): "DD/MM/YYYY<tab/boşluk>Hft<tab>n1 n2 ..." satırları.
+  // HTML <tr> bulunamayan kaynaklarda da arşivi yakalar; zaten map'te olan tarihler atlanır.
+  html.split('\n').forEach(raw=>{
+    const t=raw.trim();
+    const dm=t.match(/^\|?\s*(\d{1,2})[./](\d{1,2})[./](\d{4})\b/);
+    if(!dm)return;
+    const date=`${dm[3]}-${dm[2].padStart(2,'0')}-${dm[1].padStart(2,'0')}`;
+    if(map.has(date))return;
+    const cells=t.split(/[\s|]+/).filter(Boolean);
+    const line=_drawLineFromCells(gameId,date,cells);
+    if(line)map.set(date,line);
+  });
   return map;
 }
 
