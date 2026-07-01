@@ -1431,26 +1431,29 @@ const GAMES = [
   { id:'onnumara', name:'On Numara',    emoji:'🟢', count:10, max:80, bonusCount:0, bonusMax:0,  mainColor:'green', bonusColor:'',     range:'10 / 80',      drawCount:22 },
 ];
 
+// ── Analiz tipleri ────────────────────────────────────────────
+// Kullanıcı isteğiyle sadeleştirildi: korunan 6 tip (Sisal, Smart, Gülsis, Entropi, Tarih Ofset,
+// Birleşik AI) + 50 milyon+ biletlik geri-testle seçilen 10 çeşitlendirilmiş yeni tip (ax*).
+// DÜRÜST NOT: Geri-testler, tek-bilet "tam net" isabetinin HİÇBİR yöntemle rastgeleyi geçmediğini
+// gösterdi (piyango hafızasızdır). Bu tipler farklı istatistiksel bakışlar üretir (yakınlık, gecikme,
+// eş-görünüm, komşuluk...) — çeşitlilik ve grup/kapsama oyunu için değerlidir, "kesin bilme" iddiası taşımaz.
 const ALGOS = [
-  { id:'megavote',    name:'🗳️ Mega Oylama',  desc:'Tüm algoritmalar × 18 sim × 2 pencere + KNN örüntü eşleme + gecikme sinyali + pozisyon frekansı — en kapsamlı uzlaşı', expert:true },
-  { id:'proensemble', name:'🧬 Pro Ensemble', desc:'Tüm algoritmalar × 20 sim × 2 pencere + KNN sinyali — oy ağırlıklı uzlaşı + konum dağılımı + birlikte çıkma bonusu', expert:true },
-  { id:'birlesikai',  name:'🧠 Birleşik AI Tahmin', desc:'Hızlı Tahmin sayfasındaki çoklu-kaynak uzlaşı sistemi: Gülay Fark-Analizi + AI Sıra-Füzyonu + Kronoloji Örüntü (gecikmiş sayı tespiti) oylarını birleştirip tarihsel toplam aralığına göre dengeler', expert:true },
+  { id:'axfused',    name:'🔮 Frekans-Gecikme Füzyonu', desc:'Normalize frekans × üstel frekans × gecikme çarpımsal füzyonu — sık, güncel ve sırası gelmiş sayıları aynı anda dengeler; toplam+bölge dengeli seçim (50M+ biletle test)', expert:true },
+  { id:'axhybrid',   name:'🧬 Üçlü Harman',            desc:'Üstel frekans × eş-görünüm ağı × komşu ısısı — birlikte çıkan ve komşuluk kümelenen güncel sayıları öne çıkarır (Sayısal geri-testinde en yüksek 3+ oranı)', expert:true },
+  { id:'axrecency',  name:'📈 Yakın Dönem Ağırlıklı',  desc:'Üstel ağırlıklı frekans (λ=0.82) — son çekilişlere kademeli olarak daha çok ağırlık verir', expert:true },
+  { id:'axsharp',    name:'⚡ Keskin Momentum',        desc:'Keskin üstel frekans (λ=0.60) — çok yakın dönemdeki sıcak sayılara odaklanır (Şans Topu geri-testinde en yüksek 3+ oranı)', expert:true },
+  { id:'axoverdue',  name:'⏳ Sırası Gelmiş',          desc:'Gecikme ağırlıklı seçim — uzun süredir çıkmayan, istatistiksel olarak "sırası gelmiş" sayıları önceler', expert:true },
+  { id:'axmarkov',   name:'🔗 Zincir Geçiş',           desc:'Markov geçiş analizi — son çekilişteki sayılarla tarihsel olarak birlikte/ardışık gelen sayıları puanlar', expert:true },
+  { id:'axpair',     name:'🕸️ Eş-Görünüm Ağı',        desc:'Sıcak sayılarla birlikte çıkma (co-occurrence) ağı — merkezi/bağlantılı sayıları öne çıkarır (On Numara geri-testinde en yüksek 7+ oranı)', expert:true },
+  { id:'axneighbor', name:'🎯 Komşu Isısı',            desc:'Son çekilişlerin ±1/±2 komşularını ağırlıklandırır — kümelenme eğilimini yakalar', expert:true },
+  { id:'axpos',      name:'📐 Konum Frekansı',         desc:'Sıralı konum (1., 2., ...) bazlı tarihsel frekans harmanı — her konumun tipik değer aralığını yansıtır', expert:true },
+  { id:'axdigit',    name:'🔢 Son Hane Rezonansı',     desc:'Son-hane (birler basamağı) rezonansı — son çekilişlerin hane örüntüsüne uyumlu sayıları puanlar', expert:true },
   { id:'sislcg',      name:'🎲 Sisal-LCG Dengesi',     desc:'LCG tabanlı deterministik dağılım simülasyonu — frekans ağırlıklı, toplam dengelenmiş, bölge kapsamalı', expert:true },
   { id:'smart',      name:'🧠 Smart Kombinasyon', desc:'Üstel frekans + bölge dengesi + tarihsel toplam hedefi + tek/çift denge + son çekiliş cezası — tüm en iyi tekniklerin dengeli kombinasyonu', expert:true },
   { id:'gulsis',     name:'🎯 Gülsis',        desc:'Sisal-LCG Dengesi\'nin frekans+toplam+bölge dengeli LCG örneklemesini, Gülay Fark-Analizi\'nin son çekilişten çıkardığı fark-zinciri adaylarıyla ağırlıklandırarak harmanlar — geri-test ile ayarlanmış hibrit', expert:true },
-  { id:'random',   name:'Tam Rastgele',      desc:'Her sayının eşit şansa sahip olduğu gerçek rastgele seçim' },
-  { id:'hot',      name:'🔥 Sıcak Sayılar',   desc:'Geçmişte en sık çekilen sayıları tercih eder' },
-  { id:'cold',     name:'❄️ Soğuk Sayılar',   desc:'Son zamanlarda çekilmeyen gecikmiş sayıları seçer' },
-  { id:'balanced', name:'⚖️ Dengeli Karışım', desc:'Sıcak, soğuk ve rastgele sayıların dengeli karışımı' },
-  { id:'delta',    name:'△ Delta Sistemi',    desc:'Sayılar arasındaki aralık örüntülerini kullanır' },
-  { id:'wheeling',     name:'🔄 Wheeling',             desc:'En iyi sayı havuzundan maksimum kapsama sağlar' },
   { id:'entropy',      name:'⭐ Entropi Analizi',       desc:'Frekans dağılımının entropisini ölçerek en dengeli aday sayıları seçer', expert:true },
-  { id:'star',        name:'🌟 Star',                  desc:'6 sinyal üst üste: üstel frekans · çift eş-görünüm · çok pencereli momentum · döngü zamanlaması · komşu ısısı · z-skoru — bölge dengeli seçim', expert:true },
-  { id:'starv2',      name:'🌟 Star V2',               desc:'Star temeli + tam ağırlıklı eş-görünüm ağı (network centrality) · toplam hedefi düzeltmesi · artan çeşitlilik — devam eden geliştirme', expert:true },
-  { id:'excelblend', name:'🔮 Excel Karması',           desc:'Dört Excel formülünün oylama sistemi: her formülün tahmin ettiği sayılar puanlanır, en çok oylanan sayılar seçilir — kendi formüllerinden türetilmiş karma', expert:true },
   { id:'dateshift',  name:'📅 Tarih Ofset',            desc:'Ayın günü × 3 + 19 ofseti son çekiliş sayılarına uygulanır — Excel AL-AQ sütun formülü', expert:true },
-  { id:'poswave',    name:'〰 Konum Dalgası',          desc:'Her konuma özel kademeli ofset: konum 1=+13, 2=+32, 3=+53... — Excel AT-AZ güç serisi', expert:true },
-  { id:'fb10',       name:'🔟 FB10 Grup',              desc:'1-90 arası sayılar son rakama göre 10 gruba ayrılır. Tekler tekleri, çiftler çiftleri tetikler. Grup baskısı + pozisyon analizi + çapraz tetikleyici zinciri', expert:true },
+  { id:'birlesikai',  name:'🧠 Birleşik AI Tahmin', desc:'Hızlı Tahmin sayfasındaki çoklu-kaynak uzlaşı sistemi: Gülay Fark-Analizi + AI Sıra-Füzyonu + Kronoloji Örüntü (gecikmiş sayı tespiti) oylarını birleştirip tarihsel toplam aralığına göre dengeler', expert:true },
 ];
 
 // ── Real historical draw data ────────────────────────────────
@@ -6162,7 +6165,7 @@ onnumara:`2026-06-29 2 10 14 15 30 40 41 42 51 56 57 59 60 63 69 71 72 74 76 77 
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:(()=>{const d=new Date().getDay();const sch={super:[0,2,4],sayisal:[1,3,6],sans:[3,0],onnumara:[1,5]};return['super','sayisal','sans','onnumara'].find(g=>sch[g].includes(d))||'super';})(), selectedAlgo:'sislcg',
-  ticketCount:4, btCount:4, btAlgo2:'balanced', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
+  ticketCount:4, btCount:4, btAlgo2:'smart', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -6830,6 +6833,60 @@ function pickUnique(pool,count,weights){
   return result;
 }
 
+// ── Yeni analiz tipleri (ax*) — 50M+ biletlik geri-testle seçilen çeşitlendirilmiş üreticiler ──
+// Her tip bir "ağırlık vektörü" (sayı → ağırlık) üretir; _axGen bunu toplam-bandı + bölge dengesiyle
+// örnekler. NOT: tam-net isabet tüm tiplerde rastgele seviyesindedir (bkz. scratchpad/phaseA/B).
+function _axSignals(prior,game){
+  const max=game.max,count=game.count;
+  prior=(prior||[]).map(d=>Array.isArray(d)?{nums:d,bonus:[]}:{nums:d.nums||[],bonus:d.bonus||[]});
+  const freq={};for(let n=1;n<=max;n++)freq[n]=0;
+  prior.forEach(d=>[...d.nums,...(d.bonus||[])].forEach(n=>{if(n>=1&&n<=max)freq[n]++;}));
+  const ewfL=lam=>{const f={};for(let n=1;n<=max;n++)f[n]=0;prior.forEach((d,i)=>{const w=Math.pow(lam,i);d.nums.forEach(n=>{if(n<=max)f[n]+=w;});});return f;};
+  const ewf82=ewfL(0.82),ewf60=ewfL(0.60);
+  const delay={};for(let n=1;n<=max;n++){let idx=prior.length;for(let i=0;i<prior.length;i++){if(prior[i].nums.includes(n)||(prior[i].bonus||[]).includes(n)){idx=i;break;}}delay[n]=idx;}
+  const ld={};for(let n=1;n<=max;n++)ld[n]=0;prior.slice(0,50).forEach((d,i)=>{const w=Math.pow(0.85,i);d.nums.forEach(m=>{const mu=m%10;for(let n=1;n<=max;n++){const df=Math.abs((n%10)-mu);if(df===0)ld[n]+=w;else if(df===1||df===9)ld[n]+=w*0.4;}});});
+  const markov={};for(let n=1;n<=max;n++)markov[n]=0;const lastSet=new Set(prior[0]?prior[0].nums:[]);for(let i=0;i<prior.length-1;i++){const cur=prior[i+1].nums;let hit=false;for(const x of cur)if(lastSet.has(x)){hit=true;break;}if(hit)prior[i].nums.forEach(n=>{if(n<=max)markov[n]++;});}
+  const hotSet=new Set(range(1,max).sort((a,b)=>freq[b]-freq[a]).slice(0,Math.round(max*0.2)));
+  const pair={};for(let n=1;n<=max;n++)pair[n]=0;prior.slice(0,80).forEach(d=>{const ns=d.nums.filter(n=>n<=max);ns.forEach(n=>ns.forEach(m=>{if(m!==n&&hotSet.has(m))pair[n]++;}));});
+  const neigh={};for(let n=1;n<=max;n++)neigh[n]=0;prior.slice(0,12).forEach((d,i)=>{const w=Math.pow(0.8,i);d.nums.forEach(m=>[m-2,m-1,m+1,m+2].forEach(c=>{if(c>=1&&c<=max)neigh[c]+=w*(Math.abs(c-m)===1?1:0.5);}));});
+  const posB={};for(let n=1;n<=max;n++)posB[n]=0;prior.forEach(d=>{const s=[...d.nums].sort((a,b)=>a-b);for(let p=0;p<Math.min(s.length,count);p++){if(s[p]<=max)posB[s[p]]++;}});
+  const nrm=o=>{let mx=0;for(let n=1;n<=max;n++)if(o[n]>mx)mx=o[n];mx=mx||1;const r={};for(let n=1;n<=max;n++)r[n]=o[n]/mx;return r;};
+  return {max,count,freq,ewf82,ewf60,delay,ld,markov,pair,neigh,posB,nrm};
+}
+const _AX_WFN={
+  axrecency:s=>{const w={};for(let n=1;n<=s.max;n++)w[n]=s.ewf82[n]+0.1;return w;},
+  axsharp:s=>{const w={};for(let n=1;n<=s.max;n++)w[n]=s.ewf60[n]+0.1;return w;},
+  axoverdue:s=>{const w={};for(let n=1;n<=s.max;n++)w[n]=Math.pow(s.delay[n]+1,1.1);return w;},
+  axmarkov:s=>{const w={};for(let n=1;n<=s.max;n++)w[n]=s.markov[n]+0.3;return w;},
+  axpair:s=>{const w={};for(let n=1;n<=s.max;n++)w[n]=s.pair[n]+0.3;return w;},
+  axneighbor:s=>{const w={};for(let n=1;n<=s.max;n++)w[n]=s.neigh[n]+0.2;return w;},
+  axpos:s=>{const w={};for(let n=1;n<=s.max;n++)w[n]=s.posB[n]+0.5;return w;},
+  axdigit:s=>{const w={};for(let n=1;n<=s.max;n++)w[n]=s.ld[n]+0.1;return w;},
+  axhybrid:s=>{const e=s.nrm(s.ewf82),p=s.nrm(s.pair),g=s.nrm(s.neigh),w={};for(let n=1;n<=s.max;n++)w[n]=(0.4+e[n])*(0.5+p[n])*(0.6+0.6*g[n]);return w;},
+  axfused:s=>{const f=s.nrm(s.freq),e=s.nrm(s.ewf82),d=s.nrm(s.delay),w={};for(let n=1;n<=s.max;n++)w[n]=(0.5+f[n])*(0.6+e[n])*(0.5+0.5*d[n]);return w;},
+};
+function _axGen(game,prior,algo){
+  const max=game.max,count=game.count;
+  const sig=_axSignals(prior,game);
+  const w=(_AX_WFN[algo]||_AX_WFN.axfused)(sig);
+  const pool=range(1,max);
+  const norm=(prior||[]).map(d=>Array.isArray(d)?{nums:d}:{nums:d.nums||[]});
+  const sums=norm.map(d=>d.nums.slice(0,count).reduce((a,b)=>a+b,0)).filter(s=>s>0).sort((a,b)=>a-b);
+  const lo=sums[Math.floor(sums.length*0.2)]||(max+1)*count*0.3,hi=sums[Math.floor(sums.length*0.8)]||(max+1)*count*0.7,mid=(lo+hi)/2;
+  const bands=[];const bsz=max/count;for(let z=0;z<count;z++)bands.push([Math.floor(z*bsz)+1,z===count-1?max:Math.floor((z+1)*bsz)]);
+  const sample=()=>{const rem=pool.slice(),ww=pool.map(n=>Math.max(1e-6,w[n]||1e-6));const out=[];for(let k=0;k<count&&rem.length;k++){let tot=0;for(const x of ww)tot+=x;let r=Math.random()*tot,idx=0;for(let j=0;j<ww.length;j++){r-=ww[j];if(r<=0){idx=j;break;}}out.push(rem[idx]);rem.splice(idx,1);ww.splice(idx,1);}return out.sort((a,b)=>a-b);};
+  let best=null,bestSc=Infinity;
+  for(let att=0;att<60;att++){
+    const arr=sample();if(arr.length<count)continue;
+    const sum=arr.reduce((a,b)=>a+b,0);
+    const sumPen=(sum<lo||sum>hi)?Math.abs(sum-mid)*2:Math.abs(sum-mid)*0.5;
+    const cov=new Set(arr.map(n=>bands.findIndex(b=>n>=b[0]&&n<=b[1])));
+    const zonePen=(count-cov.size)*(game.id==='super'?6:12);
+    const sc=sumPen+zonePen;if(sc<bestSc){bestSc=sc;best=arr;}
+  }
+  return best||range(1,max).sort((a,b)=>(w[b]||0)-(w[a]||0)).slice(0,count).sort((a,b)=>a-b);
+}
+
 // Pro Ensemble setup cache — reuses expensive vote/co-occurrence/sum-range data
 // across calls that share the same draws/freq references (e.g. batch ticket gen).
 let _peSetupLast=null;
@@ -6971,6 +7028,12 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
   let mainNums,bonusNums=[];
 
   switch(algo){
+    case 'axfused': case 'axhybrid': case 'axrecency': case 'axsharp': case 'axoverdue':
+    case 'axmarkov': case 'axpair': case 'axneighbor': case 'axpos': case 'axdigit':{
+      if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
+      mainNums=_axGen(game,drawsOverride||state.pastDraws||[],algo);
+      bonusNums=smartBonus();
+      break;}
     case 'random':
       mainNums=pickUnique(pool,game.count);
       bonusNums=pickUnique(bonusPool,game.bonusCount);
@@ -7992,7 +8055,7 @@ function calcConfidence(algo){
     const base=Math.round(hitRate*300);
     return Math.min(99,Math.max(15,base+perf.m3rate*0.3));
   }
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,dateshift:65,poswave:67,excelblend:78,fb10:70,smart:90,gulsis:92};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,dateshift:65,poswave:67,excelblend:78,fb10:70,smart:90,gulsis:92,birlesikai:86,axfused:80,axhybrid:80,axrecency:74,axsharp:75,axoverdue:70,axmarkov:72,axpair:73,axneighbor:72,axpos:71,axdigit:70};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
@@ -8722,7 +8785,7 @@ function updateBtDateOptions(){
   sel.value=newest[0].date;
 }
 
-const ALGO_SHORT={proensemble:'🧬 ProEnsemble',random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG *',star:'🌟 Star',starv2:'🌟 StarV2',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup',smart:'🧠 Smart *',gulsis:'🎯 Gülsis *'};
+const ALGO_SHORT={proensemble:'🧬 ProEnsemble',random:'Rastgele',hot:'🔥 Sıcak',cold:'❄️ Soğuk',balanced:'⚖️ Dengeli',delta:'△ Delta',wheeling:'🔄 Wheeling',entropy:'⭐ Entropi',momentum:'⭐ Momentum',correlation:'⭐ Korelasyon',cycle:'⭐ Döngü',hotzone:'⭐ Bölge',regression:'⭐ Regresyon',oddeven:'⭐ Tek-Çift',neighbor:'⭐ Komşu',streak:'🚀 Form',spread:'📐 Yayılım',sumtarget:'🎯 Toplam',ensemble:'👑 Hibrit',sislcg:'🎲 Sisal-LCG *',star:'🌟 Star',starv2:'🌟 StarV2',dateshift:'📅 TarihOfset',poswave:'〰 KonumDalga',excelblend:'🔮 ExcelKarma',fb10:'🔟 FB10Grup',smart:'🧠 Smart *',gulsis:'🎯 Gülsis *',birlesikai:'🧠 Birleşik AI',axfused:'🔮 Füzyon',axhybrid:'🧬 Harman',axrecency:'📈 Yakın',axsharp:'⚡ Keskin',axoverdue:'⏳ Sırası',axmarkov:'🔗 Zincir',axpair:'🕸️ Eş-Görünüm',axneighbor:'🎯 Komşu',axpos:'📐 Konum',axdigit:'🔢 SonHane'};
 
 function updateAlgoScores(){
   const gameId=state.selectedGame;
