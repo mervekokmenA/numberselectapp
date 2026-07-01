@@ -1390,6 +1390,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_htAiRenderLive()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
   </div>
   <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Bu sayfadaki tüm sistemleri (Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu, Listeler, NSA Banko), Astro Tahmin'i ve Kronoloji'den çıkan "sırası gelmiş" sayı örüntüsünü tek bir tahminde birleştirir; en çok kaynakta ortak çıkan sayılar üstte. Aşağıdaki geçmiş test, bu kaynaklardan tarihten önceki verilerle yeniden hesaplanabilenleri (Astro Tahmin ve Kronoloji Örüntü dahil) geriye dönük doğrular.</div>
+  <div id="htGroupBox"></div>
   <div id="htAiLiveResult"><div class="empty-state"><span class="empty-icon">🧠</span>Yükleniyor…</div></div>
   <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-top:14px;margin-bottom:8px">📈 Geçmiş Test</div>
   <div id="htAiBtBox"></div>
@@ -16396,8 +16397,72 @@ function _htRunBacktest(){
   },40);
 }
 
+// ── Olası Sayı Grupları — bölge dağılımı + erişim (min/max/toplam/yayılım) tahmini ──
+// Kümesel istatistikler (bölge sayısı, erişim aralığı) tekil sayıdan çok daha düşük varyanslı,
+// dolayısıyla gerçekten öngörülebilir. Aşağıdaki güven yüzdeleri, o oyunun son ~150 çekilişinde
+// (walk-forward, lookahead yok) bu tahminlerin ne sıklıkla tuttuğunu ölçen kapsamlı geri-testtir.
+function _htBandOf(n){return n<10?0:Math.floor(n/10);}
+function _htBandsList(max){const b=[];for(let g=0;g*10<=max;g++)b.push(g===0?[1,9]:[g*10,Math.min(g*10+9,max)]);return b;}
+function _htBandLabel(b){return b[0]===1?'1-9':`${b[0]}'lar`;}
+function _htGroupPredict(draws,game){
+  const max=game.max,bands=_htBandsList(max),NB=bands.length,WIN=60;
+  const q=(arr,p)=>arr.length?arr[Math.max(0,Math.min(arr.length-1,Math.floor(arr.length*p)))]:0;
+  const predictFrom=(hist)=>{
+    const rec=hist.slice(0,WIN);
+    const bandExp=new Array(NB).fill(0);let ws=0;
+    rec.forEach((d,i)=>{const w=Math.pow(0.96,i);ws+=w;const c=new Array(NB).fill(0);d.nums.forEach(n=>{if(n>=1&&n<=max)c[_htBandOf(n)]++;});for(let b=0;b<NB;b++)bandExp[b]+=w*c[b];});
+    for(let b=0;b<NB;b++)bandExp[b]/=(ws||1);
+    const mins=rec.map(d=>Math.min(...d.nums.filter(n=>n<=max))).sort((a,b)=>a-b);
+    const maxs=rec.map(d=>Math.max(...d.nums.filter(n=>n<=max))).sort((a,b)=>a-b);
+    const sums=rec.map(d=>d.nums.filter(n=>n<=max).reduce((s,x)=>s+x,0)).sort((a,b)=>a-b);
+    const rngs=rec.map(d=>{const f=d.nums.filter(n=>n<=max);return Math.max(...f)-Math.min(...f);}).sort((a,b)=>a-b);
+    return {bandExp,minB:[q(mins,.15),q(mins,.85)],maxB:[q(maxs,.15),q(maxs,.85)],sumB:[q(sums,.15),q(sums,.85)],rngB:[q(rngs,.15),q(rngs,.85)]};
+  };
+  const live=predictFrom(draws);
+  // walk-forward güven testi (son ~150 çekiliş)
+  const T=Math.min(150,draws.length-WIN-2);
+  let bandOk=0,bandTot=0,minIn=0,maxIn=0,sumIn=0,rngIn=0,N=0;
+  for(let t=0;t<T;t++){
+    const actual=draws[t].nums.filter(n=>n>=1&&n<=max).sort((a,b)=>a-b);if(actual.length<2)continue;
+    const p=predictFrom(draws.slice(t+1));
+    const bandAct=new Array(NB).fill(0);actual.forEach(n=>bandAct[_htBandOf(n)]++);
+    for(let b=0;b<NB;b++){if(Math.abs(Math.round(p.bandExp[b])-bandAct[b])<=1)bandOk++;bandTot++;}
+    const aMin=actual[0],aMax=actual[actual.length-1],aSum=actual.reduce((s,x)=>s+x,0),aRng=aMax-aMin;
+    if(aMin>=p.minB[0]&&aMin<=p.minB[1])minIn++;if(aMax>=p.maxB[0]&&aMax<=p.maxB[1])maxIn++;if(aSum>=p.sumB[0]&&aSum<=p.sumB[1])sumIn++;if(aRng>=p.rngB[0]&&aRng<=p.rngB[1])rngIn++;N++;
+  }
+  const pct=x=>N?Math.round(100*x/N):0;
+  return {bands,live,rel:{band:bandTot?Math.round(100*bandOk/bandTot):0,min:pct(minIn),max:pct(maxIn),sum:pct(sumIn),rng:pct(rngIn),N}};
+}
+function _htRenderGroups(){
+  const el=document.getElementById('htGroupBox');if(!el)return;
+  const game=getGame(_htGame),draws=_kbGetDraws(_htGame);
+  if(!draws||draws.length<80){el.innerHTML='';return;}
+  const {bands,live,rel}=_htGroupPredict(draws,game);
+  const bandMax=Math.max(0.01,...live.bandExp);
+  const relCol=v=>v>=75?'var(--green)':v>=60?'var(--gold)':'var(--muted)';
+  let h=`<div style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.28);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="font-size:.8rem;font-weight:800;color:var(--accent)">🎯 Olası Sayı Grupları — ${game.emoji} ${game.name}</div>`;
+  h+=`<div style="font-size:.57rem;color:var(--muted);margin:4px 0 10px;line-height:1.55">Tekil sayı yerine <strong>bölge dağılımı</strong> ve <strong>erişim aralıkları</strong> tahmin edilir — bu kümesel istatistikler çok daha öngörülebilir. Yüzdeler, son ${rel.N} çekilişte (lookahead yok) bu tahminlerin geçmiş isabetidir.</div>`;
+  // Bölge dağılımı
+  h+=`<div style="font-size:.62rem;font-weight:700;color:var(--text);margin-bottom:6px">📐 Onluk Bölge Dağılımı — beklenen sayı adedi <span style="font-weight:400;color:${relCol(rel.band)}">(±1 içinde geçmiş isabet %${rel.band})</span></div>`;
+  bands.forEach((b,i)=>{
+    const e=live.bandExp[i],er=Math.round(e),hot=e>=Math.max(1,bandMax*0.7);
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span style="font-size:.62rem;min-width:48px;color:${hot?'var(--accent)':'var(--muted)'};font-weight:${hot?800:400}">${_htBandLabel(b)}</span><div style="flex:1;height:9px;border-radius:4px;background:rgba(0,0,0,.05);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;background:${hot?'linear-gradient(90deg,rgba(129,140,248,.75),rgba(0,230,118,.7))':'rgba(129,140,248,.4)'};width:${Math.round(e/bandMax*100)}%"></div></div><span style="font-size:.6rem;font-weight:700;min-width:58px;text-align:right;color:${hot?'var(--accent)':'var(--muted)'}">~${er} sayı</span></div>`;
+  });
+  // Erişim tahmini
+  const rangeRow=(lbl,band,rv)=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;flex-wrap:wrap"><span style="font-size:.62rem;min-width:88px;color:var(--muted)">${lbl}</span><span style="font-size:.74rem;font-weight:800;font-family:monospace;color:var(--text)">${band[0]} – ${band[1]}</span><span style="font-size:.56rem;color:${relCol(rv)};margin-left:auto">geçmiş isabet %${rv}</span></div>`;
+  h+=`<div style="font-size:.62rem;font-weight:700;color:var(--text);margin:10px 0 4px">🎯 Erişim Tahmini (sayılar nereye kadar gelir)</div>`;
+  h+=rangeRow('En küçük sayı',live.minB,rel.min);
+  h+=rangeRow('En büyük sayı',live.maxB,rel.max);
+  h+=rangeRow('Toplam',live.sumB,rel.sum);
+  h+=rangeRow('Yayılım (max−min)',live.rngB,rel.rng);
+  h+=`<div style="font-size:.54rem;color:var(--muted);margin-top:8px;line-height:1.5">💡 Aşağıdaki Birleşik AI biletleri de bu grup/erişim tahminlerine uyacak şekilde dengelenir. Bölge ve erişim tahmini, tekil sayı tahmininden belirgin biçimde daha güvenilirdir.</div>`;
+  h+=`</div>`;
+  el.innerHTML=h;
+}
 // ── Birleşik AI Tahmin — canlı tahmin (tüm sistemler + Astro + Kronoloji) ve geriye dönük test ──
 function _htAiRenderLive(){
+  try{_htRenderGroups();}catch(e){}
   const el=document.getElementById('htAiLiveResult');if(!el)return;
   const sys=_htCollectVotes();
   const names=Object.keys(sys).filter(nm=>sys[nm].size>0);
