@@ -354,6 +354,10 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <input type="checkbox" id="excludeLastChk" onchange="toggleExcludeLast(this.checked)" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer">
     <label for="excludeLastChk" style="font-size:.78rem;color:var(--text);cursor:pointer;user-select:none">Son oyunu hariç bırak</label>
   </div>
+  <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 12px;background:rgba(16,185,129,.06);border-radius:10px;border:1px solid rgba(16,185,129,.28);margin-bottom:8px">
+    <input type="checkbox" id="coverageChk" checked onchange="state.coverageMode=this.checked" style="width:16px;height:16px;accent-color:#0a9a6a;cursor:pointer;margin-top:2px">
+    <label for="coverageChk" style="font-size:.78rem;color:var(--text);cursor:pointer;user-select:none;line-height:1.4">🎯 Kapsama Modu <span style="font-size:.62rem;color:var(--muted)">— seçtiğin analiz tipiyle üretilen biletleri, <strong>en iyi biletin "net ya da ±1 yakın"</strong> skorunu yükseltecek kapsama-optimal bir gruba çevirir (2+ bilette etkilidir).</span></label>
+  </div>
 
   <div class="card">
     <div class="card-title">Oyun Seçin</div>
@@ -6169,7 +6173,7 @@ onnumara:`2026-06-29 2 10 14 15 30 40 41 42 51 56 57 59 60 63 69 71 72 74 76 77 
 // ── State ────────────────────────────────────────────────────
 const state = {
   selectedGame:(()=>{const d=new Date().getDay();const sch={super:[0,2,4],sayisal:[1,3,6],sans:[3,0],onnumara:[1,5]};return['super','sayisal','sans','onnumara'].find(g=>sch[g].includes(d))||'super';})(), selectedAlgo:'sislcg',
-  ticketCount:4, btCount:4, btAlgo2:'smart', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
+  ticketCount:4, coverageMode:true, btCount:4, btAlgo2:'smart', btCount2:4, btRunCount2:0, btFilter5:false, btFilter5_2:false, btFilter4:false, btFilter5high:false, btFilter6:false, genDisplayFilter3:false, analysisWindow:999, pastDraws:[], frequency:{},
   savedTickets:[], totalGenerated:0, lastTickets:null, genRunCount:0, btRunCount:0,
   datedDraws:[], btHistory:[],
   algoPositionScores:{}, algoAnalysisGame:null,
@@ -8148,6 +8152,26 @@ function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null
 }
 
 // ── Generate ──────────────────────────────────────────────────
+// Komşu-farkında açgözlü kapsama seçimi: aday bilet havuzundan K bilet seçerek, grubun
+// en iyi biletinin "net YA DA ±1 yakın" skorunu (whatever the actual draw is) maksimize eder.
+// Her bilet n-1,n,n+1 hücrelerini "kaplar"; yeni kaplanan hücre sayısını maksimize eden seçilir.
+function _coverageSelect(pool,K,game){
+  if(pool.length<=K)return pool;
+  const max=game.max;
+  const chosen=[],covered=new Set();
+  const cand=pool.slice();
+  const cells=n=>[n-1,n,n+1];
+  while(chosen.length<K&&cand.length){
+    let bestI=0,bestGain=-1;
+    for(let i=0;i<cand.length;i++){
+      let gain=0;
+      for(const n of cand[i].main)for(const c of cells(n))if(c>=1&&c<=max&&!covered.has(c))gain++;
+      if(gain>bestGain){bestGain=gain;bestI=i;}
+    }
+    const t=cand.splice(bestI,1)[0];chosen.push(t);t.main.forEach(n=>cells(n).forEach(c=>covered.add(c)));
+  }
+  return chosen;
+}
 async function generateTickets(){
   state._algoScoreCache={};
   state._algoScoreCache2={};
@@ -8163,21 +8187,28 @@ async function generateTickets(){
   const excludeNums=_exLd?new Set(_exLd.nums||[]):null;
   const excludeBonusNums=_exLd?new Set(_exLd.bonus||[]):null;
   const seenKeys=new Set();
-  const tickets=[];
+  let tickets=[];
   let attempts=0;
   const _isPe=state.selectedAlgo==='proensemble';
-  const _yieldEvery=_isPe?1:10;
-  const _shouldYield=_isPe||state.ticketCount>20;
-  while(tickets.length<state.ticketCount&&attempts<state.ticketCount*20){
+  // 🎯 Kapsama Modu: 2+ bilette, seçilen analiz tipiyle büyük bir aday havuzu üretip
+  // en iyi biletin net+yakınını maksimize eden kapsama-optimal grup seçilir.
+  const _cov=state.coverageMode&&state.ticketCount>1;
+  const _poolTarget=_cov?Math.min(600,Math.max(state.ticketCount*40,120)):state.ticketCount;
+  const _maxAtt=_poolTarget*20;
+  const _yieldEvery=_isPe?1:20;
+  const _shouldYield=_isPe||_poolTarget>20;
+  const pool=[];
+  while(pool.length<_poolTarget&&attempts<_maxAtt){
     attempts++;
     const t=generateNumbers(game,state.selectedAlgo);
     const k=[...t.main,...t.bonus].join(',');
-    if(!seenKeys.has(k)){seenKeys.add(k);tickets.push(t);}
-    if(_shouldYield&&tickets.length>0&&tickets.length%_yieldEvery===0){
-      if(state.ticketCount>10)btn.textContent=`🎲 ${tickets.length}/${state.ticketCount}...`;
+    if(!seenKeys.has(k)){seenKeys.add(k);pool.push(t);}
+    if(_shouldYield&&pool.length>0&&pool.length%_yieldEvery===0){
+      btn.textContent=`🎲 ${Math.min(pool.length,_poolTarget)}${_cov?' aday':''}...`;
       await new Promise(r=>setTimeout(r,0));
     }
   }
+  tickets=_cov?_coverageSelect(pool,state.ticketCount,game):pool.slice(0,state.ticketCount);
   state.lastTickets={tickets,game};
   const container=document.getElementById('ticketContainer');
   const algo=ALGOS.find(a=>a.id===state.selectedAlgo);
