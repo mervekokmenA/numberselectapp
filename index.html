@@ -864,6 +864,9 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <textarea id="hbInput" placeholder="4 9 35 69 78 89 | 58&#10;6 20 32 60 75 90 | 21&#10;..." style="width:100%;box-sizing:border-box;min-height:130px;font-size:.8rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 11px;resize:vertical"></textarea>
   <div style="display:flex;gap:8px;align-items:center;margin:8px 0 12px;flex-wrap:wrap">
    <button onclick="_hbAnalyze()" style="font-size:.78rem;padding:8px 20px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🔍 Analiz Et</button>
+   <button onclick="document.getElementById('hbImgFile').click()" style="font-size:.72rem;padding:7px 14px;border-radius:8px;border:1px solid rgba(0,150,58,.4);background:rgba(0,150,58,.1);color:var(--green);cursor:pointer;font-weight:700" title="Bilet ekran görüntüsünden sayıları otomatik okur (cihazda çalışır, hiçbir yere gönderilmez)">📷 Görselden Oku</button>
+   <input type="file" id="hbImgFile" accept="image/*" multiple style="display:none" onchange="_hbOcrFiles(this.files);this.value=''">
+   <button onclick="_hbCopyAll()" class="copy-btn" style="font-size:.72rem;padding:7px 14px" title="Analizdeki tüm bölümleri başlıklarıyla tek seferde kopyalar">📋 Tümünü Kopyala</button>
    <button onclick="document.getElementById('hbInput').value='';" style="font-size:.72rem;padding:7px 14px;border-radius:8px;border:1px solid rgba(255,82,82,.3);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer">🗑️ Temizle</button>
   </div>
   <div id="hbTicketsOut"></div>
@@ -14077,6 +14080,232 @@ function _hbAnalyze(){
     window._hbCopies['ai']='Bilet Testi — AI Bilet Tahmini ('+game.name+(dateVal?' · '+dateVal:'')+')\n'+aiTickets.map(t=>t.main.join(' - ')).join('\n');
   }catch(e){hai='<div style="font-size:.66rem;color:#cc2222;padding:6px">AI bilet hatası: '+e.message+'</div>';}
   outAi.innerHTML=_hbSection('🧠 AI Bilet Tahmini (anomali + kesişim harmanı)',hai,'ai');
+}
+
+// ── Bilet Testi: toplu kopyalama + görselden okuma (cihaz-içi OCR, API'siz) ──
+function _hbCopyAll(){
+  const order=['tk','str','an','gu','g0','ai'];
+  const parts=order.map(k=>(window._hbCopies||{})[k]).filter(Boolean);
+  if(!parts.length){showToast('⚠️ Önce 🔍 Analiz Et butonuna basın');return;}
+  _kbCopy(parts.join('\n\n'));
+}
+// Rakam şablonları — kullanıcının 6 gerçek bilet ekran görüntüsünden çıkarıldı (12x16 bit, hex).
+// Görülmemiş görsel testinde 227/227 (%100) glif doğruluğu (bkz. scratchpad/ocr_proto,calib).
+const _HB_OCRT={"0":{h:"1f83fc70e606c07c03c03c03c03c03c03c0660670c3fc0f0",ar:0.84},"1":{h:"0feffe7fe03e03e03e03e03e03e03e03e03e03e03e03e03e",ar:0.29},"2":{h:"1f87fce0ec0640700600e00c01c0380701c0380780ffffff",ar:0.63},"3":{h:"1f87fe60e40700600e0fc0fc01e007007c07c07f0e7fc1f8",ar:0.64},"4":{h:"01c03c07c06c0cc18c18c30c60c60ce1cffffff00c00c00c",ar:0.76},"5":{h:"7fe7fc600600e00ff8ffce0e007003003007c07e0e7fc1f0",ar:0.66},"6":{h:"1f83fc706602c00c70dfcf9ee07e07c03e03e0770e3fc0f8",ar:0.7},"7":{h:"ffffff00700600c00c01c0180380300700600e00c01c0180",ar:0.64},"8":{h:"3f87fee06e07e066063bc3fc7fce06c07c03c07e0e7fc1f8",ar:0.67},"9":{h:"3f87fce0ec06c07c07c0771f7ff1e700700640660c3f81f0",ar:0.7}};
+const _hbTpl=Object.entries(_HB_OCRT).map(([dig,t])=>{
+  const bits=[];for(const ch of t.h){const v=parseInt(ch,16);bits.push((v>>3)&1,(v>>2)&1,(v>>1)&1,v&1);}
+  return {dig:+dig,bits,ar:t.ar};
+});
+function _hbOcrClassify(g){
+  let best=-1,bs=-1;
+  for(const t of _hbTpl){
+    let m=0;for(let i=0;i<192;i++)if(t.bits[i]===g.bits[i])m++;
+    const sc=m/192-Math.min(0.12,Math.abs(t.ar-g.ar)*0.18);
+    if(sc>bs){bs=sc;best=t.dig;}
+  }
+  return {dig:best,score:bs};
+}
+// Bilet ekran görüntüsünü ayrıştırır: renkli toplar bulunur (erozyon + bitişik-blok bölme),
+// satırlara kümelenir, top içindeki rakam glifleri şablonla sınıflandırılır.
+function _hbOcrImageEl(img){
+  const SCALE=Math.min(2.2,1400/img.naturalWidth);
+  const W=Math.round(img.naturalWidth*SCALE),H=Math.round(img.naturalHeight*SCALE);
+  const cv=document.createElement('canvas');cv.width=W;cv.height=H;
+  const c2=cv.getContext('2d',{willReadFrequently:true});c2.drawImage(img,0,0,W,H);
+  const d=c2.getImageData(0,0,W,H).data;
+  // Tam genişlikte ince ayraç çizgilerini üst satırla doldur
+  {
+    const warmRow=new Int32Array(H);
+    for(let y=0;y<H;y++){let c=0;for(let x=0;x<W;x+=2){const p=(y*W+x)*4;const r=d[p],g=d[p+1],b=d[p+2];if(r>110&&r>g+40&&Math.max(r,g,b)-Math.min(r,g,b)>50)c++;}warmRow[y]=c*2;}
+    let y=1;
+    while(y<H-1){
+      if(warmRow[y]>W*0.7){
+        let y1=y;while(y1<H-1&&warmRow[y1]>W*0.7)y1++;
+        if(y1-y<=Math.max(8,H*0.012)){const src=Math.max(0,y-2);
+          for(let yy=y;yy<y1+1;yy++)for(let x=0;x<W;x++){const ps=(src*W+x)*4,pd=(yy*W+x)*4;d[pd]=d[ps];d[pd+1]=d[ps+1];d[pd+2]=d[ps+2];}}
+        y=y1+1;
+      }else y++;
+    }
+  }
+  const fam=new Int8Array(W*H);
+  for(let i=0,p=0;i<W*H;i++,p+=4){
+    const r=d[p],g=d[p+1],b=d[p+2];
+    const mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+    if(mx-mn<50||mx<70)continue;
+    if(r>170&&g>130&&b<130&&g<r+40)fam[i]=2;
+    else if(b>r+25&&b>110)fam[i]=3;
+    else if(r>g+40&&r>110)fam[i]=1;
+  }
+  const E=2;let curM=fam;
+  for(let e=0;e<E;e++){
+    const nx=new Int8Array(W*H);
+    for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){const i=y*W+x;if(curM[i]&&curM[i-1]&&curM[i+1]&&curM[i-W]&&curM[i+W])nx[i]=curM[i];}
+    curM=nx;
+  }
+  const lab=new Int32Array(W*H).fill(-1);const comps=[];const stack=new Int32Array(W*H);
+  for(let i=0;i<W*H;i++){
+    if(!curM[i]||lab[i]>=0)continue;
+    const id=comps.length;let sp=0;stack[sp++]=i;lab[i]=id;
+    let minx=W,maxx=0,miny=H,maxy=0,area=0;const famCnt=[0,0,0,0];
+    while(sp>0){
+      const q=stack[--sp];const y=(q/W)|0,x=q%W;
+      area++;famCnt[curM[q]]++;
+      if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;
+      if(x>0&&curM[q-1]&&lab[q-1]<0){lab[q-1]=id;stack[sp++]=q-1;}
+      if(x<W-1&&curM[q+1]&&lab[q+1]<0){lab[q+1]=id;stack[sp++]=q+1;}
+      if(y>0&&curM[q-W]&&lab[q-W]<0){lab[q-W]=id;stack[sp++]=q-W;}
+      if(y<H-1&&curM[q+W]&&lab[q+W]<0){lab[q+W]=id;stack[sp++]=q+W;}
+    }
+    comps.push({minx:minx-E,maxx:maxx+E,miny:miny-E,maxy:maxy+E,area,famCnt});
+  }
+  const famAt=(x,y)=>fam[y*W+x];
+  const boxFam=(x0,y0,x1,y1)=>{
+    const cnt=[0,0,0,0];let tot=0;const stp=Math.max(1,((x1-x0)/24)|0);
+    for(let y=y0;y<y1;y+=stp)for(let x=x0;x<x1;x+=stp){tot++;cnt[famAt(x,y)]++;}
+    let f=1;if(cnt[2]>cnt[1]&&cnt[2]>cnt[3])f=2;else if(cnt[3]>cnt[1]&&cnt[3]>cnt[2])f=3;
+    return {f,dens:(cnt[1]+cnt[2]+cnt[3])/(tot||1)};
+  };
+  const balls=[];
+  for(const c of comps){
+    const w=c.maxx-c.minx+1,h=c.maxy-c.miny+1;
+    if(c.area<200||w<14||h<14)continue;
+    if(h>H*0.25)continue;
+    const ar=w/h;
+    if(ar>=0.6&&ar<=1.7){
+      if(w>W*0.2)continue;
+      if(c.area/((w-2*E)*(h-2*E))<0.5)continue;
+      let f=1;if(c.famCnt[2]>c.famCnt[1]&&c.famCnt[2]>c.famCnt[3])f=2;else if(c.famCnt[3]>c.famCnt[1])f=3;
+      balls.push({x:Math.max(0,c.minx),y:Math.max(0,c.miny),w,h,cx:c.minx+w/2,cy:c.miny+h/2,fam:f});
+    }else if(ar>1.7&&ar<22){
+      const n=Math.round(w/h);if(n<2||n>20)continue;
+      const bw=w/n;
+      for(let k=0;k<n;k++){
+        const x0=Math.max(0,Math.round(c.minx+k*bw)),x1=Math.min(W-1,Math.round(c.minx+(k+1)*bw));
+        const{f,dens}=boxFam(x0,Math.max(0,c.miny),x1,Math.min(H-1,c.maxy));
+        if(dens<0.5)continue;
+        balls.push({x:x0,y:Math.max(0,c.miny),w:x1-x0,h,cx:(x0+x1)/2,cy:c.miny+h/2,fam:f});
+      }
+    }
+  }
+  if(!balls.length)return{lines:[],conf:0,balls:0};
+  const medH=balls.map(b=>b.h).sort((a,b)=>a-b)[Math.floor(balls.length/2)];
+  const medW=balls.map(b=>b.w).sort((a,b)=>a-b)[Math.floor(balls.length/2)];
+  balls.sort((a,b)=>a.cy-b.cy);
+  const rowsRaw=[];let curRow=[balls[0]];
+  for(let i=1;i<balls.length;i++){
+    if(Math.abs(balls[i].cy-curRow[curRow.length-1].cy)<medH*0.6)curRow.push(balls[i]);
+    else{rowsRaw.push(curRow);curRow=[balls[i]];}
+  }
+  rowsRaw.push(curRow);
+  const readBall=(ball)=>{
+    const bx=ball.x,by=ball.y,bw=ball.w,bh=ball.h;
+    const mgx=Math.round(bw*0.06),mgy=Math.round(bh*0.06);
+    const x0=Math.max(0,bx+mgx),y0=Math.max(0,by+mgy),x1=Math.min(W,bx+bw-mgx),y1=Math.min(H,by+bh-mgy);
+    const ww=x1-x0,hh=y1-y0;
+    if(ww<6||hh<6)return null;
+    const mask=new Uint8Array(ww*hh);
+    const wantDark=ball.fam===2;
+    const ecx=bx+bw/2,ecy=by+bh/2,erx=bw/2*0.94,ery=bh/2*0.94;
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+      const dx=(x-ecx)/erx,dy=(y-ecy)/ery;
+      if(dx*dx+dy*dy>1)continue;
+      const p=(y*W+x)*4;const r=d[p],g=d[p+1],b=d[p+2];
+      const isW=r>185&&g>185&&b>185, isD=r<110&&g<110&&b<110;
+      if(wantDark?isD:isW)mask[(y-y0)*ww+(x-x0)]=1;
+    }
+    const gl=new Int32Array(ww*hh).fill(-1);const glyphs=[];const st=new Int32Array(ww*hh);
+    for(let i=0;i<ww*hh;i++){
+      if(!mask[i]||gl[i]>=0)continue;
+      const id=glyphs.length;let sp=0;st[sp++]=i;gl[i]=id;
+      let minx=ww,maxx=0,miny=hh,maxy=0,area=0;const px=[];
+      while(sp>0){
+        const q=st[--sp];const y=(q/ww)|0,x=q%ww;area++;px.push(q);
+        if(x<minx)minx=x;if(x>maxx)maxx=x;if(y<miny)miny=y;if(y>maxy)maxy=y;
+        if(x>0&&mask[q-1]&&gl[q-1]<0){gl[q-1]=id;st[sp++]=q-1;}
+        if(x<ww-1&&mask[q+1]&&gl[q+1]<0){gl[q+1]=id;st[sp++]=q+1;}
+        if(y>0&&mask[q-ww]&&gl[q-ww]<0){gl[q-ww]=id;st[sp++]=q-ww;}
+        if(y<hh-1&&mask[q+ww]&&gl[q+ww]<0){gl[q+ww]=id;st[sp++]=q+ww;}
+      }
+      glyphs.push({minx,maxx,miny,maxy,area,px});
+    }
+    const bA=bw*bh;
+    let gs=glyphs.filter(g=>g.area>bA*0.006);
+    gs.sort((a,b)=>a.minx-b.minx);
+    for(let i=0;i<gs.length-1;i++){
+      const a=gs[i],b2=gs[i+1];
+      const ov=Math.min(a.maxx,b2.maxx)-Math.max(a.minx,b2.minx)+1;
+      const mw=Math.min(a.maxx-a.minx,b2.maxx-b2.minx)+1;
+      if(ov>mw*0.5){
+        a.minx=Math.min(a.minx,b2.minx);a.maxx=Math.max(a.maxx,b2.maxx);
+        a.miny=Math.min(a.miny,b2.miny);a.maxy=Math.max(a.maxy,b2.maxy);
+        a.area+=b2.area;a.px=a.px.concat(b2.px);
+        gs.splice(i+1,1);i--;
+      }
+    }
+    gs=gs.filter(g=>g.area>bA*0.012&&(g.maxy-g.miny+1)>hh*0.3);
+    if(!gs.length||gs.length>2)return null;
+    let num='';let minSc=1;
+    for(const g of gs){
+      const gw=g.maxx-g.minx+1,gh=g.maxy-g.miny+1;
+      const acc2=new Float32Array(192),cnt=new Float32Array(192);
+      const m2=new Uint8Array(gw*gh);
+      g.px.forEach(q=>{const y=(q/ww)|0,x=q%ww;m2[(y-g.miny)*gw+(x-g.minx)]=1;});
+      for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){
+        const gx=Math.min(11,(x*12/gw)|0),gy=Math.min(15,(y*16/gh)|0);
+        acc2[gy*12+gx]+=m2[y*gw+x];cnt[gy*12+gx]++;
+      }
+      const bits=[];for(let i=0;i<192;i++)bits.push(cnt[i]&&acc2[i]/cnt[i]>0.35?1:0);
+      const r=_hbOcrClassify({bits,ar:gw/gh});
+      num+=r.dig;if(r.score<minSc)minSc=r.score;
+    }
+    return {num:+num,score:minSc};
+  };
+  const lines=[];let conf=1,ballCount=0;
+  for(const r of rowsRaw){
+    r.sort((a,b)=>a.cx-b.cx);
+    const wi=r.findIndex(b=>b.fam===1&&Math.abs(b.h-medH)<medH*0.45);
+    if(wi<0)continue;
+    const acc=[r[wi]];
+    for(let i=wi+1;i<r.length;i++){
+      const prev=acc[acc.length-1];
+      if(r[i].x-(prev.x+prev.w)>medW*0.9)break;
+      acc.push(r[i]);
+    }
+    const mains=acc.filter(b=>b.fam===1&&Math.abs(b.h-medH)<medH*0.45);
+    const bonus=acc.filter(b=>b.fam!==1&&Math.abs(b.h-medH)<medH*0.45&&b.cx>(mains[mains.length-1]||{cx:-1}).cx);
+    if(mains.length<3)continue;
+    const mNums=[],bNums=[];let bad=false;
+    for(const b of mains){const rr=readBall(b);if(!rr){bad=true;break;}mNums.push(rr.num);if(rr.score<conf)conf=rr.score;ballCount++;}
+    if(bad)continue;
+    for(const b of bonus){const rr=readBall(b);if(rr){bNums.push(rr.num);if(rr.score<conf)conf=rr.score;ballCount++;}}
+    lines.push(mNums.join(' ')+(bNums.length?' | '+bNums.join(' '):''));
+  }
+  return {lines,conf,balls:ballCount};
+}
+function _hbOcrFiles(files){
+  if(!files||!files.length)return;
+  showToast('📷 Görsel okunuyor…');
+  const ta=document.getElementById('hbInput');
+  let done=0,allLines=[],worst=1;
+  Array.from(files).forEach(f=>{
+    const url=URL.createObjectURL(f);
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        const r=_hbOcrImageEl(img);
+        allLines=allLines.concat(r.lines);
+        if(r.conf<worst)worst=r.conf;
+      }catch(e){console.warn('OCR',e);}
+      URL.revokeObjectURL(url);
+      if(++done===files.length){
+        if(!allLines.length){showToast('⚠️ Görselde bilet topu bulunamadı — daha net bir ekran görüntüsü deneyin');return;}
+        if(ta){ta.value=(ta.value.trim()?ta.value.trim()+'\n':'')+allLines.join('\n');try{localStorage.setItem('_hbInput',ta.value);}catch(e){}}
+        showToast(`✅ ${allLines.length} bilet okundu${worst<0.8?' — ⚠️ düşük eminlik, sayıları kontrol edin':''}`);
+      }
+    };
+    img.onerror=()=>{URL.revokeObjectURL(url);if(++done===files.length)showToast('⚠️ Görsel açılamadı');};
+    img.src=url;
+  });
 }
 
 // ── Boot ──────────────────────────────────────────────────────
