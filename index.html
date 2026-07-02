@@ -855,7 +855,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <!-- ═══════════ BİLET TESTİ & ANOMALİ ANALİZİ (Kapsamlı'dan taşındı + genişletildi) ═══════════ -->
 <div id="homeBiletSection" style="grid-column:1/-1;margin-top:0;min-width:0">
  <div class="card">
-  <div class="card-title">🎫 Bilet Testi &amp; Anomali Analizi <span style="font-size:.55rem;font-weight:600;color:#0a9a6a;background:rgba(0,150,58,.12);border-radius:6px;padding:1px 7px;margin-left:6px">sürüm v7 · 📷 OCR + 📋 toplu kopya</span></div>
+  <div class="card-title">🎫 Bilet Testi &amp; Anomali Analizi <span style="font-size:.55rem;font-weight:600;color:#0a9a6a;background:rgba(0,150,58,.12);border-radius:6px;padding:1px 7px;margin-left:6px">sürüm v8 · 📷 OCR + 📋 toplu kopya + o günün oyunu</span></div>
   <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Biletlerinizi girin (her satır bir bilet; Joker/bonus için <code style="color:var(--accent)">| 58</code> ya da satır sonuna sırasız yazın). <strong>Anomali kuralı:</strong> sıralı bilette bir sıranın beklenen onluk bölgesi atlanmışsa (örn. 1. sırada 0'lar/10'lar yokken bilet 30'larla başlıyorsa), o sıranın bir <strong>üstteki ve alttaki biletteki</strong> sayısı (ya da yakını) olası adaydır; en üst satır anomalisinde yalnızca alttaki bilete bakılır. Tarih seçerseniz geçmiş test yapılır, boş bırakırsanız yeni oyun tahmini olarak değerlendirilir.</div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="hbGameRow"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
@@ -13879,9 +13879,15 @@ function _mrDelete(){
 // Bir sıra bu sınırı aşıyorsa (beklenen onluk bölge atlanmışsa) ANOMALİDİR; o sıranın bir üstteki
 // ve alttaki biletteki sayısı (ya da ±1/±2 yakını) olası adaydır. En üst satır → yalnızca alttaki.
 // Doğrulama: Süper b1 s1 anomalisi→alt=5→6(±1)✓, s2→alt=22→23(±1)✓; Sayısal b8 s1→üst=3→3 NET✓, b4 s5→alt=65→63(±2)✓.
-let _hbGame='sayisal';
+let _hbGame='sayisal',_hbGameManual=false;
+function _hbTodayGame(){
+  const d=new Date().getDay();
+  const sch={super:[0,2,4],sayisal:[1,3,6],sans:[3,0],onnumara:[1,5]};
+  return ['super','sayisal','sans','onnumara'].find(g=>sch[g].includes(d))||'sayisal';
+}
 function _hbInit(){
   const row=document.getElementById('hbGameRow');if(!row)return;
+  if(!_hbGameManual)_hbGame=_hbTodayGame(); // o günün oyunu otomatik seçili gelir
   row.innerHTML=GAMES.map(g=>{
     const a=g.id===_hbGame;
     return `<button onclick="_hbSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;
@@ -13889,7 +13895,7 @@ function _hbInit(){
   _hbDates();
   try{const sv=localStorage.getItem('_hbInput');const ta=document.getElementById('hbInput');if(sv&&ta&&!ta.value)ta.value=sv;}catch(e){}
 }
-function _hbSetGame(g){_hbGame=g;_hbInit();}
+function _hbSetGame(g){_hbGame=g;_hbGameManual=true;_hbInit();}
 function _hbDates(){
   const sel=document.getElementById('hbDateSel');if(!sel)return;
   const draws=_kbGetDraws(_hbGame);
@@ -14756,7 +14762,7 @@ function _mpRRenderPrediction(tickets,poolRows,game,gid,totalDraws,cal,actual){
 }
 function _kbOpenBiletWith(rawTxt,gid){
   // Bilet Testi anasayfaya taşındı — oraya yönlendir ve biletleri doldur.
-  if(gid)_hbGame=gid;
+  if(gid){_hbGame=gid;_hbGameManual=true;}
   showMainPage('home');
   setTimeout(()=>{
     try{_hbInit();}catch(e){}
