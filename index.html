@@ -13913,7 +13913,13 @@ function _hbParse(txt,game){
   });
   return tickets;
 }
-function _hbHi(game,cnt,i){return i>=cnt-1?game.max:Math.min(game.max,Math.floor(((i+1)*game.max/cnt)/10)*10+9);}
+function _hbHi(game,cnt,i){
+  if(i>=cnt-1)return game.max;
+  // Dar sayı uzayında (örn. Şans Topu 1-34) onluklar çok kaba kalır — bant genişliği
+  // max/adet olan eşit bantlar (+1 tolerans) kullanılır; geniş uzayda onluk-tavan kuralı.
+  if(game.max<40)return Math.min(game.max,Math.round((i+1)*game.max/cnt)+1);
+  return Math.min(game.max,Math.floor(((i+1)*game.max/cnt)/10)*10+9);
+}
 function _hbAnomalies(tickets,game){
   const cand={},anomAt=tickets.map(()=>new Set());
   tickets.forEach((t,ti)=>{
