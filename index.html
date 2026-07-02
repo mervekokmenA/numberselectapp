@@ -13983,26 +13983,52 @@ function _hbAnalyze(){
   outT.innerHTML=_hbSection(`🎫 Girilen Biletler (${tickets.length})`,ht,'tk');
   // ── 2) Anomali olası sayıları ──
   const candArr=Object.values(cand).sort((a,b)=>b.c-a.c||a.n-b.n);
+  const candSet=new Set(candArr.map(c=>c.n));
+  // Gülay ve Gülsis Sıfır sinyalleri önden hesaplanır: hem "Güçlü Adaylar" şeridi hem kesişim bölümleri kullanır
+  let gulaySet=new Set();
+  if(prior.length){try{const ga=_soGapAnalysisCompute(prior[0],game);(ga?.gulayCands||[]).slice(0,25).forEach(c=>gulaySet.add(c.n));}catch(e){}}
+  let g0cnt={},g0err=null;
+  if(prior.length>=60&&typeof _g0GenBundle==='function'){
+    try{_g0GenBundle(game,prior,10).forEach(t=>t.main.forEach(n=>{g0cnt[n]=(g0cnt[n]||0)+1;}));}catch(e){g0err=e.message;}
+  }
+  // ⭐ Güçlü adaylar — gözlemlenen en isabetli alt küme: ×2+ anomali kaynağı ve/veya Gülay kesişimi
+  // (22.06 Sayısal örneğinde ×2'lilerin 2/4'ü, Gülay kesişiminin 3/4'ü net-ya-yakın çıktı).
+  const strongArr=candArr.filter(c=>c.c>=2||gulaySet.has(c.n))
+    .sort((a,b)=>((b.c>=2)+(gulaySet.has(b.n)?1:0)+(g0cnt[b.n]?0.5:0))-((a.c>=2)+(gulaySet.has(a.n)?1:0)+(g0cnt[a.n]?0.5:0))||b.c-a.c||a.n-b.n);
   let ha='';
   if(!candArr.length){ha='<div style="font-size:.66rem;color:var(--muted);padding:6px">Bu bilet setinde anomali bulunamadı — tüm sıralar beklenen onluk bölgelerinde.</div>';}
   else{
-    ha=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${candArr.map(c=>_hbBadge(c.n,actualAll,c.c>1?`<sup style="font-size:.5rem">×${c.c}</sup>`:'')).join('')}</div>`;
+    if(strongArr.length){
+      ha+=`<div style="background:linear-gradient(135deg,rgba(0,230,118,.09),rgba(255,196,0,.09));border:2px solid rgba(0,200,100,.45);border-radius:10px;padding:10px 12px;margin-bottom:10px">`;
+      ha+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px"><span style="font-size:.7rem;font-weight:800;color:var(--green)">⭐ GÜÇLÜ ADAYLAR</span><span style="font-size:.53rem;color:var(--muted)">×2 = çift anomali kaynağı · 🔮 = Gülay da öneriyor · 🎯⁰ = Gülsis Sıfır biletlerinde de var</span></div>`;
+      ha+=`<div style="display:flex;gap:7px;flex-wrap:wrap">`;
+      strongArr.forEach(c=>{
+        const tags=[c.c>=2?`<span style="font-size:.5rem;font-weight:800;color:#b8860b">×${c.c}</span>`:'',gulaySet.has(c.n)?'<span style="font-size:.55rem">🔮</span>':'',g0cnt[c.n]?'<span style="font-size:.55rem">🎯⁰</span>':''].filter(Boolean).join('');
+        ha+=`<span style="display:inline-flex;align-items:center;gap:3px;padding:4px 8px;border-radius:9px;background:var(--surface);border:2px solid rgba(0,200,100,.5);box-shadow:0 1px 4px rgba(0,150,58,.15)">${_hbBadge(c.n,actualAll)}${tags}</span>`;
+      });
+      ha+=`</div></div>`;
+      window._hbCopies['str']='Bilet Testi — Güçlü Adaylar (×2 kaynak / Gülay kesişimi)\n'+strongArr.map(c=>c.n).sort((a,b)=>a-b).join(' ');
+    }
+    ha+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">Tüm adaylar:</div>`;
+    ha+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${candArr.map(c=>_hbBadge(c.n,actualAll,c.c>1?`<sup style="font-size:.5rem">×${c.c}</sup>`:'')).join('')}</div>`;
     ha+=`<div style="font-size:.55rem;color:var(--muted)">${candArr.map(c=>`<strong>${c.n}</strong> (${c.src.join(', ')})`).join(' · ')}</div>`;
     if(actualAll){
       const net=candArr.filter(c=>actualAll.has(c.n)).length;
       const near=candArr.filter(c=>!actualAll.has(c.n)&&(actualAll.has(c.n-1)||actualAll.has(c.n+1))).length;
       const near2=candArr.filter(c=>!actualAll.has(c.n)&&!actualAll.has(c.n-1)&&!actualAll.has(c.n+1)&&(actualAll.has(c.n-2)||actualAll.has(c.n+2))).length;
       ha+=`<div style="font-size:.62rem;font-weight:700;margin-top:6px;color:${net?'var(--green)':'var(--text)'}">Sonuç: ${net} net · ${near} ±1 yakın · ${near2} ±2 yakın (${candArr.length} aday)</div>`;
+      if(strongArr.length){
+        const sNet=strongArr.filter(c=>actualAll.has(c.n)).length;
+        const sNear=strongArr.filter(c=>!actualAll.has(c.n)&&(actualAll.has(c.n-1)||actualAll.has(c.n+1))).length;
+        ha+=`<div style="font-size:.6rem;font-weight:700;color:var(--green)">⭐ Güçlü adaylar: ${sNet} net · ${sNear} ±1 yakın (${strongArr.length} aday)</div>`;
+      }
     }
   }
   window._hbCopies['an']='Bilet Testi — Anomali Olası Sayılar\n'+candArr.map(c=>c.n).sort((a,b)=>a-b).join(' ');
   outA.innerHTML=_hbSection('🔴 Anomali Analizi — Olası Sayılar',ha,candArr.length?'an':null);
-  const candSet=new Set(candArr.map(c=>c.n));
   // ── 3) Gülay Analiz kesişimi ──
   let hg='';
-  let gulaySet=new Set();
   if(prior.length){
-    try{const ga=_soGapAnalysisCompute(prior[0],game);(ga?.gulayCands||[]).slice(0,25).forEach(c=>gulaySet.add(c.n));}catch(e){}
     const exact=[...candSet].filter(n=>gulaySet.has(n)).sort((a,b)=>a-b);
     const nearI=[...candSet].filter(n=>!gulaySet.has(n)&&(gulaySet.has(n-1)||gulaySet.has(n+1))).sort((a,b)=>a-b);
     if(!exact.length&&!nearI.length)hg='<div style="font-size:.66rem;color:var(--muted);padding:6px">Anomali adaylarıyla Gülay fark-analizi adayları arasında kesişim yok.</div>';
@@ -14013,21 +14039,18 @@ function _hbAnalyze(){
     window._hbCopies['gu']='Bilet Testi — Gülay Analiz Kesişimi\n'+(exact.length?exact.join(' '):'-')+(nearI.length?'\n±1: '+nearI.join(' '):'');
   }else hg='<div style="font-size:.66rem;color:var(--muted);padding:6px">Gülay analizi için geçmiş veri yok.</div>';
   outG.innerHTML=_hbSection('🔮 Gülay Analiz Kesişimi',hg,'gu');
-  // ── 4) Gülsis Sıfır kesişimi ──
-  let hz='',g0cnt={};
-  if(prior.length>=60&&typeof _g0GenBundle==='function'){
-    try{
-      const bundle=_g0GenBundle(game,prior,10);
-      bundle.forEach(t=>t.main.forEach(n=>{g0cnt[n]=(g0cnt[n]||0)+1;}));
-      const exact=[...candSet].filter(n=>g0cnt[n]).sort((a,b)=>a-b);
-      const nearI=[...candSet].filter(n=>!g0cnt[n]&&(g0cnt[n-1]||g0cnt[n+1])).sort((a,b)=>a-b);
-      if(!exact.length&&!nearI.length)hz='<div style="font-size:.66rem;color:var(--muted);padding:6px">Anomali adaylarıyla Gülsis Sıfır bilet grubu arasında kesişim yok.</div>';
-      else{
-        if(exact.length)hz+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">Birebir kesişim (Gülsis Sıfır biletlerinde de var):</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${exact.map(n=>_hbBadge(n,actualAll,`<sup style="font-size:.5rem">×${g0cnt[n]}</sup>`)).join('')}</div>`;
-        if(nearI.length)hz+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">±1 komşu kesişim:</div><div style="display:flex;gap:5px;flex-wrap:wrap">${nearI.map(n=>_hbBadge(n,actualAll)).join('')}</div>`;
-      }
-      window._hbCopies['g0']='Bilet Testi — Gülsis Sıfır Kesişimi\n'+(exact.length?exact.join(' '):'-')+(nearI.length?'\n±1: '+nearI.join(' '):'');
-    }catch(e){hz='<div style="font-size:.66rem;color:#cc2222;padding:6px">Gülsis Sıfır hatası: '+e.message+'</div>';}
+  // ── 4) Gülsis Sıfır kesişimi (g0cnt yukarıda önden hesaplandı) ──
+  let hz='';
+  if(g0err)hz='<div style="font-size:.66rem;color:#cc2222;padding:6px">Gülsis Sıfır hatası: '+g0err+'</div>';
+  else if(Object.keys(g0cnt).length){
+    const exact=[...candSet].filter(n=>g0cnt[n]).sort((a,b)=>a-b);
+    const nearI=[...candSet].filter(n=>!g0cnt[n]&&(g0cnt[n-1]||g0cnt[n+1])).sort((a,b)=>a-b);
+    if(!exact.length&&!nearI.length)hz='<div style="font-size:.66rem;color:var(--muted);padding:6px">Anomali adaylarıyla Gülsis Sıfır bilet grubu arasında kesişim yok.</div>';
+    else{
+      if(exact.length)hz+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">Birebir kesişim (Gülsis Sıfır biletlerinde de var):</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${exact.map(n=>_hbBadge(n,actualAll,`<sup style="font-size:.5rem">×${g0cnt[n]}</sup>`)).join('')}</div>`;
+      if(nearI.length)hz+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">±1 komşu kesişim:</div><div style="display:flex;gap:5px;flex-wrap:wrap">${nearI.map(n=>_hbBadge(n,actualAll)).join('')}</div>`;
+    }
+    window._hbCopies['g0']='Bilet Testi — Gülsis Sıfır Kesişimi\n'+(exact.length?exact.join(' '):'-')+(nearI.length?'\n±1: '+nearI.join(' '):'');
   }else hz='<div style="font-size:.66rem;color:var(--muted);padding:6px">Gülsis Sıfır için yeterli geçmiş veri yok (en az 60 çekiliş).</div>';
   outZ.innerHTML=_hbSection('🎯⁰ Gülsis Sıfır Kesişimi',hz,'g0');
   // ── 5) Bu container'a özel AI bilet tahmini ──
