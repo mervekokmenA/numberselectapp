@@ -7054,7 +7054,7 @@ function _mvCalibrate(draws,game){
 
 // gülsis (Sisal-LCG + Gülay Fark-Analizi) ağırlıkları — geri-test ile ayarlandı.
 let _gulsisParams={gulayW:1.0,selW:0.6,attempts:300};
-function generateNumbers(game,algo,freqOverride,drawsOverride){
+function generateNumbers(game,algo,freqOverride,drawsOverride,gnOpts){
   const freq=freqOverride||state.frequency;
   const hasHist=Object.keys(freq).length>0;
   const pool=range(1,game.max);
@@ -8080,7 +8080,8 @@ function generateNumbers(game,algo,freqOverride,drawsOverride){
   // Her kullanıcı-seçilebilir analiz tipi, kendi ürettiği sayıları çapa alan
   // yakınlık şekillendirmesinden geçer (bkz. _nearShape) — tip kimliği korunur,
   // tek biletteki "net ya da ±1 yakın" kuyruk oranı yükselir.
-  if(hasHist&&_ALGO_ID_SET.has(algo))mainNums=_nearShape(game,mainNums,freq);
+  // gnOpts.raw: demet üreticileri karma yapı için şekillendirmesiz (ham) bilet isteyebilir.
+  if(hasHist&&_ALGO_ID_SET.has(algo)&&!(gnOpts&&gnOpts.raw))mainNums=_nearShape(game,mainNums,freq);
   return{main:mainNums.sort((a,b)=>a-b),bonus:bonusNums.sort((a,b)=>a-b)};
 }
 
@@ -17127,25 +17128,56 @@ function _gsNearCount(ticket,actualSet){
   return [...ticket.main,...(ticket.bonus||[])].filter(n=>!actualSet.has(n)&&aArr.some(a=>Math.abs(a-n)===1)).length;
 }
 function _gsGenBundle(game,freq,prior,size){
+  // Karma demet (M1 yapısı, Gülsis Sıfır ile aynı geri-test gerekçesi): ~%60 ham çekirdek
+  // (kullanım-cezalı çeşitlendirme — saf NET şansını korur), ~%20 yakınlık-şekilli,
+  // ~%20 uç-senaryo (yüksek/düşük kümelenme). En güçlü biletler listenin başındadır.
+  const nSkew=size>=4?Math.max(1,Math.round(size*0.2)):0;
+  const nShape=size>=4?Math.max(1,Math.round(size*0.2)):0;
+  const nCore=Math.max(1,size-nShape-nSkew);
   const seen=new Set(),tickets=[];let attempts=0;
-  // Demet içindeki biletler arası örtüşmeyi azaltmak için, bilete giren sayıların ağırlığı
-  // sonraki bilet üretiminde cezalandırılır. "En iyi bilet" istatistiği için bu, demetin
-  // çektiği sayı havuzunu genişletir; train/val geri-testlerinde tüm oyunlarda avgBest'i
-  // tutarlı şekilde iyileştirdiği doğrulandı (bkz. gulsis_bundle_quality.mjs sonuçları).
   const usage={};
-  while(tickets.length<size&&attempts<size*25){
+  const genOne=(useFreqArg,opts)=>generateNumbers(game,'gulsis',useFreqArg,prior,opts);
+  // 1) Ham çekirdek — kullanım-cezalı çeşitlendirme (bkz. gulsis_bundle_quality.mjs)
+  while(tickets.length<nCore&&attempts<nCore*25){
     attempts++;
     let useFreq=freq;
     if(Object.keys(usage).length){
       useFreq={...freq};
       for(const n in usage)useFreq[n]=(useFreq[n]||0.1)/(1+usage[n]*1.0);
     }
-    const t=generateNumbers(game,'gulsis',useFreq,prior);
+    const t=genOne(useFreq,{raw:true});
     const k=[...t.main,...t.bonus].join(',');
     if(!seen.has(k)){
       seen.add(k);tickets.push(t);
       [...t.main,...t.bonus].forEach(n=>{usage[n]=(usage[n]||0)+1;});
     }
+  }
+  // 2) Yakınlık-şekilli biletler (bitişik-çift yapısı — tek bilette çok "net ya da ±1 yakın")
+  attempts=0;
+  while(tickets.length<nCore+nShape&&attempts<nShape*25+5){
+    attempts++;
+    const t=genOne(freq); // varsayılan: _nearShape uygulanır
+    const k=[...t.main,...t.bonus].join(',');
+    if(!seen.has(k)){seen.add(k);tickets.push(t);}
+  }
+  // 3) Uç-senaryo biletleri — freq küp yasasıyla yüksek/düşük bölgeye eğilir (aykırı çekilişler için)
+  attempts=0;let skewAdded=0;
+  while(skewAdded<nSkew&&attempts<nSkew*25+5){
+    attempts++;
+    const hiSide=skewAdded%2===0;
+    const skFreq={};
+    for(let n=1;n<=game.max;n++)skFreq[n]=(freq[n]||0.1)*Math.pow(hiSide?n/game.max:(game.max+1-n)/game.max,3);
+    const t=genOne(skFreq);
+    const k=[...t.main,...t.bonus].join(',');
+    if(!seen.has(k)){seen.add(k);tickets.push(t);skewAdded++;}
+  }
+  // Eksik kalanları ham üretimle tamamla
+  attempts=0;
+  while(tickets.length<size&&attempts<size*25){
+    attempts++;
+    const t=genOne(freq,{raw:true});
+    const k=[...t.main,...t.bonus].join(',');
+    if(!seen.has(k)){seen.add(k);tickets.push(t);}
   }
   return tickets;
 }
@@ -17474,11 +17506,44 @@ function _g0SelectCoverage(poolObj,K,game){
   return chosen;
 }
 // Tek giriş noktası: K biletlik kapsama-optimal grup → [{main,bonus}]
+// Karma demet (M1 yapısı, geri-testle seçildi): ~%60 çekirdek (kapsama-optimal, dengeli),
+// ~%20 yakınlık-şekilli varyant (en güçlü çekirdek biletlerin bitişik-çift versiyonu),
+// ~%20 uç-senaryo bileti (yüksek/düşük kümelenme — 01.07 Sayısal gibi aykırı çekilişleri yakalar).
+// 200'er çekilişlik walk-forward: ≥3 NET korunur/artar, net+yakın ≥4 %37→%44+ (sayısal),
+// uç çekilişlerde ≥3 NET %14→%21 (sayısal) / %9→%16 (şans). En güçlü biletler listenin başındadır.
 function _g0GenBundle(game,prior,K){
   const poolSize=Math.max(600,Math.min(2500,K*150));
   const poolObj=_g0GenPool(game,prior,poolSize);
   if(!poolObj.tickets.length)return[];
-  return _g0SelectCoverage(poolObj,K,game).map(t=>({main:t.main,bonus:_g0Bonus(game,poolObj.freq)}));
+  const nSkew=K>=4?Math.max(1,Math.round(K*0.2)):0;
+  const nShape=K>=4?Math.max(1,Math.round(K*0.2)):0;
+  const nCore=Math.max(1,K-nShape-nSkew);
+  const {pool,w}=_g0Weights(prior,game);
+  const wMap={};pool.forEach((n,i)=>wMap[n]=w[i]);
+  const core=_g0SelectCoverage(poolObj,nCore,game);
+  const seen=new Set(core.map(t=>t.main.join(',')));
+  const out=core.map(t=>({main:t.main,bonus:_g0Bonus(game,poolObj.freq)}));
+  // Şekilli varyantlar — en güçlü çekirdek biletlerin çapalarından bitişik-çift yapısı
+  for(let i=0;i<nShape&&i<core.length;i++){
+    const m=_nearShape(game,core[i].main.slice(),wMap).sort((a,b)=>a-b);
+    const k=m.join(',');if(seen.has(k))continue;seen.add(k);
+    out.push({main:m,bonus:_g0Bonus(game,poolObj.freq)});
+  }
+  // Uç-senaryo biletleri — ağırlıklar küp yasasıyla yüksek/düşük üçte-birlik bölgeye eğilir
+  for(let i=0;i<nSkew;i++){
+    const hiSide=i%2===0;
+    const w2=pool.map((n,j)=>w[j]*Math.pow(hiSide?n/game.max:(game.max+1-n)/game.max,3));
+    let m=_g0Sample(pool,w2,game.count);
+    m=_nearShape(game,m,wMap).sort((a,b)=>a-b);
+    const k=m.join(',');if(seen.has(k))continue;seen.add(k);
+    out.push({main:m,bonus:_g0Bonus(game,poolObj.freq)});
+  }
+  // Eksik kalan (dup atlanan) yerleri ek kapsama biletleriyle doldur
+  if(out.length<K){
+    const extra=_g0SelectCoverage(poolObj,K,game);
+    for(const t of extra){if(out.length>=K)break;const k=t.main.join(',');if(seen.has(k))continue;seen.add(k);out.push({main:t.main,bonus:_g0Bonus(game,poolObj.freq)});}
+  }
+  return out.slice(0,K);
 }
 
 // ── Sayfa kontrolü ──
