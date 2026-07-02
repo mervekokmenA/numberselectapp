@@ -852,6 +852,28 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  </div>
 </div>
 
+<!-- ═══════════ BİLET TESTİ & ANOMALİ ANALİZİ (Kapsamlı'dan taşındı + genişletildi) ═══════════ -->
+<div id="homeBiletSection" style="grid-column:1/-1;margin-top:0;min-width:0">
+ <div class="card">
+  <div class="card-title">🎫 Bilet Testi &amp; Anomali Analizi</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Biletlerinizi girin (her satır bir bilet; Joker/bonus için <code style="color:var(--accent)">| 58</code> ya da satır sonuna sırasız yazın). <strong>Anomali kuralı:</strong> sıralı bilette bir sıranın beklenen onluk bölgesi atlanmışsa (örn. 1. sırada 0'lar/10'lar yokken bilet 30'larla başlıyorsa), o sıranın bir <strong>üstteki ve alttaki biletteki</strong> sayısı (ya da yakını) olası adaydır; en üst satır anomalisinde yalnızca alttaki bilete bakılır. Tarih seçerseniz geçmiş test yapılır, boş bırakırsanız yeni oyun tahmini olarak değerlendirilir.</div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="hbGameRow"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+   <select id="hbDateSel" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:200px"></select>
+  </div>
+  <textarea id="hbInput" placeholder="4 9 35 69 78 89 | 58&#10;6 20 32 60 75 90 | 21&#10;..." style="width:100%;box-sizing:border-box;min-height:130px;font-size:.8rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 11px;resize:vertical"></textarea>
+  <div style="display:flex;gap:8px;align-items:center;margin:8px 0 12px;flex-wrap:wrap">
+   <button onclick="_hbAnalyze()" style="font-size:.78rem;padding:8px 20px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🔍 Analiz Et</button>
+   <button onclick="document.getElementById('hbInput').value='';" style="font-size:.72rem;padding:7px 14px;border-radius:8px;border:1px solid rgba(255,82,82,.3);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer">🗑️ Temizle</button>
+  </div>
+  <div id="hbTicketsOut"></div>
+  <div id="hbAnomaliOut"></div>
+  <div id="hbGulayOut"></div>
+  <div id="hbG0Out"></div>
+  <div id="hbAiOut"></div>
+ </div>
+</div>
+
 <!-- ═══════════ NEW: Tekli Sayı Bakımı ile Analiz ═══════════ -->
 <div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="numAnalysisSection">
   <div class="card">
@@ -1412,7 +1434,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:12px">
    <button class="kb-mode-btn" data-mode="banko"   onclick="_kbSetMode('banko')"   style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🎯 Banko & Konsensüs</button>
    <button class="kb-mode-btn" data-mode="test"    onclick="_kbSetMode('test')"    style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🔬 Geri Test</button>
-   <button class="kb-mode-btn" data-mode="bilet"   onclick="_kbSetMode('bilet')"   style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🎫 Bilet Testi</button>
    <button class="kb-mode-btn" data-mode="gulsis0" onclick="_kbSetMode('gulsis0')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🎯⁰ Gülsis Sıfır Bilet</button>
    <button class="kb-mode-btn" data-mode="kazanan" onclick="_kbSetMode('kazanan')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🏆 Kazanan Bilet</button>
   </div>
@@ -11873,9 +11894,13 @@ function _kbRenderGulsis0(){
   h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">`;
   h+=`<label style="font-size:.72rem;color:var(--muted)">Bilet grubu büyüklüğü:</label>`;
   h+=`<select id="kbG0Size" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"><option value="4">4 bilet</option><option value="10" selected>10 bilet</option><option value="20">20 bilet</option><option value="30">30 bilet</option></select>`;
+  h+=`<select id="kbG0Date" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;max-width:290px">`;
+  h+=`<option value="">🔮 Yeni Tahmin — ${draws[0].date} sonrası</option>`;
+  draws.forEach((d,i)=>{if(draws.length-i-1<60)return;h+=`<option value="${d.date}">🎯 Geçmiş Test: ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  h+=`</select>`;
   h+=`<button onclick="_kbG0Gen()" style="font-size:.74rem;padding:6px 16px;border-radius:8px;background:linear-gradient(135deg,rgba(16,185,129,.85),rgba(5,150,105,.7));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🎯 Bilet Grubu Üret</button>`;
   h+=`</div>`;
-  h+=`<div id="kbG0Result"><div style="padding:14px;text-align:center;font-size:.72rem;color:var(--muted)">🎲 Yukarıdan grup büyüklüğünü seçip <strong>“🎯 Bilet Grubu Üret”</strong> butonuna basın.</div></div>`;
+  h+=`<div id="kbG0Result"><div style="padding:14px;text-align:center;font-size:.72rem;color:var(--muted)">🎲 Grup büyüklüğünü seçin; geçmiş test için bir tarih seçin (boş = yeni tahmin) ve <strong>“🎯 Bilet Grubu Üret”</strong> butonuna basın.</div></div>`;
   return h;
 }
 function _kbG0Gen(){
@@ -11883,14 +11908,40 @@ function _kbG0Gen(){
   const res=document.getElementById('kbG0Result');if(!res)return;
   if(typeof _g0GenBundle!=='function'){res.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.7rem">Gülsis Sıfır motoru yüklenemedi.</div>';return;}
   const K=Math.max(1,Math.min(50,parseInt(document.getElementById('kbG0Size')?.value)||10));
+  const dateVal=document.getElementById('kbG0Date')?.value||'';
+  let prior=draws,actual=null;
+  if(dateVal){
+    actual=draws.find(d=>d.date===dateVal)||null;
+    prior=draws.filter(d=>d.date<dateVal);
+    if(!actual||prior.length<60){res.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.7rem">Bu tarih için yeterli geçmiş veri yok.</div>';return;}
+  }
   res.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Kapsama-optimal grup hesaplanıyor…</div>';
   setTimeout(()=>{
-    let tickets;try{tickets=_g0GenBundle(game,draws,K);}catch(e){res.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.7rem">Hata: '+e.message+'</div>';return;}
+    let tickets;try{tickets=_g0GenBundle(game,prior,K);}catch(e){res.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.7rem">Hata: '+e.message+'</div>';return;}
     if(!tickets||!tickets.length){res.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bilet üretilemedi.</div>';return;}
     _kbG0Tickets=tickets;
-    window._kbG0Copy='Gülsis Sıfır · '+game.name+'\n'+tickets.map(t=>[...t.main,...(t.bonus||[])].join(' - ')).join('\n');
-    let hh=`<div style="display:flex;justify-content:flex-end;margin:4px 0 8px"><button onclick="_kbCopy(window._kbG0Copy)" class="copy-btn">📋 Kopyala</button></div>`;
-    hh+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,calcTicketScore(t,game),true)).join('');
+    window._kbG0Copy='Kapsamlı\n🎯⁰ Gülsis Sıfır Bilet Grubu · '+game.name+(dateVal?' · '+dateVal:'')+'\n'+tickets.map(t=>[...t.main,...(t.bonus||[])].join(' - ')).join('\n');
+    let hh='';
+    const exNums=actual?new Set(actual.nums||[]):null,exBonus=actual?new Set(actual.bonus||[]):null;
+    if(actual){
+      const actualSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      const stats=tickets.map(t=>{const all=[...t.main,...(t.bonus||[])];const net=all.filter(n=>actualSet.has(n)).length;const near=all.filter(n=>!actualSet.has(n)&&(actualSet.has(n-1)||actualSet.has(n+1))).length;return{net,near};});
+      let bi=0;stats.forEach((s,i)=>{if(s.net+s.near>stats[bi].net+stats[bi].near)bi=i;});
+      hh+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">`;
+      const card=(l,v,c)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 13px;text-align:center"><div style="font-size:1.05rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.58rem;color:var(--muted)">${l}</div></div>`;
+      hh+=card('Grup en iyi (net)',Math.max(...stats.map(s=>s.net)),'var(--green)');
+      hh+=card('En iyi net+yakın',stats[bi].net+stats[bi].near,'var(--accent)');
+      hh+=card('Gerçek çekiliş',actual.nums.join(' ')+(actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''),'var(--text)');
+      hh+=`</div>`;
+      hh+=`<div style="display:flex;justify-content:flex-end;margin:0 0 8px"><button onclick="_kbCopy(window._kbG0Copy)" class="copy-btn">📋 Kopyala</button></div>`;
+      hh+=tickets.map((t,i)=>{
+        const lbl=`<div style="font-size:.58rem;margin:${i>0?'8px':'0'} 0 -2px 4px;color:${i===bi?'var(--green)':'var(--muted)'};font-weight:${i===bi?800:400}">${i===bi?'🏆 ':''}${stats[i].net} net · ${stats[i].near} yakın</div>`;
+        return lbl+renderTicket(t,game,'',i,null,exNums,exBonus,null,true);
+      }).join('');
+    }else{
+      hh+=`<div style="display:flex;justify-content:flex-end;margin:4px 0 8px"><button onclick="_kbCopy(window._kbG0Copy)" class="copy-btn">📋 Kopyala</button></div>`;
+      hh+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,null,true)).join('');
+    }
     res.innerHTML=hh;
   },10);
 }
@@ -12380,7 +12431,7 @@ function _kbRenderKazanan(){
 }
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
-const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','b10Section','ortakSayilarSection','nextDrawPredSection'];
+const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','b10Section','ortakSayilarSection','nextDrawPredSection','homeBiletSection'];
 let _scanGame=null;
 
 function showMainPage(id){
@@ -13819,13 +13870,193 @@ function _mrDelete(){
   set('success',`🗑️ ${date} ${g.name} sonucu kaldırıldı (kalıcı).`);
 }
 
+// ═══════════ ANASAYFA — BİLET TESTİ & ANOMALİ ANALİZİ ═══════════
+// Kullanıcının keşfettiği anomali kuralı (Sayısal 01.07 ve Süper 28.06 sonuçlarıyla doğrulandı):
+// sıralı bilette sıra i'nin izinli onluk üst sınırı hi(i)=floor((i·max/adet)/10)·10+9 (son sıra=max).
+// Bir sıra bu sınırı aşıyorsa (beklenen onluk bölge atlanmışsa) ANOMALİDİR; o sıranın bir üstteki
+// ve alttaki biletteki sayısı (ya da ±1/±2 yakını) olası adaydır. En üst satır → yalnızca alttaki.
+// Doğrulama: Süper b1 s1 anomalisi→alt=5→6(±1)✓, s2→alt=22→23(±1)✓; Sayısal b8 s1→üst=3→3 NET✓, b4 s5→alt=65→63(±2)✓.
+let _hbGame='sayisal';
+function _hbInit(){
+  const row=document.getElementById('hbGameRow');if(!row)return;
+  row.innerHTML=GAMES.map(g=>{
+    const a=g.id===_hbGame;
+    return `<button onclick="_hbSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;
+  }).join('');
+  _hbDates();
+  try{const sv=localStorage.getItem('_hbInput');const ta=document.getElementById('hbInput');if(sv&&ta&&!ta.value)ta.value=sv;}catch(e){}
+}
+function _hbSetGame(g){_hbGame=g;_hbInit();}
+function _hbDates(){
+  const sel=document.getElementById('hbDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_hbGame);
+  let h=`<option value="">🔮 Yeni oyun için analiz${draws.length?' — '+draws[0].date+' sonrası':''}</option>`;
+  draws.forEach((d,i)=>{if(draws.length-i-1<60)return;h+=`<option value="${d.date}">🎯 Geçmiş test: ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;
+}
+function _hbParse(txt,game){
+  const tickets=[];
+  (txt||'').split('\n').forEach(line=>{
+    line=line.trim();if(!line)return;
+    let main,bonus=[];
+    if(line.includes('|')){
+      const parts=line.split('|');
+      main=(parts[0].match(/\d+/g)||[]).map(Number);
+      bonus=(parts[1]?parts[1].match(/\d+/g)||[]:[]).map(Number);
+    }else{
+      main=(line.match(/\d+/g)||[]).map(Number);
+      // Terminal biletlerinde bonus/joker sona sırasız yazılır: son sayı öncekinden küçükse bonustur
+      if(main.length>=4&&main[main.length-1]<main[main.length-2]){bonus=[main.pop()];}
+    }
+    main=main.filter(n=>n>=1&&n<=game.max);
+    if(main.length>=3)tickets.push({main:[...main].sort((a,b)=>a-b),bonus});
+  });
+  return tickets;
+}
+function _hbHi(game,cnt,i){return i>=cnt-1?game.max:Math.min(game.max,Math.floor(((i+1)*game.max/cnt)/10)*10+9);}
+function _hbAnomalies(tickets,game){
+  const cand={},anomAt=tickets.map(()=>new Set());
+  tickets.forEach((t,ti)=>{
+    const m=t.main,cnt=m.length;
+    for(let i=0;i<cnt;i++){
+      if(m[i]<=_hbHi(game,cnt,i))continue;
+      anomAt[ti].add(i);
+      [[ti-1,'↑'],[ti+1,'↓']].forEach(([nt,dir])=>{
+        const src=tickets[nt];if(!src||src.main[i]===undefined)return;
+        const n=src.main[i];
+        if(!cand[n])cand[n]={n,c:0,src:[]};
+        cand[n].c++;cand[n].src.push(`B${ti+1}·S${i+1}${dir}`);
+      });
+    }
+  });
+  return {cand,anomAt};
+}
+function _hbBadge(n,actualAll,extra){
+  let bg='var(--surface2)',bd='var(--border)',col='var(--text)',mark='';
+  if(actualAll){
+    if(actualAll.has(n)){bg='rgba(0,230,118,.22)';bd='rgba(0,230,118,.6)';col='var(--green)';mark='✓';}
+    else if(actualAll.has(n-1)||actualAll.has(n+1)){bg='rgba(255,152,0,.18)';bd='rgba(255,152,0,.5)';col='#c2410c';mark='~';}
+    else if(actualAll.has(n-2)||actualAll.has(n+2)){bg='rgba(255,196,0,.1)';bd='rgba(255,196,0,.35)';col='#8a6200';mark='≈';}
+  }
+  return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:24px;padding:0 5px;border-radius:6px;font-family:monospace;font-weight:${mark?800:600};font-size:.72rem;background:${bg};border:1px solid ${bd};color:${col}">${n}${mark}${extra||''}</span>`;
+}
+function _hbSection(title,inner,copyText){
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-top:10px">`+
+    `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><div style="font-size:.72rem;font-weight:800;color:var(--text)">${title}</div>`+
+    (copyText?`<button onclick="_kbCopy(window._hbCopies['${copyText}'])" class="copy-btn" style="padding:3px 10px;font-size:.65rem">📋 Kopyala</button>`:'')+`</div>${inner}</div>`;
+}
+function _hbAnalyze(){
+  const game=getGame(_hbGame),draws=_kbGetDraws(_hbGame);
+  const ta=document.getElementById('hbInput');
+  try{localStorage.setItem('_hbInput',ta?.value||'');}catch(e){}
+  const tickets=_hbParse(ta?.value||'',game);
+  const outT=document.getElementById('hbTicketsOut'),outA=document.getElementById('hbAnomaliOut'),outG=document.getElementById('hbGulayOut'),outZ=document.getElementById('hbG0Out'),outAi=document.getElementById('hbAiOut');
+  window._hbCopies={};
+  if(!tickets.length){outT.innerHTML='<div style="padding:12px;font-size:.7rem;color:#cc2222">⚠️ Geçerli bilet bulunamadı — her satıra bir bilet girin.</div>';outA.innerHTML=outG.innerHTML=outZ.innerHTML=outAi.innerHTML='';return;}
+  const dateVal=document.getElementById('hbDateSel')?.value||'';
+  let actual=null,prior=draws;
+  if(dateVal){actual=draws.find(d=>d.date===dateVal)||null;prior=draws.filter(d=>d.date<dateVal);}
+  const actualAll=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
+  const {cand,anomAt}=_hbAnomalies(tickets,game);
+  // ── 1) Girilen biletler (anomali sıraları kırmızı halkalı) ──
+  let ht='';
+  tickets.forEach((t,ti)=>{
+    ht+=`<div style="display:flex;align-items:center;gap:6px;padding:3px 0;flex-wrap:wrap"><span style="font-size:.6rem;color:var(--muted);min-width:22px">${ti+1}</span>`;
+    ht+=t.main.map((n,i)=>{
+      const anom=anomAt[ti].has(i);
+      const b=_hbBadge(n,actualAll);
+      return anom?`<span style="display:inline-flex;border:2px solid rgba(255,82,82,.75);border-radius:8px" title="Anomali: beklenen onluk bölge atlanmış (sıra ${i+1})">${b}</span>`:b;
+    }).join('');
+    if(t.bonus.length)ht+=`<span style="color:var(--muted);font-size:.7rem;padding:0 2px">|</span>`+t.bonus.map(n=>_hbBadge(n,actualAll)).join('');
+    if(actualAll){const all=[...t.main,...t.bonus];const net=all.filter(n=>actualAll.has(n)).length;const near=all.filter(n=>!actualAll.has(n)&&(actualAll.has(n-1)||actualAll.has(n+1))).length;
+      ht+=`<span style="margin-left:auto;font-size:.62rem;font-weight:700;color:${net>=3?'var(--green)':net>0?'var(--accent)':'var(--muted)'}">${net} net${near?' · '+near+' yakın':''}</span>`;}
+    ht+=`</div>`;
+  });
+  ht+=`<div style="font-size:.55rem;color:var(--muted);margin-top:5px">🔴 kırmızı halka = anomali (beklenen onluk bölge atlanmış)${actualAll?' · ✓=net · ~=±1 · ≈=±2':''}</div>`;
+  window._hbCopies['tk']='Bilet Testi — Girilen Biletler ('+game.name+(dateVal?' · '+dateVal:'')+')\n'+tickets.map(t=>t.main.join(' ')+(t.bonus.length?' | '+t.bonus.join(' '):'')).join('\n');
+  outT.innerHTML=_hbSection(`🎫 Girilen Biletler (${tickets.length})`,ht,'tk');
+  // ── 2) Anomali olası sayıları ──
+  const candArr=Object.values(cand).sort((a,b)=>b.c-a.c||a.n-b.n);
+  let ha='';
+  if(!candArr.length){ha='<div style="font-size:.66rem;color:var(--muted);padding:6px">Bu bilet setinde anomali bulunamadı — tüm sıralar beklenen onluk bölgelerinde.</div>';}
+  else{
+    ha=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${candArr.map(c=>_hbBadge(c.n,actualAll,c.c>1?`<sup style="font-size:.5rem">×${c.c}</sup>`:'')).join('')}</div>`;
+    ha+=`<div style="font-size:.55rem;color:var(--muted)">${candArr.map(c=>`<strong>${c.n}</strong> (${c.src.join(', ')})`).join(' · ')}</div>`;
+    if(actualAll){
+      const net=candArr.filter(c=>actualAll.has(c.n)).length;
+      const near=candArr.filter(c=>!actualAll.has(c.n)&&(actualAll.has(c.n-1)||actualAll.has(c.n+1))).length;
+      const near2=candArr.filter(c=>!actualAll.has(c.n)&&!actualAll.has(c.n-1)&&!actualAll.has(c.n+1)&&(actualAll.has(c.n-2)||actualAll.has(c.n+2))).length;
+      ha+=`<div style="font-size:.62rem;font-weight:700;margin-top:6px;color:${net?'var(--green)':'var(--text)'}">Sonuç: ${net} net · ${near} ±1 yakın · ${near2} ±2 yakın (${candArr.length} aday)</div>`;
+    }
+  }
+  window._hbCopies['an']='Bilet Testi — Anomali Olası Sayılar\n'+candArr.map(c=>c.n).sort((a,b)=>a-b).join(' ');
+  outA.innerHTML=_hbSection('🔴 Anomali Analizi — Olası Sayılar',ha,candArr.length?'an':null);
+  const candSet=new Set(candArr.map(c=>c.n));
+  // ── 3) Gülay Analiz kesişimi ──
+  let hg='';
+  let gulaySet=new Set();
+  if(prior.length){
+    try{const ga=_soGapAnalysisCompute(prior[0],game);(ga?.gulayCands||[]).slice(0,25).forEach(c=>gulaySet.add(c.n));}catch(e){}
+    const exact=[...candSet].filter(n=>gulaySet.has(n)).sort((a,b)=>a-b);
+    const nearI=[...candSet].filter(n=>!gulaySet.has(n)&&(gulaySet.has(n-1)||gulaySet.has(n+1))).sort((a,b)=>a-b);
+    if(!exact.length&&!nearI.length)hg='<div style="font-size:.66rem;color:var(--muted);padding:6px">Anomali adaylarıyla Gülay fark-analizi adayları arasında kesişim yok.</div>';
+    else{
+      if(exact.length)hg+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">Birebir kesişim (iki sistem de öneriyor — güçlü aday):</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${exact.map(n=>_hbBadge(n,actualAll)).join('')}</div>`;
+      if(nearI.length)hg+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">±1 komşu kesişim:</div><div style="display:flex;gap:5px;flex-wrap:wrap">${nearI.map(n=>_hbBadge(n,actualAll)).join('')}</div>`;
+    }
+    window._hbCopies['gu']='Bilet Testi — Gülay Analiz Kesişimi\n'+(exact.length?exact.join(' '):'-')+(nearI.length?'\n±1: '+nearI.join(' '):'');
+  }else hg='<div style="font-size:.66rem;color:var(--muted);padding:6px">Gülay analizi için geçmiş veri yok.</div>';
+  outG.innerHTML=_hbSection('🔮 Gülay Analiz Kesişimi',hg,'gu');
+  // ── 4) Gülsis Sıfır kesişimi ──
+  let hz='',g0cnt={};
+  if(prior.length>=60&&typeof _g0GenBundle==='function'){
+    try{
+      const bundle=_g0GenBundle(game,prior,10);
+      bundle.forEach(t=>t.main.forEach(n=>{g0cnt[n]=(g0cnt[n]||0)+1;}));
+      const exact=[...candSet].filter(n=>g0cnt[n]).sort((a,b)=>a-b);
+      const nearI=[...candSet].filter(n=>!g0cnt[n]&&(g0cnt[n-1]||g0cnt[n+1])).sort((a,b)=>a-b);
+      if(!exact.length&&!nearI.length)hz='<div style="font-size:.66rem;color:var(--muted);padding:6px">Anomali adaylarıyla Gülsis Sıfır bilet grubu arasında kesişim yok.</div>';
+      else{
+        if(exact.length)hz+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">Birebir kesişim (Gülsis Sıfır biletlerinde de var):</div><div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${exact.map(n=>_hbBadge(n,actualAll,`<sup style="font-size:.5rem">×${g0cnt[n]}</sup>`)).join('')}</div>`;
+        if(nearI.length)hz+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">±1 komşu kesişim:</div><div style="display:flex;gap:5px;flex-wrap:wrap">${nearI.map(n=>_hbBadge(n,actualAll)).join('')}</div>`;
+      }
+      window._hbCopies['g0']='Bilet Testi — Gülsis Sıfır Kesişimi\n'+(exact.length?exact.join(' '):'-')+(nearI.length?'\n±1: '+nearI.join(' '):'');
+    }catch(e){hz='<div style="font-size:.66rem;color:#cc2222;padding:6px">Gülsis Sıfır hatası: '+e.message+'</div>';}
+  }else hz='<div style="font-size:.66rem;color:var(--muted);padding:6px">Gülsis Sıfır için yeterli geçmiş veri yok (en az 60 çekiliş).</div>';
+  outZ.innerHTML=_hbSection('🎯⁰ Gülsis Sıfır Kesişimi',hz,'g0');
+  // ── 5) Bu container'a özel AI bilet tahmini ──
+  let hai='';
+  try{
+    const freq=buildFreq(prior);const fMax=Math.max(1,...Object.values(freq));
+    const w={};for(let n=1;n<=game.max;n++)w[n]=0.15+(cand[n]?cand[n].c*3:0)+(gulaySet.has(n)?1.2:0)+((g0cnt[n]||0)*0.6)+((freq[n]||0)/fMax)*0.5;
+    const pool=range(1,game.max),weights=pool.map(n=>w[n]);
+    const aiTickets=[];const seen=new Set();let att=0;
+    while(aiTickets.length<3&&att<60){att++;
+      let m=pickUnique(pool,game.count,weights);
+      m=_nearShape(game,m,w).sort((a,b)=>a-b);
+      const k=m.join(',');if(seen.has(k))continue;seen.add(k);
+      aiTickets.push({main:m,bonus:[]});
+    }
+    const exNums=actual?new Set(actual.nums||[]):null,exBonus=actual?new Set(actual.bonus||[]):null;
+    hai=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:8px;line-height:1.5">Anomali adayları (ağırlık ×3) + Gülay kesişimi + Gülsis Sıfır sıklığı + frekans harmanından üretilen, yakınlık-şekilli 3 bilet. Tarih seçiliyse gerçek sonuçla renklendirilir (geçmiş test).</div>`;
+    hai+=aiTickets.map((t,i)=>{
+      let lbl='';
+      if(actualAll){const all=t.main;const net=all.filter(n=>actualAll.has(n)).length;const near=all.filter(n=>!actualAll.has(n)&&(actualAll.has(n-1)||actualAll.has(n+1))).length;
+        lbl=`<div style="font-size:.58rem;margin:${i>0?'8px':'0'} 0 -2px 4px;color:${net>=3?'var(--green)':'var(--muted)'};font-weight:700">${net} net · ${near} yakın</div>`;}
+      return lbl+renderTicket(t,game,'',i,null,exNums,exBonus,null,true);
+    }).join('');
+    window._hbCopies['ai']='Bilet Testi — AI Bilet Tahmini ('+game.name+(dateVal?' · '+dateVal:'')+')\n'+aiTickets.map(t=>t.main.join(' - ')).join('\n');
+  }catch(e){hai='<div style="font-size:.66rem;color:#cc2222;padding:6px">AI bilet hatası: '+e.message+'</div>';}
+  outAi.innerHTML=_hbSection('🧠 AI Bilet Tahmini (anomali + kesişim harmanı)',hai,'ai');
+}
+
 // ── Boot ──────────────────────────────────────────────────────
 (function(){
   try{const v=localStorage.getItem('excludeLastDraw');if(v!==null){state.excludeLastDraw=v==='1';}}catch(e){}
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();_mrInit();setTimeout(_nextDrawPredict,300);
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();_mrInit();_hbInit();setTimeout(_nextDrawPredict,300);
 setTimeout(()=>{_autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);},800);
 
 // ══════════════════════════════════════════════════════════════
@@ -14266,12 +14497,12 @@ function _mpRRenderPrediction(tickets,poolRows,game,gid,totalDraws,cal,actual){
   el.innerHTML=html;
 }
 function _kbOpenBiletWith(rawTxt,gid){
-  showMainPage('kapsamli');
-  _kbGame=gid||_kbGame;
-  _kbMode='bilet';
-  _kbRender();
+  // Bilet Testi anasayfaya taşındı — oraya yönlendir ve biletleri doldur.
+  if(gid)_hbGame=gid;
+  showMainPage('home');
   setTimeout(()=>{
-    const ta=document.getElementById('kbBiletInput');
+    try{_hbInit();}catch(e){}
+    const ta=document.getElementById('hbInput');
     if(!ta)return;
     const lines=[];
     (rawTxt||'').split('\n').forEach(line=>{
@@ -14280,6 +14511,7 @@ function _kbOpenBiletWith(rawTxt,gid){
       if(nums.length)lines.push(nums.join(' '));
     });
     ta.value=lines.join('\n');
+    document.getElementById('homeBiletSection')?.scrollIntoView({behavior:'smooth',block:'start'});
   },250);
 }
 
