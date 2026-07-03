@@ -855,7 +855,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <!-- ═══════════ BİLET TESTİ & ANOMALİ ANALİZİ (Kapsamlı'dan taşındı + genişletildi) ═══════════ -->
 <div id="homeBiletSection" style="grid-column:1/-1;margin-top:0;min-width:0">
  <div class="card">
-  <div class="card-title">🎫 Bilet Testi &amp; Anomali Analizi <span style="font-size:.55rem;font-weight:600;color:#0a9a6a;background:rgba(0,150,58,.12);border-radius:6px;padding:1px 7px;margin-left:6px">sürüm v10 · 📷 OCR + 📋 toplu kopya + o günün oyunu + On Numara veri düzeltmesi</span></div>
+  <div class="card-title">🎫 Bilet Testi &amp; Anomali Analizi <span style="font-size:.55rem;font-weight:600;color:#0a9a6a;background:rgba(0,150,58,.12);border-radius:6px;padding:1px 7px;margin-left:6px">sürüm v11 · 📷 OCR + 📋 toplu kopya + o günün oyunu + On Numara veri düzeltmesi</span></div>
   <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Biletlerinizi girin (her satır bir bilet; Joker/bonus için <code style="color:var(--accent)">| 58</code> ya da satır sonuna sırasız yazın). <strong>Anomali kuralı:</strong> sıralı bilette bir sıranın beklenen onluk bölgesi atlanmışsa (örn. 1. sırada 0'lar/10'lar yokken bilet 30'larla başlıyorsa), o sıranın bir <strong>üstteki ve alttaki biletteki</strong> sayısı (ya da yakını) olası adaydır; en üst satır anomalisinde yalnızca alttaki bilete bakılır. Tarih seçerseniz geçmiş test yapılır, boş bırakırsanız yeni oyun tahmini olarak değerlendirilir.</div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="hbGameRow"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
@@ -5620,6 +5620,7 @@ sans:`2026-07-01 1 7 18 20 34 | 1
 2001-06-20 4 5 6 10 16 | 13`,
 
 onnumara:`2026-06-29 2 10 14 15 30 40 41 42 51 56 57 59 60 63 69 71 72 74 76 77 78 80
+2026-06-26 3 6 7 8 15 23 29 31 35 38 43 47 48 59 62 69 70 74 75 76 79 80
 2026-06-22 13 15 17 21 24 34 37 40 43 44 46 51 59 60 63 65 67 69 70 71 78 79
 2026-06-19 3 11 13 16 28 32 33 38 39 45 51 52 59 60 62 63 65 66 67 69 72 78
 2026-06-15 3 9 10 14 17 20 24 27 33 35 41 44 45 50 63 65 66 70 75 77 78 80
@@ -6518,30 +6519,35 @@ function _onnumaraArchiveMap(html){
   const known=(DRAW_DATA.onnumara||'').split('\n').map(l=>{const m=l.match(/^(\d{4}-\d{2}-\d{2})\s+([\d ]+)/);return m?{date:m[1],nums:(m[2].match(/\d+/g)||[]).map(Number)}:null;}).filter(Boolean).sort((a,b)=>b.date.localeCompare(a.date));
   if(!known.length)return map;
   // Çekiliş satırları: tab/çok-boşluk ayrımlı, baştaki hafta no + ≥22 sayı(1..80). Belge sırası korunur.
+  // Tüm çekiliş satırları SIRAYI korumak için listelenir; yalnızca tam 22 benzersiz sayılı olanlar
+  // haritaya yazılır (ok=true). Kaynak dizgi hatalı satırlar (yinelenen sayı → 21 benzersiz) sırayı
+  // bozmasın diye listede kalır ama emit EDİLMEZ — yanlış veri yerine boşluk (elle/lototurkiye ile düzeltilir).
   const rows=[];
   html.split('\n').forEach(line=>{
     const toks=line.trim().split(/[\s\t|]+/).filter(Boolean);
     if(toks.length<23)return;
     if(!/^\d{1,4}$/.test(toks[0]))return;
     const nums=toks.slice(1).map(Number).filter(n=>Number.isFinite(n)&&n>=1&&n<=80);
+    if(nums.length<20)return;
     const uniq=[...new Set(nums)];
-    if(uniq.length>=21&&uniq.length<=22)rows.push(uniq.slice(0,22));
+    rows.push({nums:uniq,ok:uniq.length===22});
   });
   if(rows.length<5)return map;
   // Çapa: en güncel bilinen çekilişlerimizden biriyle en çok kesişen satır (belge sırasındaki index j)
   let jBest=-1,knownBest=null,best=0;
   for(const k of known.slice(0,8)){
     const ks=new Set(k.nums);
-    for(let i=0;i<rows.length;i++){let inter=0;for(const n of rows[i])if(ks.has(n))inter++;if(inter>best){best=inter;jBest=i;knownBest=k;}}
+    for(let i=0;i<rows.length;i++){let inter=0;for(const n of rows[i].nums)if(ks.has(n))inter++;if(inter>best){best=inter;jBest=i;knownBest=k;}}
     if(best>=20)break;
   }
   if(jBest<0||best<18)return map; // güvenli çapa yoksa dokunma
   const days=[1,5]; // On Numara: Pzt, Cuma
   const walk=(fromDate,steps)=>{let d=new Date(fromDate+'T12:00:00Z');const st=steps>=0?1:-1;for(let i=0;i<Math.abs(steps);i++){do{d.setUTCDate(d.getUTCDate()+st);}while(!days.includes(d.getUTCDay()));}return d.toISOString().slice(0,10);};
   for(let i=0;i<rows.length;i++){
-    if(Math.abs(i-jBest)>60)continue; // yalnızca çapaya yakın (~7 ay) — tatil-atlaması sürüklenmesine karşı
-    const date=walk(knownBest.date, jBest-i); // i<j → daha yeni (ileri), i>j → daha eski (geri)
-    map.set(date,`${date} ${rows[i].slice().sort((a,b)=>a-b).join(' ')}`);
+    if(!rows[i].ok)continue;                     // bozuk satır → boşluk bırak (sıra korunur)
+    if(Math.abs(i-jBest)>60)continue;            // yalnızca çapaya yakın (~7 ay) — sürüklenmeye karşı
+    const date=walk(knownBest.date, jBest-i);    // i<j → daha yeni (ileri), i>j → daha eski (geri)
+    map.set(date,`${date} ${rows[i].nums.slice().sort((a,b)=>a-b).join(' ')}`);
   }
   return map;
 }
