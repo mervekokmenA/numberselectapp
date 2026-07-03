@@ -855,7 +855,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <!-- ═══════════ BİLET TESTİ & ANOMALİ ANALİZİ (Kapsamlı'dan taşındı + genişletildi) ═══════════ -->
 <div id="homeBiletSection" style="grid-column:1/-1;margin-top:0;min-width:0">
  <div class="card">
-  <div class="card-title">🎫 Bilet Testi &amp; Anomali Analizi <span style="font-size:.55rem;font-weight:600;color:#0a9a6a;background:rgba(0,150,58,.12);border-radius:6px;padding:1px 7px;margin-left:6px">sürüm v9 · 📷 OCR + 📋 toplu kopya + o günün oyunu</span></div>
+  <div class="card-title">🎫 Bilet Testi &amp; Anomali Analizi <span style="font-size:.55rem;font-weight:600;color:#0a9a6a;background:rgba(0,150,58,.12);border-radius:6px;padding:1px 7px;margin-left:6px">sürüm v10 · 📷 OCR + 📋 toplu kopya + o günün oyunu + On Numara veri düzeltmesi</span></div>
   <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Biletlerinizi girin (her satır bir bilet; Joker/bonus için <code style="color:var(--accent)">| 58</code> ya da satır sonuna sırasız yazın). <strong>Anomali kuralı:</strong> sıralı bilette bir sıranın beklenen onluk bölgesi atlanmışsa (örn. 1. sırada 0'lar/10'lar yokken bilet 30'larla başlıyorsa), o sıranın bir <strong>üstteki ve alttaki biletteki</strong> sayısı (ya da yakını) olası adaydır; en üst satır anomalisinde yalnızca alttaki bilete bakılır. Tarih seçerseniz geçmiş test yapılır, boş bırakırsanız yeni oyun tahmini olarak değerlendirilir.</div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="hbGameRow"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
@@ -6480,13 +6480,71 @@ async function proxyFetch(url){
 }
 
 const _FETCH_URLS={
-  sayisal:['https://www.lotobil.com/Sayisal-Loto-Butun-Sonuc-Listesi','https://www.millipiyangoonline.com/sayisal-loto/cekilis-sonuclari'],
-  super:['https://www.lotobil.com/Super-Loto-Butun-Sonuc-Listesi','https://www.millipiyangoonline.com/super-loto/cekilis-sonuclari'],
-  sans:['https://www.lotobil.com/Sans-Topu-Butun-Sonuc-Listesi','https://www.millipiyangoonline.com/sans-topu/cekilis-sonuclari'],
-  // lotobil'in "Bütün Sonuç Listesi" arşivinde On Numara için tarih sütunu yok (sadece hafta no).
-  // Bu yüzden önce tarih içeren tekil "son çekiliş" sayfası denenir, arşiv ve millipiyango son çare olarak kalır.
-  onnumara:['https://www.lotobil.com/On-Numara','https://www.millipiyangoonline.com/on-numara/cekilis-sonuclari','https://www.lotobil.com/On-Numara-Butun-Sonuc-Listesi']
+  sayisal:['https://www.lotobil.com/Sayisal-Loto-Butun-Sonuc-Listesi','https://www.mynet.com/sans-oyunlari/sayisal-loto-sonuclari','https://www.millipiyangoonline.com/sayisal-loto/cekilis-sonuclari'],
+  super:['https://www.lotobil.com/Super-Loto-Butun-Sonuc-Listesi','https://www.mynet.com/sans-oyunlari/super-loto-sonuclari','https://www.millipiyangoonline.com/super-loto/cekilis-sonuclari'],
+  sans:['https://www.lotobil.com/Sans-Topu-Butun-Sonuc-Listesi','https://www.mynet.com/sans-oyunlari/sans-topu-sonuclari','https://www.millipiyangoonline.com/sans-topu/cekilis-sonuclari'],
+  // On Numara: lotobil arşivinde tarih yok (hafta no) → arşivi elimizdeki son çekilişe çapalayıp
+  // Pzt/Cuma takvimiyle tarihleri kurarız (_onnumaraArchiveMap). mynet tarihli son çekilişi verir (yedek).
+  onnumara:['https://www.lotobil.com/On-Numara-Butun-Sonuc-Listesi','https://www.mynet.com/sans-oyunlari/on-numara-sonuclari','https://www.lotobil.com/On-Numara']
 };
+// Türkçe tarihli tek "son çekiliş" (ör. mynet: "## 29 Haziran 2026 ... Sonuçları" + alt alta sayılar)
+const _TR_AY={ocak:1,'şubat':2,subat:2,mart:3,nisan:4,'mayıs':5,mayis:5,haziran:6,temmuz:7,'ağustos':8,agustos:8,'eylül':9,eylul:9,ekim:10,'kasım':11,kasim:11,'aralık':12,aralik:12};
+function _parseMynetLatest(html,gameId){
+  if(!html)return null;
+  const game=getGame(gameId);if(!game)return null;
+  const m=html.match(/(\d{1,2})\s+([A-Za-zçğşöüıİ]+)\s+(20\d\d)\s+[^\n]{0,40}Sonuç/i);
+  if(!m)return null;
+  const mon=_TR_AY[(m[2]||'').toLocaleLowerCase('tr')];if(!mon)return null;
+  const date=`${m[3]}-${String(mon).padStart(2,'0')}-${String(+m[1]).padStart(2,'0')}`;
+  const after=html.slice(m.index+m[0].length,m.index+m[0].length+2500);
+  const nums=(after.match(/(?:^|[^\d])(\d{1,2})(?=[^\d]|$)/gm)||[]).map(s=>+s.replace(/\D/g,'')).filter(n=>n>=1&&n<=game.max);
+  const need=game.count+(game.bonusCount||0);
+  if(gameId==='onnumara'){
+    const uniq=[...new Set(nums)].slice(0,22);
+    return uniq.length>=20?{date,line:`${date} ${uniq.sort((a,b)=>a-b).join(' ')}`}:null;
+  }
+  if(nums.length<need)return null;
+  const main=[...new Set(nums)].slice(0,game.count).sort((a,b)=>a-b);
+  if(main.length<game.count)return null;
+  let line=`${date} ${main.join(' ')}`;
+  if(game.bonusCount>0){const bon=nums.slice(game.count).filter(n=>n<=(game.bonusMax||game.max))[0];if(bon)line+=` | ${bon}`;}
+  return {date,line};
+}
+// On Numara hafta-numaralı arşivini (lotobil) tarihe çevirir. "Hafta no" her yıl resetlendiği için
+// güvenilmez; onun yerine satırların KESİN en-yeniden-eskiye SIRASI kullanılır: elimizdeki en güncel
+// çekilişle eşleşen satır çapa alınır, Pzt/Cuma takvimi bu satırdan ileri/geri yürütülür.
+function _onnumaraArchiveMap(html){
+  const map=new Map();if(!html)return map;
+  const known=(DRAW_DATA.onnumara||'').split('\n').map(l=>{const m=l.match(/^(\d{4}-\d{2}-\d{2})\s+([\d ]+)/);return m?{date:m[1],nums:(m[2].match(/\d+/g)||[]).map(Number)}:null;}).filter(Boolean).sort((a,b)=>b.date.localeCompare(a.date));
+  if(!known.length)return map;
+  // Çekiliş satırları: tab/çok-boşluk ayrımlı, baştaki hafta no + ≥22 sayı(1..80). Belge sırası korunur.
+  const rows=[];
+  html.split('\n').forEach(line=>{
+    const toks=line.trim().split(/[\s\t|]+/).filter(Boolean);
+    if(toks.length<23)return;
+    if(!/^\d{1,4}$/.test(toks[0]))return;
+    const nums=toks.slice(1).map(Number).filter(n=>Number.isFinite(n)&&n>=1&&n<=80);
+    const uniq=[...new Set(nums)];
+    if(uniq.length>=21&&uniq.length<=22)rows.push(uniq.slice(0,22));
+  });
+  if(rows.length<5)return map;
+  // Çapa: en güncel bilinen çekilişlerimizden biriyle en çok kesişen satır (belge sırasındaki index j)
+  let jBest=-1,knownBest=null,best=0;
+  for(const k of known.slice(0,8)){
+    const ks=new Set(k.nums);
+    for(let i=0;i<rows.length;i++){let inter=0;for(const n of rows[i])if(ks.has(n))inter++;if(inter>best){best=inter;jBest=i;knownBest=k;}}
+    if(best>=20)break;
+  }
+  if(jBest<0||best<18)return map; // güvenli çapa yoksa dokunma
+  const days=[1,5]; // On Numara: Pzt, Cuma
+  const walk=(fromDate,steps)=>{let d=new Date(fromDate+'T12:00:00Z');const st=steps>=0?1:-1;for(let i=0;i<Math.abs(steps);i++){do{d.setUTCDate(d.getUTCDate()+st);}while(!days.includes(d.getUTCDay()));}return d.toISOString().slice(0,10);};
+  for(let i=0;i<rows.length;i++){
+    if(Math.abs(i-jBest)>60)continue; // yalnızca çapaya yakın (~7 ay) — tatil-atlaması sürüklenmesine karşı
+    const date=walk(knownBest.date, jBest-i); // i<j → daha yeni (ileri), i>j → daha eski (geri)
+    map.set(date,`${date} ${rows[i].slice().sort((a,b)=>a-b).join(' ')}`);
+  }
+  return map;
+}
 
 function _insertDrawLine(gameId,line){
   if(!DRAW_DATA[gameId]||!line)return false;
@@ -6647,7 +6705,16 @@ async function autoUpdateDraw(gameId){
     try{html=await proxyFetch(url);}catch(e){console.warn('[autoUpdateDraw]',gameId,url,'proxy_fail',e&&e.message);}
     if(!html)continue;
     scannedOk=true;
-    const archiveMap=_parseLotteryArchiveMap(html,gameId);
+    // Kaynağa göre en uygun ayrıştırıcı: On Numara arşivi (hafta no) → tarih kurulumu; mynet → Türkçe
+    // tarihli tek çekiliş; diğerleri → tarihli tablo. Hepsi tek bir tarih→satır haritasında toplanır.
+    let archiveMap;
+    if(gameId==='onnumara'&&/Butun-Sonuc-Listesi/i.test(url)){
+      archiveMap=_onnumaraArchiveMap(html);
+    }else if(/mynet\.com/i.test(url)){
+      archiveMap=new Map();const sm=_parseMynetLatest(html,gameId);if(sm)archiveMap.set(sm.date,sm.line);
+    }else{
+      archiveMap=_parseLotteryArchiveMap(html,gameId);
+    }
     if(archiveMap.size){
       for(const[date,line]of archiveMap){
         if(existing.has(date)||!fetchableDate(date))continue;
