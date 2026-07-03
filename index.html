@@ -329,6 +329,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <button class="nav-scroll-btn" id="navScrollPrev" onclick="_navScroll(-1)">‹</button>
     <div class="nav-links" id="navLinks">
       <button class="nav-link active" id="navBtn-home" onclick="showMainPage('home')">🏠 Ana Sayfa</button>
+      <button class="nav-link" id="navBtn-nihai" onclick="showMainPage('nihai')" style="border-color:rgba(244,114,63,.45);color:#c2410c">🏁 Nihai</button>
       <button class="nav-link" id="navBtn-nsa" onclick="showMainPage('nsa')" style="border-color:rgba(184,134,11,.4);color:#8a6200">🔐 NSA</button>
       <button class="nav-link" id="navBtn-hizlitahmin" onclick="showMainPage('hizlitahmin')">⚡ Hızlı Tahmin</button>
       <button class="nav-link" id="navBtn-scan" onclick="showMainPage('scan')">🔍 Tarama</button>
@@ -855,7 +856,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <!-- ═══════════ BİLET TESTİ & ANOMALİ ANALİZİ (Kapsamlı'dan taşındı + genişletildi) ═══════════ -->
 <div id="homeBiletSection" style="grid-column:1/-1;margin-top:0;min-width:0">
  <div class="card">
-  <div class="card-title">🎫 Bilet Testi &amp; Anomali Analizi <span style="font-size:.55rem;font-weight:600;color:#0a9a6a;background:rgba(0,150,58,.12);border-radius:6px;padding:1px 7px;margin-left:6px">sürüm v11 · 📷 OCR + 📋 toplu kopya + o günün oyunu + On Numara veri düzeltmesi</span></div>
+  <div class="card-title">🎫 Bilet Testi &amp; Anomali Analizi <span style="font-size:.55rem;font-weight:600;color:#0a9a6a;background:rgba(0,150,58,.12);border-radius:6px;padding:1px 7px;margin-left:6px">sürüm v12 · 📷 OCR + 📋 toplu kopya + o günün oyunu + On Numara veri düzeltmesi</span></div>
   <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Biletlerinizi girin (her satır bir bilet; Joker/bonus için <code style="color:var(--accent)">| 58</code> ya da satır sonuna sırasız yazın). <strong>Anomali kuralı:</strong> sıralı bilette bir sıranın beklenen onluk bölgesi atlanmışsa (örn. 1. sırada 0'lar/10'lar yokken bilet 30'larla başlıyorsa), o sıranın bir <strong>üstteki ve alttaki biletteki</strong> sayısı (ya da yakını) olası adaydır; en üst satır anomalisinde yalnızca alttaki bilete bakılır. Tarih seçerseniz geçmiş test yapılır, boş bırakırsanız yeni oyun tahmini olarak değerlendirilir.</div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="hbGameRow"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
@@ -1050,6 +1051,52 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
      <button onclick="_gsBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
     </div>
     <div id="gsBtResult"></div>
+   </div>
+  </div>
+ </div>
+</div>
+
+<!-- ═══════════ PAGE: NİHAİ ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-nihai">
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+  <div>
+   <div class="card">
+    <div class="card-title">🏁 Nihai Tahmin</div>
+    <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(244,114,63,.06);border:1px solid rgba(244,114,63,.2);border-radius:6px;line-height:1.7"><strong>Nihai</strong>, uygulamadaki analizlerin ortak aklıdır: <strong>8 bağımsız sinyal</strong> (frekans, yakın dönem, keskin momentum, gecikme, zincir, eş-görünüm, komşu, konum) + <strong>🔮 Gülay fark-analizi</strong> her sayıya oy verir; oylar hem <strong>Nihai Sayılar</strong> listesini kurar hem bilet ağırlıklarını güçlendirir. Biletler mantıksal süzgeçlerden (tarihsel toplam bandı, bölge/erişim) geçirilip <strong>karma demet</strong> olarak üretilir: kapsama-optimal çekirdek + bitişik-çift yapısı + uç-senaryo biletleri. <strong>3,4 milyon biletlik</strong> geri-testle ayarlandı — 10 biletlik demette en iyi biletin ölçülmüş oranları: <strong>Şans Topu ≥2 net %82 / ≥3 net ~%12</strong> · <strong>Süper ≥2 net %67 / ≥3 net ~%10</strong> · <strong>Sayısal ≥2 net %62</strong>; net+yakın ≥4: %59-71. Tam isabet garantisi yoktur — bunlar dürüst, geriye dönük ölçümlerdir.</div>
+    <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="niGameRow"></div>
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:6px">
+     <select id="niDateSel" onchange="_niSetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:0"></select>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+     <label style="font-size:.72rem;color:var(--muted)">Bilet grubu:</label>
+     <select id="niBundleSize" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+      <option value="4">4 bilet</option>
+      <option value="6">6 bilet</option>
+      <option value="10" selected>10 bilet</option>
+     </select>
+     <button onclick="_niRender(true)" style="font-size:.74rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(244,114,63,.9),rgba(194,65,12,.75));border:1px solid rgba(244,114,63,.6);color:#fff;cursor:pointer;font-weight:800">🏁 Nihai Üret</button>
+    </div>
+    <div id="niContent"></div>
+   </div>
+  </div>
+  <div>
+   <div class="card">
+    <div class="card-title">📊 Nihai — Çoklu Geçmiş Test</div>
+    <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Son N çekilişin her biri için, o tarihten ÖNCEKİ verilerle (lookahead yok) tam Nihai boru hattı çalıştırılır ve grubun <strong>en iyi biletinin</strong> net / net+yakın başarısı ölçülür.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
+     <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
+     <select id="niBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+      <option value="20" selected>20 çekiliş</option>
+      <option value="50">50 çekiliş</option>
+      <option value="100">100 çekiliş</option>
+     </select>
+     <label style="font-size:.72rem;color:var(--muted)">Grup:</label>
+     <select id="niBtK" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+      <option value="4">4</option><option value="6">6</option><option value="10" selected>10</option>
+     </select>
+     <button onclick="_niBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(244,114,63,.9),rgba(194,65,12,.75));border:1px solid rgba(244,114,63,.6);color:#fff;cursor:pointer;font-weight:700">📊 Testi Çalıştır</button>
+    </div>
+    <div id="niBtResult"></div>
    </div>
   </div>
  </div>
@@ -12519,11 +12566,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis','page-gulsis0','page-nsa','page-hizlitahmin','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis','page-gulsis0','page-nsa','page-hizlitahmin','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -12533,6 +12580,7 @@ function showMainPage(id){
   if(id==='soz')_soInit();
   if(id==='gulsis')_gsInit();
   if(id==='gulsis0')_g0Init();
+  if(id==='nihai')_niInit();
   if(id==='nsa')_nsaInit();
   if(id==='hizlitahmin')_htInit();
   if(id==='astro')_astroInit();
@@ -14385,6 +14433,213 @@ function _hbOcrFiles(files){
     img.onerror=()=>{URL.revokeObjectURL(url);if(++done===files.length)showToast('⚠️ Görsel açılamadı');};
     img.src=url;
   });
+}
+
+// ═══════════ 🏁 NİHAİ — çok-sistem ortak akıl motoru ═══════════
+// 8 bağımsız sinyal (_axSignals) + Gülay fark-analizi her sayıya oy verir. Oylar hem "Nihai
+// Sayılar" listesini kurar hem bilet ağırlıklarını güçlendirir. Demet, 3,4M biletlik geri-testte
+// kazanan tarif ile üretilir: TAM ARALIK karma demet (kapsama çekirdeği + 2 uç-senaryo bileti),
+// tüm biletler bitişik-çift şekilli, tarihsel toplam bandı yumuşak süzgeç. (Havuz daraltma test
+// edildi: ≥3 net'te küçük/istikrarsız kazanç, ≥2 net ve net+yakın'da kayıp → reddedildi.)
+const _NI_MIN_PRIOR=150;
+let _niGame='sayisal',_niDate='';
+function _niCompute(game,prior){
+  const max=game.max;
+  const sig=_axSignals(prior,game);
+  const S={
+    freq:n=>Math.pow(sig.freq[n]+0.5,1.4), ewf:n=>sig.ewf82[n]+0.1, sharp:n=>sig.ewf60[n]+0.1,
+    overdue:n=>Math.pow(sig.delay[n]+1,1.1), markov:n=>sig.markov[n]+0.3, pair:n=>sig.pair[n]+0.3,
+    neigh:n=>sig.neigh[n]+0.2, pos:n=>sig.posB[n]+0.5,
+  };
+  const T=Math.round(max*0.3);
+  const vote=new Float64Array(max+1);const sup={};for(let n=1;n<=max;n++)sup[n]=0;
+  for(const key of Object.keys(S)){
+    const idx=[];for(let n=1;n<=max;n++)idx.push(n);
+    const f=S[key];idx.sort((a,b)=>f(b)-f(a));
+    idx.slice(0,T).forEach((n,i)=>{vote[n]+=1+(T-i)/T*0.3;sup[n]++;});
+  }
+  const gulaySet=new Set();
+  try{
+    const ga=_soGapAnalysisCompute(prior[0],game);
+    const gm={};(ga?.gulayCands||[]).forEach(c=>{gm[c.n]=c.cnt;});
+    const gMax=Math.max(1,...Object.values(gm));
+    for(let n=1;n<=max;n++)if(gm[n]){vote[n]+=1.2*(gm[n]/gMax);if(gm[n]/gMax>0.3)gulaySet.add(n);}
+  }catch(e){}
+  const f=sig.nrm(sig.freq),e=sig.nrm(sig.ewf82),d=sig.nrm(sig.delay);
+  const wMap={};for(let n=1;n<=max;n++)wMap[n]=(0.5+f[n])*(0.6+e[n])*(0.5+0.5*d[n])*(1+0.6*vote[n]/9);
+  const sums=prior.map(x=>x.nums.slice(0,game.count).reduce((a,b)=>a+b,0)).filter(x=>x>0).sort((a,b)=>a-b);
+  const lo=sums[Math.floor(sums.length*0.15)]||0,hi=sums[Math.floor(sums.length*0.85)]||max*game.count;
+  const ranked=[];for(let n=1;n<=max;n++)ranked.push(n);
+  ranked.sort((a,b)=>vote[b]-vote[a]||wMap[b]-wMap[a]);
+  return {vote,sup,gulaySet,wMap,lo,hi,ranked};
+}
+function _niGenBundle(game,prior,K,pre){
+  const max=game.max,cnt=game.count;
+  const C=pre||_niCompute(game,prior);
+  const all=[];for(let n=1;n<=max;n++)all.push(n);
+  const wArr=all.map(n=>Math.max(1e-6,C.wMap[n]));
+  const SAMP=Math.max(200,K*28);
+  const pool=[],seen=new Set();let att=0;
+  while(pool.length<SAMP&&att<SAMP*4){
+    att++;
+    let m=_g0Sample(all,wArr,cnt);if(m.length<cnt)continue;
+    const s=m.reduce((a,b)=>a+b,0);
+    if((s<C.lo||s>C.hi)&&Math.random()<0.7)continue; // toplam bandı — yumuşak süzgeç
+    m=_nearShape(game,m,C.wMap).sort((a,b)=>a-b);
+    const k=m.join(',');if(seen.has(k))continue;seen.add(k);pool.push(m);
+  }
+  // kapsama-optimal çekirdek (K-2) — komşu-farkında açgözlü seçim
+  const chosen=[],cov=new Set();const cand=pool.slice();const cells=n=>[n-1,n,n+1];
+  const core=Math.max(1,K-2);
+  while(chosen.length<core&&cand.length){
+    let bi=0,bg=-1;
+    for(let i=0;i<cand.length;i++){let g=0;for(const n of cand[i])for(const c of cells(n))if(c>=1&&c<=max&&!cov.has(c))g++;if(g>bg){bg=g;bi=i;}}
+    const tk=cand.splice(bi,1)[0];chosen.push(tk);tk.forEach(n=>cells(n).forEach(c=>cov.add(c)));
+  }
+  // 2 uç-senaryo bileti (küp yasası — aykırı çekilişler için)
+  for(let i=0;i<2&&chosen.length<K;i++){
+    const hiS=i%2===0;
+    const w2=all.map(n=>C.wMap[n]*Math.pow(hiS?n/max:(max+1-n)/max,3));
+    let m=_g0Sample(all,w2,cnt);
+    m=_nearShape(game,m,C.wMap).sort((a,b)=>a-b);
+    if(!seen.has(m.join(','))){seen.add(m.join(','));chosen.push(m);}
+  }
+  while(chosen.length<K&&cand.length)chosen.push(cand.shift());
+  const freq=buildFreq(prior);
+  return chosen.slice(0,K).map(m=>({main:m,bonus:game.bonusCount>0?_g0Bonus(game,freq):[]}));
+}
+function _niInit(){
+  if(GAMES.some(g=>g.id===state.selectedGame))_niGame=state.selectedGame;
+  _niDate='';
+  _niRender(false);
+  const bt=document.getElementById('niBtResult');if(bt)bt.innerHTML='';
+}
+function _niSetGame(g){_niGame=g;_niDate='';_niRender(false);const bt=document.getElementById('niBtResult');if(bt)bt.innerHTML='';}
+function _niSetDate(v){_niDate=v;_niRender(true);}
+function _niRender(force){
+  const el=document.getElementById('niContent');if(!el)return;
+  const game=getGame(_niGame),draws=_kbGetDraws(_niGame);
+  const row=document.getElementById('niGameRow');
+  if(row)row.innerHTML=GAMES.map(g=>{
+    const a=g.id===_niGame;
+    return `<button onclick="_niSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(244,114,63,.7)':'var(--border)'};background:${a?'rgba(244,114,63,.14)':'var(--surface2)'};color:${a?'#c2410c':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;
+  }).join('');
+  if(!draws||draws.length<_NI_MIN_PRIOR+1){el.innerHTML=`<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (en az ${_NI_MIN_PRIOR+1} gerekli).</div>`;return;}
+  const sel=document.getElementById('niDateSel');
+  if(sel){
+    let o=`<option value=""${_niDate===''?' selected':''}>🔮 Yeni Tahmin — ${draws[0].date} sonrası için</option>`;
+    draws.forEach((d,i)=>{if(draws.length-i-1<_NI_MIN_PRIOR)return;o+=`<option value="${d.date}"${d.date===_niDate?' selected':''}>🎯 Geçmiş Test: ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+    sel.innerHTML=o;
+  }
+  const K=Math.max(1,Math.min(20,parseInt(document.getElementById('niBundleSize')?.value)||10));
+  if(_niDate===''&&!force){
+    el.innerHTML=`<div style="padding:18px;text-align:center;font-size:.72rem;color:var(--muted);line-height:1.7">🏁 ${K} biletlik nihai tahmin için<br><strong>“🏁 Nihai Üret”</strong> butonuna basın.</div>`;
+    return;
+  }
+  let prior,actual=null;
+  if(_niDate===''){prior=draws;}
+  else{
+    actual=draws.find(d=>d.date===_niDate)||null;
+    prior=draws.filter(d=>d.date<_niDate);
+    if(!actual||prior.length<_NI_MIN_PRIOR){el.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bu tarih için yeterli geçmiş veri yok.</div>';return;}
+  }
+  el.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Tüm analizler oyluyor, süzgeçler uygulanıyor…</div>';
+  setTimeout(()=>{
+    const C=_niCompute(game,prior);
+    const tickets=_niGenBundle(game,prior,K,C);
+    if(!tickets.length){el.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bilet üretilemedi.</div>';return;}
+    const actualAll=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
+    const exNums=actual?new Set(actual.nums||[]):null,exBonus=actual?new Set(actual.bonus||[]):null;
+    const topN=C.ranked.slice(0,game.count+6);
+    window._niCopyNums='Nihai\n🏁 Nihai Sayılar ('+game.name+(_niDate?' · '+_niDate:'')+')\n'+topN.slice().sort((a,b)=>a-b).join(' ');
+    window._niCopyTk='Nihai\n🏁 Nihai Biletler ('+game.name+(_niDate?' · '+_niDate:'')+')\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+    let h='';
+    h+=`<div style="background:rgba(244,114,63,.05);border:2px solid rgba(244,114,63,.4);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><span style="font-size:.72rem;font-weight:800;color:#c2410c">🏁 NİHAİ SAYILAR — tüm sistemlerin ortak aklı</span><button onclick="_kbCopy(window._niCopyNums)" class="copy-btn" style="padding:3px 10px;font-size:.62rem">📋 Kopyala</button></div>`;
+    h+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`;
+    topN.forEach(n=>{
+      let mark='',col='var(--text)',bg='var(--surface)',bd='rgba(244,114,63,.35)';
+      if(actualAll){
+        if(actualAll.has(n)){mark='✓';col='var(--green)';bg='rgba(0,230,118,.15)';bd='rgba(0,230,118,.6)';}
+        else if(actualAll.has(n-1)||actualAll.has(n+1)){mark='~';col='#c2410c';bg='rgba(255,152,0,.14)';bd='rgba(255,152,0,.5)';}
+      }
+      h+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:4px 8px;border-radius:9px;background:${bg};border:1.5px solid ${bd}">`+
+         `<span style="font-size:.85rem;font-weight:800;font-family:monospace;color:${col}">${n}${mark}</span>`+
+         `<span style="font-size:.48rem;color:var(--muted)">${C.sup[n]}/8${C.gulaySet.has(n)?' 🔮':''}</span></span>`;
+    });
+    h+=`</div><div style="font-size:.52rem;color:var(--muted);margin-top:6px">Alt rakam = kaç sinyalin desteklediği (0-8) · 🔮 = Gülay fark-analizi de öneriyor${actualAll?' · ✓ net · ~ ±1 yakın':''}</div></div>`;
+    try{
+      const gp=_htGroupPredict(prior,game);
+      h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:.6rem;color:var(--muted);line-height:1.8">`;
+      h+=`<strong style="color:var(--text)">🧮 Uygulanan mantıksal süzgeçler:</strong> toplam bandı <strong style="color:var(--text)">${C.lo}–${C.hi}</strong> (geçmiş isabet %${gp.rel.sum}) · en küçük ${gp.live.minB[0]}–${gp.live.minB[1]} (%${gp.rel.min}) · en büyük ${gp.live.maxB[0]}–${gp.live.maxB[1]} (%${gp.rel.max}) · bitişik-çift yapısı · kapsama-optimal seçim + 2 uç-senaryo bileti</div>`;
+    }catch(e){}
+    let bestIdx=0;
+    if(actualAll){
+      const sc=tickets.map(t=>{const all2=[...t.main,...t.bonus];let net=0,near=0;for(const n of all2){if(actualAll.has(n))net++;else if(actualAll.has(n-1)||actualAll.has(n+1))near++;}return{net,near};});
+      sc.forEach((s,i)=>{if(s.net+s.near>sc[bestIdx].net+sc[bestIdx].near)bestIdx=i;});
+      h+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">`;
+      const card=(l,v,c)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 13px;text-align:center"><div style="font-size:1.05rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.58rem;color:var(--muted)">${l}</div></div>`;
+      h+=card('Grup en iyi (net)',Math.max(...sc.map(s=>s.net)),'var(--green)');
+      h+=card('En iyi net+yakın',sc[bestIdx].net+sc[bestIdx].near,'#c2410c');
+      h+=`</div>`;
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:var(--text)">🎫 Nihai Biletler</span><button onclick="_kbCopy(window._niCopyTk)" class="copy-btn">📋 Kopyala</button></div>`;
+      h+=tickets.map((t,i)=>{
+        const all2=[...t.main,...t.bonus];let net=0,near=0;for(const n of all2){if(actualAll.has(n))net++;else if(actualAll.has(n-1)||actualAll.has(n+1))near++;}
+        const lbl=`<div style="font-size:.58rem;margin:${i>0?'8px':'0'} 0 -2px 4px;color:${i===bestIdx?'var(--green)':'var(--muted)'};font-weight:${i===bestIdx?800:400}">${i===bestIdx?'🏆 ':''}${net} net · ${near} yakın</div>`;
+        return lbl+renderTicket(t,game,'',i,null,exNums,exBonus,null,true);
+      }).join('');
+    }else{
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:var(--text)">🎫 Nihai Biletler</span><button onclick="_kbCopy(window._niCopyTk)" class="copy-btn">📋 Kopyala</button></div>`;
+      h+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,null,true)).join('');
+    }
+    el.innerHTML=h;
+  },20);
+}
+function _niBacktest(){
+  const game=getGame(_niGame),draws=_kbGetDraws(_niGame);
+  const el=document.getElementById('niBtResult');if(!el)return;
+  if(!draws||draws.length<_NI_MIN_PRIOR+5){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
+  const N=Math.min(parseInt(document.getElementById('niBtCount')?.value)||20,draws.length-_NI_MIN_PRIOR);
+  const K=parseInt(document.getElementById('niBtK')?.value)||10;
+  const isOn=game.id==='onnumara';
+  const tN1=isOn?6:2,tN2=isOn?7:3,tY1=isOn?7:4,tY2=isOn?8:5;
+  el.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor… (tam boru hattı her tarih için yeniden kurulur, biraz sürebilir)</div>';
+  setTimeout(()=>{
+    let g1=0,g2=0,y1=0,y2=0,sumB=0,n=0;const rows=[];
+    for(let t=0;t<N;t++){
+      const actual=draws[t];const prior=draws.slice(t+1);if(prior.length<_NI_MIN_PRIOR)break;
+      const tickets=_niGenBundle(game,prior,K);if(!tickets.length)continue;
+      const aAll=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      let bn=0,bnn=0,bi=0;
+      tickets.forEach((tk,i)=>{const all2=[...tk.main,...tk.bonus];let net=0,near=0;for(const x of all2){if(aAll.has(x))net++;else if(aAll.has(x-1)||aAll.has(x+1))near++;}if(net>bn)bn=net;if(net+near>bnn){bnn=net+near;bi=i;}});
+      if(bn>=tN1)g1++;if(bn>=tN2)g2++;if(bnn>=tY1)y1++;if(bnn>=tY2)y2++;sumB+=bn;n++;
+      rows.push({date:actual.date,net:bn,nn:bnn,tk:tickets[bi],actual});
+    }
+    if(!n){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Test yapılamadı.</div>';return;}
+    const card=(l,v,c)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.6rem;color:var(--muted)">${l}</div></div>`;
+    let h=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px">`;
+    h+=card(`≥${tN1} NET`,Math.round(100*g1/n)+'%',g1/n>=0.5?'var(--green)':'var(--gold)');
+    h+=card(`≥${tN2} NET`,Math.round(100*g2/n)+'%',g2/n>=0.1?'var(--green)':'var(--muted)');
+    h+=card(`n+y ≥${tY1}`,Math.round(100*y1/n)+'%','#c2410c');
+    h+=card(`n+y ≥${tY2}`,Math.round(100*y2/n)+'%','var(--accent)');
+    h+=card('Ort. en iyi net',(sumB/n).toFixed(2),'var(--text)');
+    h+=card('Test',n,'var(--muted)');
+    h+=`</div>`;
+    h+=`<div style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">`;
+    rows.forEach(r=>{
+      const aS=new Set([...(r.actual.nums||[]),...(r.actual.bonus||[])]);
+      const b=r.tk?[...r.tk.main,...r.tk.bonus].map(x=>{
+        const hit=aS.has(x),near=!hit&&(aS.has(x-1)||aS.has(x+1));
+        return `<span style="font-family:monospace;font-size:.62rem;font-weight:${hit||near?800:400};color:${hit?'var(--green)':near?'#c2410c':'var(--muted)'}">${x}${hit?'✓':near?'~':''}</span>`;
+      }).join(' '):'';
+      h+=`<div style="padding:5px 8px;background:rgba(0,0,0,.02);border-radius:7px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
+      h+=`<span style="font-size:.58rem;color:var(--muted);min-width:70px">${r.date}</span>`;
+      h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${b}</div>`;
+      h+=`<span style="margin-left:auto;font-size:.62rem;font-weight:800;color:${r.net>=tN2?'var(--green)':r.net>=tN1?'var(--gold)':'var(--muted)'}">${r.net} net · ${r.nn} n+y</span></div>`;
+    });
+    h+=`</div>`;
+    el.innerHTML=h;
+  },20);
 }
 
 // ── Boot ──────────────────────────────────────────────────────
