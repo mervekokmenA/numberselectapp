@@ -329,8 +329,8 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <button class="nav-scroll-btn" id="navScrollPrev" onclick="_navScroll(-1)">‹</button>
     <div class="nav-links" id="navLinks">
       <button class="nav-link active" id="navBtn-home" onclick="showMainPage('home')">🏠 Ana Sayfa</button>
-      <button class="nav-link" id="navBtn-nihai" onclick="showMainPage('nihai')" style="border-color:rgba(244,114,63,.45);color:#c2410c">🏁 Nihai</button>
-      <button class="nav-link" id="navBtn-nsa" onclick="showMainPage('nsa')" style="border-color:rgba(184,134,11,.4);color:#8a6200">🔐 NSA</button>
+      <button class="nav-link" id="navBtn-nihai" onclick="showMainPage('nihai')">🏁 Nihai</button>
+      <button class="nav-link" id="navBtn-nsa" onclick="showMainPage('nsa')">🔐 NSA</button>
       <button class="nav-link" id="navBtn-hizlitahmin" onclick="showMainPage('hizlitahmin')">⚡ Hızlı Tahmin</button>
       <button class="nav-link" id="navBtn-scan" onclick="showMainPage('scan')">🔍 Tarama</button>
       <button class="nav-link" id="navBtn-listeler" onclick="showMainPage('listeler')">📋 Listeler</button>
@@ -14625,17 +14625,31 @@ function _niBacktest(){
     h+=card('Ort. en iyi net',(sumB/n).toFixed(2),'var(--text)');
     h+=card('Test',n,'var(--muted)');
     h+=`</div>`;
-    h+=`<div style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">`;
+    h+=`<div style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
     rows.forEach(r=>{
       const aS=new Set([...(r.actual.nums||[]),...(r.actual.bonus||[])]);
+      // gerçek çekiliş sonucu (en sola)
+      const resNums=[...(r.actual.nums||[])].sort((a,b)=>a-b);
+      const resBonus=[...(r.actual.bonus||[])].sort((a,b)=>a-b);
+      const resHtml=resNums.map(x=>`<span style="font-family:monospace;font-size:.62rem;font-weight:700;color:var(--text)">${x}</span>`).join(' ')
+        +(resBonus.length?` <span style="font-size:.55rem;color:var(--muted)">+</span> `+resBonus.map(x=>`<span style="font-family:monospace;font-size:.62rem;font-weight:700;color:var(--gold)">${x}</span>`).join(' '):'');
+      // en iyi bilet (isabetler işaretli)
       const b=r.tk?[...r.tk.main,...r.tk.bonus].map(x=>{
         const hit=aS.has(x),near=!hit&&(aS.has(x-1)||aS.has(x+1));
         return `<span style="font-family:monospace;font-size:.62rem;font-weight:${hit||near?800:400};color:${hit?'var(--green)':near?'#c2410c':'var(--muted)'}">${x}${hit?'✓':near?'~':''}</span>`;
       }).join(' '):'';
-      h+=`<div style="padding:5px 8px;background:rgba(0,0,0,.02);border-radius:7px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
-      h+=`<span style="font-size:.58rem;color:var(--muted);min-width:70px">${r.date}</span>`;
+      h+=`<div style="padding:6px 8px;background:rgba(0,0,0,.02);border-radius:7px;display:flex;align-items:stretch;gap:10px;flex-wrap:wrap">`;
+      // SOL: gerçek sonuç
+      h+=`<div style="flex:0 0 auto;min-width:200px;max-width:46%;border-right:1px solid var(--border);padding-right:10px">`;
+      h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:2px">${r.date} · 🎯 sonuç</div>`;
+      h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${resHtml}</div></div>`;
+      // SAĞ: en iyi bilet + istatistik
+      h+=`<div style="flex:1 1 200px;min-width:180px;display:flex;flex-direction:column;gap:3px">`;
+      h+=`<div style="font-size:.55rem;color:var(--muted)">en iyi bilet</div>`;
+      h+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
       h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${b}</div>`;
-      h+=`<span style="margin-left:auto;font-size:.62rem;font-weight:800;color:${r.net>=tN2?'var(--green)':r.net>=tN1?'var(--gold)':'var(--muted)'}">${r.net} net · ${r.nn} n+y</span></div>`;
+      h+=`<span style="margin-left:auto;font-size:.62rem;font-weight:800;white-space:nowrap;color:${r.net>=tN2?'var(--green)':r.net>=tN1?'var(--gold)':'var(--muted)'}">${r.net} net · ${r.nn} n+y</span>`;
+      h+=`</div></div></div>`;
     });
     h+=`</div>`;
     el.innerHTML=h;
