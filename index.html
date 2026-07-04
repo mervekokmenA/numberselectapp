@@ -855,6 +855,35 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  </div>
 </div>
 
+<!-- ═══════════ NEW: Aday Sayılar — Analiz Bazlı ═══════════ -->
+<div id="candSection" style="grid-column:1/-1;margin-top:0;min-width:0">
+ <div class="card">
+  <div class="card-title">🎰 Aday Sayılar — Analiz Bazlı</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">
+   Her analiz tipinin seçili oyun için biletlerine <strong>yazdığı sayılar kümesini (adaylar)</strong> gösterir; sayılar, o analizin ürettiği biletlerde ne sıklıkla geçtiğine göre sıralanır (en güçlü = analizin en çok güvendiği). <strong>“Tüm Analizler”</strong> tüm tiplerin adaylarını yan yana koyar ve <strong>analizler-arası uzlaşıyı</strong> (en çok tipin ortak önerdiği sayılar — anlamlı “çoğunluk” sinyali) çıkarır. <strong>Geçmiş Test</strong> ise geçmiş çekilişlerde adayların ne olduğunu ve tuttuğunu (net / ±1 yakın) gösterir.
+   <br><span style="color:#8a6200">⚠️ Dürüst bulgu: 600.000 biletlik geri-testte biletin <strong>kaçıncı sırada</strong> olduğu (188., 195. vb.) isabeti belirlemiyor — her bilet bağımsız çekildiği için sıra bilgi taşımıyor. Bu yüzden “kaçıncı bilet” yerine <strong>her analizin en güvendiği sayı kümesi</strong> ve <strong>analizler-arası uzlaşı</strong> sunulur. Tam isabet yine şans seviyesindedir; değer, şeffaflık ve uzlaşıdadır.</span>
+  </div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="caGameRow"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <select id="caAlgoSel" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:220px"></select>
+   <button onclick="_caRenderCurrent()" style="font-size:.74rem;padding:7px 16px;border-radius:8px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🔍 Seçili Analiz</button>
+   <button onclick="_caRenderAll()" style="font-size:.74rem;padding:7px 16px;border-radius:8px;background:linear-gradient(135deg,rgba(244,114,63,.9),rgba(194,65,12,.75));border:1px solid rgba(244,114,63,.6);color:#fff;cursor:pointer;font-weight:700">🎯 Tüm Analizler İçin Aday Üret</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <span style="font-size:.66rem;color:var(--muted)">📊 Geçmiş test:</span>
+   <select id="caBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="10">Son 10 çekiliş</option>
+    <option value="15" selected>Son 15 çekiliş</option>
+    <option value="20">Son 20 çekiliş</option>
+   </select>
+   <button onclick="_caBacktest()" style="font-size:.72rem;padding:6px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);cursor:pointer;font-weight:700">📊 Geçmiş Adayları Test Et</button>
+  </div>
+  <div id="caCurrentOut"></div>
+  <div id="caAllOut"></div>
+  <div id="caBtOut"></div>
+ </div>
+</div>
+
 <!-- ═══════════ NEW: Tekli Sayı Bakımı ile Analiz ═══════════ -->
 <div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="numAnalysisSection">
   <div class="card">
@@ -6327,6 +6356,7 @@ function _syncOtherGameGrids(id){
   const lpdt=document.getElementById('listelerPredDate');if(lpdt)lpdt.value=nd;
   // Bilet Testi & Anomali de anasayfa oyununu takip etsin (kullanıcı orada elle seçmediyse)
   try{if(!_hbGameManual&&typeof _hbInit==='function'){_hbGame=id;_hbInit();}}catch(e){}
+  try{if(!_caGameManual&&typeof _caInit==='function'){_caGame=id;_caInit();}}catch(e){}
   setTimeout(_nextDrawPredict,0);
 }
 function selectAlgo(id){
@@ -12535,7 +12565,7 @@ function _kbRenderKazanan(){
 }
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
-const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','b10Section','ortakSayilarSection','nextDrawPredSection','homeBiletSection'];
+const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','b10Section','ortakSayilarSection','nextDrawPredSection','homeBiletSection','candSection'];
 let _scanGame=null;
 
 function showMainPage(id){
@@ -14548,13 +14578,167 @@ function _niBacktest(){
   },20);
 }
 
+// ═══════════ ANASAYFA — ADAY SAYILAR (analiz bazlı) ═══════════
+// Her analiz tipinin, seçili oyun için ürettiği biletlere yazdığı sayı kümesini ("adaylar")
+// çıkarır: analizin K bileti üretilir, ana sayıların batch içi görülme sıklığı sayılır ve en sık
+// geçenler analizin "en güvendiği" adaylardır. 600K biletlik geri-test (scratchpad/posresearch)
+// biletin SIRASININ (188., 195. …) isabetle ilişkisiz olduğunu gösterdi (her bilet bağımsız çekiliyor);
+// bu yüzden sıra yerine sayı-kümesi güveni ve analizler-arası UZLAŞI (çoğunluk) sunulur.
+let _caGame='sayisal',_caGameManual=false;
+function _caInit(){
+  const row=document.getElementById('caGameRow');if(!row)return;
+  if(!_caGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_caGame=state.selectedGame;
+  row.innerHTML=GAMES.map(g=>{
+    const a=g.id===_caGame;
+    return `<button onclick="_caSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;
+  }).join('');
+  const sel=document.getElementById('caAlgoSel');
+  if(sel&&!sel.dataset.filled){sel.innerHTML=ALGOS.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');sel.dataset.filled='1';}
+}
+function _caSetGame(g){_caGame=g;_caGameManual=true;_caInit();
+  ['caCurrentOut','caAllOut','caBtOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+}
+function _caBadge(n,aSet,extra){
+  const hit=aSet&&aSet.has(n),near=!hit&&aSet&&(aSet.has(n-1)||aSet.has(n+1));
+  const c=hit?'var(--green)':near?'#c2410c':'var(--text)';
+  const bg=hit?'rgba(0,230,118,.14)':near?'rgba(244,114,63,.12)':'var(--surface2)';
+  const bd=hit?'rgba(0,200,100,.55)':near?'rgba(244,114,63,.4)':'var(--border)';
+  return `<span style="display:inline-flex;align-items:center;gap:2px;font-family:monospace;font-size:.68rem;font-weight:${hit||near?800:600};color:${c};background:${bg};border:1px solid ${bd};border-radius:6px;padding:2px 6px">${n}${hit?'✓':near?'~':''}${extra||''}</span>`;
+}
+// K bilet üret, ana sayı sıklıklarını say → [{n,c}] azalan
+function _caCandidates(game,algo,prior,K){
+  const freq=buildFreq(prior);const tally={};
+  for(let i=0;i<K;i++){
+    let td;try{td=generateNumbers(game,algo,freq,prior,{raw:true});}catch(e){continue;}
+    if(!td||!td.main)continue;
+    td.main.forEach(n=>{if(n>=1&&n<=game.max)tally[n]=(tally[n]||0)+1;});
+  }
+  return Object.keys(tally).map(Number).map(n=>({n,c:tally[n]})).sort((a,b)=>b.c-a.c||a.n-b.n);
+}
+function _caScoreLine(pick,aSet){
+  if(!aSet)return '';
+  const net=pick.filter(n=>aSet.has(n)).length;
+  const near=pick.filter(n=>!aSet.has(n)&&(aSet.has(n-1)||aSet.has(n+1))).length;
+  return `<span style="font-size:.62rem;font-weight:800;white-space:nowrap;color:${net>=3?'var(--green)':net>=1?'var(--gold)':'var(--muted)'}">${net} net · ${near} ±1</span>`;
+}
+function _caRenderCurrent(){
+  const el=document.getElementById('caCurrentOut');if(!el)return;
+  const game=getGame(_caGame),prior=_kbGetDraws(_caGame);
+  const algo=document.getElementById('caAlgoSel')?.value||ALGOS[0].id;
+  const aName=ALGOS.find(a=>a.id===algo)?.name||algo;
+  if(!prior||prior.length<20){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Yeterli veri yok — önce “Gerçek Verileri Yükle”.</div>';return;}
+  el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">⏳ Adaylar üretiliyor…</div>';
+  setTimeout(()=>{
+    const cands=_caCandidates(game,algo,prior,40);
+    const maxC=cands[0]?.c||1;
+    const pick=cands.slice(0,game.count).map(c=>c.n).sort((a,b)=>a-b);
+    const show=cands.slice(0,Math.min(cands.length,game.count*3));
+    let h=`<div style="margin-top:6px;padding:11px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">`;
+    h+=`<div style="font-size:.7rem;font-weight:800;color:var(--accent);margin-bottom:8px">${aName} · ${game.emoji} ${game.name} — Adaylar</div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">🎯 En güçlü ${game.count} aday (analizin bilet çekirdeği):</div>`;
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px">${pick.map(n=>_caBadge(n,null)).join('')}<button onclick="_caCopy('${pick.join(' ')}')" class="copy-btn" style="font-size:.6rem;padding:3px 9px">📋</button></div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:5px">Tüm adaylar (bilet içi görülme sıklığı — çubuk = güven):</div>`;
+    h+=`<div style="display:flex;flex-direction:column;gap:3px">`;
+    show.forEach(c=>{
+      const pct=Math.round(c.c/maxC*100);
+      h+=`<div style="display:flex;align-items:center;gap:8px"><span style="font-family:monospace;font-size:.68rem;font-weight:700;min-width:26px;color:var(--text)">${c.n}</span><div style="flex:1;height:6px;background:rgba(0,0,0,.06);border-radius:4px;overflow:hidden;max-width:340px"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,rgba(129,140,248,.85),rgba(99,102,241,.6))"></div></div><span style="font-size:.56rem;color:var(--muted);min-width:34px">${c.c}/40</span></div>`;
+    });
+    h+=`</div></div>`;
+    el.innerHTML=h;
+  },20);
+}
+function _caCopy(txt){try{navigator.clipboard.writeText(txt);}catch(e){}}
+function _caRenderAll(){
+  const el=document.getElementById('caAllOut');if(!el)return;
+  const game=getGame(_caGame),prior=_kbGetDraws(_caGame);
+  if(!prior||prior.length<20){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Yeterli veri yok — önce “Gerçek Verileri Yükle”.</div>';return;}
+  el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">⏳ Tüm analizler için adaylar üretiliyor… (birkaç saniye sürebilir)</div>';
+  setTimeout(()=>{
+    const topK=game.count+2;const consensus={};const rows=[];
+    ALGOS.forEach(a=>{
+      const cands=_caCandidates(game,a.id,prior,24);
+      const top=cands.slice(0,topK).map(c=>c.n);
+      top.forEach(n=>consensus[n]=(consensus[n]||0)+1);
+      rows.push({name:a.name,top:top.slice().sort((x,y)=>x-y)});
+    });
+    const nA=ALGOS.length;
+    const consArr=Object.keys(consensus).map(Number).map(n=>({n,k:consensus[n]})).sort((a,b)=>b.k-a.k||a.n-b.n);
+    const consPick=consArr.slice(0,game.count).map(c=>c.n).sort((a,b)=>a-b);
+    let h=`<div style="margin-top:10px">`;
+    // Uzlaşı kartı (üstte, vurgulu)
+    h+=`<div style="padding:11px 13px;background:linear-gradient(135deg,rgba(0,230,118,.09),rgba(129,140,248,.09));border:2px solid rgba(0,200,100,.4);border-radius:11px;margin-bottom:12px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:var(--green)">🤝 ANALİZLER-ARASI UZLAŞI</span><span style="font-size:.53rem;color:var(--muted)">k/${nA} = kaç analiz bu sayıyı adaylarına koydu</span></div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">En çok uzlaşılan ${game.count} sayı (çoğunluk sinyali):</div>`;
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${consPick.map(n=>_caBadge(n,null,`<sup style="font-size:.5rem;color:var(--green)">${consensus[n]}</sup>`)).join('')}<button onclick="_caCopy('${consPick.join(' ')}')" class="copy-btn" style="font-size:.6rem;padding:3px 9px">📋</button></div>`;
+    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${consArr.slice(0,game.count*3).map(c=>`<span style="font-family:monospace;font-size:.62rem;color:${c.k>=nA*0.5?'var(--green)':'var(--muted)'};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${c.n}<sup style="font-size:.5rem">${c.k}</sup></span>`).join('')}</div>`;
+    h+=`</div>`;
+    // Her analiz satırı
+    h+=`<div style="font-size:.6rem;font-weight:700;color:var(--text);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px">Analiz bazlı adaylar (${game.emoji} ${game.name})</div>`;
+    h+=`<div style="display:flex;flex-direction:column;gap:4px">`;
+    rows.forEach(r=>{
+      h+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:rgba(0,0,0,.02);border-radius:7px"><span style="font-size:.6rem;color:var(--text);font-weight:600;min-width:150px;flex-shrink:0">${r.name}</span><div style="display:flex;gap:4px;flex-wrap:wrap">${r.top.map(n=>{const strong=consensus[n]>=nA*0.5;return `<span style="font-family:monospace;font-size:.64rem;font-weight:${strong?800:600};color:${strong?'var(--green)':'var(--text)'}">${n}</span>`;}).join(' ')}</div></div>`;
+    });
+    h+=`</div></div>`;
+    el.innerHTML=h;
+  },20);
+}
+function _caBacktest(){
+  const el=document.getElementById('caBtOut');if(!el)return;
+  const game=getGame(_caGame),draws=_kbGetDraws(_caGame);
+  const algo=document.getElementById('caAlgoSel')?.value||ALGOS[0].id;
+  const aName=ALGOS.find(a=>a.id===algo)?.name||algo;
+  const N=parseInt(document.getElementById('caBtCount')?.value)||15;
+  if(!draws||draws.length<40){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Geçmiş test için yeterli veri yok.</div>';return;}
+  el.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Geçmiş adaylar hesaplanıyor… (her tarih için tüm analizler yeniden çalışır, biraz sürebilir)</div>';
+  setTimeout(()=>{
+    const tests=Math.min(N,draws.length-30);
+    const rows=[];let selNetSum=0,selHit3=0,consNetSum=0,consHit3=0,n=0;
+    for(let t=0;t<tests;t++){
+      const actual=draws[t];const prior=draws.slice(t+1);if(prior.length<25)break;
+      const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      // seçili analiz adayı
+      const selPick=_caCandidates(game,algo,prior,16).slice(0,game.count).map(c=>c.n).sort((a,b)=>a-b);
+      // analizler-arası uzlaşı adayı
+      const cons={};ALGOS.forEach(a=>{_caCandidates(game,a.id,prior,8).slice(0,game.count+2).forEach(c=>cons[c.n]=(cons[c.n]||0)+1);});
+      const consPick=Object.keys(cons).map(Number).sort((a,b)=>cons[b]-cons[a]||a-b).slice(0,game.count).sort((a,b)=>a-b);
+      const selNet=selPick.filter(x=>aSet.has(x)).length,consNet=consPick.filter(x=>aSet.has(x)).length;
+      selNetSum+=selNet;if(selNet>=3)selHit3++;consNetSum+=consNet;if(consNet>=3)consHit3++;n++;
+      rows.push({date:actual.date,aSet,selPick,consPick,selNet,consNet});
+    }
+    if(!n){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Test yapılamadı.</div>';return;}
+    const baseline=(game.count*(game.id==='onnumara'?22:game.count+game.bonusCount)/game.max).toFixed(2);
+    const card=(l,v,c)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.05rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.58rem;color:var(--muted)">${l}</div></div>`;
+    let h=`<div style="margin-top:12px">`;
+    h+=`<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:10px">`;
+    h+=card(`${aName.replace(/^\S+\s/,'')} ort.net`,(selNetSum/n).toFixed(2),'var(--accent)');
+    h+=card('Seçili ≥3 net',Math.round(100*selHit3/n)+'%',selHit3/n>=0.2?'var(--green)':'var(--muted)');
+    h+=card('Uzlaşı ort.net',(consNetSum/n).toFixed(2),'var(--green)');
+    h+=card('Uzlaşı ≥3 net',Math.round(100*consHit3/n)+'%',consHit3/n>=0.2?'var(--green)':'var(--muted)');
+    h+=card('Şans beklentisi',baseline,'var(--muted)');
+    h+=card('Test',n,'var(--muted)');
+    h+=`</div>`;
+    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Her satır: o çekilişten ÖNCEKİ verilerle üretilen adaylar (lookahead yok). Sol = gerçek sonuç, orta = seçili analiz adayı, sağ = analizler-arası uzlaşı. “Şans beklentisi” tamamen rastgele bir kümenin ortalama net değeridir — üstünde kalmak anlamlıdır, ama tam isabet yine şans seviyesindedir.</div>`;
+    h+=`<div style="max-height:440px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
+    rows.forEach(r=>{
+      const res=[...(r.aSet)].sort((a,b)=>a-b);
+      h+=`<div style="padding:6px 8px;background:rgba(0,0,0,.02);border-radius:7px">`;
+      h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:3px">${r.date} · 🎯 sonuç: <span style="font-family:monospace;color:var(--text)">${res.join(' ')}</span></div>`;
+      h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:2px"><span style="font-size:.55rem;color:var(--accent);min-width:56px">seçili:</span>${r.selPick.map(n=>_caBadge(n,r.aSet)).join('')}${_caScoreLine(r.selPick,r.aSet)}</div>`;
+      h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span style="font-size:.55rem;color:var(--green);min-width:56px">uzlaşı:</span>${r.consPick.map(n=>_caBadge(n,r.aSet)).join('')}${_caScoreLine(r.consPick,r.aSet)}</div>`;
+      h+=`</div>`;
+    });
+    h+=`</div></div>`;
+    el.innerHTML=h;
+  },20);
+}
+
 // ── Boot ──────────────────────────────────────────────────────
 (function(){
   try{const v=localStorage.getItem('excludeLastDraw');if(v!==null){state.excludeLastDraw=v==='1';}}catch(e){}
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();_hbInit();setTimeout(_nextDrawPredict,300);
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();_hbInit();_caInit();setTimeout(_nextDrawPredict,300);
 setTimeout(()=>{_autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);},800);
 
 // ══════════════════════════════════════════════════════════════
