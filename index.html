@@ -877,6 +877,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <option value="20">Son 20 çekiliş</option>
    </select>
    <button onclick="_caBacktest()" style="font-size:.72rem;padding:6px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);cursor:pointer;font-weight:700">📊 Geçmiş Adayları Test Et</button>
+   <label style="display:inline-flex;align-items:center;gap:5px;font-size:.66rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="caBtAll" style="cursor:pointer"> 🎯 Geçmiş testte tüm analizleri göster</label>
   </div>
   <div id="caCurrentOut"></div>
   <div id="caAllOut"></div>
@@ -14688,43 +14689,84 @@ function _caBacktest(){
   const algo=document.getElementById('caAlgoSel')?.value||ALGOS[0].id;
   const aName=ALGOS.find(a=>a.id===algo)?.name||algo;
   const N=parseInt(document.getElementById('caBtCount')?.value)||15;
+  const showAll=!!document.getElementById('caBtAll')?.checked;
   if(!draws||draws.length<40){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Geçmiş test için yeterli veri yok.</div>';return;}
-  el.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Geçmiş adaylar hesaplanıyor… (her tarih için tüm analizler yeniden çalışır, biraz sürebilir)</div>';
+  el.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Geçmiş adaylar hesaplanıyor… (her tarih için TÜM analizler yeniden çalışır, biraz sürebilir)</div>';
   setTimeout(()=>{
     const tests=Math.min(N,draws.length-30);
-    const rows=[];let selNetSum=0,selHit3=0,consNetSum=0,consHit3=0,n=0;
+    const cnt=game.count;
+    // her analiz için toplam istatistik
+    const agg={};ALGOS.forEach(a=>agg[a.id]={net:0,hit3:0,near:0});
+    let consNetSum=0,consHit3=0,n=0;const rows=[];
     for(let t=0;t<tests;t++){
       const actual=draws[t];const prior=draws.slice(t+1);if(prior.length<25)break;
       const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
-      // seçili analiz adayı
-      const selPick=_caCandidates(game,algo,prior,16).slice(0,game.count).map(c=>c.n).sort((a,b)=>a-b);
-      // analizler-arası uzlaşı adayı
-      const cons={};ALGOS.forEach(a=>{_caCandidates(game,a.id,prior,8).slice(0,game.count+2).forEach(c=>cons[c.n]=(cons[c.n]||0)+1);});
-      const consPick=Object.keys(cons).map(Number).sort((a,b)=>cons[b]-cons[a]||a-b).slice(0,game.count).sort((a,b)=>a-b);
-      const selNet=selPick.filter(x=>aSet.has(x)).length,consNet=consPick.filter(x=>aSet.has(x)).length;
-      selNetSum+=selNet;if(selNet>=3)selHit3++;consNetSum+=consNet;if(consNet>=3)consHit3++;n++;
-      rows.push({date:actual.date,aSet,selPick,consPick,selNet,consNet});
+      const per={};const consTally={};
+      ALGOS.forEach(a=>{
+        const cands=_caCandidates(game,a.id,prior,8);
+        const pick=cands.slice(0,cnt).map(c=>c.n).sort((x,y)=>x-y);
+        const net=pick.filter(x=>aSet.has(x)).length;
+        const near=pick.filter(x=>!aSet.has(x)&&(aSet.has(x-1)||aSet.has(x+1))).length;
+        per[a.id]={pick,net,near};
+        agg[a.id].net+=net;agg[a.id].near+=near;if(net>=3)agg[a.id].hit3++;
+        cands.slice(0,cnt+2).forEach(c=>consTally[c.n]=(consTally[c.n]||0)+1);
+      });
+      const consPick=Object.keys(consTally).map(Number).sort((a,b)=>consTally[b]-consTally[a]||a-b).slice(0,cnt).sort((a,b)=>a-b);
+      const consNet=consPick.filter(x=>aSet.has(x)).length;
+      consNetSum+=consNet;if(consNet>=3)consHit3++;n++;
+      rows.push({date:actual.date,aSet,per,consPick});
     }
     if(!n){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Test yapılamadı.</div>';return;}
-    const baseline=(game.count*(game.id==='onnumara'?22:game.count+game.bonusCount)/game.max).toFixed(2);
+    const baseline=(cnt*(game.id==='onnumara'?22:cnt+game.bonusCount)/game.max);
     const card=(l,v,c)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.05rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.58rem;color:var(--muted)">${l}</div></div>`;
     let h=`<div style="margin-top:12px">`;
+    // özet kartlar
     h+=`<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:10px">`;
-    h+=card(`${aName.replace(/^\S+\s/,'')} ort.net`,(selNetSum/n).toFixed(2),'var(--accent)');
-    h+=card('Seçili ≥3 net',Math.round(100*selHit3/n)+'%',selHit3/n>=0.2?'var(--green)':'var(--muted)');
+    h+=card(`${aName.replace(/^\S+\s/,'')} ort.net`,(agg[algo].net/n).toFixed(2),'var(--accent)');
+    h+=card('Seçili ≥3 net',Math.round(100*agg[algo].hit3/n)+'%',agg[algo].hit3/n>=0.2?'var(--green)':'var(--muted)');
     h+=card('Uzlaşı ort.net',(consNetSum/n).toFixed(2),'var(--green)');
     h+=card('Uzlaşı ≥3 net',Math.round(100*consHit3/n)+'%',consHit3/n>=0.2?'var(--green)':'var(--muted)');
-    h+=card('Şans beklentisi',baseline,'var(--muted)');
+    h+=card('Şans beklentisi',baseline.toFixed(2),'var(--muted)');
     h+=card('Test',n,'var(--muted)');
     h+=`</div>`;
-    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Her satır: o çekilişten ÖNCEKİ verilerle üretilen adaylar (lookahead yok). Sol = gerçek sonuç, orta = seçili analiz adayı, sağ = analizler-arası uzlaşı. “Şans beklentisi” tamamen rastgele bir kümenin ortalama net değeridir — üstünde kalmak anlamlıdır, ama tam isabet yine şans seviyesindedir.</div>`;
-    h+=`<div style="max-height:440px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
+    // ── LİDER TABLOSU: tüm analizlerin geçmişteki aday başarısı ──
+    const lb=ALGOS.map(a=>({id:a.id,name:a.name,avg:agg[a.id].net/n,hit3:100*agg[a.id].hit3/n,nearAvg:agg[a.id].near/n})).sort((x,y)=>y.avg-x.avg||y.hit3-x.hit3);
+    const lbMax=lb[0]?.avg||1;
+    h+=`<div style="padding:11px 13px;background:linear-gradient(135deg,rgba(244,114,63,.06),rgba(129,140,248,.06));border:1px solid var(--border);border-radius:11px;margin-bottom:12px">`;
+    h+=`<div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:4px">🏆 TÜM ANALİZLER — GEÇMİŞ ADAY BAŞARISI (son ${n} çekiliş)</div>`;
+    h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:8px">Her analizin, o tarihten önceki verilerle ürettiği ${cnt}-sayılık aday kümesinin ortalama net isabeti. Şans beklentisi ≈ ${baseline.toFixed(2)}. Çubuk = ort. net.</div>`;
+    h+=`<div style="display:flex;flex-direction:column;gap:3px">`;
+    lb.forEach((r,i)=>{
+      const pct=Math.round(r.avg/lbMax*100);
+      const sel=r.id===algo;const beat=r.avg>baseline+0.001;
+      h+=`<div style="display:flex;align-items:center;gap:8px;${sel?'background:rgba(129,140,248,.1);border-radius:6px;':''}padding:2px 4px">`;
+      h+=`<span style="font-size:.55rem;color:var(--muted);min-width:16px">${i+1}.</span>`;
+      h+=`<span style="font-size:.6rem;font-weight:${sel?800:600};color:${sel?'var(--accent)':'var(--text)'};min-width:150px;flex-shrink:0">${r.name}</span>`;
+      h+=`<div style="flex:1;height:6px;background:rgba(0,0,0,.06);border-radius:4px;overflow:hidden;max-width:240px"><div style="height:100%;width:${pct}%;background:${beat?'linear-gradient(90deg,rgba(0,200,100,.85),rgba(67,160,71,.6))':'linear-gradient(90deg,rgba(129,140,248,.7),rgba(99,102,241,.5))'}"></div></div>`;
+      h+=`<span style="font-size:.58rem;font-weight:700;color:${beat?'var(--green)':'var(--muted)'};min-width:34px">${r.avg.toFixed(2)}</span>`;
+      h+=`<span style="font-size:.54rem;color:var(--muted);min-width:60px">≥3: ${r.hit3.toFixed(0)}%</span>`;
+      h+=`</div>`;
+    });
+    h+=`</div></div>`;
+    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Her satır: o çekilişten ÖNCEKİ verilerle üretilen adaylar (lookahead yok). “Şans beklentisi”ni geçen analizler yeşil — ama fark küçük ve tam isabet yine şans seviyesindedir; değer şeffaflıkta ve uzlaşıda.</div>`;
+    // ── satırlar ──
+    h+=`<div style="max-height:460px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
     rows.forEach(r=>{
       const res=[...(r.aSet)].sort((a,b)=>a-b);
       h+=`<div style="padding:6px 8px;background:rgba(0,0,0,.02);border-radius:7px">`;
       h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:3px">${r.date} · 🎯 sonuç: <span style="font-family:monospace;color:var(--text)">${res.join(' ')}</span></div>`;
-      h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:2px"><span style="font-size:.55rem;color:var(--accent);min-width:56px">seçili:</span>${r.selPick.map(n=>_caBadge(n,r.aSet)).join('')}${_caScoreLine(r.selPick,r.aSet)}</div>`;
-      h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span style="font-size:.55rem;color:var(--green);min-width:56px">uzlaşı:</span>${r.consPick.map(n=>_caBadge(n,r.aSet)).join('')}${_caScoreLine(r.consPick,r.aSet)}</div>`;
+      h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:2px"><span style="font-size:.55rem;color:var(--green);min-width:60px">uzlaşı:</span>${r.consPick.map(n=>_caBadge(n,r.aSet)).join('')}${_caScoreLine(r.consPick,r.aSet)}</div>`;
+      if(showAll){
+        // tüm analizler — o çekiliş için adaylar (net'e göre sıralı)
+        const list=ALGOS.map(a=>({name:a.name,id:a.id,...r.per[a.id]})).sort((x,y)=>y.net-x.net);
+        list.forEach(p=>{
+          h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span style="font-size:.53rem;color:${p.id===algo?'var(--accent)':'var(--muted)'};min-width:150px;flex-shrink:0;font-weight:${p.id===algo?700:400}">${p.name}</span>${p.pick.map(n=>_caBadge(n,r.aSet)).join('')}${_caScoreLine(p.pick,r.aSet)}</div>`;
+        });
+      }else{
+        // sadece seçili analiz
+        const p=r.per[algo];
+        h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span style="font-size:.55rem;color:var(--accent);min-width:60px">seçili:</span>${p.pick.map(n=>_caBadge(n,r.aSet)).join('')}${_caScoreLine(p.pick,r.aSet)}</div>`;
+      }
       h+=`</div>`;
     });
     h+=`</div></div>`;
