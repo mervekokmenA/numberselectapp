@@ -14635,7 +14635,7 @@ function _caRenderCurrent(){
     const pick=cands.slice(0,game.count).map(c=>c.n).sort((a,b)=>a-b);
     const show=cands.slice(0,Math.min(cands.length,game.count*3));
     let h=`<div style="margin-top:6px;padding:11px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">`;
-    h+=`<div style="font-size:.7rem;font-weight:800;color:var(--accent);margin-bottom:8px">${aName} · ${game.emoji} ${game.name} — Adaylar</div>`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.7rem;font-weight:800;color:var(--accent)">${aName} · ${game.emoji} ${game.name} — Adaylar</span><button onclick="document.getElementById('caCurrentOut').innerHTML=''" style="font-size:.62rem;padding:3px 9px;border-radius:7px;border:1px solid rgba(255,82,82,.35);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer;flex-shrink:0">✕ Temizle</button></div>`;
     h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">🎯 En güçlü ${game.count} aday (analizin bilet çekirdeği):</div>`;
     h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px">${pick.map(n=>_caBadge(n,null)).join('')}<button onclick="_caCopy('${pick.join(' ')}')" class="copy-btn" style="font-size:.6rem;padding:3px 9px">📋</button></div>`;
     h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:5px">Tüm adaylar (bilet içi görülme sıklığı — çubuk = güven):</div>`;
@@ -14666,6 +14666,7 @@ function _caRenderAll(){
     const consArr=Object.keys(consensus).map(Number).map(n=>({n,k:consensus[n]})).sort((a,b)=>b.k-a.k||a.n-b.n);
     const consPick=consArr.slice(0,game.count).map(c=>c.n).sort((a,b)=>a-b);
     let h=`<div style="margin-top:10px">`;
+    h+=`<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="document.getElementById('caAllOut').innerHTML=''" style="font-size:.66rem;padding:5px 12px;border-radius:8px;border:1px solid rgba(255,82,82,.35);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer;font-weight:700">✕ Kapat / Temizle</button></div>`;
     // Uzlaşı kartı (üstte, vurgulu)
     h+=`<div style="padding:11px 13px;background:linear-gradient(135deg,rgba(0,230,118,.09),rgba(129,140,248,.09));border:2px solid rgba(0,200,100,.4);border-radius:11px;margin-bottom:12px">`;
     h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:var(--green)">🤝 ANALİZLER-ARASI UZLAŞI</span><span style="font-size:.53rem;color:var(--muted)">k/${nA} = kaç analiz bu sayıyı adaylarına koydu</span></div>`;
@@ -14711,15 +14712,20 @@ function _caBacktest(){
         agg[a.id].net+=net;agg[a.id].near+=near;if(net>=3)agg[a.id].hit3++;
         cands.slice(0,cnt+2).forEach(c=>consTally[c.n]=(consTally[c.n]||0)+1);
       });
-      const consPick=Object.keys(consTally).map(Number).sort((a,b)=>consTally[b]-consTally[a]||a-b).slice(0,cnt).sort((a,b)=>a-b);
+      // uzlaşı — anlaşma sayısına göre sıralı (sıra korunur); üst 'cnt' = bahis, genişletilmiş liste = diğer adaylar
+      const consRanked=Object.keys(consTally).map(Number).sort((a,b)=>consTally[b]-consTally[a]||a-b);
+      const consExt=consRanked.slice(0,cnt*3).map(nn=>({n:nn,k:consTally[nn]}));
+      const consPick=consRanked.slice(0,cnt).sort((a,b)=>a-b);
       const consNet=consPick.filter(x=>aSet.has(x)).length;
       consNetSum+=consNet;if(consNet>=3)consHit3++;n++;
-      rows.push({date:actual.date,aSet,per,consPick});
+      rows.push({date:actual.date,aSet,per,consPick,consExt});
     }
     if(!n){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Test yapılamadı.</div>';return;}
     const baseline=(cnt*(game.id==='onnumara'?22:cnt+game.bonusCount)/game.max);
     const card=(l,v,c)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.05rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.58rem;color:var(--muted)">${l}</div></div>`;
     let h=`<div style="margin-top:12px">`;
+    // kapat/temizle
+    h+=`<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="document.getElementById('caBtOut').innerHTML=''" style="font-size:.66rem;padding:5px 12px;border-radius:8px;border:1px solid rgba(255,82,82,.35);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer;font-weight:700">✕ Testi Kapat / Temizle</button></div>`;
     // özet kartlar
     h+=`<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:10px">`;
     h+=card(`${aName.replace(/^\S+\s/,'')} ort.net`,(agg[algo].net/n).toFixed(2),'var(--accent)');
@@ -14750,14 +14756,20 @@ function _caBacktest(){
     h+=`</div></div>`;
     h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Her satır: o çekilişten ÖNCEKİ verilerle üretilen adaylar (lookahead yok). “Şans beklentisi”ni geçen analizler yeşil — ama fark küçük ve tam isabet yine şans seviyesindedir; değer şeffaflıkta ve uzlaşıda.</div>`;
     // ── satırlar ──
-    // Her aday bloğu: üstte etiket + skor tek satır, altta rozetler sola dayalı (mobilde kaymayı önler)
-    const pb=(label,color,pick,aSet,strong)=>`<div style="margin-top:5px;padding-top:4px;border-top:1px dashed var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.56rem;color:${color};font-weight:${strong?700:600};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>${_caScoreLine(pick,aSet)}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${pick.map(n=>_caBadge(n,aSet)).join('')}</div></div>`;
-    h+=`<div style="max-height:460px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">`;
+    // Her aday bloğu: üstte etiket + skor + kopya tek satır, altta rozetler sola dayalı (mobilde kaymayı önler)
+    const pb=(label,color,pick,aSet,strong)=>`<div style="margin-top:5px;padding-top:4px;border-top:1px dashed var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.56rem;color:${color};font-weight:${strong?700:600};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span><span style="display:flex;align-items:center;gap:5px;flex-shrink:0">${_caScoreLine(pick,aSet)}<button onclick="_caCopy('${pick.join(' ')}')" title="Kopyala" style="font-size:.58rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></span></div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${pick.map(n=>_caBadge(n,aSet)).join('')}</div></div>`;
+    h+=`<div style="max-height:520px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">`;
     rows.forEach(r=>{
       const res=[...(r.aSet)].sort((a,b)=>a-b);
       h+=`<div style="padding:7px 9px;background:rgba(0,0,0,.02);border-radius:8px">`;
       h+=`<div style="font-size:.56rem;color:var(--muted)">${r.date} · 🎯 sonuç: <span style="font-family:monospace;color:var(--text);font-weight:700">${res.join(' ')}</span></div>`;
-      h+=pb('🤝 uzlaşı','var(--green)',r.consPick,r.aSet,true);
+      // uzlaşı — üst 'cnt' bahis + skor + kopya
+      h+=pb('🤝 uzlaşı (ilk '+cnt+')','var(--green)',r.consPick,r.aSet,true);
+      // uzlaşı — genişletilmiş diğer adaylar (anlaşma sırası korunur, üst sıra vurgulu)
+      if(r.consExt&&r.consExt.length){
+        const extCopy=r.consExt.map(c=>c.n).join(' ');
+        h+=`<div style="margin-top:4px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.53rem;color:var(--muted)">uzlaşı — diğer adaylar (${r.consExt.length}, anlaşma sırası)</span><button onclick="_caCopy('${extCopy}')" title="Kopyala" style="font-size:.58rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${r.consExt.map((c,i)=>{const hit=r.aSet.has(c.n),near=!hit&&(r.aSet.has(c.n-1)||r.aSet.has(c.n+1));const col=hit?'var(--green)':near?'#c2410c':(i<cnt?'var(--text)':'var(--muted)');return `<span style="font-family:monospace;font-size:.6rem;font-weight:${hit||near?800:(i<cnt?700:500)};color:${col};background:var(--surface2);border:1px solid ${hit?'rgba(0,200,100,.5)':near?'rgba(244,114,63,.4)':'var(--border)'};border-radius:5px;padding:1px 5px">${c.n}${hit?'✓':near?'~':''}<sup style="font-size:.5rem;color:var(--muted)">${c.k}</sup></span>`;}).join('')}</div></div>`;
+      }
       if(showAll){
         const list=ALGOS.map(a=>({name:a.name,id:a.id,...r.per[a.id]})).sort((x,y)=>y.net-x.net);
         list.forEach(p=>{h+=pb(p.name,p.id===algo?'var(--accent)':'var(--muted)',p.pick,r.aSet,p.id===algo);});
