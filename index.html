@@ -14750,22 +14750,20 @@ function _caBacktest(){
     h+=`</div></div>`;
     h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Her satır: o çekilişten ÖNCEKİ verilerle üretilen adaylar (lookahead yok). “Şans beklentisi”ni geçen analizler yeşil — ama fark küçük ve tam isabet yine şans seviyesindedir; değer şeffaflıkta ve uzlaşıda.</div>`;
     // ── satırlar ──
-    h+=`<div style="max-height:460px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
+    // Her aday bloğu: üstte etiket + skor tek satır, altta rozetler sola dayalı (mobilde kaymayı önler)
+    const pb=(label,color,pick,aSet,strong)=>`<div style="margin-top:5px;padding-top:4px;border-top:1px dashed var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.56rem;color:${color};font-weight:${strong?700:600};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span>${_caScoreLine(pick,aSet)}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${pick.map(n=>_caBadge(n,aSet)).join('')}</div></div>`;
+    h+=`<div style="max-height:460px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">`;
     rows.forEach(r=>{
       const res=[...(r.aSet)].sort((a,b)=>a-b);
-      h+=`<div style="padding:6px 8px;background:rgba(0,0,0,.02);border-radius:7px">`;
-      h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:3px">${r.date} · 🎯 sonuç: <span style="font-family:monospace;color:var(--text)">${res.join(' ')}</span></div>`;
-      h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center;margin-bottom:2px"><span style="font-size:.55rem;color:var(--green);min-width:60px">uzlaşı:</span>${r.consPick.map(n=>_caBadge(n,r.aSet)).join('')}${_caScoreLine(r.consPick,r.aSet)}</div>`;
+      h+=`<div style="padding:7px 9px;background:rgba(0,0,0,.02);border-radius:8px">`;
+      h+=`<div style="font-size:.56rem;color:var(--muted)">${r.date} · 🎯 sonuç: <span style="font-family:monospace;color:var(--text);font-weight:700">${res.join(' ')}</span></div>`;
+      h+=pb('🤝 uzlaşı','var(--green)',r.consPick,r.aSet,true);
       if(showAll){
-        // tüm analizler — o çekiliş için adaylar (net'e göre sıralı)
         const list=ALGOS.map(a=>({name:a.name,id:a.id,...r.per[a.id]})).sort((x,y)=>y.net-x.net);
-        list.forEach(p=>{
-          h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span style="font-size:.53rem;color:${p.id===algo?'var(--accent)':'var(--muted)'};min-width:150px;flex-shrink:0;font-weight:${p.id===algo?700:400}">${p.name}</span>${p.pick.map(n=>_caBadge(n,r.aSet)).join('')}${_caScoreLine(p.pick,r.aSet)}</div>`;
-        });
+        list.forEach(p=>{h+=pb(p.name,p.id===algo?'var(--accent)':'var(--muted)',p.pick,r.aSet,p.id===algo);});
       }else{
-        // sadece seçili analiz
         const p=r.per[algo];
-        h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center"><span style="font-size:.55rem;color:var(--accent);min-width:60px">seçili:</span>${p.pick.map(n=>_caBadge(n,r.aSet)).join('')}${_caScoreLine(p.pick,r.aSet)}</div>`;
+        h+=pb('🔍 '+aName,'var(--accent)',p.pick,r.aSet,true);
       }
       h+=`</div>`;
     });
