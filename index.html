@@ -14563,14 +14563,21 @@ function _niBacktest(){
   el.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor… (tam boru hattı her tarih için yeniden kurulur, biraz sürebilir)</div>';
   setTimeout(()=>{
     let g1=0,g2=0,y1=0,y2=0,sumB=0,n=0;const rows=[];
+    let niNetSum=0,niNNSum=0,niGe3=0;
     for(let t=0;t<N;t++){
       const actual=draws[t];const prior=draws.slice(t+1);if(prior.length<_NI_MIN_PRIOR)break;
-      const tickets=_niGenBundle(game,prior,K);if(!tickets.length)continue;
+      const C=_niCompute(game,prior);
+      const tickets=_niGenBundle(game,prior,K,C);if(!tickets.length)continue;
       const aAll=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
       let bn=0,bnn=0,bi=0;
       tickets.forEach((tk,i)=>{const all2=[...tk.main,...tk.bonus];let net=0,near=0;for(const x of all2){if(aAll.has(x))net++;else if(aAll.has(x-1)||aAll.has(x+1))near++;}if(net>bn)bn=net;if(net+near>bnn){bnn=net+near;bi=i;}});
       if(bn>=tN1)g1++;if(bn>=tN2)g2++;if(bnn>=tY1)y1++;if(bnn>=tY2)y2++;sumB+=bn;n++;
-      rows.push({date:actual.date,net:bn,nn:bnn,tk:tickets[bi],actual});
+      // "tüm sistemlerin ortak aklı" — Nihai Sayılar listesinin (count+6) geçmişteki durumu
+      const niTop=C.ranked.slice(0,game.count+6);
+      const niNet=niTop.filter(x=>aAll.has(x)).length;
+      const niNear=niTop.filter(x=>!aAll.has(x)&&(aAll.has(x-1)||aAll.has(x+1))).length;
+      niNetSum+=niNet;niNNSum+=niNet+niNear;if(niNet>=(isOn?4:3))niGe3++;
+      rows.push({date:actual.date,net:bn,nn:bnn,tk:tickets[bi],actual,niTop,niNet,niNear});
     }
     if(!n){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Test yapılamadı.</div>';return;}
     const card=(l,v,c)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.6rem;color:var(--muted)">${l}</div></div>`;
@@ -14581,6 +14588,16 @@ function _niBacktest(){
     h+=card(`n+y ≥${tY2}`,Math.round(100*y2/n)+'%','var(--accent)');
     h+=card('Ort. en iyi net',(sumB/n).toFixed(2),'var(--text)');
     h+=card('Test',n,'var(--muted)');
+    h+=`</div>`;
+    // "Tüm sistemlerin ortak aklı" (Nihai Sayılar) geçmiş performansı
+    h+=`<div style="padding:9px 12px;background:rgba(244,114,63,.05);border:1px solid rgba(244,114,63,.35);border-radius:10px;margin-bottom:12px">`;
+    h+=`<div style="font-size:.64rem;font-weight:800;color:#c2410c;margin-bottom:6px">🏁 TÜM SİSTEMLERİN ORTAK AKLI — Nihai Sayılar (${game.count+6} sayı) geçmişte</div>`;
+    h+=`<div style="display:flex;gap:10px;flex-wrap:wrap">`;
+    h+=card('Ort. net',(niNetSum/n).toFixed(2),'var(--green)');
+    h+=card('Ort. net+yakın',(niNNSum/n).toFixed(2),'#c2410c');
+    h+=card(`≥${isOn?4:3} net`,Math.round(100*niGe3/n)+'%',niGe3/n>=0.4?'var(--green)':'var(--muted)');
+    h+=`</div>`;
+    h+=`<div style="font-size:.53rem;color:var(--muted);margin-top:6px">Bu, her tarihte o günden ÖNCEKİ verilerle kurulan Nihai Sayılar listesinin çıkan sayıları kaç kez tutturduğudur (aşağıda her satırda 🏁 ile işaretli). Liste ${game.count+6} sayı içerir, bilet değildir.</div>`;
     h+=`</div>`;
     h+=`<div style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
     rows.forEach(r=>{
@@ -14606,7 +14623,15 @@ function _niBacktest(){
       h+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">`;
       h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${b}</div>`;
       h+=`<span style="margin-left:auto;font-size:.62rem;font-weight:800;white-space:nowrap;color:${r.net>=tN2?'var(--green)':r.net>=tN1?'var(--gold)':'var(--muted)'}">${r.net} net · ${r.nn} n+y</span>`;
-      h+=`</div></div></div>`;
+      h+=`</div>`;
+      // 🏁 ortak akıl (Nihai Sayılar) — isabetler işaretli
+      const niHtml=(r.niTop||[]).slice().sort((a,b)=>a-b).map(x=>{
+        const hit=aS.has(x),near=!hit&&(aS.has(x-1)||aS.has(x+1));
+        return `<span style="font-family:monospace;font-size:.6rem;font-weight:${hit||near?800:400};color:${hit?'var(--green)':near?'#c2410c':'var(--muted)'}">${x}${hit?'✓':near?'~':''}</span>`;
+      }).join(' ');
+      h+=`<div style="font-size:.55rem;color:#c2410c;margin-top:5px">🏁 ortak akıl</div>`;
+      h+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="display:flex;gap:4px;flex-wrap:wrap">${niHtml}</div><span style="margin-left:auto;font-size:.62rem;font-weight:800;white-space:nowrap;color:${r.niNet>=(isOn?4:3)?'var(--green)':'var(--muted)'}">${r.niNet} net · ${r.niNet+r.niNear} n+y</span></div>`;
+      h+=`</div></div>`;
     });
     h+=`</div>`;
     el.innerHTML=h;
