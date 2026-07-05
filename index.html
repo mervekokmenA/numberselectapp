@@ -885,6 +885,39 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  </div>
 </div>
 
+<!-- ═══════════ NEW: AI Bilet Üretici (Uzlaşı Tabanlı) ═══════════ -->
+<div id="cbSection" style="grid-column:1/-1;margin-top:0;min-width:0">
+ <div class="card">
+  <div class="card-title">🤖 AI Bilet Üretici <span style="font-size:.55rem;font-weight:600;color:#0a9a6a;background:rgba(0,150,58,.12);border-radius:6px;padding:1px 7px;margin-left:6px">uzlaşı tabanlı kapsama demeti</span></div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">
+   Yukarıdaki <strong>16 analizin uzlaşısını</strong> (bir sayıyı kaç analiz önerdiğini) ağırlık olarak kullanır ve tek bir 6-7'lik tahmin yerine, birbirini <strong>tamamlayan bir bilet demeti</strong> üretir. Amaç: “ilk 6’da olmayan ama çıkan” sayıları da kapsamak — demet, yüksek-uzlaşılı geniş havuza <strong>kapsama-optimal</strong> (komşu-farkında) yayılır, artı 2 uç-senaryo bileti aykırı çekilişler için. Her bilet toplam bandı ve bitişik-çift yapısıyla şekillenir.
+   <br><span style="color:#8a6200">⚠️ Tam isabet yine şans seviyesindedir; demetin değeri <strong>birleşik kapsama</strong>dadır — K bilet birlikte, tek bir biletten çok daha fazla çıkan sayıyı yakalar (geçmiş test bunu ölçer).</span>
+  </div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="cbGameRow"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <span style="font-size:.66rem;color:var(--muted)">Bilet sayısı:</span>
+   <select id="cbCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="5">5 bilet</option>
+    <option value="8" selected>8 bilet</option>
+    <option value="12">12 bilet</option>
+    <option value="20">20 bilet</option>
+   </select>
+   <button onclick="_cbGenerate()" style="font-size:.76rem;padding:8px 20px;border-radius:9px;background:linear-gradient(135deg,rgba(16,185,129,.9),rgba(5,150,105,.78));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🤖 AI Bilet Üret</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <span style="font-size:.66rem;color:var(--muted)">📊 Geçmiş test:</span>
+   <select id="cbBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="10">Son 10 çekiliş</option>
+    <option value="15" selected>Son 15 çekiliş</option>
+    <option value="20">Son 20 çekiliş</option>
+   </select>
+   <button onclick="_cbBacktest()" style="font-size:.72rem;padding:6px 14px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);cursor:pointer;font-weight:700">📊 Demeti Geçmişte Test Et</button>
+  </div>
+  <div id="cbOut"></div>
+  <div id="cbBtOut"></div>
+ </div>
+</div>
+
 <!-- ═══════════ NEW: Tekli Sayı Bakımı ile Analiz ═══════════ -->
 <div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="numAnalysisSection">
   <div class="card">
@@ -6358,6 +6391,7 @@ function _syncOtherGameGrids(id){
   // Bilet Testi & Anomali de anasayfa oyununu takip etsin (kullanıcı orada elle seçmediyse)
   try{if(!_hbGameManual&&typeof _hbInit==='function'){_hbGame=id;_hbInit();}}catch(e){}
   try{if(!_caGameManual&&typeof _caInit==='function'){_caGame=id;_caInit();}}catch(e){}
+  try{if(!_cbGameManual&&typeof _cbInit==='function'){_cbGame=id;_cbInit();}}catch(e){}
   setTimeout(_nextDrawPredict,0);
 }
 function selectAlgo(id){
@@ -12566,7 +12600,7 @@ function _kbRenderKazanan(){
 }
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
-const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','b10Section','ortakSayilarSection','nextDrawPredSection','homeBiletSection','candSection'];
+const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','b10Section','ortakSayilarSection','nextDrawPredSection','homeBiletSection','candSection','cbSection'];
 let _scanGame=null;
 
 function showMainPage(id){
@@ -14665,8 +14699,11 @@ function _caRenderAll(){
     const nA=ALGOS.length;
     const consArr=Object.keys(consensus).map(Number).map(n=>({n,k:consensus[n]})).sort((a,b)=>b.k-a.k||a.n-b.n);
     const consPick=consArr.slice(0,game.count).map(c=>c.n).sort((a,b)=>a-b);
+    // "Tümünü Kopyala" için toplu metin
+    let allTxt=`Aday Sayılar — ${game.name}\n🤝 Uzlaşı (ilk ${game.count}): ${consPick.join(' ')}\nUzlaşı — diğer adaylar: ${consArr.slice(0,game.count*3).map(c=>c.n).join(' ')}\n\nAnaliz bazlı adaylar:\n`+rows.map(r=>`${r.name}: ${r.top.join(' ')}`).join('\n');
+    window._caAllText=allTxt;
     let h=`<div style="margin-top:10px">`;
-    h+=`<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="document.getElementById('caAllOut').innerHTML=''" style="font-size:.66rem;padding:5px 12px;border-radius:8px;border:1px solid rgba(255,82,82,.35);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer;font-weight:700">✕ Kapat / Temizle</button></div>`;
+    h+=`<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:6px"><button onclick="_caCopy(window._caAllText)" class="copy-btn" style="font-size:.66rem;padding:5px 12px;font-weight:700">📋 Tümünü Kopyala</button><button onclick="document.getElementById('caAllOut').innerHTML=''" style="font-size:.66rem;padding:5px 12px;border-radius:8px;border:1px solid rgba(255,82,82,.35);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer;font-weight:700">✕ Kapat / Temizle</button></div>`;
     // Uzlaşı kartı (üstte, vurgulu)
     h+=`<div style="padding:11px 13px;background:linear-gradient(135deg,rgba(0,230,118,.09),rgba(129,140,248,.09));border:2px solid rgba(0,200,100,.4);border-radius:11px;margin-bottom:12px">`;
     h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:var(--green)">🤝 ANALİZLER-ARASI UZLAŞI</span><span style="font-size:.53rem;color:var(--muted)">k/${nA} = kaç analiz bu sayıyı adaylarına koydu</span></div>`;
@@ -14786,13 +14823,125 @@ function _caBacktest(){
   },20);
 }
 
+// ═══════════ ANASAYFA — AI BİLET ÜRETİCİ (uzlaşı tabanlı kapsama demeti) ═══════════
+// 16 analizin uzlaşısını (bir sayıyı kaç analizin önerdiği) ağırlık alır; tek 6-7'lik tahmin
+// yerine kapsama-optimal (komşu-farkında) bir bilet demeti üretir + 2 uç-senaryo bileti.
+// Değer birleşik kapsamada: K bilet birlikte "ilk 6'da olmayan ama çıkan" sayıları da yakalar.
+let _cbGame='sayisal',_cbGameManual=false;
+function _cbInit(){
+  const row=document.getElementById('cbGameRow');if(!row)return;
+  if(!_cbGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_cbGame=state.selectedGame;
+  row.innerHTML=GAMES.map(g=>{
+    const a=g.id===_cbGame;
+    return `<button onclick="_cbSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(16,185,129,.7)':'var(--border)'};background:${a?'rgba(16,185,129,.14)':'var(--surface2)'};color:${a?'#0a9a6a':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;
+  }).join('');
+}
+function _cbSetGame(g){_cbGame=g;_cbGameManual=true;_cbInit();['cbOut','cbBtOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
+// Uzlaşı ağırlıkları — _niGenBundle ile uyumlu C nesnesi (wMap, lo, hi)
+function _cbCompute(game,prior){
+  const max=game.max,cnt=game.count,nA=ALGOS.length;
+  const consTally={};for(let n=1;n<=max;n++)consTally[n]=0;
+  ALGOS.forEach(a=>{_caCandidates(game,a.id,prior,10).slice(0,cnt+3).forEach(c=>{consTally[c.n]++;});});
+  const wMap={};for(let n=1;n<=max;n++)wMap[n]=Math.pow((consTally[n]/nA)+0.12,1.7)+0.02;
+  const sums=prior.map(x=>x.nums.slice(0,cnt).reduce((a,b)=>a+b,0)).filter(x=>x>0).sort((a,b)=>a-b);
+  const lo=sums[Math.floor(sums.length*0.15)]||0,hi=sums[Math.floor(sums.length*0.85)]||max*cnt;
+  const ranked=[];for(let n=1;n<=max;n++)ranked.push(n);ranked.sort((a,b)=>consTally[b]-consTally[a]||wMap[b]-wMap[a]);
+  return {wMap,lo,hi,ranked,consTally,nA};
+}
+function _cbGenBundle(game,prior,K,pre){const C=pre||_cbCompute(game,prior);return _niGenBundle(game,prior,K,C);}
+function _cbUnion(tickets,aSet){
+  const u=new Set();tickets.forEach(t=>t.main.forEach(n=>u.add(n)));
+  const arr=[...u];const net=aSet?arr.filter(n=>aSet.has(n)).length:0;
+  const near=aSet?arr.filter(n=>!aSet.has(n)&&(aSet.has(n-1)||aSet.has(n+1))).length:0;
+  return {size:u.size,net,near};
+}
+function _cbGenerate(){
+  const el=document.getElementById('cbOut');if(!el)return;
+  const game=getGame(_cbGame),prior=_kbGetDraws(_cbGame);
+  const K=parseInt(document.getElementById('cbCount')?.value)||8;
+  if(!prior||prior.length<60){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Yeterli veri yok (uzlaşı + demet için ≥60 çekiliş gerekli) — önce “Gerçek Verileri Yükle”.</div>';return;}
+  el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">⏳ Uzlaşı hesaplanıyor ve demet üretiliyor…</div>';
+  setTimeout(()=>{
+    const C=_cbCompute(game,prior);
+    const tickets=_cbGenBundle(game,prior,K,C);
+    const u=_cbUnion(tickets,null);
+    const pool=C.ranked.filter(n=>C.consTally[n]>0).slice(0,game.count*3);
+    const copyAll=tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+    window._cbCopyTk=`AI Bilet Üretici — ${game.name}\n`+copyAll;
+    window._cbCopyPool=`AI havuz (uzlaşı) — ${game.name}\n`+pool.join(' ');
+    let h=`<div style="margin-top:8px">`;
+    h+=`<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px"><button onclick="_caCopy(window._cbCopyTk)" class="copy-btn" style="font-size:.66rem;padding:5px 12px;font-weight:700">📋 Tüm Biletleri Kopyala</button><button onclick="document.getElementById('cbOut').innerHTML=''" style="font-size:.66rem;padding:5px 12px;border-radius:8px;border:1px solid rgba(255,82,82,.35);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer;font-weight:700">✕ Temizle</button></div>`;
+    // uzlaşı havuzu
+    h+=`<div style="padding:10px 12px;background:linear-gradient(135deg,rgba(16,185,129,.07),rgba(129,140,248,.06));border:1px solid rgba(16,185,129,.35);border-radius:10px;margin-bottom:12px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.66rem;font-weight:800;color:#0a9a6a">🧲 Kullanılan uzlaşı havuzu (${pool.length} sayı)</span><button onclick="_caCopy(window._cbCopyPool)" class="copy-btn" style="font-size:.58rem;padding:2px 8px">📋</button></div>`;
+    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${pool.map(n=>`<span style="font-family:monospace;font-size:.62rem;color:${C.consTally[n]>=C.nA*0.5?'var(--green)':'var(--text)'};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${n}<sup style="font-size:.5rem;color:var(--muted)">${C.consTally[n]}</sup></span>`).join('')}</div>`;
+    h+=`<div style="font-size:.54rem;color:var(--muted);margin-top:5px">Demet bu havuza kapsama-optimal yayıldı — birleşik kapsama: <strong>${u.size} farklı sayı</strong> (${K} bilet). Alt rakam = kaç analiz önerdi.</div>`;
+    h+=`</div>`;
+    // biletler
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:var(--text)">🎫 AI Biletleri (${K})</span></div>`;
+    h+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,null,true)).join('');
+    h+=`</div>`;
+    el.innerHTML=h;
+  },20);
+}
+function _cbBacktest(){
+  const el=document.getElementById('cbBtOut');if(!el)return;
+  const game=getGame(_cbGame),draws=_kbGetDraws(_cbGame);
+  const K=parseInt(document.getElementById('cbCount')?.value)||8;
+  const N=parseInt(document.getElementById('cbBtCount')?.value)||15;
+  if(!draws||draws.length<70){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Geçmiş test için yeterli veri yok.</div>';return;}
+  el.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Demet geçmişte test ediliyor… (her tarih için uzlaşı + demet yeniden kurulur, biraz sürebilir)</div>';
+  setTimeout(()=>{
+    const tests=Math.min(N,draws.length-60);
+    const rows=[];let bestNetSum=0,bestNNSum=0,uNetSum=0,uNNSum=0,ge3=0,n=0;
+    for(let t=0;t<tests;t++){
+      const actual=draws[t];const prior=draws.slice(t+1);if(prior.length<60)break;
+      const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      const tickets=_cbGenBundle(game,prior,K);if(!tickets.length)continue;
+      let bn=0,bnn=0,bi=0;
+      tickets.forEach((tk,i)=>{const all2=[...tk.main,...tk.bonus];let net=0,near=0;for(const x of all2){if(aSet.has(x))net++;else if(aSet.has(x-1)||aSet.has(x+1))near++;}if(net>bn)bn=net;if(net+near>bnn){bnn=net+near;bi=i;}});
+      const u=_cbUnion(tickets,aSet);
+      bestNetSum+=bn;bestNNSum+=bnn;uNetSum+=u.net;uNNSum+=u.net+u.near;if(bn>=3)ge3++;n++;
+      rows.push({date:actual.date,aSet,best:tickets[bi],bn,bnn,u});
+    }
+    if(!n){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Test yapılamadı.</div>';return;}
+    const single=(game.count*(game.id==='onnumara'?22:game.count+game.bonusCount)/game.max);
+    const card=(l,v,c)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.05rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.58rem;color:var(--muted)">${l}</div></div>`;
+    let h=`<div style="margin-top:12px">`;
+    h+=`<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="document.getElementById('cbBtOut').innerHTML=''" style="font-size:.66rem;padding:5px 12px;border-radius:8px;border:1px solid rgba(255,82,82,.35);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer;font-weight:700">✕ Testi Kapat / Temizle</button></div>`;
+    h+=`<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:10px">`;
+    h+=card('Grup en iyi net',(bestNetSum/n).toFixed(2),'var(--accent)');
+    h+=card('En iyi net+yakın',(bestNNSum/n).toFixed(2),'#c2410c');
+    h+=card('Birleşik kapsama net',(uNetSum/n).toFixed(2),'var(--green)');
+    h+=card('Birleşik net+yakın',(uNNSum/n).toFixed(2),'var(--green)');
+    h+=card('Grup ≥3 net',Math.round(100*ge3/n)+'%',ge3/n>=0.3?'var(--green)':'var(--muted)');
+    h+=card('Tek bilet şansı',single.toFixed(2),'var(--muted)');
+    h+=`</div>`;
+    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">“Birleşik kapsama” = ${K} biletin TÜMÜNDE geçen farklı sayıların çıkanlarla kesişimi — asıl değer buradadır (tek bir 6-7'lik pick çok daha azını yakalar; “tek bilet şansı” ≈ ${single.toFixed(2)}). Her tarih için o günden önceki verilerle kuruldu (lookahead yok). Tam isabet yine şans seviyesindedir.</div>`;
+    h+=`<div style="max-height:480px;overflow-y:auto;display:flex;flex-direction:column;gap:6px">`;
+    rows.forEach(r=>{
+      const res=[...(r.aSet)].sort((a,b)=>a-b);
+      const bm=[...r.best.main,...r.best.bonus];
+      const badge=n=>{const hit=r.aSet.has(n),near=!hit&&(r.aSet.has(n-1)||r.aSet.has(n+1));return `<span style="font-family:monospace;font-size:.62rem;font-weight:${hit||near?800:600};color:${hit?'var(--green)':near?'#c2410c':'var(--muted)'};background:${hit?'rgba(0,230,118,.14)':near?'rgba(244,114,63,.12)':'var(--surface2)'};border:1px solid ${hit?'rgba(0,200,100,.5)':near?'rgba(244,114,63,.4)':'var(--border)'};border-radius:5px;padding:1px 5px">${n}${hit?'✓':near?'~':''}</span>`;};
+      h+=`<div style="padding:7px 9px;background:rgba(0,0,0,.02);border-radius:8px">`;
+      h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:3px">${r.date} · 🎯 sonuç: <span style="font-family:monospace;color:var(--text);font-weight:700">${res.join(' ')}</span></div>`;
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.55rem;color:var(--accent)">🏆 grubun en iyi bileti</span><span style="display:flex;align-items:center;gap:6px"><span style="font-size:.6rem;font-weight:800;color:${r.bn>=3?'var(--green)':'var(--muted)'}">${r.bn} net · ${r.bnn} n+y</span><button onclick="_caCopy('${bm.join(' ')}')" title="Kopyala" style="font-size:.56rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></span></div>`;
+      h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${bm.map(badge).join('')}</div>`;
+      h+=`<div style="font-size:.54rem;color:var(--green);margin-top:4px">🧲 birleşik kapsama: ${r.u.net} net · ${r.u.near} ±1 (${r.u.size} farklı sayı)</div>`;
+      h+=`</div>`;
+    });
+    h+=`</div></div>`;
+    el.innerHTML=h;
+  },20);
+}
+
 // ── Boot ──────────────────────────────────────────────────────
 (function(){
   try{const v=localStorage.getItem('excludeLastDraw');if(v!==null){state.excludeLastDraw=v==='1';}}catch(e){}
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();_hbInit();_caInit();setTimeout(_nextDrawPredict,300);
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();_hbInit();_caInit();_cbInit();setTimeout(_nextDrawPredict,300);
 setTimeout(()=>{_autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);},800);
 
 // ══════════════════════════════════════════════════════════════
