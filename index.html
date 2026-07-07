@@ -1473,6 +1473,10 @@ const ALGOS = [
   { id:'axneighbor', name:'🎯 Komşu Isısı',            desc:'Son çekilişlerin ±1/±2 komşularını ağırlıklandırır — kümelenme eğilimini yakalar', expert:true },
   { id:'axpos',      name:'📐 Konum Frekansı',         desc:'Sıralı konum (1., 2., ...) bazlı tarihsel frekans harmanı — her konumun tipik değer aralığını yansıtır', expert:true },
   { id:'axdigit',    name:'🔢 Son Hane Rezonansı',     desc:'Son-hane (birler basamağı) rezonansı — son çekilişlerin hane örüntüsüne uyumlu sayıları puanlar', expert:true },
+  { id:'axtrans',    name:'🔀 Geçiş Matrisi',          desc:'İkili geçiş matrisi — bir sayının, son çekilişteki her sayıdan SONRA gelme olasılığını gerçek geçiş sayımlarıyla puanlar (klasik zincirden farklı, tam matris)', expert:true },
+  { id:'axgap',      name:'⏳ Ritim (Tekrar Aralığı)', desc:'Her sayının KENDİ tekrar ritmi — ortalama aralığına göre "sırası gelmiş" sayıları öne çıkarır (küresel gecikmeden farklı, sayıya özel ritim)', expert:true },
+  { id:'axzonemom',  name:'📊 Bölge Momentumu',        desc:'Onluk bölgelerin son dönem ivmesi — son ~10 çekilişte payı yükselen bölgelerdeki sayıları öne çıkarır', expert:true },
+  { id:'axcooc',     name:'🕸️ Birliktelik Çekimi',    desc:'Birliktelik-çekim (co-occurrence lift) — son çekilişteki sayılarla aynı bilette tarihsel olarak sık beraber çıkan sayıları, marjinale göre normalize ederek puanlar', expert:true },
   { id:'sislcg',      name:'🎲 Sisal-LCG Dengesi',     desc:'LCG tabanlı deterministik dağılım simülasyonu — frekans ağırlıklı, toplam dengelenmiş, bölge kapsamalı', expert:true },
   { id:'smart',      name:'🧠 Smart Kombinasyon', desc:'Üstel frekans + bölge dengesi + tarihsel toplam hedefi + tek/çift denge + son çekiliş cezası — tüm en iyi tekniklerin dengeli kombinasyonu', expert:true },
   { id:'gulsis',     name:'🎯 Gülsis',        desc:'Sisal-LCG Dengesi\'nin frekans+toplam+bölge dengeli LCG örneklemesini, Gülay Fark-Analizi\'nin son çekilişten çıkardığı fark-zinciri adaylarıyla ağırlıklandırarak harmanlar — geri-test ile ayarlanmış hibrit', expert:true },
@@ -1484,7 +1488,8 @@ const ALGOS = [
 // ── Real historical draw data ────────────────────────────────
 // Source: Milli Piyango / lotobil.com archive (Sep 2025 – May 2026). Sayısal Loto: 6 main + Joker merged into 7 main, with Süperstar bonus.
 const DRAW_DATA = {
-sayisal:`2026-07-04 20 38 61 84 85 86 36 | 39
+sayisal:`2026-07-06 3 10 19 56 59 90 51 | 76
+2026-07-04 20 38 61 84 85 86 36 | 39
 2026-07-01 3 63 72 76 78 86 77 | 80
 2026-06-29 30 35 42 58 83 84 55 | 4
 2026-06-27 12 22 28 37 88 89 86 | 54
@@ -6989,8 +6994,20 @@ function _axSignals(prior,game){
   const pair={};for(let n=1;n<=max;n++)pair[n]=0;prior.slice(0,80).forEach(d=>{const ns=d.nums.filter(n=>n<=max);ns.forEach(n=>ns.forEach(m=>{if(m!==n&&hotSet.has(m))pair[n]++;}));});
   const neigh={};for(let n=1;n<=max;n++)neigh[n]=0;prior.slice(0,12).forEach((d,i)=>{const w=Math.pow(0.8,i);d.nums.forEach(m=>[m-2,m-1,m+1,m+2].forEach(c=>{if(c>=1&&c<=max)neigh[c]+=w*(Math.abs(c-m)===1?1:0.5);}));});
   const posB={};for(let n=1;n<=max;n++)posB[n]=0;prior.forEach(d=>{const s=[...d.nums].sort((a,b)=>a-b);for(let p=0;p<Math.min(s.length,count);p++){if(s[p]<=max)posB[s[p]]++;}});
+  // ── Yeni çeşitlendirilmiş sinyaller (mekanizmaları farklı — uzlaşı/aday çeşitliliğini artırır) ──
+  const last=prior[0]?prior[0].nums.filter(n=>n<=max):[];
+  // gaps[n] = sayının kendi ritmi (ortalama tekrar aralığı, çekiliş cinsinden)
+  const gaps={};for(let n=1;n<=max;n++){const idxs=[];prior.forEach((d,i)=>{if(d.nums.includes(n))idxs.push(i);});let g=prior.length||max;if(idxs.length>=2){let s=0;for(let k=1;k<idxs.length;k++)s+=idxs[k]-idxs[k-1];g=s/(idxs.length-1);}gaps[n]=g;}
+  // trans[m][n] = m bir çekilişte çıktıysa n'in BİR SONRAKİ çekilişte çıkma sayısı (ikili geçiş matrisi)
+  const trans={};for(let i=0;i<prior.length-1;i++){const older=prior[i+1].nums,newer=prior[i].nums;older.forEach(m=>{if(m>max)return;const tm=trans[m]||(trans[m]={});newer.forEach(n=>{if(n<=max)tm[n]=(tm[n]||0)+1;});});}
+  // co[m][n] = aynı çekilişte birlikte çıkma (birliktelik) sayısı
+  const co={};prior.forEach(d=>{const ns=d.nums.filter(n=>n<=max);ns.forEach(a=>{const ca=co[a]||(co[a]={});ns.forEach(b=>{if(a!==b)ca[b]=(ca[b]||0)+1;});});});
+  // bölge (onluk) momentumu: son ~10 çekilişteki onluk payı / tüm geçmiş payı
+  const nd=Math.ceil(max/10);const recN=Math.min(10,prior.length);const decRec=new Array(nd).fill(0),decAll=new Array(nd).fill(0);
+  prior.forEach((d,i)=>d.nums.forEach(n=>{if(n>max)return;const z=Math.min(nd-1,Math.floor((n-1)/10));decAll[z]++;if(i<recN)decRec[z]++;}));
+  const decRecShare=decRec.map(x=>x/((recN*count)||1)),decAllShare=decAll.map(x=>x/(((prior.length)*count)||1));
   const nrm=o=>{let mx=0;for(let n=1;n<=max;n++)if(o[n]>mx)mx=o[n];mx=mx||1;const r={};for(let n=1;n<=max;n++)r[n]=o[n]/mx;return r;};
-  return {max,count,freq,ewf82,ewf60,delay,ld,markov,pair,neigh,posB,nrm};
+  return {max,count,freq,ewf82,ewf60,delay,ld,markov,pair,neigh,posB,nrm,last,gaps,trans,co,nd,decRecShare,decAllShare};
 }
 const _AX_WFN={
   axrecency:s=>{const w={};for(let n=1;n<=s.max;n++)w[n]=s.ewf82[n]+0.1;return w;},
@@ -7003,6 +7020,11 @@ const _AX_WFN={
   axdigit:s=>{const w={};for(let n=1;n<=s.max;n++)w[n]=s.ld[n]+0.1;return w;},
   axhybrid:s=>{const e=s.nrm(s.ewf82),p=s.nrm(s.pair),g=s.nrm(s.neigh),w={};for(let n=1;n<=s.max;n++)w[n]=(0.4+e[n])*(0.5+p[n])*(0.6+0.6*g[n]);return w;},
   axfused:s=>{const f=s.nrm(s.freq),e=s.nrm(s.ewf82),d=s.nrm(s.delay),w={};for(let n=1;n<=s.max;n++)w[n]=(0.5+f[n])*(0.6+e[n])*(0.5+0.5*d[n]);return w;},
+  // ── Yeni çeşitlendirilmiş üreticiler ──
+  axtrans:s=>{const w={};for(let n=1;n<=s.max;n++){let v=0;s.last.forEach(m=>{v+=((s.trans[m]||{})[n]||0);});w[n]=v+0.15;}return w;},
+  axgap:s=>{const f=s.nrm(s.freq),w={};for(let n=1;n<=s.max;n++){const g=s.gaps[n]||s.max;w[n]=Math.exp(-Math.abs(s.delay[n]-g)/(g*0.6+1))*(0.5+f[n])+0.02;}return w;},
+  axzonemom:s=>{const e=s.nrm(s.ewf82),w={};for(let n=1;n<=s.max;n++){const z=Math.min(s.nd-1,Math.floor((n-1)/10));const mom=(s.decRecShare[z]+0.02)/(s.decAllShare[z]+0.02);w[n]=mom*(0.4+e[n])+0.02;}return w;},
+  axcooc:s=>{const w={};for(let n=1;n<=s.max;n++){let v=0;s.last.forEach(m=>{v+=((s.co[m]||{})[n]||0)/((s.freq[m]||1));});w[n]=v+0.1;}return w;},
 };
 function _axGen(game,prior,algo){
   const max=game.max,count=game.count;
@@ -7168,7 +7190,8 @@ function generateNumbers(game,algo,freqOverride,drawsOverride,gnOpts){
 
   switch(algo){
     case 'axfused': case 'axhybrid': case 'axrecency': case 'axsharp': case 'axoverdue':
-    case 'axmarkov': case 'axpair': case 'axneighbor': case 'axpos': case 'axdigit':{
+    case 'axmarkov': case 'axpair': case 'axneighbor': case 'axpos': case 'axdigit':
+    case 'axtrans': case 'axgap': case 'axzonemom': case 'axcooc':{
       if(!hasHist)return generateNumbers(game,'random',freq,drawsOverride);
       mainNums=_axGen(game,drawsOverride||state.pastDraws||[],algo);
       bonusNums=smartBonus();
@@ -8199,7 +8222,7 @@ function calcConfidence(algo){
     const base=Math.round(hitRate*300);
     return Math.min(99,Math.max(15,base+perf.m3rate*0.3));
   }
-  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,dateshift:65,poswave:67,excelblend:78,fb10:70,smart:90,gulsis:92,birlesikai:86,axfused:80,axhybrid:80,axrecency:74,axsharp:75,axoverdue:70,axmarkov:72,axpair:73,axneighbor:72,axpos:71,axdigit:70};
+  const base={random:30,hot:55,cold:50,balanced:65,delta:60,wheeling:70,entropy:72,momentum:75,correlation:73,cycle:71,hotzone:70,regression:68,oddeven:67,neighbor:74,streak:78,spread:76,sumtarget:73,ensemble:85,sislcg:88,star:91,starv2:93,dateshift:65,poswave:67,excelblend:78,fb10:70,smart:90,gulsis:92,birlesikai:86,axfused:80,axhybrid:80,axrecency:74,axsharp:75,axoverdue:70,axmarkov:72,axpair:73,axneighbor:72,axpos:71,axdigit:70,axtrans:73,axgap:71,axzonemom:71,axcooc:72};
   const hasHist=Object.keys(state.frequency).length>0;
   return Math.min(99,Math.max(20,(base[algo]||40)+(hasHist?15:0)+rng(-5,5)));
 }
