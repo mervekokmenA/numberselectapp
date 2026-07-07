@@ -485,6 +485,23 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="run-btn" onclick="runBacktest()" style="flex:1">🔬 Geçmiş Testi Çalıştır</button>
       <span id="btRunCounter" style="display:none;font-size:.72rem;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
     </div>
+    <!-- ── Kapsama demeti (3+ net) geçmiş testi ── -->
+    <div style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px">
+      <div style="font-size:.74rem;font-weight:800;color:#0a9a6a;margin-bottom:5px">🎯 Kapsama Demeti — 3+ Net Geçmiş Testi</div>
+      <div style="font-size:.6rem;color:var(--muted);margin-bottom:9px;line-height:1.6">Yeni tahmindeki <strong>“🎯 3+ Hedefli Demet”</strong> ile AYNI kapsama demetini, <strong>seçili analiz + oyun</strong> için geçmiş çekilişlerde yürüyerek test eder; her tarihte demetin <strong>en iyi biletinin ≥3 net</strong> oranını ölçer (tek bilet ~%1-2'de kalır).</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:9px">
+        <span style="font-size:.68rem;color:var(--muted)">Bilet:</span>
+        <select id="covBtK" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+          <option value="5">5</option><option value="8">8</option><option value="12" selected>12</option><option value="20">20</option>
+        </select>
+        <span style="font-size:.68rem;color:var(--muted)">Çekiliş:</span>
+        <select id="covBtN" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+          <option value="15">15</option><option value="20" selected>20</option><option value="30">30</option>
+        </select>
+        <button onclick="_covBtRun()" style="font-size:.74rem;padding:7px 16px;border-radius:9px;background:linear-gradient(135deg,rgba(16,185,129,.9),rgba(5,150,105,.78));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🎯 Demeti Test Et</button>
+      </div>
+      <div id="covBtOut"></div>
+    </div>
   </div>
 
   <!-- ── BT2 config (hidden) ── -->
@@ -8361,6 +8378,56 @@ function generate3PlusBundle(){
   state.ticketCount=target;
   const cv=document.getElementById('countVal');if(cv)cv.value=target;
   generateTickets();
+}
+// Geçmiş testte kapsama demetini (3+ hedefli) yürüyerek test eder ve tarih-tarih gösterir.
+function _covBtRun(){
+  const el=document.getElementById('covBtOut');if(!el)return;
+  const game=getGame(state.selectedGame),algo=state.selectedAlgo;
+  const aName=ALGOS.find(a=>a.id===algo)?.name||algo;
+  const draws=_kbGetDraws(game.id);
+  const K=parseInt(document.getElementById('covBtK')?.value)||12;
+  const N=parseInt(document.getElementById('covBtN')?.value)||20;
+  if(!draws||draws.length<40){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Geçmiş test için yeterli veri yok — önce “Gerçek Verileri Yükle”.</div>';return;}
+  el.innerHTML='<div style="padding:12px;font-size:.68rem;color:var(--muted)">⏳ Kapsama demeti her tarih için yeniden kurulup test ediliyor…</div>';
+  setTimeout(()=>{
+    const tests=Math.min(N,draws.length-30);
+    let ge3=0,ge4=0,bestSum=0,uNetSum=0,uNNSum=0,n=0;const rows=[];
+    for(let t=0;t<tests;t++){
+      const actual=draws[t];const prior=draws.slice(t+1);if(prior.length<25)break;
+      const freq=buildFreq(prior);const bundle=_coverageBundle(game,algo,K,freq,prior);if(!bundle.length)continue;
+      const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      let best=0,bi=0;bundle.forEach((tk,i)=>{const net=[...tk.main,...tk.bonus].filter(x=>aSet.has(x)).length;if(net>best){best=net;bi=i;}});
+      const u=new Set();bundle.forEach(tk=>tk.main.forEach(x=>u.add(x)));const arr=[...u];
+      const uNet=arr.filter(x=>aSet.has(x)).length,uNear=arr.filter(x=>!aSet.has(x)&&(aSet.has(x-1)||aSet.has(x+1))).length;
+      bestSum+=best;uNetSum+=uNet;uNNSum+=uNet+uNear;if(best>=3)ge3++;if(best>=4)ge4++;n++;
+      rows.push({date:actual.date,aSet,tk:bundle[bi],best,uNet,uNear,usize:u.size});
+    }
+    if(!n){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Test yapılamadı.</div>';return;}
+    const single=(game.count*(game.id==='onnumara'?22:game.count+game.bonusCount)/game.max);
+    const card=(l,v,c)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;text-align:center"><div style="font-size:1.0rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.55rem;color:var(--muted)">${l}</div></div>`;
+    let h=`<div style="margin-top:4px">`;
+    h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px">🎯 ${aName} · ${game.emoji} ${game.name} · ${K} bilet · ${n} çekiliş</div>`;
+    h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">`;
+    h+=card('≥3 net',`%${Math.round(100*ge3/n)}`,ge3/n>=0.2?'var(--green)':'var(--muted)');
+    h+=card('≥4 net',`%${Math.round(100*ge4/n)}`,ge4/n>=0.1?'var(--green)':'var(--muted)');
+    h+=card('Ort. en iyi net',(bestSum/n).toFixed(2),'var(--accent)');
+    h+=card('Birleşik kapsama net',(uNetSum/n).toFixed(2),'var(--green)');
+    h+=card('Tek bilet şansı',single.toFixed(2),'var(--muted)');
+    h+=`</div>`;
+    h+=`<div style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:5px">`;
+    rows.forEach(r=>{
+      const res=[...(r.aSet)].sort((a,b)=>a-b);
+      const bm=[...r.tk.main,...r.tk.bonus];
+      const bh=bm.map(x=>{const hit=r.aSet.has(x),near=!hit&&(r.aSet.has(x-1)||r.aSet.has(x+1));return `<span style="font-family:monospace;font-size:.6rem;font-weight:${hit||near?800:500};color:${hit?'var(--green)':near?'#c2410c':'var(--muted)'}">${x}${hit?'✓':near?'~':''}</span>`;}).join(' ');
+      h+=`<div style="padding:5px 8px;background:rgba(0,0,0,.02);border-radius:7px">`;
+      h+=`<div style="font-size:.53rem;color:var(--muted)">${r.date} · sonuç: <span style="font-family:monospace;color:var(--text)">${res.join(' ')}</span></div>`;
+      h+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px"><span style="font-size:.52rem;color:var(--accent);flex-shrink:0">🏆 en iyi bilet</span><div style="display:flex;gap:3px;flex-wrap:wrap">${bh}</div><span style="margin-left:auto;font-size:.6rem;font-weight:800;color:${r.best>=3?'var(--green)':'var(--muted)'}">${r.best} net</span></div>`;
+      h+=`<div style="font-size:.5rem;color:var(--green);margin-top:2px">🧲 birleşik kapsama: ${r.uNet} net · ${r.uNear} ±1 (${r.usize} farklı sayı)</div>`;
+      h+=`</div>`;
+    });
+    h+=`</div></div>`;
+    el.innerHTML=h;
+  },30);
 }
 // ── Generate ──────────────────────────────────────────────────
 async function generateTickets(){
