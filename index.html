@@ -390,15 +390,17 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
           onkeydown="if(event.key==='Enter')generateTickets()">
         <button onclick="adjustCount(1)">+</button>
       </div>
+      <span style="font-size:.6rem;color:var(--muted);margin-left:8px">3+ net için önerilen: 8–20</span>
     </div>
     <div class="filter-toggle" style="margin:2px 0 10px">
       <input type="checkbox" id="coverageChk" checked onchange="state.coverageMode=this.checked">
       <label for="coverageChk" title="Biletler birbirini tamamlar; net sayıları bir arada yakalamak için farklı yüksek-olasılıklı sayılara yayılır (geri-testle doğrulandı: birleşik kapsama Sayısal +%17, On Numara +%16)">🎯 Kapsama modu — biletler net sayıları <strong>bir arada</strong> yakalasın (önerilen)</label>
     </div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <button class="generate-btn" id="generateBtn" onclick="generateTickets()" style="flex:1">🎰 Şanslı Sayıları Üret</button>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <button class="generate-btn" id="generateBtn" onclick="generateTickets()" style="flex:1;min-width:180px">🎰 Şanslı Sayıları Üret</button>
       <span id="genRunCounter" style="display:none;font-size:.72rem;color:var(--muted);white-space:nowrap;flex-shrink:0"></span>
     </div>
+    <button onclick="generate3PlusBundle()" style="width:100%;margin-top:8px;font-size:.82rem;padding:11px;border-radius:11px;background:linear-gradient(135deg,rgba(16,185,129,.92),rgba(5,150,105,.8));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:800" title="Kapsama modunu açar, 12 biletlik hedefli demet üretir ve geçmiş ≥3 net oranını ölçer">🎯 3+ Hedefli Demet Üret (12 bilet)</button>
   </div>
 
   <div class="card" id="ticketCard" style="display:none">
@@ -8350,6 +8352,15 @@ function _bundle3Backtest(game,algoId,K,N){
   }
   if(!n)return null;
   return {n,ge3rate:Math.round(100*ge3/n),ge4rate:Math.round(100*ge4/n),avgBest:(sumBest/n).toFixed(2),K};
+}
+// Tek tıkla 3+ hedefli demet: kapsama modunu açar, 12 bilete ayarlar ve üretir.
+function generate3PlusBundle(){
+  state.coverageMode=true;
+  const chk=document.getElementById('coverageChk');if(chk)chk.checked=true;
+  const target=12;
+  state.ticketCount=target;
+  const cv=document.getElementById('countVal');if(cv)cv.value=target;
+  generateTickets();
 }
 // ── Generate ──────────────────────────────────────────────────
 async function generateTickets(){
