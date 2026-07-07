@@ -8335,6 +8335,22 @@ function _coverageBundle(game,algo,N,freq,prior,opts){
   }
   return chosen;
 }
+// Demetin geçmişteki ≥3 net kapasitesini ölçer (yürüyen geri-test) — "yeni tahmin 3+ verebiliyor mu"
+// sorusunu somut olarak yanıtlar: tek bilet ~%1-2'de kalır, demetin EN İYİ bileti çok daha sık 3+ tutar.
+function _bundle3Backtest(game,algoId,K,N){
+  const draws=_kbGetDraws(game.id);if(!draws||draws.length<40)return null;
+  const tests=Math.min(N,draws.length-30);let ge3=0,ge4=0,sumBest=0,n=0;
+  for(let t=0;t<tests;t++){
+    const actual=draws[t];const prior=draws.slice(t+1);if(prior.length<25)break;
+    const freq=buildFreq(prior);
+    const bundle=_coverageBundle(game,algoId,K,freq,prior);if(!bundle.length)continue;
+    const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+    let best=0;bundle.forEach(tk=>{const net=[...tk.main,...tk.bonus].filter(x=>aSet.has(x)).length;if(net>best)best=net;});
+    sumBest+=best;if(best>=3)ge3++;if(best>=4)ge4++;n++;
+  }
+  if(!n)return null;
+  return {n,ge3rate:Math.round(100*ge3/n),ge4rate:Math.round(100*ge4/n),avgBest:(sumBest/n).toFixed(2),K};
+}
 // ── Generate ──────────────────────────────────────────────────
 async function generateTickets(){
   state._algoScoreCache={};
@@ -8415,6 +8431,7 @@ async function generateTickets(){
     <span style="font-size:.78rem;color:var(--muted)">${game.emoji} ${game.name} · <strong style="color:var(--text)">${algo?.name||state.selectedAlgo}</strong></span>
     <span style="font-size:.72rem;color:var(--accent)">Güven: ${conf}%</span>
   </div>
+  <div id="genCovStat" style="font-size:.64rem;color:var(--muted);margin-bottom:8px;line-height:1.6"></div>
   ${posRow}
   <div style="display:flex;gap:8px;margin-bottom:8px;justify-content:flex-end;flex-wrap:wrap">
     <button class="copy-btn" onclick="copyNums(state._copyText)">📋 ${label} Kopyala</button>
@@ -8436,6 +8453,19 @@ async function generateTickets(){
   {const titleEl=document.getElementById('ticketCardTitle');if(titleEl){if(state.excludeLastDraw&&state.allDatedDraws&&state.allDatedDraws.length>0){const ld=state.allDatedDraws[0];titleEl.textContent=`${ld.date} · ${ld.nums.join(' ')}${ld.bonus&&ld.bonus.length?' | '+ld.bonus.join(' '):''}`;titleEl.style.fontSize='0.82em';titleEl.style.letterSpacing='0';titleEl.style.textTransform='none';}else{titleEl.textContent='Şanslı Sayılarınız';titleEl.style.fontSize='';titleEl.style.letterSpacing='';titleEl.style.textTransform='';}}}
   document.getElementById('ticketCard').style.display='block';
   document.getElementById('ticketCard').scrollIntoView({behavior:'smooth',block:'nearest'});
+  // Kapsama demeti kullanıldıysa: bu demetin geçmişteki ≥3 net kapasitesini ölç ve göster
+  if(_useCoverage){
+    const stEl=document.getElementById('genCovStat');
+    if(stEl){
+      stEl.innerHTML='⏳ Bu demetin geçmiş 3+ net kapasitesi ölçülüyor…';
+      setTimeout(()=>{
+        const r=_bundle3Backtest(game,state.selectedAlgo,Math.min(state.ticketCount,12),20);
+        if(r&&document.getElementById('genCovStat')===stEl){
+          stEl.innerHTML=`🎯 <strong>Kapsama demeti</strong> — bu ${r.K} biletin geçmişte en iyi bileti <strong style="color:var(--green)">%${r.ge3rate}</strong> oranında <strong>≥3 net</strong>${r.ge4rate>0?` (·%${r.ge4rate} ≥4 net)`:''} tutturdu · ort. en iyi net ${r.avgBest} <span style="color:var(--muted)">(son ${r.n} çekiliş · tek bilet ~%1-2'de kalır)</span>`;
+        }else if(stEl.textContent.includes('ölçülüyor')){stEl.innerHTML='';}
+      },40);
+    }
+  }else{const stEl=document.getElementById('genCovStat');if(stEl)stEl.innerHTML=`<span style="color:#8a6200">ℹ️ Tek tek bağımsız biletler — 3+ net için “🎯 Kapsama modu”nu açıp 8+ bilet üretin.</span>`;}
   state.totalGenerated+=state.ticketCount;state.genRunCount++;updateRunCounters();updateStats();
   }finally{btn.classList.remove('spinning');btn.disabled=false;btn.textContent='🎰 Şanslı Sayıları Üret';}
 }
