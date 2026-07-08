@@ -1046,6 +1046,9 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <option value="4">4 bilet</option>
       <option value="6">6 bilet</option>
       <option value="10" selected>10 bilet</option>
+      <option value="20">20 bilet</option>
+      <option value="30">30 bilet</option>
+      <option value="50">50 bilet (3+ için en yüksek)</option>
      </select>
      <button onclick="_niRender(true)" style="font-size:.74rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(244,114,63,.9),rgba(194,65,12,.75));border:1px solid rgba(244,114,63,.6);color:#fff;cursor:pointer;font-weight:800">🏁 Nihai Üret</button>
     </div>
@@ -1065,9 +1068,10 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
      </select>
      <label style="font-size:.72rem;color:var(--muted)">Grup:</label>
      <select id="niBtK" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-      <option value="4">4</option><option value="6">6</option><option value="10" selected>10</option>
+      <option value="4">4</option><option value="6">6</option><option value="10" selected>10</option><option value="20">20</option><option value="30">30</option><option value="50">50</option>
      </select>
      <button onclick="_niBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(244,114,63,.9),rgba(194,65,12,.75));border:1px solid rgba(244,114,63,.6);color:#fff;cursor:pointer;font-weight:700">📊 Testi Çalıştır</button>
+     <label style="display:inline-flex;align-items:center;gap:5px;font-size:.66rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="niBtAll" style="cursor:pointer"> 🎫 Her çekilişin tüm biletlerini göster</label>
     </div>
     <div id="niBtResult"></div>
    </div>
@@ -14668,6 +14672,7 @@ function _niBacktest(){
   if(!draws||draws.length<_NI_MIN_PRIOR+5){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
   const N=Math.min(parseInt(document.getElementById('niBtCount')?.value)||20,draws.length-_NI_MIN_PRIOR);
   const K=parseInt(document.getElementById('niBtK')?.value)||10;
+  const showAll=!!document.getElementById('niBtAll')?.checked;
   const isOn=game.id==='onnumara';
   const tN1=isOn?6:2,tN2=isOn?7:3,tY1=isOn?7:4,tY2=isOn?8:5;
   el.innerHTML='<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor… (tam boru hattı her tarih için yeniden kurulur, biraz sürebilir)</div>';
@@ -14687,7 +14692,7 @@ function _niBacktest(){
       const niNet=niTop.filter(x=>aAll.has(x)).length;
       const niNear=niTop.filter(x=>!aAll.has(x)&&(aAll.has(x-1)||aAll.has(x+1))).length;
       niNetSum+=niNet;niNNSum+=niNet+niNear;if(niNet>=(isOn?4:3))niGe3++;
-      rows.push({date:actual.date,net:bn,nn:bnn,tk:tickets[bi],actual,niTop,niNet,niNear});
+      rows.push({date:actual.date,net:bn,nn:bnn,tk:tickets[bi],bi,actual,niTop,niNet,niNear,tickets:showAll?tickets:null});
     }
     if(!n){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Test yapılamadı.</div>';return;}
     const card=(l,v,c)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.1rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.6rem;color:var(--muted)">${l}</div></div>`;
@@ -14741,7 +14746,21 @@ function _niBacktest(){
       }).join(' ');
       h+=`<div style="font-size:.55rem;color:#c2410c;margin-top:5px">🏁 ortak akıl</div>`;
       h+=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><div style="display:flex;gap:4px;flex-wrap:wrap">${niHtml}</div><span style="margin-left:auto;font-size:.62rem;font-weight:800;white-space:nowrap;color:${r.niNet>=(isOn?4:3)?'var(--green)':'var(--muted)'}">${r.niNet} net · ${r.niNet+r.niNear} n+y</span></div>`;
-      h+=`</div></div>`;
+      h+=`</div>`; // SAĞ kapat
+      // 🎫 Tüm biletler (toggle) — bilet üreten geçmiş test
+      if(r.tickets){
+        h+=`<div style="flex:1 1 100%;margin-top:6px;border-top:1px dashed var(--border);padding-top:6px">`;
+        h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:4px">🎫 Grubun tüm biletleri (${r.tickets.length}) — 🏆 en iyi bilet #${r.bi+1}</div>`;
+        h+=`<div style="display:flex;flex-direction:column;gap:3px">`;
+        r.tickets.forEach((tk,ti)=>{
+          const all2=[...tk.main,...tk.bonus];let net=0,near=0;
+          all2.forEach(x=>{if(aS.has(x))net++;else if(aS.has(x-1)||aS.has(x+1))near++;});
+          const tkHtml=all2.map(x=>{const hit=aS.has(x),nr=!hit&&(aS.has(x-1)||aS.has(x+1));return `<span style="font-family:monospace;font-size:.58rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${x}${hit?'✓':nr?'~':''}</span>`;}).join(' ');
+          h+=`<div style="display:flex;align-items:center;gap:6px;${ti===r.bi?'background:rgba(0,230,118,.07);border-radius:5px;':''}padding:1px 4px"><span style="font-size:.5rem;color:var(--muted);min-width:28px;flex-shrink:0">${ti===r.bi?'🏆':'#'+(ti+1)}</span><div style="display:flex;gap:3px;flex-wrap:wrap;flex:1">${tkHtml}</div><span style="font-size:.56rem;font-weight:700;white-space:nowrap;flex-shrink:0;color:${net>=(isOn?4:3)?'var(--green)':'var(--muted)'}">${net} net · ${near} y</span></div>`;
+        });
+        h+=`</div></div>`;
+      }
+      h+=`</div>`; // satır kapat
     });
     h+=`</div>`;
     el.innerHTML=h;
