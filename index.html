@@ -114,6 +114,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .ball.red   {background:radial-gradient(circle at 35% 30%,#ff6b6b,#c0392b);color:#fff;box-shadow:0 4px 14px rgba(192,57,43,.5)}
 .ball.gold  {background:radial-gradient(circle at 35% 30%,#ffe066,#b8860b);color:#3a2000;box-shadow:0 4px 14px rgba(184,134,11,.5)}
 .ball.blue  {background:radial-gradient(circle at 35% 30%,#74b9ff,#0c6ef0);color:#fff;box-shadow:0 4px 14px rgba(12,110,240,.5)}
+.ball.gblue {background:radial-gradient(circle at 35% 30%,#8ab4ff,#2f6fed);color:#fff;box-shadow:0 4px 14px rgba(47,111,237,.5)}
 .ball.green {background:radial-gradient(circle at 35% 30%,#55efc4,#00b894);color:#003d2e;box-shadow:0 4px 14px rgba(0,184,148,.5)}
 .ball.purple{background:radial-gradient(circle at 35% 30%,#a29bfe,#6c5ce7);color:#fff;box-shadow:0 4px 14px rgba(108,92,231,.5)}
 .ball.lightyellow{background:radial-gradient(circle at 35% 30%,#fffde0,#ffe97a);color:#3a2800;box-shadow:0 4px 14px rgba(255,220,0,.4)}
@@ -8292,17 +8293,19 @@ function calcTicketScore(td,game){
   return Math.min(99,sumScore+oeScore+lhScore+freqScore);
 }
 
-function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null,excludeBonusNums=null,score=null,useStatic=false){
+function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null,excludeBonusNums=null,score=null,useStatic=false,blueNums=null){
   let ballsHtml=td.main.map((n,i)=>{
     const pos=i+1,isStrong=strongPositions&&strongPositions.has(pos);
     const isExact=excludeNums&&excludeNums.has(n);
     const isNear=!isExact&&excludeNums&&(excludeNums.has(n-1)||excludeNums.has(n+1));
+    const isBlue=!isExact&&!isNear&&blueNums&&blueNums.has(n);
     let boxP=[];
     if(isStrong)boxP.push('0 0 0 3px var(--green)');
     if(isExact){if(!isStrong)boxP.push('0 0 0 3px rgba(0,230,118,1)');boxP.push('0 0 10px 3px rgba(0,230,118,.5)');}
     else if(isNear){boxP.push('0 0 0 2px rgba(255,200,0,.85)');}
+    else if(isBlue){boxP.push('0 0 0 2px rgba(47,111,237,.9)');boxP.push('0 0 8px 2px rgba(47,111,237,.4)');}
     const es=boxP.length?'box-shadow:'+boxP.join(','):'';
-    const cls=isExact?'green':isNear?'lightyellow':game.mainColor;
+    const cls=isExact?'green':isNear?'lightyellow':isBlue?'gblue':game.mainColor;
     return useStatic?`<div class="ball ${cls}" style="animation:none${es?';'+es:''}">${n}</div>`:ballEl(n,cls,i*70,false,'',es);
   }).join('');
   if(td.bonus.length)ballsHtml+=`<div class="balls-divider">+</div>`+td.bonus.map((n,i)=>{
@@ -14597,6 +14600,7 @@ function _niRender(force){
     const actualAll=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
     const exNums=actual?new Set(actual.nums||[]):null,exBonus=actual?new Set(actual.bonus||[]):null;
     const topN=C.ranked.slice(0,game.count+6);
+    const niGulay=actualAll?new Set():_caGulaySet(game); // sadece yeni tahminde (geçmiş testte değil)
     const consec=_niConsecPairs(tickets);
     const consecStr=consec.map(p=>p[0]+'-'+p[1]).join('  ');
     window._niCopyNums='Nihai\n🏁 Nihai Sayılar ('+game.name+(_niDate?' · '+_niDate:'')+')\n'+topN.slice().sort((a,b)=>a-b).join(' ');
@@ -14611,7 +14615,7 @@ function _niRender(force){
       if(actualAll){
         if(actualAll.has(n)){mark='✓';col='var(--green)';bg='rgba(0,230,118,.15)';bd='rgba(0,230,118,.6)';}
         else if(actualAll.has(n-1)||actualAll.has(n+1)){mark='~';col='#c2410c';bg='rgba(255,152,0,.14)';bd='rgba(255,152,0,.5)';}
-      }
+      }else if(niGulay.has(n)){col='#2f6fed';bg='rgba(47,111,237,.12)';bd='rgba(47,111,237,.5)';}
       h+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:4px 8px;border-radius:9px;background:${bg};border:1.5px solid ${bd}">`+
          `<span style="font-size:.85rem;font-weight:800;font-family:monospace;color:${col}">${n}${mark}</span>`+
          `<span style="font-size:.48rem;color:var(--muted)">${C.sup[n]}/8${C.gulaySet.has(n)?' 🔮':''}</span></span>`;
@@ -14652,7 +14656,8 @@ function _niRender(force){
     }else{
       h+=consecBlock;
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:var(--text)">🎫 Nihai Biletler</span><button onclick="_kbCopy(window._niCopyTk)" class="copy-btn">📋 Kopyala</button></div>`;
-      h+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,null,true)).join('');
+      if(niGulay.size)h+=`<div style="font-size:.55rem;color:#2f6fed;margin-bottom:6px">🔵 mavi toplar = Gülay fark-analizinin (toplama/çıkarma/fark) bu oyun için ürettiği sayılar</div>`;
+      h+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,null,true,niGulay)).join('');
     }
     el.innerHTML=h;
   },20);
