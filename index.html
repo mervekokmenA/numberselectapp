@@ -14556,6 +14556,12 @@ function _niInit(){
 }
 function _niSetGame(g){_niGame=g;_niDate='';_niRender(false);const bt=document.getElementById('niBtResult');if(bt)bt.innerHTML='';}
 function _niSetDate(v){_niDate=v;_niRender(true);}
+// Bilet grubundaki ardışık (x, x+1) çiftlerini bulur — near-shape yapısının yerleştirdiği çiftler.
+function _niConsecPairs(tickets){
+  const m=new Map();
+  tickets.forEach(t=>{const s=new Set(t.main);[...t.main].sort((a,b)=>a-b).forEach(n=>{if(s.has(n+1))m.set(n+'-'+(n+1),[n,n+1]);});});
+  return [...m.values()].sort((a,b)=>a[0]-b[0]);
+}
 function _niRender(force){
   const el=document.getElementById('niContent');if(!el)return;
   const game=getGame(_niGame),draws=_kbGetDraws(_niGame);
@@ -14591,8 +14597,11 @@ function _niRender(force){
     const actualAll=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
     const exNums=actual?new Set(actual.nums||[]):null,exBonus=actual?new Set(actual.bonus||[]):null;
     const topN=C.ranked.slice(0,game.count+6);
+    const consec=_niConsecPairs(tickets);
+    const consecStr=consec.map(p=>p[0]+'-'+p[1]).join('  ');
     window._niCopyNums='Nihai\n🏁 Nihai Sayılar ('+game.name+(_niDate?' · '+_niDate:'')+')\n'+topN.slice().sort((a,b)=>a-b).join(' ');
-    window._niCopyTk='Nihai\n🏁 Nihai Biletler ('+game.name+(_niDate?' · '+_niDate:'')+')\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+    window._niCopyPairs='Nihai — Ardışık Sayılar ('+game.name+(_niDate?' · '+_niDate:'')+')\n'+(consecStr||'(bu grupta ardışık çift yok)');
+    window._niCopyTk='Nihai\n🏁 Nihai Biletler ('+game.name+(_niDate?' · '+_niDate:'')+')\n'+(consec.length?'🔗 Ardışık çiftler: '+consecStr+'\n':'')+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
     let h='';
     h+=`<div style="background:rgba(244,114,63,.05);border:2px solid rgba(244,114,63,.4);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
     h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><span style="font-size:.72rem;font-weight:800;color:#c2410c">🏁 NİHAİ SAYILAR — tüm sistemlerin ortak aklı</span><button onclick="_kbCopy(window._niCopyNums)" class="copy-btn" style="padding:3px 10px;font-size:.62rem">📋 Kopyala</button></div>`;
@@ -14613,6 +14622,17 @@ function _niRender(force){
       h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px;margin-bottom:12px;font-size:.6rem;color:var(--muted);line-height:1.8">`;
       h+=`<strong style="color:var(--text)">🧮 Uygulanan mantıksal süzgeçler:</strong> toplam bandı <strong style="color:var(--text)">${C.lo}–${C.hi}</strong> (geçmiş isabet %${gp.rel.sum}) · en küçük ${gp.live.minB[0]}–${gp.live.minB[1]} (%${gp.rel.min}) · en büyük ${gp.live.maxB[0]}–${gp.live.maxB[1]} (%${gp.rel.max}) · bitişik-çift yapısı · kapsama-optimal seçim + 2 uç-senaryo bileti</div>`;
     }catch(e){}
+    // 🔗 Ardışık sayılar (biletlerdeki x·x+1 çiftleri) — biletlerin hemen üstünde
+    let consecBlock='';
+    if(consec.length){
+      const mk=n=>actualAll?(actualAll.has(n)?'✓':(actualAll.has(n-1)||actualAll.has(n+1))?'~':''):'';
+      const col=n=>actualAll?(actualAll.has(n)?'var(--green)':(actualAll.has(n-1)||actualAll.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';
+      consecBlock=`<div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.4);border-radius:10px;padding:9px 12px;margin-bottom:12px">`;
+      consecBlock+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.68rem;font-weight:800;color:#0a9a6a">🔗 Ardışık Sayılar — biletlerdeki x·x+1 çiftleri (${consec.length})</span><button onclick="_kbCopy(window._niCopyPairs)" class="copy-btn" style="padding:3px 10px;font-size:.62rem">📋 Kopyala</button></div>`;
+      consecBlock+=`<div style="display:flex;gap:6px;flex-wrap:wrap">`+consec.map(p=>`<span style="display:inline-flex;align-items:center;gap:2px;background:var(--surface);border:1px solid rgba(16,185,129,.35);border-radius:8px;padding:3px 9px;font-family:monospace;font-size:.74rem;font-weight:800"><span style="color:${col(p[0])}">${p[0]}${mk(p[0])}</span><span style="color:var(--muted);font-weight:400">·</span><span style="color:${col(p[1])}">${p[1]}${mk(p[1])}</span></span>`).join('')+`</div>`;
+      consecBlock+=`<div style="font-size:.52rem;color:var(--muted);margin-top:6px">Her çiftten genelde biri net ya da ±1 yakın çıkar (near-shape yapısı bunu hedefler)${actualAll?' · ✓ net · ~ ±1 yakın':''}.</div>`;
+      consecBlock+=`</div>`;
+    }
     let bestIdx=0;
     if(actualAll){
       const sc=tickets.map(t=>{const all2=[...t.main,...t.bonus];let net=0,near=0;for(const n of all2){if(actualAll.has(n))net++;else if(actualAll.has(n-1)||actualAll.has(n+1))near++;}return{net,near};});
@@ -14622,6 +14642,7 @@ function _niRender(force){
       h+=card('Grup en iyi (net)',Math.max(...sc.map(s=>s.net)),'var(--green)');
       h+=card('En iyi net+yakın',sc[bestIdx].net+sc[bestIdx].near,'#c2410c');
       h+=`</div>`;
+      h+=consecBlock;
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:var(--text)">🎫 Nihai Biletler</span><button onclick="_kbCopy(window._niCopyTk)" class="copy-btn">📋 Kopyala</button></div>`;
       h+=tickets.map((t,i)=>{
         const all2=[...t.main,...t.bonus];let net=0,near=0;for(const n of all2){if(actualAll.has(n))net++;else if(actualAll.has(n-1)||actualAll.has(n+1))near++;}
@@ -14629,6 +14650,7 @@ function _niRender(force){
         return lbl+renderTicket(t,game,'',i,null,exNums,exBonus,null,true);
       }).join('');
     }else{
+      h+=consecBlock;
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:var(--text)">🎫 Nihai Biletler</span><button onclick="_kbCopy(window._niCopyTk)" class="copy-btn">📋 Kopyala</button></div>`;
       h+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,null,true)).join('');
     }
