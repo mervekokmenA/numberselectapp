@@ -313,6 +313,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   .b10-tahmin-grid{grid-template-columns:1fr}
 }
 @media(max-width:720px){#page-nsa #gizliPageKolon>div[style*="grid-template-columns"]{grid-template-columns:1fr !important;}}
+@media(max-width:820px){#qtGrid{grid-template-columns:1fr !important;}}
 /* ── Hızlı Gülay popup (her ekran boyutunda modal) ── */
 #gqOverlay{display:none;position:fixed;inset:0;z-index:9998;background:rgba(0,0,0,.68);align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
 #gqOverlay.open{display:flex}
@@ -1269,13 +1270,36 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div class="card">
   <div class="card-title">⚡ Hızlı Tahmin — Tüm Yapılar Bir Arada</div>
   <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Seçili oyun için tüm bilet/analiz yapılarını tek yerde üretir: <strong>🤖 AI Bilet Üretici</strong>, <strong>🎯⁰ Gülsis Sıfır</strong>, <strong>🏁 Nihai</strong> (+ ardışık çiftler), <strong>📈 12&#39;li 3+ (Yakın Dönem Ağırlıklı)</strong> ve <strong>🔮 Gülay fark-analizi</strong> (toplama/çıkarma/fark zinciri). En altta hepsini <strong>birleştiren bir AI tahmini</strong> verir.</div>
-  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="qtGameRow"></div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="qtGameRow"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-   <button onclick="_qtRunAll()" style="flex:1;min-width:200px;font-size:.82rem;padding:11px;border-radius:11px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🚀 Tümünü Üret + AI Tahmini</button>
+   <button onclick="_qtRunAll(true)" style="flex:1;min-width:160px;font-size:.78rem;padding:9px;border-radius:10px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🔄 Yenile</button>
    <button onclick="_qtCopyAll()" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Tümünü Kopyala</button>
   </div>
  </div>
- <div id="qtOut"></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start" id="qtGrid">
+  <div>
+   <div style="font-size:.82rem;font-weight:800;color:var(--accent);margin-bottom:8px;padding-left:2px">🔮 Yeni Tahmin — Tüm Yapılar</div>
+   <div id="qtOut"></div>
+  </div>
+  <div>
+   <div class="card" style="margin-bottom:12px">
+    <div class="card-title">📊 Geçmiş Test</div>
+    <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; tüm yapılar o tarihten ÖNCEKİ verilerle üretilip gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
+    <select id="qtDateSel" onchange="_qtDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;width:100%;box-sizing:border-box"></select>
+    <div id="qtDateOut" style="margin-top:10px"></div>
+   </div>
+   <div class="card">
+    <div class="card-title">🧠 Birleşik AI — Çoklu Geçmiş Test</div>
+    <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Birleşik AI biletlerini son N çekilişte yürüyerek test eder; en iyi biletin net başarısını ölçer.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+     <span style="font-size:.66rem;color:var(--muted)">Çekiliş:</span>
+     <select id="qtAiBtN" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px"><option value="8">8</option><option value="12" selected>12</option><option value="20">20</option></select>
+     <button onclick="_qtAiBacktest()" style="font-size:.72rem;padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">Testi Çalıştır</button>
+    </div>
+    <div id="qtAiBtOut"></div>
+   </div>
+  </div>
+ </div>
 </div><!-- /page-hizlitahmin -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
@@ -17241,69 +17265,121 @@ let _htGame=null;
 // ══════════ HIZLI TAHMİN — tüm yapılar bir arada + birleşik AI ══════════
 let _qtGame='super',_qtGameManual=false;
 function _htInit(){ _qtInit(); }
-function _qtInit(){
+function _qtRenderControls(){
   const row=document.getElementById('qtGameRow');if(!row)return;
   if(!_qtGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_qtGame=state.selectedGame;
   row.innerHTML=GAMES.map(g=>{
     const a=g.id===_qtGame;
     return `<button onclick="_qtSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;
   }).join('');
+  _qtDates();
 }
-function _qtSetGame(g){_qtGame=g;_qtGameManual=true;_qtInit();const o=document.getElementById('qtOut');if(o)o.innerHTML='';}
+function _qtDates(){
+  const sel=document.getElementById('qtDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_qtGame);const prev=sel.value;
+  let h=`<option value="">— Geçmiş test için tarih seçin —</option>`;
+  draws.forEach((d,i)=>{if(draws.length-i-1<60)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;if(prev)sel.value=prev;
+}
+function _qtInit(){ _qtRenderControls(); const o=document.getElementById('qtOut'); if(o&&!o.innerHTML.trim())_qtRunAll(false); }
+function _qtSetGame(g){_qtGame=g;_qtGameManual=true;_qtRenderControls();const d=document.getElementById('qtDateOut');if(d)d.innerHTML='';const a=document.getElementById('qtAiBtOut');if(a)a.innerHTML='';_qtRunAll(true);}
 function _qtHash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return h;}
-// bilet demetini statik toplarla + kopya olarak render eder
-function _qtTicketsBlock(emoji,title,tickets,game,accent){
+// ── kaynak yapılar ──
+function _qtBuildSources(game,prior){
+  let aiB=[],g0=[],ni=[],yak=[],ga=null;
+  try{aiB=_cbGenBundle(game,prior,8);}catch(e){}
+  try{g0=(typeof _g0GenBundle==='function')?_g0GenBundle(game,prior,10):[];}catch(e){}
+  try{ni=_niGenBundle(game,prior,10,_niCompute(game,prior));}catch(e){}
+  try{yak=_coverageBundle(game,'axrecency',12,buildFreq(prior),prior);}catch(e){}
+  try{ga=_soGapAnalysisCompute(prior[0],game);}catch(e){}
+  return {aiB,g0,ni,yak,ga};
+}
+function _qtCombineWeights(game,prior,src){
+  const max=game.max,cnt=game.count;
+  const tally={};for(let n=1;n<=max;n++)tally[n]=0;
+  const addT=arr=>arr.forEach(t=>t.main.forEach(n=>{if(n>=1&&n<=max)tally[n]++;}));
+  addT(src.aiB);addT(src.g0);addT(src.ni);addT(src.yak);
+  const srcCount={};const mk=arr=>{const s=new Set();arr.forEach(t=>t.main.forEach(n=>s.add(n)));s.forEach(n=>srcCount[n]=(srcCount[n]||0)+1);};
+  mk(src.aiB);mk(src.g0);mk(src.ni);mk(src.yak);
+  if(src.ga){const gs=new Set();(src.ga.gulayCands||[]).slice(0,25).forEach(c=>{if(c.n>=1&&c.n<=max){tally[c.n]=(tally[c.n]||0)+Math.min(3,c.cnt);gs.add(c.n);}});gs.forEach(n=>srcCount[n]=(srcCount[n]||0)+1);}
+  const ranked=[];for(let n=1;n<=max;n++)ranked.push(n);ranked.sort((a,b)=>tally[b]-tally[a]||(srcCount[b]||0)-(srcCount[a]||0)||a-b);
+  const wMap={};for(let n=1;n<=max;n++)wMap[n]=Math.pow(tally[n]+0.15,1.5)+0.02;
+  const sums=prior.map(x=>x.nums.slice(0,cnt).reduce((a,b)=>a+b,0)).filter(x=>x>0).sort((a,b)=>a-b);
+  const lo=sums[Math.floor(sums.length*0.15)]||0,hi=sums[Math.floor(sums.length*0.85)]||max*cnt;
+  return {wMap,lo,hi,ranked,tally,srcCount};
+}
+function _qtCombinedBundle(game,prior,K){const src=_qtBuildSources(game,prior);const C=_qtCombineWeights(game,prior,src);let tk=[];try{tk=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){}return tk;}
+// bilet demeti bloğu (aSet verilirse geçmiş test: isabetler işaretli + net)
+function _qtTicketsBlock(emoji,title,tickets,game,accent,aSet){
   if(!tickets||!tickets.length)return '';
   const copy=title+' ('+game.name+')\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
-  const id='qtc'+Math.abs(_qtHash(title));
+  const id='qtc'+Math.abs(_qtHash(title))+(aSet?'t':'');
   window['_qtCopy_'+id]=copy;
+  let bestNet=0;if(aSet)tickets.forEach(t=>{const net=[...t.main,...t.bonus].filter(x=>aSet.has(x)).length;if(net>bestNet)bestNet=net;});
   let h=`<div class="card" style="margin-bottom:12px">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.76rem;font-weight:800;color:${accent||'var(--accent)'}">${emoji} ${title} <span style="font-size:.58rem;color:var(--muted);font-weight:600">(${tickets.length} bilet)</span></span><button onclick="_caCopy(window['_qtCopy_${id}'])" class="copy-btn" style="font-size:.64rem;padding:4px 10px">📋 Kopyala</button></div>`;
-  h+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,null,true)).join('');
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:${accent||'var(--accent)'}">${emoji} ${title} <span style="font-size:.56rem;color:var(--muted);font-weight:600">(${tickets.length})</span></span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net</span>`:''}<button onclick="_caCopy(window['_qtCopy_${id}'])" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
+  h+=tickets.map((t,i)=>{
+    let lbl='';
+    if(aSet){const all2=[...t.main,...t.bonus];let net=0,near=0;all2.forEach(x=>{if(aSet.has(x))net++;else if(aSet.has(x-1)||aSet.has(x+1))near++;});lbl=`<div style="font-size:.54rem;margin:${i>0?'6px':'0'} 0 -2px 4px;color:${net>=3?'var(--green)':'var(--muted)'};font-weight:${net>=3?800:400}">${net} net · ${near} yakın</div>`;}
+    return lbl+renderTicket(t,game,'',i,null,aSet||null,aSet||null,null,true);
+  }).join('');
   h+=`</div>`;
   return h;
 }
-function _qtRunAll(){
-  const el=document.getElementById('qtOut');if(!el)return;
-  const game=getGame(_qtGame),prior=_kbGetDraws(_qtGame);
-  if(!prior||prior.length<60){el.innerHTML='<div style="padding:14px;font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥60 çekiliş gerekli) — önce “Gerçek Verileri Yükle”.</div>';return;}
-  el.innerHTML='<div style="padding:16px;font-size:.74rem;color:var(--muted)">⏳ Tüm yapılar üretiliyor ve birleşik AI tahmini hazırlanıyor… (birkaç saniye)</div>';
-  setTimeout(()=>{
-    let aiB=[],g0=[],ni=[],niPairs=[],yak=[],ga=null;
-    try{aiB=_cbGenBundle(game,prior,8);}catch(e){}
-    try{g0=(typeof _g0GenBundle==='function')?_g0GenBundle(game,prior,10):[];}catch(e){}
-    try{const niC=_niCompute(game,prior);ni=_niGenBundle(game,prior,10,niC);niPairs=_niConsecPairs(ni);}catch(e){}
-    try{const freq=buildFreq(prior);yak=_coverageBundle(game,'axrecency',12,freq,prior);}catch(e){}
-    try{ga=_soGapAnalysisCompute(prior[0],game);}catch(e){}
-    let h='';
-    h+=_qtTicketsBlock('🤖','AI Bilet Üretici',aiB,game,'#0a9a6a');
-    h+=_qtTicketsBlock('🎯⁰','Gülsis Sıfır',g0,game,'#0a9a6a');
-    if(ni.length){
-      h+=_qtTicketsBlock('🏁','Nihai',ni,game,'#c2410c');
-      if(niPairs.length){
-        window._qtNiPairs='Nihai — Ardışık Sayılar ('+game.name+')\n'+niPairs.map(p=>p[0]+'-'+p[1]).join('  ');
-        h+=`<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:#0a9a6a">🔗 Nihai — Ardışık Çiftler (${niPairs.length})</span><button onclick="_caCopy(window._qtNiPairs)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div><div style="display:flex;gap:6px;flex-wrap:wrap">${niPairs.map(p=>`<span style="font-family:monospace;font-size:.7rem;font-weight:700;background:var(--surface);border:1px solid rgba(16,185,129,.35);border-radius:7px;padding:2px 8px">${p[0]}·${p[1]}</span>`).join('')}</div></div>`;
-      }
+// tüm yapıları + birleşik AI'ı targetEl'e render eder (actual verilirse geçmiş test)
+function _qtRenderAll(targetEl,game,prior,actual){
+  const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
+  const src=_qtBuildSources(game,prior);
+  let h='';
+  if(actual){const res=[...(actual.nums||[])].sort((a,b)=>a-b);h+=`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Tüm yapılar bu tarihten ÖNCEKİ verilerle üretildi · ✓ net · ~ ±1 yakın.</div></div>`;}
+  h+=_qtTicketsBlock('🤖','AI Bilet Üretici',src.aiB,game,'#0a9a6a',aSet);
+  h+=_qtTicketsBlock('🎯⁰','Gülsis Sıfır',src.g0,game,'#0a9a6a',aSet);
+  if(src.ni.length){
+    h+=_qtTicketsBlock('🏁','Nihai',src.ni,game,'#c2410c',aSet);
+    const niPairs=_niConsecPairs(src.ni);
+    if(niPairs.length){
+      const pk=(aSet?'_qtNiPairsT':'_qtNiPairs');window[pk]='Nihai — Ardışık Sayılar ('+game.name+')\n'+niPairs.map(p=>p[0]+'-'+p[1]).join('  ');
+      h+=`<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.68rem;font-weight:800;color:#0a9a6a">🔗 Ardışık Çiftler (${niPairs.length})</span><button onclick="_caCopy(window.${pk})" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></div><div style="display:flex;gap:5px;flex-wrap:wrap">${niPairs.map(p=>{const m=n=>aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="font-family:monospace;font-size:.66rem;font-weight:700;background:var(--surface);border:1px solid rgba(16,185,129,.35);border-radius:6px;padding:1px 7px"><span style="color:${m(p[0])}">${p[0]}</span>·<span style="color:${m(p[1])}">${p[1]}</span></span>`;}).join('')}</div></div>`;
     }
-    h+=_qtTicketsBlock('📈',"12'li 3+ — Yakın Dönem Ağırlıklı",yak,game,'var(--accent)');
-    if(ga)h+=_qtGulayBlock(ga,game);
-    h+=_qtAiBlock(game,prior,{aiB,g0,ni,yak,ga});
-    el.innerHTML=h;
-  },30);
+  }
+  h+=_qtTicketsBlock('📈',"12'li 3+ — Yakın Dönem",src.yak,game,'var(--accent)',aSet);
+  if(src.ga)h+=_qtGulayBlock(src.ga,game,aSet);
+  h+=_qtAiBlock(game,prior,src,aSet);
+  targetEl.innerHTML=h;
 }
-function _qtGulayBlock(ga,game){
+function _qtRunAll(force){
+  const el=document.getElementById('qtOut');if(!el)return;
+  const game=getGame(_qtGame),draws=_kbGetDraws(_qtGame);
+  if(!draws||draws.length<60){el.innerHTML='<div style="padding:14px;font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥60 çekiliş gerekli) — önce “Gerçek Verileri Yükle”.</div>';return;}
+  el.innerHTML='<div style="padding:16px;font-size:.74rem;color:var(--muted)">⏳ Tüm yapılar üretiliyor…</div>';
+  setTimeout(()=>{_qtRenderAll(el,game,draws,null);},30);
+}
+function _qtDateTest(){
+  const el=document.getElementById('qtDateOut');if(!el)return;
+  const date=document.getElementById('qtDateSel')?.value||'';
+  if(!date){el.innerHTML='';return;}
+  const game=getGame(_qtGame),draws=_kbGetDraws(_qtGame);
+  const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
+  const actual=draws[idx],prior=draws.slice(idx+1);
+  if(prior.length<60){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
+  el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">⏳ Geçmiş test kuruluyor…</div>';
+  setTimeout(()=>{_qtRenderAll(el,game,prior,actual);},30);
+}
+function _qtGulayBlock(ga,game,aSet){
   const {nums,gaps,gapSum,topRows,cikRows,chainRows}=ga;
   let txt=`🔮 Gülay fark-analizi (${game.name})\nSayılar: ${nums.join(' ')}\nFarklar: ${gaps.join(' ')} = ${gapSum}\n`;
   let h=`<div class="card" style="margin-bottom:12px">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.76rem;font-weight:800;color:#6c5ce7">🔮 Gülay Fark-Analizi</span><button onclick="_caCopy(window._qtGulayTxt)" class="copy-btn" style="font-size:.64rem;padding:4px 10px">📋 Kopyala</button></div>`;
-  h+=`<div style="font-size:.64rem;color:var(--muted);margin-bottom:8px">Sayılar: <strong style="color:var(--text);font-family:monospace">${nums.join(' ')}</strong> · Farklar: <strong style="color:var(--text);font-family:monospace">${gaps.join(' ')} = ${gapSum}</strong></div>`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:#6c5ce7">🔮 Gülay Fark-Analizi</span><button onclick="_caCopy(window._qtGulayTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
+  h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Sayılar: <strong style="color:var(--text);font-family:monospace">${nums.join(' ')}</strong> · Farklar: <strong style="color:var(--text);font-family:monospace">${gaps.join(' ')} = ${gapSum}</strong></div>`;
+  const col=n=>aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'#6c5ce7'):'#6c5ce7';
+  const mk=n=>aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):'';
   const sec=(name,rows,pfx,isChain)=>{
-    let s=`<div style="font-size:.66rem;font-weight:800;color:var(--text);margin:8px 0 4px">${name}</div>`;
+    let s=`<div style="font-size:.64rem;font-weight:800;color:var(--text);margin:8px 0 4px">${name}</div>`;
     txt+=`\n${name}:\n`;
     rows.forEach((r,i)=>{
       const arr=isChain?r.chain.slice(1):r;
       const label=isChain?`${r.start}`:`${pfx}${i+1}(${gaps[i]})`;
-      s+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px;flex-wrap:wrap"><span style="font-size:.58rem;color:var(--muted);min-width:52px;font-family:monospace">${label}:</span><div style="display:flex;gap:4px;flex-wrap:wrap">${arr.map(n=>`<span style="font-family:monospace;font-size:.64rem;background:rgba(108,92,231,.1);border:1px solid rgba(108,92,231,.3);color:#6c5ce7;border-radius:5px;padding:1px 5px">${n}</span>`).join('')}</div></div>`;
+      s+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px;flex-wrap:wrap"><span style="font-size:.56rem;color:var(--muted);min-width:50px;font-family:monospace">${label}:</span><div style="display:flex;gap:4px;flex-wrap:wrap">${arr.map(n=>`<span style="font-family:monospace;font-size:.62rem;background:rgba(108,92,231,.08);border:1px solid rgba(108,92,231,.25);color:${col(n)};font-weight:${mk(n)?800:400};border-radius:5px;padding:1px 5px">${n}${mk(n)}</span>`).join('')}</div></div>`;
       txt+=`${label}: ${arr.join(' ')}\n`;
     });
     return s;
@@ -17315,40 +17391,55 @@ function _qtGulayBlock(ga,game){
   h+=`</div>`;
   return h;
 }
-function _qtAiBlock(game,prior,src){
+function _qtAiBlock(game,prior,src,aSet){
   const max=game.max,cnt=game.count,nSrc=5;
-  const tally={};for(let n=1;n<=max;n++)tally[n]=0;
-  const addT=arr=>arr.forEach(t=>t.main.forEach(n=>{if(n>=1&&n<=max)tally[n]++;}));
-  addT(src.aiB);addT(src.g0);addT(src.ni);addT(src.yak);
-  const srcCount={};
-  const mark=arr=>{const s=new Set();arr.forEach(t=>t.main.forEach(n=>s.add(n)));s.forEach(n=>srcCount[n]=(srcCount[n]||0)+1);};
-  mark(src.aiB);mark(src.g0);mark(src.ni);mark(src.yak);
-  if(src.ga){const gs=new Set();(src.ga.gulayCands||[]).slice(0,25).forEach(c=>{if(c.n>=1&&c.n<=max){tally[c.n]=(tally[c.n]||0)+Math.min(3,c.cnt);gs.add(c.n);}});gs.forEach(n=>srcCount[n]=(srcCount[n]||0)+1);}
-  const ranked=[];for(let n=1;n<=max;n++)ranked.push(n);ranked.sort((a,b)=>tally[b]-tally[a]||(srcCount[b]||0)-(srcCount[a]||0)||a-b);
-  const wMap={};for(let n=1;n<=max;n++)wMap[n]=Math.pow(tally[n]+0.15,1.5)+0.02;
-  const sums=prior.map(x=>x.nums.slice(0,cnt).reduce((a,b)=>a+b,0)).filter(x=>x>0).sort((a,b)=>a-b);
-  const lo=sums[Math.floor(sums.length*0.15)]||0,hi=sums[Math.floor(sums.length*0.85)]||max*cnt;
-  let tickets=[];try{tickets=_niGenBundle(game,prior,10,{wMap,lo,hi,ranked});}catch(e){}
-  const topNums=ranked.filter(n=>tally[n]>0).slice(0,cnt*2);
-  const pick=ranked.filter(n=>tally[n]>0).slice(0,cnt).sort((a,b)=>a-b);
-  window._qtAiTk='Hızlı Tahmin — Birleşik AI ('+game.name+')\nEn güçlü '+cnt+': '+pick.join(' ')+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  const C=_qtCombineWeights(game,prior,src);
+  let tickets=[];try{tickets=_niGenBundle(game,prior,10,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){}
+  const topNums=C.ranked.filter(n=>C.tally[n]>0).slice(0,cnt*2);
+  const pick=C.ranked.filter(n=>C.tally[n]>0).slice(0,cnt).sort((a,b)=>a-b);
+  if(!aSet)window._qtAiTk='Hızlı Tahmin — Birleşik AI ('+game.name+')\nEn güçlü '+cnt+': '+pick.join(' ')+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  let bestNet=0;if(aSet)tickets.forEach(t=>{const net=[...t.main,...t.bonus].filter(x=>aSet.has(x)).length;if(net>bestNet)bestNet=net;});
   let h=`<div class="card" style="margin-bottom:12px;border:2px solid rgba(129,140,248,.5);background:linear-gradient(135deg,rgba(129,140,248,.06),rgba(0,230,118,.05))">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.82rem;font-weight:800;color:var(--accent)">🧠 BİRLEŞİK AI TAHMİNİ</span><button onclick="_caCopy(window._qtAiTk)" class="copy-btn" style="font-size:.66rem;padding:5px 12px;font-weight:700">📋 Kopyala</button></div>`;
-  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Yukarıdaki 5 yapının (AI Bilet Üretici · Gülsis Sıfır · Nihai · 12&#39;li 3+ · Gülay) ürettiği tüm sayıları birleştirir; bir sayıyı ne kadar çok yapı önerdiyse o kadar ağırlıklıdır. Alt rakam = kaç farklı yapı önerdi (0–${nSrc}).</div>`;
-  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">🎯 En çok uzlaşılan sayılar:</div>`;
-  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${topNums.map(n=>{const strong=(srcCount[n]||0)>=3;return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 8px;border-radius:9px;background:${strong?'rgba(0,230,118,.14)':'var(--surface2)'};border:1.5px solid ${strong?'rgba(0,200,100,.5)':'var(--border)'}"><span style="font-size:.8rem;font-weight:800;font-family:monospace;color:${strong?'var(--green)':'var(--text)'}">${n}</span><span style="font-size:.46rem;color:var(--muted)">${srcCount[n]||0}/${nSrc}</span></span>`;}).join('')}</div>`;
-  h+=`<div style="font-size:.68rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 Birleşik AI Biletleri (${tickets.length})</div>`;
-  h+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,null,true)).join('');
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.78rem;font-weight:800;color:var(--accent)">🧠 BİRLEŞİK AI</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net</span>`:`<button onclick="_caCopy(window._qtAiTk)" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋</button>`}</span></div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.6">5 yapının ürettiği tüm sayıları birleştirir; alt rakam = kaç farklı yapı önerdi (0–${nSrc}).</div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">🎯 En çok uzlaşılan:</div>`;
+  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${topNums.map(n=>{const strong=(C.srcCount[n]||0)>=3;const hit=aSet&&aSet.has(n),near=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));const cc=hit?'var(--green)':near?'#c2410c':strong?'var(--green)':'var(--text)';const bg=hit?'rgba(0,230,118,.18)':strong?'rgba(0,230,118,.1)':'var(--surface2)';return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 7px;border-radius:8px;background:${bg};border:1.5px solid ${hit?'rgba(0,200,100,.6)':strong?'rgba(0,200,100,.4)':'var(--border)'}"><span style="font-size:.76rem;font-weight:800;font-family:monospace;color:${cc}">${n}${hit?'✓':near?'~':''}</span><span style="font-size:.44rem;color:var(--muted)">${C.srcCount[n]||0}/${nSrc}</span></span>`;}).join('')}</div>`;
+  h+=`<div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 AI Biletleri (${tickets.length})</div>`;
+  h+=tickets.map((t,i)=>{let lbl='';if(aSet){const all2=[...t.main,...t.bonus];let net=0,near=0;all2.forEach(x=>{if(aSet.has(x))net++;else if(aSet.has(x-1)||aSet.has(x+1))near++;});lbl=`<div style="font-size:.54rem;margin:${i>0?'6px':'0'} 0 -2px 4px;color:${net>=3?'var(--green)':'var(--muted)'};font-weight:${net>=3?800:400}">${net} net · ${near} yakın</div>`;}return lbl+renderTicket(t,game,'',i,null,aSet||null,aSet||null,null,true);}).join('');
   h+=`</div>`;
   return h;
+}
+function _qtAiBacktest(){
+  const el=document.getElementById('qtAiBtOut');if(!el)return;
+  const game=getGame(_qtGame),draws=_kbGetDraws(_qtGame);
+  const N=parseInt(document.getElementById('qtAiBtN')?.value)||12;const K=10;
+  if(!draws||draws.length<70){el.innerHTML='<div style="padding:8px;font-size:.66rem;color:var(--muted)">Geçmiş test için yeterli veri yok.</div>';return;}
+  el.innerHTML='<div style="padding:10px;font-size:.66rem;color:var(--muted)">⏳ AI biletleri her tarih için yeniden kurulup test ediliyor… (tüm yapılar çalışır, biraz sürebilir)</div>';
+  setTimeout(()=>{
+    const tests=Math.min(N,draws.length-60);const isOn=game.id==='onnumara';const thr=isOn?6:3;
+    let ge=0,bestSum=0,n=0;const rows=[];
+    for(let t=0;t<tests;t++){const actual=draws[t];const prior=draws.slice(t+1);if(prior.length<60)break;
+      const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      const tickets=_qtCombinedBundle(game,prior,K);if(!tickets.length)continue;
+      let best=0,bi=0;tickets.forEach((tk,i)=>{const net=[...tk.main,...tk.bonus].filter(x=>aSet.has(x)).length;if(net>best){best=net;bi=i;}});
+      bestSum+=best;if(best>=thr)ge++;n++;rows.push({date:actual.date,aSet,best,tk:tickets[bi]});}
+    if(!n){el.innerHTML='<div style="padding:8px;font-size:.66rem;color:var(--muted)">Test yapılamadı.</div>';return;}
+    const card=(l,v,c)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 12px;text-align:center"><div style="font-size:.95rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.54rem;color:var(--muted)">${l}</div></div>`;
+    let h=`<div style="margin-top:8px"><div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">`+card(`≥${thr} net`,`%${Math.round(100*ge/n)}`,ge/n>=0.25?'var(--green)':'var(--muted)')+card('Ort. en iyi net',(bestSum/n).toFixed(2),'var(--accent)')+card('Test',n,'var(--muted)')+`</div>`;
+    h+=`<div style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:4px">`;
+    rows.forEach(r=>{const res=[...(r.aSet)].sort((a,b)=>a-b);const bm=[...r.tk.main,...r.tk.bonus];const bh=bm.map(x=>{const hit=r.aSet.has(x),nr=!hit&&(r.aSet.has(x-1)||r.aSet.has(x+1));return `<span style="font-family:monospace;font-size:.57rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${x}${hit?'✓':nr?'~':''}</span>`;}).join(' ');
+      h+=`<div style="padding:5px 7px;background:rgba(0,0,0,.02);border-radius:6px"><div style="font-size:.51rem;color:var(--muted)">${r.date} · sonuç: <span style="font-family:monospace;color:var(--text)">${res.join(' ')}</span></div><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:2px"><span style="font-size:.49rem;color:var(--accent)">🏆</span><div style="display:flex;gap:3px;flex-wrap:wrap;flex:1">${bh}</div><span style="font-size:.55rem;font-weight:800;color:${r.best>=thr?'var(--green)':'var(--muted)'}">${r.best} net</span></div></div>`;});
+    h+=`</div></div>`;
+    el.innerHTML=h;
+  },30);
 }
 function _qtCopyAll(){
   const parts=[];
   if(window._qtAiTk)parts.push(window._qtAiTk);
-  Object.keys(window).filter(k=>k.startsWith('_qtCopy_')).forEach(k=>{if(window[k])parts.push(window[k]);});
+  Object.keys(window).filter(k=>k.startsWith('_qtCopy_')&&!k.endsWith('t')).forEach(k=>{if(window[k])parts.push(window[k]);});
   if(window._qtNiPairs)parts.push(window._qtNiPairs);
   if(window._qtGulayTxt)parts.push(window._qtGulayTxt);
-  if(!parts.length){if(typeof showToast==='function')showToast('Önce “Tümünü Üret” çalıştırın');return;}
+  if(!parts.length){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
   _caCopy(parts.join('\n\n'));
   if(typeof showToast==='function')showToast('📋 Tüm yapılar kopyalandı');
 }
