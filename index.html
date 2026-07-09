@@ -14505,6 +14505,17 @@ function _niPairSelect(){
     h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${selected.map(n=>`<span style="font-family:monospace;font-size:.74rem;font-weight:800;color:${aSet?hitCol(n):'#0a9a6a'};background:var(--surface);border:1.5px solid ${aSet&&aSet.has(n)?'rgba(0,200,100,.6)':'rgba(16,185,129,.4)'};border-radius:7px;padding:2px 8px">${n}${mk(n)}</span>`).join('')}</div>`;
     if(aSet)h+=`<div style="font-size:.6rem;font-weight:700;margin-top:5px;color:${selNet?'var(--green)':'var(--muted)'}">Sonuç: ${selNet} net · ${selNear} ±1 yakın</div>`;
     h+=`</div>`;
+    // Her iki taraf (yeni tahmin için en güvenli — taraf %50 olduğundan güçlü çiftlerin İKİ sayısı da)
+    const topPairs=rows.slice(0,Math.max(game.count,Math.ceil(game.count*1.5)));
+    const both=[...new Set(topPairs.flatMap(r=>[r.x,r.y]))].sort((a,b)=>a-b);
+    window._niPsBoth='Nihai — Ardışık Seçici · her iki taraf ('+game.name+')\n'+both.join(' ');
+    const bNet=aSet?both.filter(n=>aSet.has(n)).length:null,bNear=aSet?both.filter(n=>!aSet.has(n)&&(aSet.has(n-1)||aSet.has(n+1))).length:null;
+    h+=`<div style="padding:9px 11px;background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.4);border-radius:10px;margin-bottom:10px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px"><span style="font-size:.66rem;font-weight:800;color:var(--accent)">🔒 Her iki taraf — ${both.length} sayı (yeni tahmin için en güvenli)</span><button onclick="_caCopy(window._niPsBoth)" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></div>`;
+    h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:5px">Taraf yazı-tura olduğundan, en güçlü ${topPairs.length} çiftin <strong>her iki sayısını</strong> alır — hangi taraf çıkarsa çıksın yakalarsın.</div>`;
+    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${both.map(n=>`<span style="font-family:monospace;font-size:.68rem;font-weight:700;color:${aSet?hitCol(n):'var(--accent)'};background:var(--surface);border:1px solid ${aSet&&aSet.has(n)?'rgba(0,200,100,.6)':'var(--border)'};border-radius:6px;padding:1px 6px">${n}${mk(n)}</span>`).join('')}</div>`;
+    if(aSet)h+=`<div style="font-size:.6rem;font-weight:700;margin-top:5px;color:${bNet>=3?'var(--green)':'var(--muted)'}">Sonuç: ${bNet} net · ${bNear} ±1 yakın</div>`;
+    h+=`</div>`;
     // çiftler
     h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">Çiftler (güce göre sıralı · yeşil = önerilen taraf · alt rakam = kaç/5 sinyal o tarafı işaret etti):</div>`;
     h+=`<div style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:3px">`;
