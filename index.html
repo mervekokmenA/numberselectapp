@@ -1082,6 +1082,17 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     </div>
     <div id="niBtResult"></div>
    </div>
+   <div class="card">
+    <div class="card-title">🔗 Ardışık Seçici</div>
+    <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Nihai biletlerindeki <strong>ardışık çiftleri (x·x+1)</strong> alır; her çifti sinyallerin (frekans · yakın dönem · Gülay · gecikme · uzlaşı) gücüne göre <strong>sıralar</strong> ve her çiftte sinyallerin çoğunlukla işaret ettiği tarafı önerir. <br><span style="color:#8a6200">⚠️ Dürüst bulgu (geri-testli): bir çiftin <strong>HANGİ tarafının</strong> çıkacağı ~%50 (yazı-tura) — hiçbir sinyal bunu güvenilir biçimde bilemez. Değer, <strong>en güçlü çiftleri öne almakta</strong> ve her çiftin genelde 1 net-ya-yakın vermesindedir.</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+     <label style="font-size:.72rem;color:var(--muted)">Kaynak grup:</label>
+     <select id="niPsK" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"><option value="10" selected>10 bilet</option><option value="20">20</option><option value="30">30</option></select>
+     <button onclick="_niPairSelect()" style="font-size:.74rem;padding:7px 16px;border-radius:9px;background:linear-gradient(135deg,rgba(16,185,129,.9),rgba(5,150,105,.78));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🔗 Çiftleri Sırala & Seç</button>
+     <label style="display:inline-flex;align-items:center;gap:5px;font-size:.66rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="niPsBt" style="cursor:pointer"> 📊 geçmiş test</label>
+    </div>
+    <div id="niPsResult"></div>
+   </div>
   </div>
  </div>
 </div>
@@ -14444,6 +14455,85 @@ function _niConsecPairs(tickets){
   const m=new Map();
   tickets.forEach(t=>{const s=new Set(t.main);[...t.main].sort((a,b)=>a-b).forEach(n=>{if(s.has(n+1))m.set(n+'-'+(n+1),[n,n+1]);});});
   return [...m.values()].sort((a,b)=>a[0]-b[0]);
+}
+// Ardışık çiftleri sinyal gücüne göre sıralar ve her çiftte sinyal çoğunluğunun işaret ettiği tarafı seçer.
+// Sinyaller: Frekans · Yakın dönem(EWF) · Gülay · Gecikme · Uzlaşı. Bir çifti sıralamak için wMap toplamı.
+function _niPairEval(prior,game,C){
+  const sig=_axSignals(prior,game);
+  const defs=[
+    {k:'F',n:'Frekans',v:sig.freq},
+    {k:'Y',n:'Yakın',v:sig.ewf82},
+    {k:'⏳',n:'Gecikme',v:sig.delay},
+    {k:'🤝',n:'Uzlaşı',v:C.wMap},
+  ];
+  return (x,y)=>{
+    const leans=defs.map(d=>({k:d.k,side:d.v[x]===d.v[y]?null:(d.v[x]>d.v[y]?x:y)}));
+    const gx=C.gulaySet.has(x),gy=C.gulaySet.has(y);
+    leans.push({k:'🔮',side:gx===gy?null:(gx?x:y)});
+    let vx=0,vy=0;leans.forEach(l=>{if(l.side===x)vx++;else if(l.side===y)vy++;});
+    const side=vx>vy?x:vy>vx?y:((C.wMap[x]||0)>=(C.wMap[y]||0)?x:y);
+    const score=(C.wMap[x]||0)+(C.wMap[y]||0);
+    return {side,leans,score,nFor:leans.filter(l=>l.side===side).length};
+  };
+}
+function _niPairSelect(){
+  const el=document.getElementById('niPsResult');if(!el)return;
+  const game=getGame(_niGame),draws=_kbGetDraws(_niGame);
+  const K=parseInt(document.getElementById('niPsK')?.value)||10;
+  const bt=!!document.getElementById('niPsBt')?.checked;
+  let prior=draws,actual=null;
+  if(_niDate){const idx=draws.findIndex(d=>d.date===_niDate);if(idx>=0){actual=draws[idx];prior=draws.slice(idx+1);}}
+  if(!prior||prior.length<_NI_MIN_PRIOR){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
+  const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
+  el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">⏳ Çiftler sıralanıyor…</div>';
+  setTimeout(()=>{
+    const C=_niCompute(game,prior);
+    const evalPair=_niPairEval(prior,game,C);
+    const bundle=_niGenBundle(game,prior,K,C);
+    const pairs=_niConsecPairs(bundle);
+    if(!pairs.length){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Bu grupta ardışık çift yok.</div>';return;}
+    const rows=pairs.map(([x,y])=>{const e=evalPair(x,y);return {x,y,...e};}).sort((a,b)=>b.score-a.score);
+    const selected=[...new Set(rows.slice(0,game.count).map(r=>r.side))].sort((a,b)=>a-b);
+    window._niPsCopy='Nihai — Ardışık Seçici ('+game.name+')\nSeçilen: '+selected.join(' ')+'\nÇiftler:\n'+rows.map(r=>r.x+'·'+r.y+' → '+r.side).join('\n');
+    const mk=n=>aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):'';
+    const hitCol=n=>aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';
+    let h='';
+    // seçilmiş sayılar
+    const selNet=aSet?selected.filter(n=>aSet.has(n)).length:null,selNear=aSet?selected.filter(n=>!aSet.has(n)&&(aSet.has(n-1)||aSet.has(n+1))).length:null;
+    h+=`<div style="padding:9px 11px;background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(129,140,248,.05));border:1px solid rgba(16,185,129,.4);border-radius:10px;margin-bottom:10px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.68rem;font-weight:800;color:#0a9a6a">🎯 Seçilen ${selected.length} sayı (en güçlü çiftlerin önerilen tarafı)</span><button onclick="_caCopy(window._niPsCopy)" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></div>`;
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${selected.map(n=>`<span style="font-family:monospace;font-size:.74rem;font-weight:800;color:${aSet?hitCol(n):'#0a9a6a'};background:var(--surface);border:1.5px solid ${aSet&&aSet.has(n)?'rgba(0,200,100,.6)':'rgba(16,185,129,.4)'};border-radius:7px;padding:2px 8px">${n}${mk(n)}</span>`).join('')}</div>`;
+    if(aSet)h+=`<div style="font-size:.6rem;font-weight:700;margin-top:5px;color:${selNet?'var(--green)':'var(--muted)'}">Sonuç: ${selNet} net · ${selNear} ±1 yakın</div>`;
+    h+=`</div>`;
+    // çiftler
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">Çiftler (güce göre sıralı · yeşil = önerilen taraf · alt rakam = kaç/5 sinyal o tarafı işaret etti):</div>`;
+    h+=`<div style="max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:3px">`;
+    rows.forEach((r,i)=>{
+      const box=n=>`<span style="font-family:monospace;font-size:.7rem;font-weight:${n===r.side?800:500};color:${n===r.side?'#0a9a6a':hitCol(n)};background:${n===r.side?'rgba(16,185,129,.14)':'transparent'};border:1px solid ${n===r.side?'rgba(16,185,129,.5)':'var(--border)'};border-radius:6px;padding:1px 7px">${n}${mk(n)}</span>`;
+      h+=`<div style="display:flex;align-items:center;gap:7px;padding:3px 5px;border-radius:6px;${i<game.count?'background:rgba(16,185,129,.05);':''}"><span style="font-size:.5rem;color:var(--muted);min-width:16px">${i+1}.</span>${box(r.x)}<span style="color:var(--muted);font-size:.6rem">·</span>${box(r.y)}<span style="margin-left:auto;font-size:.55rem;color:var(--muted);white-space:nowrap"><strong style="color:#0a9a6a">${r.nFor}/5</strong> sinyal</span></div>`;
+    });
+    h+=`</div>`;
+    if(bt){h+=`<div id="niPsBtBox" style="margin-top:10px;font-size:.66rem;color:var(--muted)">⏳ Taraf isabeti geçmişte ölçülüyor…</div>`;}
+    el.innerHTML=h;
+    if(bt)setTimeout(()=>_niPsBacktest(game,draws,K),20);
+  },20);
+}
+function _niPsBacktest(game,draws,K){
+  const box=document.getElementById('niPsBtBox');if(!box)return;
+  const N=Math.min(25,draws.length-_NI_MIN_PRIOR);
+  let dec=0,corr=0,selNetSum=0,selNNSum=0,n=0;
+  for(let t=0;t<N;t++){const actual=draws[t];const prior=draws.slice(t+1);if(prior.length<_NI_MIN_PRIOR)break;
+    const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+    const C=_niCompute(game,prior);const evalPair=_niPairEval(prior,game,C);
+    const pairs=_niConsecPairs(_niGenBundle(game,prior,K,C));if(!pairs.length)continue;
+    const rows=pairs.map(([x,y])=>{const e=evalPair(x,y);return {x,y,...e};}).sort((a,b)=>b.score-a.score);
+    rows.forEach(r=>{const xin=aSet.has(r.x),yin=aSet.has(r.y);if(xin===yin)return;dec++;if((xin?r.x:r.y)===r.side)corr++;});
+    const selected=[...new Set(rows.slice(0,game.count).map(r=>r.side))];
+    selNetSum+=selected.filter(x=>aSet.has(x)).length;selNNSum+=selected.filter(x=>aSet.has(x)||aSet.has(x-1)||aSet.has(x+1)).length;n++;
+  }
+  if(!n||!dec){box.innerHTML='Test yapılamadı.';return;}
+  const acc=100*corr/dec;
+  box.innerHTML=`<div style="padding:9px 11px;background:var(--surface2);border:1px solid var(--border);border-radius:9px"><div style="font-size:.64rem;font-weight:800;color:var(--text);margin-bottom:4px">📊 Geçmiş test (${n} çekiliş, ${dec} kararlanabilir çift)</div><div style="font-size:.62rem;color:var(--muted);line-height:1.7">• Önerilen tarafın doğruluğu: <strong style="color:${Math.abs(acc-50)<3?'var(--muted)':acc>53?'var(--green)':'#cc2222'}">%${acc.toFixed(1)}</strong> <span style="color:var(--muted)">(yazı-tura = %50 · fark küçükse şans demektir)</span><br>• Seçilen ${game.count} sayının ort. neti: <strong style="color:var(--text)">${(selNetSum/n).toFixed(2)}</strong> · net+yakın: <strong style="color:#0a9a6a">${(selNNSum/n).toFixed(2)}</strong></div></div>`;
 }
 function _niRender(force){
   const el=document.getElementById('niContent');if(!el)return;
