@@ -15148,8 +15148,18 @@ function _onaCandidates(no,max,mode){
   const all=[...new Set([...cProd,...c33,...c19])].sort((a,b)=>a-b);
   return {P,q33,q19,cProd,c33,c19,all};
 }
-function _onaBadge(n,dset){const hit=dset&&dset.has(n);return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit?800:600};color:${hit?'var(--green)':'var(--text)'};background:${hit?'rgba(0,230,118,.15)':'var(--surface2)'};border:1px solid ${hit?'rgba(0,200,100,.55)':'var(--border)'};border-radius:6px;padding:1px 6px">${n}${hit?'✓':''}</span>`;}
-function _onaSrcLine(lbl,arr,dset){const u=[...new Set(arr)].sort((a,b)=>a-b);const inner=u.length?u.map(x=>`<span style="font-family:monospace;color:${dset&&dset.has(x)?'var(--green)':'var(--text)'};font-weight:${dset&&dset.has(x)?800:400}">${x}${dset&&dset.has(x)?'✓':''}</span>`).join(' '):'—';return `<div style="font-size:.52rem;color:var(--muted);margin-top:2px">${lbl}: ${inner}</div>`;}
+function _onaBadge(n,dset){
+  const hit=dset&&dset.has(n),near=!hit&&dset&&(dset.has(n-1)||dset.has(n+1));
+  const col=hit?'var(--green)':near?'#c2410c':'var(--text)';
+  const bg=hit?'rgba(0,230,118,.15)':near?'rgba(244,114,63,.14)':'var(--surface2)';
+  const bd=hit?'rgba(0,200,100,.55)':near?'rgba(244,114,63,.5)':'var(--border)';
+  return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit||near?800:600};color:${col};background:${bg};border:1px solid ${bd};border-radius:6px;padding:1px 6px">${n}${hit?'✓':near?'~':''}</span>`;
+}
+function _onaSrcLine(lbl,arr,dset){
+  const u=[...new Set(arr)].sort((a,b)=>a-b);
+  const inner=u.length?u.map(x=>{const hit=dset&&dset.has(x),near=!hit&&dset&&(dset.has(x-1)||dset.has(x+1));return `<span style="font-family:monospace;color:${hit?'var(--green)':near?'#c2410c':'var(--text)'};font-weight:${hit||near?800:400}">${x}${hit?'✓':near?'~':''}</span>`;}).join(' '):'—';
+  return `<div style="font-size:.52rem;color:var(--muted);margin-top:2px">${lbl}: ${inner}</div>`;
+}
 function _onaCompute(){
   const el=document.getElementById('onaOut');if(!el)return;
   const no=(document.getElementById('onaInput')?.value||'').replace(/\D/g,'');
