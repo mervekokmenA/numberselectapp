@@ -942,6 +942,37 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  </div>
 </div>
 
+<!-- ═══════════ NEW: Oyun No Analizi ═══════════ -->
+<div id="onaSection" style="grid-column:1/-1;margin-top:0;min-width:0">
+ <div class="card">
+  <div class="card-title">🔢 Oyun No Analizi</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">
+   Biletindeki <strong>Oyun No</strong>'yu gir. Yöntem: Oyun No'daki <strong>0 hariç rakamların çarpımı</strong> alınır, sonra <strong>÷33</strong> ve <strong>÷19</strong>'a bölünür; çarpımın ve bu bölümlerin (virgül sonrası dahil) rakamları <strong>2'şerli</strong> gruplanarak aday sayılar çıkarılır.
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+   <input type="text" id="onaInput" inputmode="numeric" placeholder="Oyun No — örn. 2394217989" style="flex:1;min-width:180px;font-size:.82rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 10px" onkeydown="if(event.key==='Enter')_onaCompute()">
+   <span style="font-size:.66rem;color:var(--muted)">Aralık 1–</span>
+   <input type="number" id="onaMax" value="60" min="10" max="99" style="width:60px;font-size:.78rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+   <button onclick="_onaCompute()" style="font-size:.78rem;padding:8px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🔢 Hesapla</button>
+  </div>
+  <div id="onaOut"></div>
+  <div style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+    <span style="font-size:.74rem;font-weight:800;color:#0a9a6a">📊 Geçmiş Test — Oyun No'ları</span>
+    <button onclick="_onaBacktest()" class="copy-btn" style="font-size:.64rem;padding:4px 10px">🔄 Yenile</button>
+   </div>
+   <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Verdiğin biletlerin Oyun No'larından çıkan adaylar, o çekilişin gerçek sonucuyla karşılaştırılır (✓ = çıktı). Kendi biletini de ekleyebilirsin: <strong>Oyun No + çıkan sayılar</strong>.</div>
+   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+    <input type="text" id="onaAddNo" inputmode="numeric" placeholder="Oyun No" style="flex:1;min-width:110px;font-size:.74rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    <input type="text" id="onaAddDraw" placeholder="çıkan sayılar (7 14 17 25 42 49)" style="flex:2;min-width:150px;font-size:.74rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    <input type="number" id="onaAddMax" value="60" min="10" max="99" title="aralık" style="width:56px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 6px">
+    <button onclick="_onaAdd()" style="font-size:.72rem;padding:6px 12px;border-radius:8px;background:rgba(0,150,58,.12);border:1px solid rgba(0,150,58,.4);color:var(--green);cursor:pointer;font-weight:700">➕ Ekle</button>
+   </div>
+   <div id="onaBtOut"></div>
+  </div>
+ </div>
+</div>
+
 <!-- ═══════════ NEW: Tekli Sayı Bakımı ile Analiz ═══════════ -->
 <div style="grid-column:1/-1;margin-top:0;min-width:0;overflow:hidden" id="numAnalysisSection">
   <div class="card">
@@ -12573,7 +12604,7 @@ function _kbRenderKazanan(){
 }
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
-const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','b10Section','ortakSayilarSection','nextDrawPredSection','homeBiletSection','candSection','cbSection'];
+const _HOME_IDS=['page-generator','page-backtest','numAnalysisSection','b10Section','ortakSayilarSection','nextDrawPredSection','homeBiletSection','candSection','cbSection','onaSection'];
 let _scanGame=null;
 
 function showMainPage(id){
@@ -15082,13 +15113,88 @@ function _cbBacktest(){
   },20);
 }
 
+// ══════════ OYUN NO ANALİZİ (kullanıcının keşfettiği yöntem) ══════════
+// Oyun No'daki 0-hariç rakamların çarpımı → ÷33 ve ÷19 → çarpımın ve bölümlerin (virgül sonrası dahil)
+// rakamları 2'şerli gruplanarak aday sayılar. Kullanıcının verdiği geçmiş biletlerle test edilebilir.
+const _ONA_SAMPLES=[
+ {no:'2197658383',max:60,draw:[7,14,17,25,42,49],date:'26.03 · Sen Seç'},
+ {no:'1077393431',max:60,draw:[7,14,17,25,42,49],date:'26.03 · Sen Seç'},
+ {no:'623782172', max:90,draw:[2,17,28,31,50,77,61,24],date:'22.06 · Sayısal'},
+ {no:'3638571295',max:60,draw:[5,6,24,37,43,48],date:'21.06 · Sen Seç'},
+ {no:'1685550339',max:90,draw:[22,35,71,75,85,89,30,40],date:'18.05 · Sayısal'},
+ {no:'3576494852',max:60,draw:[10,11,35,38,41,57],date:'09.06 · Sen Seç'},
+ {no:'685683983', max:60,draw:[15,19,30,38,57,60],date:'11.06 · Sen Seç'},
+ {no:'4083573773',max:60,draw:[10,11,35,38,41,57],date:'09.06 · Sen Seç'},
+];
+function _onaProduct(no){let p=1,any=false;for(const ch of String(no)){const d=+ch;if(d>0){p*=d;any=true;}}return any?p:0;}
+function _onaPairs(str,max){const s=String(str).replace(/\D/g,'');const o=[];for(let i=0;i+1<s.length;i+=2){const n=parseInt(s.substr(i,2),10);if(n>=1&&n<=max)o.push(n);}return o;}
+function _onaAllDigits(v){return String(v).replace(/[^\d]/g,'');}
+function _onaCandidates(no,max){
+  const P=_onaProduct(no),q33=P/33,q19=P/19;
+  const cProd=_onaPairs(P,max),c33=_onaPairs(_onaAllDigits(q33),max),c19=_onaPairs(_onaAllDigits(q19),max);
+  const all=[...new Set([...cProd,...c33,...c19])].sort((a,b)=>a-b);
+  return {P,q33,q19,cProd,c33,c19,all};
+}
+function _onaBadge(n,dset){const hit=dset&&dset.has(n);return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit?800:600};color:${hit?'var(--green)':'var(--text)'};background:${hit?'rgba(0,230,118,.15)':'var(--surface2)'};border:1px solid ${hit?'rgba(0,200,100,.55)':'var(--border)'};border-radius:6px;padding:1px 6px">${n}${hit?'✓':''}</span>`;}
+function _onaCompute(){
+  const el=document.getElementById('onaOut');if(!el)return;
+  const no=(document.getElementById('onaInput')?.value||'').replace(/\D/g,'');
+  const max=Math.max(10,Math.min(99,parseInt(document.getElementById('onaMax')?.value)||60));
+  if(no.length<3){el.innerHTML='<div style="padding:10px;font-size:.7rem;color:var(--muted)">Geçerli bir Oyun No girin.</div>';return;}
+  const c=_onaCandidates(no,max);
+  window._onaCopy='Oyun No '+no+' — aday sayılar (1-'+max+')\n'+c.all.join(' ');
+  let h=`<div style="padding:11px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">`;
+  h+=`<div style="font-size:.62rem;color:var(--muted);line-height:1.9">🔢 <strong style="color:var(--text)">Çarpım (0 hariç):</strong> ${c.P.toLocaleString('tr-TR')}<br>➗ <strong style="color:var(--text)">÷33:</strong> ${c.q33.toLocaleString('tr-TR',{maximumFractionDigits:9})}<br>➗ <strong style="color:var(--text)">÷19:</strong> ${c.q19.toLocaleString('tr-TR',{maximumFractionDigits:9})}</div>`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0 5px"><span style="font-size:.66rem;font-weight:800;color:var(--accent)">🎯 Aday sayılar (${c.all.length})</span><button onclick="_caCopy(window._onaCopy)" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></div>`;
+  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${c.all.map(n=>_onaBadge(n,null)).join('')}</div>`;
+  const grp=(lbl,arr)=>`<div style="font-size:.56rem;color:var(--muted);margin-bottom:3px">${lbl}: <span style="font-family:monospace;color:var(--text)">${[...new Set(arr)].sort((a,b)=>a-b).join(' ')||'—'}</span></div>`;
+  h+=grp('🔢 Çarpımdan',c.cProd)+grp('➗33 sonucundan',c.c33)+grp('➗19 sonucundan',c.c19);
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+function _onaBacktest(){
+  const el=document.getElementById('onaBtOut');if(!el)return;
+  let user=[];try{user=JSON.parse(localStorage.getItem('_onaTickets')||'[]');}catch(e){}
+  const all=[...user,..._ONA_SAMPLES];
+  if(!all.length){el.innerHTML='';return;}
+  let totNet=0,totCand=0,baseSum=0,n=0,rows='';
+  all.forEach((s,i)=>{
+    const no=String(s.no).replace(/\D/g,'');const c=_onaCandidates(no,s.max||60);const dset=new Set(s.draw);
+    const hit=c.all.filter(x=>dset.has(x));
+    totNet+=hit.length;totCand+=c.all.length;baseSum+=c.all.length*(s.draw.length/(s.max||60));n++;
+    const own=s.date==='kendi';
+    rows+=`<div style="padding:6px 8px;background:rgba(0,0,0,.02);border-radius:7px;margin-bottom:5px">
+      <div style="font-size:.54rem;color:var(--muted)">${s.date||''} · Oyun No <span style="font-family:monospace;color:var(--text)">${no}</span> · çıkan: <span style="font-family:monospace;color:var(--text)">${s.draw.join(' ')}</span>${own?` <button onclick="_onaDel(${i})" style="font-size:.5rem;color:#cc2222;background:none;border:none;cursor:pointer">✕</button>`:''}</div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px"><div style="display:flex;gap:4px;flex-wrap:wrap">${c.all.map(x=>_onaBadge(x,dset)).join('')}</div><span style="margin-left:auto;font-size:.6rem;font-weight:800;color:${hit.length?'var(--green)':'var(--muted)'}">${hit.length} eşleşme</span></div>
+    </div>`;
+  });
+  const card=(l,v,cl)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 13px;text-align:center"><div style="font-size:1.0rem;font-weight:800;color:${cl}">${v}</div><div style="font-size:.55rem;color:var(--muted)">${l}</div></div>`;
+  let h=`<div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:8px">`+card('Ort. eşleşme',(totNet/n).toFixed(2),'var(--green)')+card('Ort. aday',(totCand/n).toFixed(1),'var(--text)')+card('Şans beklentisi',(baseSum/n).toFixed(2),'var(--muted)')+card('Bilet',n,'var(--muted)')+`</div>`;
+  h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:8px;line-height:1.6">“Şans beklentisi” = aynı sayıda tamamen rastgele adayın yakalayacağı ortalama eşleşme. Yöntemin ortalaması bunun <strong>belirgin üstündeyse</strong> anlamlı; yakınsa şans düzeyindedir.</div>`;
+  h+=rows;
+  el.innerHTML=h;
+}
+function _onaAdd(){
+  const no=(document.getElementById('onaAddNo')?.value||'').replace(/\D/g,'');
+  const draw=((document.getElementById('onaAddDraw')?.value||'').match(/\d+/g)||[]).map(Number);
+  const max=Math.max(10,Math.min(99,parseInt(document.getElementById('onaAddMax')?.value)||60));
+  if(no.length<3||!draw.length){if(typeof showToast==='function')showToast('Oyun No ve çıkan sayıları girin');return;}
+  let user=[];try{user=JSON.parse(localStorage.getItem('_onaTickets')||'[]');}catch(e){}
+  user.unshift({no,draw,max,date:'kendi'});
+  try{localStorage.setItem('_onaTickets',JSON.stringify(user));}catch(e){}
+  const a=document.getElementById('onaAddNo'),d=document.getElementById('onaAddDraw');if(a)a.value='';if(d)d.value='';
+  _onaBacktest();
+}
+function _onaDel(i){let user=[];try{user=JSON.parse(localStorage.getItem('_onaTickets')||'[]');}catch(e){}user.splice(i,1);try{localStorage.setItem('_onaTickets',JSON.stringify(user));}catch(e){}_onaBacktest();}
+function _onaInit(){_onaBacktest();}
+
 // ── Boot ──────────────────────────────────────────────────────
 (function(){
   try{const v=localStorage.getItem('excludeLastDraw');if(v!==null){state.excludeLastDraw=v==='1';}}catch(e){}
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();_hbInit();_caInit();_cbInit();setTimeout(_nextDrawPredict,300);
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();initNaSection();initOyunNoGameGrid();_initOrtakGameGrid();runOrtakSayilar();_hbInit();_caInit();_cbInit();_onaInit();setTimeout(_nextDrawPredict,300);
 setTimeout(()=>{_autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);},800);
 
 // ══════════════════════════════════════════════════════════════
