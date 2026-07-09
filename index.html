@@ -15149,6 +15149,7 @@ function _onaCandidates(no,max,mode){
   return {P,q33,q19,cProd,c33,c19,all};
 }
 function _onaBadge(n,dset){const hit=dset&&dset.has(n);return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit?800:600};color:${hit?'var(--green)':'var(--text)'};background:${hit?'rgba(0,230,118,.15)':'var(--surface2)'};border:1px solid ${hit?'rgba(0,200,100,.55)':'var(--border)'};border-radius:6px;padding:1px 6px">${n}${hit?'✓':''}</span>`;}
+function _onaSrcLine(lbl,arr,dset){const u=[...new Set(arr)].sort((a,b)=>a-b);const inner=u.length?u.map(x=>`<span style="font-family:monospace;color:${dset&&dset.has(x)?'var(--green)':'var(--text)'};font-weight:${dset&&dset.has(x)?800:400}">${x}${dset&&dset.has(x)?'✓':''}</span>`).join(' '):'—';return `<div style="font-size:.52rem;color:var(--muted);margin-top:2px">${lbl}: ${inner}</div>`;}
 function _onaCompute(){
   const el=document.getElementById('onaOut');if(!el)return;
   const no=(document.getElementById('onaInput')?.value||'').replace(/\D/g,'');
@@ -15181,6 +15182,7 @@ function _onaBacktest(){
       <div style="font-size:.54rem;color:var(--muted)">${s.date||''} · Oyun No <span style="font-family:monospace;color:var(--text)">${no}</span> · çıkan: <span style="font-family:monospace;color:var(--text)">${s.draw.join(' ')}</span>${own?` <button onclick="_onaDel(${i})" style="font-size:.5rem;color:#cc2222;background:none;border:none;cursor:pointer">✕</button>`:''}</div>
       <div style="font-size:.52rem;color:var(--muted);line-height:1.7;margin-top:2px">🔢 Çarpım: <span style="font-family:monospace;color:var(--text)">${c.P.toLocaleString('tr-TR')}</span> · ÷33: <span style="font-family:monospace;color:var(--text)">${c.q33.toLocaleString('tr-TR',{maximumFractionDigits:9})}</span> · ÷19: <span style="font-family:monospace;color:var(--text)">${c.q19.toLocaleString('tr-TR',{maximumFractionDigits:9})}</span></div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px"><div style="display:flex;gap:4px;flex-wrap:wrap">${c.all.map(x=>_onaBadge(x,dset)).join('')}</div><span style="margin-left:auto;font-size:.6rem;font-weight:800;color:${hit.length?'var(--green)':'var(--muted)'}">${hit.length} eşleşme</span></div>
+      ${_onaSrcLine('🔢 Çarpımdan',c.cProd,dset)}${_onaSrcLine('➗33 sonucundan',c.c33,dset)}${_onaSrcLine('➗19 sonucundan',c.c19,dset)}
     </div>`;
   });
   const card=(l,v,cl)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 13px;text-align:center"><div style="font-size:1.0rem;font-weight:800;color:${cl}">${v}</div><div style="font-size:.55rem;color:var(--muted)">${l}</div></div>`;
