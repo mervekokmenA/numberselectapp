@@ -1088,7 +1088,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
      <label style="font-size:.72rem;color:var(--muted)">Kaynak grup:</label>
      <select id="niPsK" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"><option value="10" selected>10 bilet</option><option value="20">20</option><option value="30">30</option></select>
-     <button onclick="_niPairSelect()" style="font-size:.74rem;padding:7px 16px;border-radius:9px;background:linear-gradient(135deg,rgba(16,185,129,.9),rgba(5,150,105,.78));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🔗 Çiftleri Sırala & Seç</button>
+     <button onclick="_niPairSelect()" style="font-size:.74rem;padding:7px 16px;border-radius:9px;background:linear-gradient(135deg,rgba(16,185,129,.9),rgba(5,150,105,.78));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🔄 Yenile</button>
      <label style="display:inline-flex;align-items:center;gap:5px;font-size:.66rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="niPsBt" style="cursor:pointer"> 📊 geçmiş test</label>
     </div>
     <div id="niPsResult"></div>
@@ -14442,9 +14442,12 @@ function _niInit(){
   _niDate='';
   _niRender(false);
   const bt=document.getElementById('niBtResult');if(bt)bt.innerHTML='';
+  _niAutoPairs();
 }
-function _niSetGame(g){_niGame=g;_niDate='';_niRender(false);const bt=document.getElementById('niBtResult');if(bt)bt.innerHTML='';}
-function _niSetDate(v){_niDate=v;_niRender(true);}
+function _niSetGame(g){_niGame=g;_niDate='';_niRender(false);const bt=document.getElementById('niBtResult');if(bt)bt.innerHTML='';_niAutoPairs();}
+function _niSetDate(v){_niDate=v;_niRender(true);_niAutoPairs();}
+// Ardışık Seçici'yi oyun/tarih değişince otomatik hesapla (backtest kutusu kapalıysa hızlı)
+function _niAutoPairs(){try{if(document.getElementById('niPsResult'))setTimeout(()=>_niPairSelect(),80);}catch(e){}}
 function _niStepDate(dir){
   const sel=document.getElementById('niDateSel');if(!sel||!sel.options.length)return;
   const idx=Math.min(sel.options.length-1,Math.max(0,sel.selectedIndex+dir));
