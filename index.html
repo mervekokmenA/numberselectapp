@@ -956,6 +956,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <select id="onaMode" onchange="_onaCompute();_onaBacktest()" title="Genişletilmiş: rakamları kaydırarak (örtüşen) 2'li gruplar — daha çok aday" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
     <option value="basic" selected>Temel (2'şerli)</option>
     <option value="slide">Genişletilmiş (kayan)</option>
+    <option value="ts">Tekli+İkili (en geniş)</option>
    </select>
    <button onclick="_onaCompute()" style="font-size:.78rem;padding:8px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🔢 Hesapla</button>
   </div>
@@ -15132,8 +15133,13 @@ const _ONA_SAMPLES=[
 ];
 function _onaProduct(no){let p=1,any=false;for(const ch of String(no)){const d=+ch;if(d>0){p*=d;any=true;}}return any?p:0;}
 function _onaAllDigits(v){return String(v).replace(/[^\d]/g,'');}
-// mode='basic' → örtüşmeyen 2'li gruplar; 'slide' → kaydırarak (örtüşen) 2'li pencereler
-function _onaPairs(str,max,mode){const s=_onaAllDigits(str);const o=[];const step=mode==='slide'?1:2;for(let i=0;i+1<s.length;i+=step){const n=parseInt(s.substr(i,2),10);if(n>=1&&n<=max)o.push(n);}return o;}
+// mode='basic' → örtüşmeyen 2'li gruplar; 'slide' → kaydırarak (örtüşen) 2'li; 'ts' → kayan 2'li + tekli (1-9)
+function _onaPairs(str,max,mode){
+  const s=_onaAllDigits(str);const o=[];const step=mode==='basic'?2:1;
+  for(let i=0;i+1<s.length;i+=step){const n=parseInt(s.substr(i,2),10);if(n>=1&&n<=max)o.push(n);}
+  if(mode==='ts'){for(const ch of s){const d=+ch;if(d>=1&&d<=9)o.push(d);}}
+  return o;
+}
 function _onaMode(){return document.getElementById('onaMode')?.value||'basic';}
 function _onaCandidates(no,max,mode){
   mode=mode||'basic';
