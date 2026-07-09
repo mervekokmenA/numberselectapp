@@ -1361,6 +1361,35 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    </div>
   </div>
  </div>
+ <div class="card" style="margin-top:16px">
+  <div class="card-title">🔢 Oyun No Analizi</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Biletindeki <strong>Oyun No</strong>'yu gir. Yöntem: 0 hariç rakamların <strong>çarpımı</strong> → <strong>÷33</strong> ve <strong>÷19</strong>; çarpımın ve bölümlerin (virgül sonrası dahil) rakamları <strong>2'şerli</strong> gruplanarak aday sayılar çıkarılır.</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+   <input type="text" id="onaInputQ" inputmode="numeric" placeholder="Oyun No — örn. 2394217989" style="flex:1;min-width:180px;font-size:.82rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 10px" onkeydown="if(event.key==='Enter')_onaCompute('Q')">
+   <span style="font-size:.66rem;color:var(--muted)">Aralık 1–</span>
+   <input type="number" id="onaMaxQ" value="60" min="10" max="99" style="width:60px;font-size:.78rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+   <select id="onaModeQ" onchange="_onaCompute('Q');_onaBacktest('Q')" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    <option value="basic" selected>Temel (2'şerli)</option>
+    <option value="slide">Genişletilmiş (kayan)</option>
+    <option value="ts">Tekli+İkili (en geniş)</option>
+   </select>
+   <button onclick="_onaCompute('Q')" style="font-size:.78rem;padding:8px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🔢 Hesapla</button>
+  </div>
+  <div id="onaOutQ"></div>
+  <div style="margin-top:14px;border-top:1px dashed var(--border);padding-top:12px">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">
+    <span style="font-size:.74rem;font-weight:800;color:#0a9a6a">📊 Geçmiş Test — Oyun No'ları</span>
+    <button onclick="_onaBacktest('Q')" class="copy-btn" style="font-size:.64rem;padding:4px 10px">🔄 Yenile</button>
+   </div>
+   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+    <input type="text" id="onaAddNoQ" inputmode="numeric" placeholder="Oyun No" style="flex:1;min-width:110px;font-size:.74rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    <input type="text" id="onaAddDrawQ" placeholder="çıkan sayılar (3 16 35 44 50 57)" style="flex:2;min-width:150px;font-size:.74rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    <input type="number" id="onaAddMaxQ" value="60" min="10" max="99" title="aralık" style="width:56px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 6px">
+    <button onclick="_onaAdd('Q')" style="font-size:.72rem;padding:6px 12px;border-radius:8px;background:rgba(0,150,58,.12);border:1px solid rgba(0,150,58,.4);color:var(--green);cursor:pointer;font-weight:700">➕ Ekle</button>
+   </div>
+   <div id="onaBtOutQ"></div>
+  </div>
+ </div>
 </div><!-- /page-hizlitahmin -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
@@ -15144,7 +15173,9 @@ function _onaPairs(str,max,mode){
   if(mode==='ts'){for(const ch of s){const d=+ch;if(d>=1&&d<=9)o.push(d);}}
   return o;
 }
-function _onaMode(){return document.getElementById('onaMode')?.value||'basic';}
+function _onaMode(sfx){return document.getElementById('onaMode'+(sfx||''))?.value||'basic';}
+function _onaCopyBtn(sfx){_caCopy(window['_onaCopy'+(sfx||'')]);}
+function _onaRefreshAll(){['','Q'].forEach(s=>{if(document.getElementById('onaBtOut'+s))_onaBacktest(s);});}
 function _onaCandidates(no,max,mode){
   mode=mode||'basic';
   const P=_onaProduct(no),q33=P/33,q19=P/19;
@@ -15164,28 +15195,30 @@ function _onaSrcLine(lbl,arr,dset){
   const inner=u.length?u.map(x=>{const hit=dset&&dset.has(x),near=!hit&&dset&&(dset.has(x-1)||dset.has(x+1));return `<span style="font-family:monospace;color:${hit?'#0a9a3a':near?'#f97316':'var(--text)'};font-weight:${hit||near?800:400}">${x}${hit?'✓':near?'~':''}</span>`;}).join(' '):'—';
   return `<div style="font-size:.52rem;color:var(--muted);margin-top:2px">${lbl}: ${inner}</div>`;
 }
-function _onaCompute(){
-  const el=document.getElementById('onaOut');if(!el)return;
-  const no=(document.getElementById('onaInput')?.value||'').replace(/\D/g,'');
-  const max=Math.max(10,Math.min(99,parseInt(document.getElementById('onaMax')?.value)||60));
+function _onaCompute(sfx){
+  sfx=sfx||'';
+  const el=document.getElementById('onaOut'+sfx);if(!el)return;
+  const no=(document.getElementById('onaInput'+sfx)?.value||'').replace(/\D/g,'');
+  const max=Math.max(10,Math.min(99,parseInt(document.getElementById('onaMax'+sfx)?.value)||60));
   if(no.length<3){el.innerHTML='<div style="padding:10px;font-size:.7rem;color:var(--muted)">Geçerli bir Oyun No girin.</div>';return;}
-  const c=_onaCandidates(no,max,_onaMode());
-  window._onaCopy='Oyun No '+no+'\n🔢 Çarpım (0 hariç): '+c.P.toLocaleString('tr-TR')+'\n➗ ÷33: '+c.q33.toLocaleString('tr-TR',{maximumFractionDigits:9})+'\n➗ ÷19: '+c.q19.toLocaleString('tr-TR',{maximumFractionDigits:9})+'\n🎯 Aday sayılar (1-'+max+'): '+c.all.join(' ');
+  const c=_onaCandidates(no,max,_onaMode(sfx));
+  window['_onaCopy'+sfx]='Oyun No '+no+'\n🔢 Çarpım (0 hariç): '+c.P.toLocaleString('tr-TR')+'\n➗ ÷33: '+c.q33.toLocaleString('tr-TR',{maximumFractionDigits:9})+'\n➗ ÷19: '+c.q19.toLocaleString('tr-TR',{maximumFractionDigits:9})+'\n🎯 Aday sayılar (1-'+max+'): '+c.all.join(' ');
   let h=`<div style="padding:11px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">`;
   h+=`<div style="font-size:.62rem;color:var(--muted);line-height:1.9">🔢 <strong style="color:var(--text)">Çarpım (0 hariç):</strong> ${c.P.toLocaleString('tr-TR')}<br>➗ <strong style="color:var(--text)">÷33:</strong> ${c.q33.toLocaleString('tr-TR',{maximumFractionDigits:9})}<br>➗ <strong style="color:var(--text)">÷19:</strong> ${c.q19.toLocaleString('tr-TR',{maximumFractionDigits:9})}</div>`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0 5px"><span style="font-size:.66rem;font-weight:800;color:var(--accent)">🎯 Aday sayılar (${c.all.length})</span><button onclick="_caCopy(window._onaCopy)" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></div>`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin:9px 0 5px"><span style="font-size:.66rem;font-weight:800;color:var(--accent)">🎯 Aday sayılar (${c.all.length})</span><button onclick="_onaCopyBtn('${sfx}')" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></div>`;
   h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${c.all.map(n=>_onaBadge(n,null)).join('')}</div>`;
   const grp=(lbl,arr)=>`<div style="font-size:.56rem;color:var(--muted);margin-bottom:3px">${lbl}: <span style="font-family:monospace;color:var(--text)">${[...new Set(arr)].sort((a,b)=>a-b).join(' ')||'—'}</span></div>`;
   h+=grp('🔢 Çarpımdan',c.cProd)+grp('➗33 sonucundan',c.c33)+grp('➗19 sonucundan',c.c19);
   h+=`</div>`;
   el.innerHTML=h;
 }
-function _onaBacktest(){
-  const el=document.getElementById('onaBtOut');if(!el)return;
+function _onaBacktest(sfx){
+  sfx=sfx||'';
+  const el=document.getElementById('onaBtOut'+sfx);if(!el)return;
   let user=[];try{user=JSON.parse(localStorage.getItem('_onaTickets')||'[]');}catch(e){}
   const all=[...user,..._ONA_SAMPLES];
   if(!all.length){el.innerHTML='';return;}
-  const mode=_onaMode();
+  const mode=_onaMode(sfx);
   let totNet=0,totCand=0,baseSum=0,n=0,rows='';
   all.forEach((s,i)=>{
     const no=String(s.no).replace(/\D/g,'');const c=_onaCandidates(no,s.max||60,mode);const dset=new Set(s.draw);
@@ -15205,19 +15238,20 @@ function _onaBacktest(){
   h+=rows;
   el.innerHTML=h;
 }
-function _onaAdd(){
-  const no=(document.getElementById('onaAddNo')?.value||'').replace(/\D/g,'');
-  const draw=((document.getElementById('onaAddDraw')?.value||'').match(/\d+/g)||[]).map(Number);
-  const max=Math.max(10,Math.min(99,parseInt(document.getElementById('onaAddMax')?.value)||60));
+function _onaAdd(sfx){
+  sfx=sfx||'';
+  const no=(document.getElementById('onaAddNo'+sfx)?.value||'').replace(/\D/g,'');
+  const draw=((document.getElementById('onaAddDraw'+sfx)?.value||'').match(/\d+/g)||[]).map(Number);
+  const max=Math.max(10,Math.min(99,parseInt(document.getElementById('onaAddMax'+sfx)?.value)||60));
   if(no.length<3||!draw.length){if(typeof showToast==='function')showToast('Oyun No ve çıkan sayıları girin');return;}
   let user=[];try{user=JSON.parse(localStorage.getItem('_onaTickets')||'[]');}catch(e){}
   user.unshift({no,draw,max,date:'kendi'});
   try{localStorage.setItem('_onaTickets',JSON.stringify(user));}catch(e){}
-  const a=document.getElementById('onaAddNo'),d=document.getElementById('onaAddDraw');if(a)a.value='';if(d)d.value='';
-  _onaBacktest();
+  const a=document.getElementById('onaAddNo'+sfx),d=document.getElementById('onaAddDraw'+sfx);if(a)a.value='';if(d)d.value='';
+  _onaRefreshAll();
 }
-function _onaDel(i){let user=[];try{user=JSON.parse(localStorage.getItem('_onaTickets')||'[]');}catch(e){}user.splice(i,1);try{localStorage.setItem('_onaTickets',JSON.stringify(user));}catch(e){}_onaBacktest();}
-function _onaInit(){_onaBacktest();}
+function _onaDel(i){let user=[];try{user=JSON.parse(localStorage.getItem('_onaTickets')||'[]');}catch(e){}user.splice(i,1);try{localStorage.setItem('_onaTickets',JSON.stringify(user));}catch(e){}_onaRefreshAll();}
+function _onaInit(){_onaBacktest('');}
 
 // ── Boot ──────────────────────────────────────────────────────
 (function(){
@@ -17547,7 +17581,7 @@ function _qtStepDate(dir){
   if(idx<1)idx=1;else idx=Math.min(sel.options.length-1,Math.max(1,idx+dir));
   sel.selectedIndex=idx;_qtDateTest();
 }
-function _qtInit(){ _qtRenderControls(); const o=document.getElementById('qtOut'); if(o&&!o.innerHTML.trim())_qtRunAll(false); }
+function _qtInit(){ _qtRenderControls(); const o=document.getElementById('qtOut'); if(o&&!o.innerHTML.trim())_qtRunAll(false); try{_onaBacktest('Q');}catch(e){} }
 function _qtSetGame(g){_qtGame=g;_qtGameManual=true;_qtRenderControls();const d=document.getElementById('qtDateOut');if(d)d.innerHTML='';const a=document.getElementById('qtAiBtOut');if(a)a.innerHTML='';_qtRunAll(true);}
 function _qtHash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return h;}
 // ── kaynak yapılar ──
