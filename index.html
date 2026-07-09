@@ -953,6 +953,10 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <input type="text" id="onaInput" inputmode="numeric" placeholder="Oyun No — örn. 2394217989" style="flex:1;min-width:180px;font-size:.82rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 10px" onkeydown="if(event.key==='Enter')_onaCompute()">
    <span style="font-size:.66rem;color:var(--muted)">Aralık 1–</span>
    <input type="number" id="onaMax" value="60" min="10" max="99" style="width:60px;font-size:.78rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+   <select id="onaMode" onchange="_onaCompute();_onaBacktest()" title="Genişletilmiş: rakamları kaydırarak (örtüşen) 2'li gruplar — daha çok aday" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px">
+    <option value="basic" selected>Temel (2'şerli)</option>
+    <option value="slide">Genişletilmiş (kayan)</option>
+   </select>
    <button onclick="_onaCompute()" style="font-size:.78rem;padding:8px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🔢 Hesapla</button>
   </div>
   <div id="onaOut"></div>
@@ -15127,11 +15131,14 @@ const _ONA_SAMPLES=[
  {no:'4083573773',max:60,draw:[10,11,35,38,41,57],date:'09.06 · Sen Seç'},
 ];
 function _onaProduct(no){let p=1,any=false;for(const ch of String(no)){const d=+ch;if(d>0){p*=d;any=true;}}return any?p:0;}
-function _onaPairs(str,max){const s=String(str).replace(/\D/g,'');const o=[];for(let i=0;i+1<s.length;i+=2){const n=parseInt(s.substr(i,2),10);if(n>=1&&n<=max)o.push(n);}return o;}
 function _onaAllDigits(v){return String(v).replace(/[^\d]/g,'');}
-function _onaCandidates(no,max){
+// mode='basic' → örtüşmeyen 2'li gruplar; 'slide' → kaydırarak (örtüşen) 2'li pencereler
+function _onaPairs(str,max,mode){const s=_onaAllDigits(str);const o=[];const step=mode==='slide'?1:2;for(let i=0;i+1<s.length;i+=step){const n=parseInt(s.substr(i,2),10);if(n>=1&&n<=max)o.push(n);}return o;}
+function _onaMode(){return document.getElementById('onaMode')?.value||'basic';}
+function _onaCandidates(no,max,mode){
+  mode=mode||'basic';
   const P=_onaProduct(no),q33=P/33,q19=P/19;
-  const cProd=_onaPairs(P,max),c33=_onaPairs(_onaAllDigits(q33),max),c19=_onaPairs(_onaAllDigits(q19),max);
+  const cProd=_onaPairs(P,max,mode),c33=_onaPairs(q33,max,mode),c19=_onaPairs(q19,max,mode);
   const all=[...new Set([...cProd,...c33,...c19])].sort((a,b)=>a-b);
   return {P,q33,q19,cProd,c33,c19,all};
 }
@@ -15141,7 +15148,7 @@ function _onaCompute(){
   const no=(document.getElementById('onaInput')?.value||'').replace(/\D/g,'');
   const max=Math.max(10,Math.min(99,parseInt(document.getElementById('onaMax')?.value)||60));
   if(no.length<3){el.innerHTML='<div style="padding:10px;font-size:.7rem;color:var(--muted)">Geçerli bir Oyun No girin.</div>';return;}
-  const c=_onaCandidates(no,max);
+  const c=_onaCandidates(no,max,_onaMode());
   window._onaCopy='Oyun No '+no+' — aday sayılar (1-'+max+')\n'+c.all.join(' ');
   let h=`<div style="padding:11px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">`;
   h+=`<div style="font-size:.62rem;color:var(--muted);line-height:1.9">🔢 <strong style="color:var(--text)">Çarpım (0 hariç):</strong> ${c.P.toLocaleString('tr-TR')}<br>➗ <strong style="color:var(--text)">÷33:</strong> ${c.q33.toLocaleString('tr-TR',{maximumFractionDigits:9})}<br>➗ <strong style="color:var(--text)">÷19:</strong> ${c.q19.toLocaleString('tr-TR',{maximumFractionDigits:9})}</div>`;
@@ -15157,9 +15164,10 @@ function _onaBacktest(){
   let user=[];try{user=JSON.parse(localStorage.getItem('_onaTickets')||'[]');}catch(e){}
   const all=[...user,..._ONA_SAMPLES];
   if(!all.length){el.innerHTML='';return;}
+  const mode=_onaMode();
   let totNet=0,totCand=0,baseSum=0,n=0,rows='';
   all.forEach((s,i)=>{
-    const no=String(s.no).replace(/\D/g,'');const c=_onaCandidates(no,s.max||60);const dset=new Set(s.draw);
+    const no=String(s.no).replace(/\D/g,'');const c=_onaCandidates(no,s.max||60,mode);const dset=new Set(s.draw);
     const hit=c.all.filter(x=>dset.has(x));
     totNet+=hit.length;totCand+=c.all.length;baseSum+=c.all.length*(s.draw.length/(s.max||60));n++;
     const own=s.date==='kendi';
