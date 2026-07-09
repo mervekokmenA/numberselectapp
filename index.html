@@ -1038,8 +1038,12 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div class="card-title">🏁 Nihai Tahmin</div>
     <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(244,114,63,.06);border:1px solid rgba(244,114,63,.2);border-radius:6px;line-height:1.7"><strong>Nihai</strong>, uygulamadaki analizlerin ortak aklıdır: <strong>8 bağımsız sinyal</strong> (frekans, yakın dönem, keskin momentum, gecikme, zincir, eş-görünüm, komşu, konum) + <strong>🔮 Gülay fark-analizi</strong> her sayıya oy verir; oylar hem <strong>Nihai Sayılar</strong> listesini kurar hem bilet ağırlıklarını güçlendirir. Biletler mantıksal süzgeçlerden (tarihsel toplam bandı, bölge/erişim) geçirilip <strong>karma demet</strong> olarak üretilir: kapsama-optimal çekirdek + bitişik-çift yapısı + uç-senaryo biletleri. <strong>3,4 milyon biletlik</strong> geri-testle ayarlandı — 10 biletlik demette en iyi biletin ölçülmüş oranları: <strong>Şans Topu ≥2 net %82 / ≥3 net ~%12</strong> · <strong>Süper ≥2 net %67 / ≥3 net ~%10</strong> · <strong>Sayısal ≥2 net %62</strong>; net+yakın ≥4: %59-71. Tam isabet garantisi yoktur — bunlar dürüst, geriye dönük ölçümlerdir.</div>
     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="niGameRow"></div>
-    <div style="margin-bottom:12px;display:flex;align-items:center;gap:6px">
+    <div style="margin-bottom:12px;display:flex;align-items:stretch;gap:6px">
      <select id="niDateSel" onchange="_niSetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:0"></select>
+     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+      <button onclick="_niStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+      <button onclick="_niStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+     </div>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
      <label style="font-size:.72rem;color:var(--muted)">Bilet grubu:</label>
@@ -14430,6 +14434,11 @@ function _niInit(){
 }
 function _niSetGame(g){_niGame=g;_niDate='';_niRender(false);const bt=document.getElementById('niBtResult');if(bt)bt.innerHTML='';}
 function _niSetDate(v){_niDate=v;_niRender(true);}
+function _niStepDate(dir){
+  const sel=document.getElementById('niDateSel');if(!sel||!sel.options.length)return;
+  const idx=Math.min(sel.options.length-1,Math.max(0,sel.selectedIndex+dir));
+  sel.selectedIndex=idx;_niSetDate(sel.value);
+}
 // Bilet grubundaki ardışık (x, x+1) çiftlerini bulur — near-shape yapısının yerleştirdiği çiftler.
 function _niConsecPairs(tickets){
   const m=new Map();
