@@ -1272,7 +1272,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Seçili oyun için tüm bilet/analiz yapılarını tek yerde üretir: <strong>🤖 AI Bilet Üretici</strong>, <strong>🎯⁰ Gülsis Sıfır</strong>, <strong>🏁 Nihai</strong> (+ ardışık çiftler), <strong>📈 12&#39;li 3+ (Yakın Dönem Ağırlıklı)</strong> ve <strong>🔮 Gülay fark-analizi</strong> (toplama/çıkarma/fark zinciri). En altta hepsini <strong>birleştiren bir AI tahmini</strong> verir.</div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="qtGameRow"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-   <button onclick="_qtRunAll(true)" style="flex:1;min-width:160px;font-size:.78rem;padding:9px;border-radius:10px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🔄 Yenile</button>
+   <span style="font-size:.66rem;color:var(--muted)">🧠 AI bilet:</span>
+   <select id="qtAiK" onchange="_qtRunAll(true)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="10">10</option><option value="20">20</option><option value="30" selected>30</option><option value="50">50 (3+ için)</option><option value="100">100 (en yüksek)</option>
+   </select>
+   <button onclick="_qtRunAll(true)" style="flex:1;min-width:130px;font-size:.78rem;padding:9px;border-radius:10px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🔄 Yenile</button>
    <button onclick="_qtCopyAll()" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Tümünü Kopyala</button>
   </div>
  </div>
@@ -1285,7 +1289,13 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <div class="card" style="margin-bottom:12px">
     <div class="card-title">📊 Geçmiş Test</div>
     <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; tüm yapılar o tarihten ÖNCEKİ verilerle üretilip gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
-    <select id="qtDateSel" onchange="_qtDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;width:100%;box-sizing:border-box"></select>
+    <div style="display:flex;gap:6px;align-items:stretch">
+     <select id="qtDateSel" onchange="_qtDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+      <button onclick="_qtStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+      <button onclick="_qtStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+     </div>
+    </div>
     <div id="qtDateOut" style="margin-top:10px"></div>
    </div>
    <div class="card">
@@ -17281,6 +17291,12 @@ function _qtDates(){
   draws.forEach((d,i)=>{if(draws.length-i-1<60)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
   sel.innerHTML=h;if(prev)sel.value=prev;
 }
+function _qtStepDate(dir){
+  const sel=document.getElementById('qtDateSel');if(!sel||sel.options.length<2)return;
+  let idx=sel.selectedIndex;
+  if(idx<1)idx=1;else idx=Math.min(sel.options.length-1,Math.max(1,idx+dir));
+  sel.selectedIndex=idx;_qtDateTest();
+}
 function _qtInit(){ _qtRenderControls(); const o=document.getElementById('qtOut'); if(o&&!o.innerHTML.trim())_qtRunAll(false); }
 function _qtSetGame(g){_qtGame=g;_qtGameManual=true;_qtRenderControls();const d=document.getElementById('qtDateOut');if(d)d.innerHTML='';const a=document.getElementById('qtAiBtOut');if(a)a.innerHTML='';_qtRunAll(true);}
 function _qtHash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return h;}
@@ -17303,7 +17319,8 @@ function _qtCombineWeights(game,prior,src){
   mk(src.aiB);mk(src.g0);mk(src.ni);mk(src.yak);
   if(src.ga){const gs=new Set();(src.ga.gulayCands||[]).slice(0,25).forEach(c=>{if(c.n>=1&&c.n<=max){tally[c.n]=(tally[c.n]||0)+Math.min(3,c.cnt);gs.add(c.n);}});gs.forEach(n=>srcCount[n]=(srcCount[n]||0)+1);}
   const ranked=[];for(let n=1;n<=max;n++)ranked.push(n);ranked.sort((a,b)=>tally[b]-tally[a]||(srcCount[b]||0)-(srcCount[a]||0)||a-b);
-  const wMap={};for(let n=1;n<=max;n++)wMap[n]=Math.pow(tally[n]+0.15,1.5)+0.02;
+  // ağırlık: ham sayım + BİRDEN ÇOK yapının uzlaşısı (srcCount) vurgulu — yüksek-uzlaşı bölgesine yoğunlaş
+  const wMap={};for(let n=1;n<=max;n++)wMap[n]=Math.pow(tally[n]+1.6*(srcCount[n]||0)+0.15,1.6)+0.02;
   const sums=prior.map(x=>x.nums.slice(0,cnt).reduce((a,b)=>a+b,0)).filter(x=>x>0).sort((a,b)=>a-b);
   const lo=sums[Math.floor(sums.length*0.15)]||0,hi=sums[Math.floor(sums.length*0.85)]||max*cnt;
   return {wMap,lo,hi,ranked,tally,srcCount};
@@ -17393,8 +17410,9 @@ function _qtGulayBlock(ga,game,aSet){
 }
 function _qtAiBlock(game,prior,src,aSet){
   const max=game.max,cnt=game.count,nSrc=5;
+  const K=parseInt(document.getElementById('qtAiK')?.value)||30;
   const C=_qtCombineWeights(game,prior,src);
-  let tickets=[];try{tickets=_niGenBundle(game,prior,10,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){}
+  let tickets=[];try{tickets=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){}
   const topNums=C.ranked.filter(n=>C.tally[n]>0).slice(0,cnt*2);
   const pick=C.ranked.filter(n=>C.tally[n]>0).slice(0,cnt).sort((a,b)=>a-b);
   if(!aSet)window._qtAiTk='Hızlı Tahmin — Birleşik AI ('+game.name+')\nEn güçlü '+cnt+': '+pick.join(' ')+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
@@ -17412,7 +17430,7 @@ function _qtAiBlock(game,prior,src,aSet){
 function _qtAiBacktest(){
   const el=document.getElementById('qtAiBtOut');if(!el)return;
   const game=getGame(_qtGame),draws=_kbGetDraws(_qtGame);
-  const N=parseInt(document.getElementById('qtAiBtN')?.value)||12;const K=10;
+  const N=parseInt(document.getElementById('qtAiBtN')?.value)||12;const K=parseInt(document.getElementById('qtAiK')?.value)||30;
   if(!draws||draws.length<70){el.innerHTML='<div style="padding:8px;font-size:.66rem;color:var(--muted)">Geçmiş test için yeterli veri yok.</div>';return;}
   el.innerHTML='<div style="padding:10px;font-size:.66rem;color:var(--muted)">⏳ AI biletleri her tarih için yeniden kurulup test ediliyor… (tüm yapılar çalışır, biraz sürebilir)</div>';
   setTimeout(()=>{
