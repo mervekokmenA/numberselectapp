@@ -1266,187 +1266,16 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <!-- ═══════════ PAGE: HIZLI TAHMİN ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-hizlitahmin">
-
- <!-- Toplu Kopyala (sayfadaki tüm analizler) -->
- <div style="margin-bottom:12px">
-  <button onclick="_htCopyAllAnalyses()" style="width:100%;padding:11px;background:linear-gradient(135deg,rgba(0,150,58,.16),rgba(129,140,248,.14));border:1px solid rgba(0,150,58,.4);color:var(--text);border-radius:10px;cursor:pointer;font-size:.82rem;font-weight:800">📋 Tüm Analizleri Toplu Kopyala</button>
- </div>
-
- <!-- 0: Manuel Sayı Girişi (harici liste filtresi) -->
- <div class="card" style="margin-bottom:12px">
-  <div class="card-title">✍️ Manuel Sayı Girişi</div>
-  <div id="htDrawReminder"></div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Sayıları virgülle ayırarak yapıştırın, örn: <code style="background:rgba(0,0,0,.06);padding:1px 4px;border-radius:3px">2, 6, 9, 11, 15...</code>. Örneğin dışarıdan edindiğiniz bir aday sayı listesini buraya yapıştırabilirsiniz — aşağıdaki 🧮 Konsensüs Analizi kartının "📋 Havuzdan Seç" sekmesi bu havuzu sayfadaki diğer sistemlerle otomatik karşılaştırıp filtreler.</div>
-  <textarea id="htManualInput" rows="2" placeholder="2, 6, 9, 11, 15, 16, 19, 22, 23, 26, 28, 30, 32, 36, 38, 40, 43, 45, 47, 50, 51, 52, 56" style="width:100%;box-sizing:border-box;font-size:.8rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;font-family:monospace;outline:none;margin-bottom:8px"></textarea>
-  <button onclick="_htShowManualNumbers()" style="font-size:.74rem;padding:7px 16px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-weight:700;margin-bottom:10px">🔢 Göster</button>
-  <button onclick="_htAutoFillManualPool()" style="font-size:.74rem;padding:7px 16px;border-radius:8px;border:1px solid rgba(129,140,248,.5);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700;margin-bottom:10px;margin-left:8px">🎲 Otomatik Doldur</button>
-  <div id="htManualResult" style="display:flex;gap:6px;flex-wrap:wrap"></div>
- </div>
-
- <!-- 1+2: Gülay Analiz + AI Biletler -->
- <div class="card" style="margin-bottom:12px">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <div class="card-title" style="margin:0">🔮 Gülay Analiz &amp; AI Biletler</div>
-   <button onclick="_htRenderSoz()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Güncelle</button>
+ <div class="card">
+  <div class="card-title">⚡ Hızlı Tahmin — Tüm Yapılar Bir Arada</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Seçili oyun için tüm bilet/analiz yapılarını tek yerde üretir: <strong>🤖 AI Bilet Üretici</strong>, <strong>🎯⁰ Gülsis Sıfır</strong>, <strong>🏁 Nihai</strong> (+ ardışık çiftler), <strong>📈 12&#39;li 3+ (Yakın Dönem Ağırlıklı)</strong> ve <strong>🔮 Gülay fark-analizi</strong> (toplama/çıkarma/fark zinciri). En altta hepsini <strong>birleştiren bir AI tahmini</strong> verir.</div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="qtGameRow"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+   <button onclick="_qtRunAll()" style="flex:1;min-width:200px;font-size:.82rem;padding:11px;border-radius:11px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🚀 Tümünü Üret + AI Tahmini</button>
+   <button onclick="_qtCopyAll()" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Tümünü Kopyala</button>
   </div>
-  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="htSozGameRow"></div>
-  <div id="htSozContent"><div class="empty-state"><span class="empty-icon">🔮</span>Yükleniyor…</div></div>
  </div>
-
- <!-- 2a: AI Tahmin — Geçmiş Test -->
- <div class="card" style="margin-bottom:12px">
-  <div class="card-title">📊 AI Tahmin — Geçmiş Test</div>
-  <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">🤖 AI Tahmin Sistemi'nin ürettiği Top 15 aday ve biletleri geçmiş çekilişlere karşı test eder. Her test, o tarihte henüz gerçekleşmemiş (gelecek) verileri kullanmadan hesaplanır — gerçek bir tahmin senaryosunu simüle eder.</div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-    <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
-    <select id="htSoAiBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-      <option value="10">10 çekiliş</option>
-      <option value="20" selected>20 çekiliş</option>
-      <option value="30">30 çekiliş</option>
-      <option value="50">50 çekiliş</option>
-    </select>
-    <button onclick="_soAiBacktest({gameId:_htGame,resultElId:'htSoAiBtResult',countElId:'htSoAiBtCount'})" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
-  </div>
-  <div id="htSoAiBtResult"></div>
- </div>
-
- <!-- 2b: Sonraki Çekiliş Tahmin Grubu -->
- <div class="card" style="margin-bottom:12px">
-  <div class="card-title" style="align-items:center;flex-wrap:wrap;gap:8px;margin:0 0 8px">
-   <span>🔮 Sonraki Çekiliş Tahmin Grubu</span>
-   <div style="display:flex;gap:6px;margin-left:auto">
-    <button onclick="_nextDrawBacktest({gameId:_htGame,resultElId:'htNextDrawBtResult'})" style="font-size:.68rem;padding:4px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">📊 Geçmiş Test</button>
-    <button onclick="_nextDrawPredict({gameId:_htGame,resultElId:'htNextDrawPredResult'})" style="font-size:.68rem;padding:4px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">↺ Hesapla</button>
-   </div>
-  </div>
-  <div id="htNextDrawPredResult" style="min-height:60px;color:var(--muted);font-size:.75rem"><div style="display:flex;align-items:center;justify-content:center;min-height:60px">Hesapla butonuna basın.</div></div>
-  <div id="htNextDrawBtResult" style="margin-top:12px"></div>
- </div>
-
- <!-- 3: Sisal-LCG Bilet Oluşturma -->
- <div class="card" style="margin-bottom:12px">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <div class="card-title" style="margin:0">🎲 Sisal-LCG Bilet Oluşturma</div>
-  </div>
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-   <span style="font-size:.72rem;color:var(--muted)">Bilet sayısı:</span>
-   <input type="number" id="htSisalCount" value="4" min="1" max="50" style="width:64px;font-size:.8rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;text-align:center">
-   <button onclick="_htGenerateSisal()" style="font-size:.74rem;padding:7px 16px;border-radius:8px;border:1px solid rgba(0,150,58,.35);background:rgba(0,150,58,.1);color:var(--text);cursor:pointer;font-weight:700">🎲 Sisal-LCG Bilet Üret</button>
-  </div>
-  <div id="htSisalResult"></div>
- </div>
-
- <!-- 4: B10 Sistem Kuponu (4 çıkarsa 4 garanti) -->
- <div class="card" style="margin-bottom:12px;border:1px solid rgba(0,150,58,.15);background:rgba(0,150,58,.03)">
-  <div class="card-title">🎟️ B10 Sistem Kuponu (Wheeling)</div>
-  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-   <div style="display:flex;align-items:center;gap:6px">
-    <span style="font-size:.72rem;color:var(--muted)">Analiz penceresi:</span>
-    <select id="b10WindowHt" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px">
-     <option value="30" selected>Son 30</option>
-     <option value="50">Son 50</option>
-     <option value="100">Son 100</option>
-     <option value="999">Tümü</option>
-    </select>
-   </div>
-   <div style="display:flex;align-items:center;gap:6px">
-    <span style="font-size:.72rem;color:var(--muted)">Sayı adedi:</span>
-    <select id="b10BankCountHt" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px">
-     <option value="3">3</option>
-     <option value="5">5</option>
-     <option value="7">7</option>
-     <option value="10" selected>10</option>
-    </select>
-   </div>
-  </div>
-  <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-   <span style="font-size:.72rem;color:var(--muted)">Garanti:</span>
-   <select id="b10WheelGuarHt" style="flex:1;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px">
-    <option value="2">2 çıkarsa 2 garanti (az kolon)</option>
-    <option value="3" selected>3 çıkarsa 3 garanti</option>
-    <option value="4">4 çıkarsa 4 garanti (çok kolon)</option>
-   </select>
-  </div>
-  <button onclick="runB10Wheel('Ht')" style="width:100%;padding:9px;background:linear-gradient(135deg,rgba(0,150,58,.13),rgba(255,140,0,.1));border:1px solid rgba(0,150,58,.35);color:var(--text);border-radius:10px;cursor:pointer;font-size:.8rem;font-weight:700;margin-bottom:10px">🎟️ Sistem Kuponu Üret</button>
-  <div id="b10WheelResultHt"></div>
- </div>
-
- <!-- 5: Listeler — Bulunan Sayılar & AI Biletleri (otomatik doldurulur) -->
- <div class="card" style="margin-bottom:12px">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <div class="card-title" style="margin:0">🔎 Listeler — Bulunan Sayılar & AI Biletleri</div>
-   <button onclick="_htAutoFillListelerAi()" style="font-size:.62rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔄 Yenile</button>
-  </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px">🤖 Otomatik üretilir (son 2 çekiliş geri testi + 2000 biletlik Sisal-LCG yeni tahmin). Listeler sayfasında kendi tahmininizi/geçmiş testinizi çalıştırırsanız burada da güncellenir.</div>
-  <div id="htListelerBulunduMirror" style="margin-bottom:14px"><div class="empty-state"><span class="empty-icon">🔎</span>Yükleniyor…</div></div>
-  <div style="font-size:.65rem;font-weight:700;color:var(--text);margin-bottom:8px;padding-top:6px;border-top:1px solid var(--border)">🤖 AI Biletleri</div>
-  <div id="htListelerAiMirror"><div class="empty-state"><span class="empty-icon">🤖</span>Yükleniyor…</div></div>
- </div>
-
- <!-- 5b: Astro Tahmin — Kozmik Sayılar (otomatik doldurulur) -->
- <div class="card" style="margin-bottom:12px">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <div class="card-title" style="margin:0">🪐 Astro Tahmin — Kozmik Sayılar</div>
-   <button onclick="showMainPage('astro')" style="font-size:.62rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(129,140,248,.3);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer">🪐 Astro Tahmin Sayfası</button>
-  </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:6px">🤖 Astro Tahmin sayfasında girdiğiniz doğum bilgileriyle, bugünün tarihine göre otomatik üretilir. Bilgi girmediyseniz boş görünür.</div>
-  <div id="htAstroMirror"><div class="empty-state"><span class="empty-icon">🪐</span>Astro Tahmin sayfasında doğum bilgilerinizi girin.</div></div>
- </div>
-
- <!-- 6: NSA + Banko — Son Analiz (açılır/kapanır) -->
- <div class="card" style="margin-bottom:12px">
-  <details id="htGizliDetails" open>
-   <summary style="cursor:pointer;font-size:.8rem;font-weight:700;color:var(--text);list-style:none">🔐 NSA — Banko ile Son Analiz</summary>
-   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:10px 0 8px;flex-wrap:wrap">
-    <span style="font-size:.6rem;color:var(--muted)">🔐 Otomatik üretilir. NSA sayfasında kendi banko/beklenti filtrelerinizle "MODEL UYGULA" çalıştırırsanız burada da güncellenir.</span>
-    <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
-     <button onclick="_htOpenBankoBacktest()" style="font-size:.62rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(0,150,58,.35);background:rgba(0,150,58,.1);color:var(--green);cursor:pointer;font-weight:700" title="Banko adaylarının geçmişte gerçekten çıkma oranını (walk-forward) gör">📈 Banko Geçmiş Testi</button>
-     <button onclick="_htAutoFillGizli()" style="font-size:.62rem;padding:4px 10px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔄 Yenile</button>
-     <button onclick="gizliKopyalaHepsi()" style="font-size:.62rem;padding:4px 10px;border-radius:6px;border:1px solid rgba(129,140,248,.3);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer">📋 Kopyala</button>
-    </div>
-   </div>
-   <div style="font-size:.56rem;color:var(--muted);margin:-2px 0 8px;line-height:1.5">ℹ️ Buradaki NSA Banko senin canlı/manuel filtrelerine bağlı olduğundan geçmişe uygulanamaz. Banko mantığının geçmiş başarısını görmek için <strong>📈 Banko Geçmiş Testi</strong> ile Kapsamlı → 🔬 Geri Test ("🔒 Güçlü Banko İsabeti") sayfasına geçebilirsin.</div>
-   <div id="htGizliMirror" style="max-height:420px;overflow-y:auto"><div class="empty-state"><span class="empty-icon">📊</span>Yükleniyor…</div></div>
-  </details>
- </div>
-
- <!-- 7: Konsensüs Analizi -->
- <div class="card" id="htConsensusCard" style="margin-top:12px">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <div class="card-title" style="margin:0">🧮 Konsensüs Analizi</div>
-   <button onclick="_htRenderConsensus()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
-  </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Bu sayfadaki tüm sistemlerin ürettiği sayıları karşılaştırır. Birden çok sistemde ortak çıkan sayı, tek bir sistemde çıkana göre daha güçlü adaydır.</div>
-  <div class="tabs" style="margin-bottom:10px">
-   <button class="tab-btn active" id="htConsTabBtn-pool" onclick="_htConsSwitchTab('pool')">📋 Havuzdan Seç</button>
-   <button class="tab-btn" id="htConsTabBtn-all" onclick="_htConsSwitchTab('all')">🌐 Tüm Sistemler</button>
-  </div>
-  <div id="htConsensusResult"><div class="empty-state"><span class="empty-icon">🧮</span>Yükleniyor…</div></div>
- </div>
-
- <!-- 8: Geçmiş Test — Bu Sayfanın Başarısı -->
- <div class="card" style="margin-top:12px">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <div class="card-title" style="margin:0">📈 Geçmiş Test — Bu Sayfanın Başarısı</div>
-   <button onclick="_htRunBacktest()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(251,191,36,.5);background:rgba(251,191,36,.12);color:#8a6200;cursor:pointer;font-weight:700">🔄 Yenile</button>
-  </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu ve Listeler AI (basit) kaynaklarını geçmiş çekilişler üzerinde geriye dönük test eder — her tur SADECE o tarihten önceki verilerle yeniden hesaplanır. NSA Banko (kullanıcının o anki manuel filtrelerine bağlı, geçmiş bir tarih için otomatik hesaplanamaz) ve Listeler'den gelen Kırmızı/Ortak (canlı oturum verisine bağlı) bu otomatik teste dahil değildir.</div>
-  <div id="htBtBox"></div>
- </div>
-
- <!-- 9: Birleşik AI Tahmin -->
- <div class="card" id="htAiCard" style="margin-top:12px">
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <div class="card-title" style="margin:0">🧠 Birleşik AI Tahmin</div>
-   <button onclick="_htAiRenderLive()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
-  </div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.6">Bu sayfadaki tüm sistemleri (Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu, Listeler, NSA Banko), Astro Tahmin'i ve Kronoloji'den çıkan "sırası gelmiş" sayı örüntüsünü tek bir tahminde birleştirir; en çok kaynakta ortak çıkan sayılar üstte. Aşağıdaki geçmiş test, bu kaynaklardan tarihten önceki verilerle yeniden hesaplanabilenleri (Astro Tahmin ve Kronoloji Örüntü dahil) geriye dönük doğrular.</div>
-  <div id="htGroupBox"></div>
-  <div id="htAiLiveResult"><div class="empty-state"><span class="empty-icon">🧠</span>Yükleniyor…</div></div>
-  <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-top:14px;margin-bottom:8px">📈 Geçmiş Test</div>
-  <div id="htAiBtBox"></div>
- </div>
-
+ <div id="qtOut"></div>
 </div><!-- /page-hizlitahmin -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
@@ -17409,22 +17238,119 @@ function _htAutoFillAstro(){
 
 // ═══════════ HIZLI TAHMİN (özet/aggregator sayfası) ═══════════
 let _htGame=null;
-function _htInit(){
-  if(!_htGame)_htGame=state.selectedGame||'super';
-  _htRenderGameRow();
-  _htRenderSoz();
-  _nextDrawPredict({gameId:_htGame,resultElId:'htNextDrawPredResult'});
-  _htGenerateSisal();
-  if(typeof runB10Wheel==='function')runB10Wheel('Ht');
-  _htAutoFillGizli();
-  _htAutoFillListelerAi();
-  _htAutoFillAstro();
-  setTimeout(_htRenderConsensus,60);
-  setTimeout(_htAiRenderLive,60);
-  _htRenderBtBox();
-  _htAiRenderBtBox();
-  _htRenderDrawReminder();
-  _autoUpdateAllGames();
+// ══════════ HIZLI TAHMİN — tüm yapılar bir arada + birleşik AI ══════════
+let _qtGame='super',_qtGameManual=false;
+function _htInit(){ _qtInit(); }
+function _qtInit(){
+  const row=document.getElementById('qtGameRow');if(!row)return;
+  if(!_qtGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_qtGame=state.selectedGame;
+  row.innerHTML=GAMES.map(g=>{
+    const a=g.id===_qtGame;
+    return `<button onclick="_qtSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;
+  }).join('');
+}
+function _qtSetGame(g){_qtGame=g;_qtGameManual=true;_qtInit();const o=document.getElementById('qtOut');if(o)o.innerHTML='';}
+function _qtHash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return h;}
+// bilet demetini statik toplarla + kopya olarak render eder
+function _qtTicketsBlock(emoji,title,tickets,game,accent){
+  if(!tickets||!tickets.length)return '';
+  const copy=title+' ('+game.name+')\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  const id='qtc'+Math.abs(_qtHash(title));
+  window['_qtCopy_'+id]=copy;
+  let h=`<div class="card" style="margin-bottom:12px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.76rem;font-weight:800;color:${accent||'var(--accent)'}">${emoji} ${title} <span style="font-size:.58rem;color:var(--muted);font-weight:600">(${tickets.length} bilet)</span></span><button onclick="_caCopy(window['_qtCopy_${id}'])" class="copy-btn" style="font-size:.64rem;padding:4px 10px">📋 Kopyala</button></div>`;
+  h+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,null,true)).join('');
+  h+=`</div>`;
+  return h;
+}
+function _qtRunAll(){
+  const el=document.getElementById('qtOut');if(!el)return;
+  const game=getGame(_qtGame),prior=_kbGetDraws(_qtGame);
+  if(!prior||prior.length<60){el.innerHTML='<div style="padding:14px;font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥60 çekiliş gerekli) — önce “Gerçek Verileri Yükle”.</div>';return;}
+  el.innerHTML='<div style="padding:16px;font-size:.74rem;color:var(--muted)">⏳ Tüm yapılar üretiliyor ve birleşik AI tahmini hazırlanıyor… (birkaç saniye)</div>';
+  setTimeout(()=>{
+    let aiB=[],g0=[],ni=[],niPairs=[],yak=[],ga=null;
+    try{aiB=_cbGenBundle(game,prior,8);}catch(e){}
+    try{g0=(typeof _g0GenBundle==='function')?_g0GenBundle(game,prior,10):[];}catch(e){}
+    try{const niC=_niCompute(game,prior);ni=_niGenBundle(game,prior,10,niC);niPairs=_niConsecPairs(ni);}catch(e){}
+    try{const freq=buildFreq(prior);yak=_coverageBundle(game,'axrecency',12,freq,prior);}catch(e){}
+    try{ga=_soGapAnalysisCompute(prior[0],game);}catch(e){}
+    let h='';
+    h+=_qtTicketsBlock('🤖','AI Bilet Üretici',aiB,game,'#0a9a6a');
+    h+=_qtTicketsBlock('🎯⁰','Gülsis Sıfır',g0,game,'#0a9a6a');
+    if(ni.length){
+      h+=_qtTicketsBlock('🏁','Nihai',ni,game,'#c2410c');
+      if(niPairs.length){
+        window._qtNiPairs='Nihai — Ardışık Sayılar ('+game.name+')\n'+niPairs.map(p=>p[0]+'-'+p[1]).join('  ');
+        h+=`<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:#0a9a6a">🔗 Nihai — Ardışık Çiftler (${niPairs.length})</span><button onclick="_caCopy(window._qtNiPairs)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div><div style="display:flex;gap:6px;flex-wrap:wrap">${niPairs.map(p=>`<span style="font-family:monospace;font-size:.7rem;font-weight:700;background:var(--surface);border:1px solid rgba(16,185,129,.35);border-radius:7px;padding:2px 8px">${p[0]}·${p[1]}</span>`).join('')}</div></div>`;
+      }
+    }
+    h+=_qtTicketsBlock('📈',"12'li 3+ — Yakın Dönem Ağırlıklı",yak,game,'var(--accent)');
+    if(ga)h+=_qtGulayBlock(ga,game);
+    h+=_qtAiBlock(game,prior,{aiB,g0,ni,yak,ga});
+    el.innerHTML=h;
+  },30);
+}
+function _qtGulayBlock(ga,game){
+  const {nums,gaps,gapSum,topRows,cikRows,chainRows}=ga;
+  let txt=`🔮 Gülay fark-analizi (${game.name})\nSayılar: ${nums.join(' ')}\nFarklar: ${gaps.join(' ')} = ${gapSum}\n`;
+  let h=`<div class="card" style="margin-bottom:12px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.76rem;font-weight:800;color:#6c5ce7">🔮 Gülay Fark-Analizi</span><button onclick="_caCopy(window._qtGulayTxt)" class="copy-btn" style="font-size:.64rem;padding:4px 10px">📋 Kopyala</button></div>`;
+  h+=`<div style="font-size:.64rem;color:var(--muted);margin-bottom:8px">Sayılar: <strong style="color:var(--text);font-family:monospace">${nums.join(' ')}</strong> · Farklar: <strong style="color:var(--text);font-family:monospace">${gaps.join(' ')} = ${gapSum}</strong></div>`;
+  const sec=(name,rows,pfx,isChain)=>{
+    let s=`<div style="font-size:.66rem;font-weight:800;color:var(--text);margin:8px 0 4px">${name}</div>`;
+    txt+=`\n${name}:\n`;
+    rows.forEach((r,i)=>{
+      const arr=isChain?r.chain.slice(1):r;
+      const label=isChain?`${r.start}`:`${pfx}${i+1}(${gaps[i]})`;
+      s+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px;flex-wrap:wrap"><span style="font-size:.58rem;color:var(--muted);min-width:52px;font-family:monospace">${label}:</span><div style="display:flex;gap:4px;flex-wrap:wrap">${arr.map(n=>`<span style="font-family:monospace;font-size:.64rem;background:rgba(108,92,231,.1);border:1px solid rgba(108,92,231,.3);color:#6c5ce7;border-radius:5px;padding:1px 5px">${n}</span>`).join('')}</div></div>`;
+      txt+=`${label}: ${arr.join(' ')}\n`;
+    });
+    return s;
+  };
+  h+=sec('TOPLAMA',topRows,'+f',false);
+  h+=sec('ÇIKARMA',cikRows,'-f',false);
+  h+=sec('FARK ZİNCİRİ',chainRows,'',true);
+  window._qtGulayTxt=txt;
+  h+=`</div>`;
+  return h;
+}
+function _qtAiBlock(game,prior,src){
+  const max=game.max,cnt=game.count,nSrc=5;
+  const tally={};for(let n=1;n<=max;n++)tally[n]=0;
+  const addT=arr=>arr.forEach(t=>t.main.forEach(n=>{if(n>=1&&n<=max)tally[n]++;}));
+  addT(src.aiB);addT(src.g0);addT(src.ni);addT(src.yak);
+  const srcCount={};
+  const mark=arr=>{const s=new Set();arr.forEach(t=>t.main.forEach(n=>s.add(n)));s.forEach(n=>srcCount[n]=(srcCount[n]||0)+1);};
+  mark(src.aiB);mark(src.g0);mark(src.ni);mark(src.yak);
+  if(src.ga){const gs=new Set();(src.ga.gulayCands||[]).slice(0,25).forEach(c=>{if(c.n>=1&&c.n<=max){tally[c.n]=(tally[c.n]||0)+Math.min(3,c.cnt);gs.add(c.n);}});gs.forEach(n=>srcCount[n]=(srcCount[n]||0)+1);}
+  const ranked=[];for(let n=1;n<=max;n++)ranked.push(n);ranked.sort((a,b)=>tally[b]-tally[a]||(srcCount[b]||0)-(srcCount[a]||0)||a-b);
+  const wMap={};for(let n=1;n<=max;n++)wMap[n]=Math.pow(tally[n]+0.15,1.5)+0.02;
+  const sums=prior.map(x=>x.nums.slice(0,cnt).reduce((a,b)=>a+b,0)).filter(x=>x>0).sort((a,b)=>a-b);
+  const lo=sums[Math.floor(sums.length*0.15)]||0,hi=sums[Math.floor(sums.length*0.85)]||max*cnt;
+  let tickets=[];try{tickets=_niGenBundle(game,prior,10,{wMap,lo,hi,ranked});}catch(e){}
+  const topNums=ranked.filter(n=>tally[n]>0).slice(0,cnt*2);
+  const pick=ranked.filter(n=>tally[n]>0).slice(0,cnt).sort((a,b)=>a-b);
+  window._qtAiTk='Hızlı Tahmin — Birleşik AI ('+game.name+')\nEn güçlü '+cnt+': '+pick.join(' ')+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  let h=`<div class="card" style="margin-bottom:12px;border:2px solid rgba(129,140,248,.5);background:linear-gradient(135deg,rgba(129,140,248,.06),rgba(0,230,118,.05))">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.82rem;font-weight:800;color:var(--accent)">🧠 BİRLEŞİK AI TAHMİNİ</span><button onclick="_caCopy(window._qtAiTk)" class="copy-btn" style="font-size:.66rem;padding:5px 12px;font-weight:700">📋 Kopyala</button></div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Yukarıdaki 5 yapının (AI Bilet Üretici · Gülsis Sıfır · Nihai · 12&#39;li 3+ · Gülay) ürettiği tüm sayıları birleştirir; bir sayıyı ne kadar çok yapı önerdiyse o kadar ağırlıklıdır. Alt rakam = kaç farklı yapı önerdi (0–${nSrc}).</div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">🎯 En çok uzlaşılan sayılar:</div>`;
+  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${topNums.map(n=>{const strong=(srcCount[n]||0)>=3;return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 8px;border-radius:9px;background:${strong?'rgba(0,230,118,.14)':'var(--surface2)'};border:1.5px solid ${strong?'rgba(0,200,100,.5)':'var(--border)'}"><span style="font-size:.8rem;font-weight:800;font-family:monospace;color:${strong?'var(--green)':'var(--text)'}">${n}</span><span style="font-size:.46rem;color:var(--muted)">${srcCount[n]||0}/${nSrc}</span></span>`;}).join('')}</div>`;
+  h+=`<div style="font-size:.68rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 Birleşik AI Biletleri (${tickets.length})</div>`;
+  h+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,null,true)).join('');
+  h+=`</div>`;
+  return h;
+}
+function _qtCopyAll(){
+  const parts=[];
+  if(window._qtAiTk)parts.push(window._qtAiTk);
+  Object.keys(window).filter(k=>k.startsWith('_qtCopy_')).forEach(k=>{if(window[k])parts.push(window[k]);});
+  if(window._qtNiPairs)parts.push(window._qtNiPairs);
+  if(window._qtGulayTxt)parts.push(window._qtGulayTxt);
+  if(!parts.length){if(typeof showToast==='function')showToast('Önce “Tümünü Üret” çalıştırın');return;}
+  _caCopy(parts.join('\n\n'));
+  if(typeof showToast==='function')showToast('📋 Tüm yapılar kopyalandı');
 }
 function _htRenderGameRow(){
   const row=document.getElementById('htSozGameRow');if(!row)return;
