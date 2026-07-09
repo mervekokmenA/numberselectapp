@@ -818,6 +818,9 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <option value="8" selected>8 bilet</option>
     <option value="12">12 bilet</option>
     <option value="20">20 bilet</option>
+    <option value="50">50 bilet</option>
+    <option value="100">100 bilet</option>
+    <option value="200">200 bilet (≥4 hedefli)</option>
    </select>
    <button onclick="_cbGenerate()" style="font-size:.76rem;padding:8px 20px;border-radius:9px;background:linear-gradient(135deg,rgba(16,185,129,.9),rgba(5,150,105,.78));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🤖 AI Bilet Üret</button>
   </div>
@@ -7038,6 +7041,12 @@ function generateNumbers(game,algo,freqOverride,drawsOverride,gnOpts){
       mainNums=_axGen(game,drawsOverride||state.pastDraws||[],algo);
       bonusNums=smartBonus();
       break;}
+    case 'nihai': case 'aiuretici': case 'kapsama':{
+      const _mp=drawsOverride||state.pastDraws||[];
+      if(!hasHist||_mp.length<15)return generateNumbers(game,'smart',freq,drawsOverride);
+      mainNums=_metaGenTicket(game,_mp,_metaWeight(algo,game,_mp));
+      bonusNums=smartBonus();
+      break;}
     case 'random':
       mainNums=pickUnique(pool,game.count);
       bonusNums=pickUnique(bonusPool,game.bonusCount);
@@ -12849,9 +12858,13 @@ function _listelerHighlightGame(id){
   });
 }
 
+// Demet/uzlaşı yöntemleri — global ALGOS'a EKLENMEZ (uzlaşı özyinelemesini önlemek için); yalnız Listeler'de seçilebilir.
+const _META_ALGOS={nihai:'🏁 Nihai (uzlaşı demeti)',aiuretici:'🤖 AI Üretici (16-analiz uzlaşı)',kapsama:'🎯 Kapsama Demeti (yayılım)'};
+function _algoDisplayName(id){return _META_ALGOS[id]||ALGOS.find(a=>a.id===id)?.name||id;}
 function _listelerPopulateAlgo(){
   const sel=document.getElementById('listelerAlgo');
   if(!sel||sel.options.length>0)return;
+  Object.keys(_META_ALGOS).forEach(id=>{const opt=document.createElement('option');opt.value=id;opt.textContent=_META_ALGOS[id];sel.appendChild(opt);});
   ALGOS.forEach(a=>{const opt=document.createElement('option');opt.value=a.id;opt.textContent=a.name;sel.appendChild(opt);});
   sel.value=state.selectedAlgo||ALGOS[0].id;
 }
@@ -13169,7 +13182,7 @@ function listelerCopyAll(){
   html+='<tr>';
   cols.forEach((col,ci)=>{
     if(ci>0)html+=sep;
-    const algoName=(ALGOS.find(a=>a.id===col.data.algoId)||{name:col.data.algoId||'—'}).name;
+    const algoName=_algoDisplayName(col.data.algoId)||'—';
     const label=col.type==='new'
       ?`Yeni Tahmin — ${game?game.name:gameId} · ${algoName}`
       :`${col.data.date} · ${algoName}`;
@@ -13209,7 +13222,7 @@ function listelerCopyAll(){
   const tsvRows=[];
   // Header row
   tsvRows.push(cols.map(col=>{
-    const algoName=(ALGOS.find(a=>a.id===col.data.algoId)||{name:col.data.algoId||'—'}).name;
+    const algoName=_algoDisplayName(col.data.algoId)||'—';
     if(col.type==='new')return`Yeni Tahmin — ${game?game.name:gameId} · ${algoName}`;
     return`${col.data.date} · ${algoName}`;
   }).join('\t'));
@@ -13251,7 +13264,7 @@ function listelerCopyBulundu(){
   const lines=[`🔎 Bulunan Sayılar — ${game?game.name:gameId}`];
   // Analiz tipi
   if(_listelerNewPred){
-    const algoName=ALGOS.find(a=>a.id===_listelerNewPred.algoId)?.name||_listelerNewPred.algoId||'—';
+    const algoName=_algoDisplayName(_listelerNewPred.algoId)||'—';
     lines.push(`🧮 Analiz: ${algoName}`);
   }
   // Kırmızı hücrelerden sayılar (tekrar sayısıyla)
@@ -14933,12 +14946,44 @@ function _cbCompute(game,prior){
   return {wMap,lo,hi,ranked,consTally,nA};
 }
 function _cbGenBundle(game,prior,K,pre){const C=pre||_cbCompute(game,prior);return _niGenBundle(game,prior,K,C);}
+// ── Meta analiz tipleri (nihai/aiuretici/kapsama) — tek bilet üreticisi olarak (Listeler'de kullanılır) ──
+// Ağır uzlaşı hesabı (prior başına) önbelleğe alınır; böylece 2000 bilet üretimi bir kez hesaplar, ucuz örnekler.
+const _metaWCache=new Map();
+function _metaWeight(algo,game,prior){
+  const key=algo+'|'+game.id+'|'+prior.length+'|'+((prior[0]||{}).date||'')+'|'+((prior[prior.length-1]||{}).date||'');
+  if(_metaWCache.has(key))return _metaWCache.get(key);
+  const max=game.max;let wMap={};
+  try{
+    if(algo==='nihai')wMap=_niCompute(game,prior).wMap;
+    else if(algo==='aiuretici')wMap=_cbCompute(game,prior).wMap;
+    else {const f=buildFreq(prior);for(let n=1;n<=max;n++)wMap[n]=Math.pow((f[n]||0)+2,0.5);} // kapsama: yayılım (düz-ağırlıklı, 60'a yayılır)
+  }catch(e){const f=buildFreq(prior);for(let n=1;n<=max;n++)wMap[n]=Math.pow((f[n]||0)+1,0.6);}
+  if(_metaWCache.size>40)_metaWCache.clear();
+  _metaWCache.set(key,wMap);
+  return wMap;
+}
+function _metaGenTicket(game,prior,wMap){
+  const max=game.max,count=game.count,pool=range(1,max);
+  const norm=(prior||[]).map(d=>Array.isArray(d)?{nums:d}:{nums:d.nums||[]});
+  const sums=norm.map(d=>d.nums.slice(0,count).reduce((a,b)=>a+b,0)).filter(s=>s>0).sort((a,b)=>a-b);
+  const lo=sums[Math.floor(sums.length*0.2)]||(max+1)*count*0.3,hi=sums[Math.floor(sums.length*0.8)]||(max+1)*count*0.7,mid=(lo+hi)/2;
+  const bands=[];const bsz=max/count;for(let z=0;z<count;z++)bands.push([Math.floor(z*bsz)+1,z===count-1?max:Math.floor((z+1)*bsz)]);
+  const sample=()=>{const rem=pool.slice(),ww=pool.map(n=>Math.max(1e-6,wMap[n]||1e-6));const out=[];for(let k=0;k<count&&rem.length;k++){let tot=0;for(const x of ww)tot+=x;let r=Math.random()*tot,idx=0;for(let j=0;j<ww.length;j++){r-=ww[j];if(r<=0){idx=j;break;}}out.push(rem[idx]);rem.splice(idx,1);ww.splice(idx,1);}return out.sort((a,b)=>a-b);};
+  let best=null,bestSc=Infinity;
+  for(let att=0;att<40;att++){const arr=sample();if(arr.length<count)continue;const sum=arr.reduce((a,b)=>a+b,0);const sumPen=(sum<lo||sum>hi)?Math.abs(sum-mid)*2:Math.abs(sum-mid)*0.5;const cov=new Set(arr.map(n=>bands.findIndex(b=>n>=b[0]&&n<=b[1])));const sc=sumPen+(count-cov.size)*(game.id==='super'?6:12);if(sc<bestSc){bestSc=sc;best=arr;}}
+  best=best||sample();
+  return _nearShape(game,best,wMap).sort((a,b)=>a-b);
+}
 function _cbUnion(tickets,aSet){
   const u=new Set();tickets.forEach(t=>t.main.forEach(n=>u.add(n)));
   const arr=[...u];const net=aSet?arr.filter(n=>aSet.has(n)).length:0;
   const near=aSet?arr.filter(n=>!aSet.has(n)&&(aSet.has(n-1)||aSet.has(n+1))).length:0;
   return {size:u.size,net,near};
 }
+// Hipergeometrik: bir biletin ≥thr net tutma olasılığı (pick=count, drawn=çekilen adet)
+function _binomC(n,k){if(k<0||k>n)return 0;k=Math.min(k,n-k);let r=1;for(let i=0;i<k;i++)r=r*(n-i)/(i+1);return r;}
+function _ticketGE(game,thr){const max=game.max,pick=game.count,drawn=game.id==='onnumara'?22:game.count;let s=0;for(let k=thr;k<=Math.min(pick,drawn);k++)s+=_binomC(drawn,k)*_binomC(max-drawn,pick-k);return s/_binomC(max,pick);}
+function _bundleGE(game,thr,K){const p=_ticketGE(game,thr);return 1-Math.pow(1-p,K);}
 function _cbGenerate(){
   const el=document.getElementById('cbOut');if(!el)return;
   const game=getGame(_cbGame),prior=_kbGetDraws(_cbGame);
@@ -14960,6 +15005,9 @@ function _cbGenerate(){
     h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.66rem;font-weight:800;color:#0a9a6a">🧲 Kullanılan uzlaşı havuzu (${pool.length} sayı)</span><button onclick="_caCopy(window._cbCopyPool)" class="copy-btn" style="font-size:.58rem;padding:2px 8px">📋</button></div>`;
     h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${pool.map(n=>`<span style="font-family:monospace;font-size:.62rem;color:${C.consTally[n]>=C.nA*0.5?'var(--green)':'var(--text)'};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${n}<sup style="font-size:.5rem;color:var(--muted)">${C.consTally[n]}</sup></span>`).join('')}</div>`;
     h+=`<div style="font-size:.54rem;color:var(--muted);margin-top:5px">Demet bu havuza kapsama-optimal yayıldı — birleşik kapsama: <strong>${u.size} farklı sayı</strong> (${K} bilet). Alt rakam = kaç analiz önerdi.</div>`;
+    // ≥4 / ≥3 net olasılığı (teorik, dürüst) — bu K bilette en iyi biletin tutma şansı
+    const p3=Math.round(_bundleGE(game,3,K)*100),p4=Math.round(_bundleGE(game,4,K)*100);
+    h+=`<div style="margin-top:6px;font-size:.56rem;color:#8a6200;background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.3);border-radius:7px;padding:6px 9px;line-height:1.6">🎯 <strong>${K} bilet</strong> için en iyi biletin <strong>≥3 net</strong> olasılığı ≈ <strong>%${p3}</strong> · <strong>≥4 net</strong> ≈ <strong>%${p4}</strong> (teorik/dürüst — loto hafızasız; tek kaldıraç bilet sayısıdır. ≥4 için K'yı büyüt).</div>`;
     h+=`</div>`;
     // biletler
     h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:var(--text)">🎫 AI Biletleri (${K})</span></div>`;
