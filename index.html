@@ -6828,7 +6828,16 @@ function _nearShape(game,mainNums,freq){
 // ── Yeni analiz tipleri (ax*) — 50M+ biletlik geri-testle seçilen çeşitlendirilmiş üreticiler ──
 // Her tip bir "ağırlık vektörü" (sayı → ağırlık) üretir; _axGen bunu toplam-bandı + bölge dengesiyle
 // örnekler. NOT: tam-net isabet tüm tiplerde rastgele seviyesindedir (bkz. scratchpad/phaseA/B).
+const _axSigCache=new WeakMap();
 function _axSignals(prior,game){
+  const key=_drawsCacheKey(prior)+'|'+game.id;
+  const entry=_axSigCache.get(prior);
+  if(entry&&entry.key===key)return entry.val;
+  const val=_axSignalsRaw(prior,game);
+  _axSigCache.set(prior,{key,val});
+  return val;
+}
+function _axSignalsRaw(prior,game){
   const max=game.max,count=game.count;
   prior=(prior||[]).map(d=>Array.isArray(d)?{nums:d,bonus:[]}:{nums:d.nums||[],bonus:d.bonus||[]});
   const freq={};for(let n=1;n<=max;n++)freq[n]=0;
@@ -9078,13 +9087,33 @@ function runBacktest2(){
   renderBtHistory();
 }
 
+// Performans: draws dizisi aynı referansla (aynı prior) çok bilet üretiminde defalarca
+// geçilir (kapsama demeti, Listeler N-bilet, Aday Sayılar tüm-analizler, backtest döngüleri…).
+// buildFreq/buildEWF/_axSignals/_soGapAnalysisCompute saf fonksiyonlar olduğundan WeakMap ile
+// (dizi kimliği + hafif içerik anahtarı) önbelleğe alınır — sonuç birebir aynı kalır, sadece
+// tekrar tekrar aynı geçmişi taramak önlenir. Dizi .slice() ile yeniden oluşturulunca (yeni
+// referans) önbellek otomatik geçersiz olur; içerik anahtarı yerinde mutasyona karşı ek güvence.
+function _drawsCacheKey(draws){
+  if(!draws||!draws.length)return '0';
+  const idOf=d=>Array.isArray(d)?d.join(','):((d&&d.date)||(d&&d.nums?d.nums.join(','):''));
+  return draws.length+'|'+idOf(draws[0])+'|'+idOf(draws[draws.length-1]);
+}
+const _bfCache=new WeakMap();
 function buildFreq(draws){
+  const key=_drawsCacheKey(draws);
+  const entry=_bfCache.get(draws);
+  if(entry&&entry.key===key)return entry.val;
   const freq={};
   draws.forEach(d=>(Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])]).forEach(n=>{freq[n]=(freq[n]||0)+1;}));
+  _bfCache.set(draws,{key,val:freq});
   return freq;
 }
 
+const _ewfCache=new WeakMap();
 function buildEWF(draws,max,lambda_=0.80){
+  const key=_drawsCacheKey(draws)+'|'+max+'|'+lambda_;
+  const entry=_ewfCache.get(draws);
+  if(entry&&entry.key===key)return entry.val;
   const ewf={};
   const n=draws.length;
   for(let i=0;i<n;i++){
@@ -9093,6 +9122,7 @@ function buildEWF(draws,max,lambda_=0.80){
     const nums=Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])];
     nums.forEach(num=>{if(num>=1&&num<=max)ewf[num]=(ewf[num]||0)+w;});
   }
+  _ewfCache.set(draws,{key,val:ewf});
   return ewf;
 }
 
@@ -14360,7 +14390,10 @@ function _niGenBundle(game,prior,K,pre){
   const C=pre||_niCompute(game,prior);
   const all=[];for(let n=1;n<=max;n++)all.push(n);
   const wArr=all.map(n=>Math.max(1e-6,C.wMap[n]));
-  const SAMP=Math.max(200,K*28);
+  // SAMP büyük K'larda (On Numara 7+ demeti gibi K=100-200) sınırsız büyümesin — kapsama zaten
+  // ~15-20 bilette doyuma ulaşıyor (bkz. araştırma notları), 900 aday fazlasıyla yeterli çeşitlilik verir
+  // ve O(aday²) açgözlü seçimi (aşağıda) K büyüdükçe saatler değil milisaniyeler sürecek şekilde tutar.
+  const SAMP=Math.min(Math.max(200,K*28),900);
   const pool=[],seen=new Set();let att=0;
   while(pool.length<SAMP&&att<SAMP*4){
     att++;
@@ -14517,7 +14550,7 @@ function _niRender(force){
     draws.forEach((d,i)=>{if(draws.length-i-1<_NI_MIN_PRIOR)return;o+=`<option value="${d.date}"${d.date===_niDate?' selected':''}>🎯 Geçmiş Test: ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
     sel.innerHTML=o;
   }
-  const K=Math.max(1,Math.min(20,parseInt(document.getElementById('niBundleSize')?.value)||10));
+  const K=Math.max(1,Math.min(200,parseInt(document.getElementById('niBundleSize')?.value)||10));
   if(_niDate===''&&!force){
     el.innerHTML=`<div style="padding:18px;text-align:center;font-size:.72rem;color:var(--muted);line-height:1.7">🏁 ${K} biletlik nihai tahmin için<br><strong>“🏁 Nihai Üret”</strong> butonuna basın.</div>`;
     return;
@@ -18158,7 +18191,17 @@ function _htAiRunBacktest(){
   },40);
 }
 
+const _soGapCache=new WeakMap();
 function _soGapAnalysisCompute(draw,game){
+  if(!draw||!draw.nums)return _soGapAnalysisComputeRaw(draw,game);
+  const key=game.id+'|'+draw.nums.join(',')+'|'+((draw.bonus||[]).join(','));
+  const entry=_soGapCache.get(draw);
+  if(entry&&entry.key===key)return entry.val;
+  const val=_soGapAnalysisComputeRaw(draw,game);
+  _soGapCache.set(draw,{key,val});
+  return val;
+}
+function _soGapAnalysisComputeRaw(draw,game){
   const max=game.max;
   const nums=[...draw.nums].filter(n=>n>=1&&n<=max).sort((a,b)=>a-b);
   if(nums.length<2)return null;
@@ -19007,8 +19050,8 @@ function _g0SumBand(prior,game){
   return[s[Math.floor(s.length*0.2)],s[Math.floor(s.length*0.8)]];
 }
 // Çeşitli aday havuzu üret (sisal mantığı: frekans örneklemesi + toplam-bandı + bölge dengesi)
-function _g0GenPool(game,prior,poolSize){
-  const{pool,w,freq}=_g0Weights(prior,game);
+function _g0GenPool(game,prior,poolSize,preW){
+  const{pool,w,freq}=preW||_g0Weights(prior,game);
   const[lo,hi]=_g0SumBand(prior,game),mid=(lo+hi)/2;
   const bands=[],bsz=game.max/game.count;
   for(let z=0;z<game.count;z++)bands.push([Math.floor(z*bsz)+1,z===game.count-1?game.max:Math.floor((z+1)*bsz)]);
@@ -19058,12 +19101,13 @@ function _g0SelectCoverage(poolObj,K,game){
 // uç çekilişlerde ≥3 NET %14→%21 (sayısal) / %9→%16 (şans). En güçlü biletler listenin başındadır.
 function _g0GenBundle(game,prior,K){
   const poolSize=Math.max(600,Math.min(2500,K*150));
-  const poolObj=_g0GenPool(game,prior,poolSize);
+  const preW=_g0Weights(prior,game); // bir kez hesapla — havuz üretimi ve wMap için paylaş
+  const poolObj=_g0GenPool(game,prior,poolSize,preW);
   if(!poolObj.tickets.length)return[];
   const nSkew=K>=4?Math.max(1,Math.round(K*0.2)):0;
   const nShape=K>=4?Math.max(1,Math.round(K*0.2)):0;
   const nCore=Math.max(1,K-nShape-nSkew);
-  const {pool,w}=_g0Weights(prior,game);
+  const {pool,w}=preW;
   const wMap={};pool.forEach((n,i)=>wMap[n]=w[i]);
   const core=_g0SelectCoverage(poolObj,nCore,game);
   const seen=new Set(core.map(t=>t.main.join(',')));
