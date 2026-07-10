@@ -15032,12 +15032,14 @@ function _cbBacktest(){
     for(let t=0;t<tests;t++){
       const actual=draws[t];const prior=draws.slice(t+1);if(prior.length<60)break;
       const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
-      const tickets=_cbGenBundle(game,prior,K);if(!tickets.length)continue;
+      const C=_cbCompute(game,prior);
+      const tickets=_cbGenBundle(game,prior,K,C);if(!tickets.length)continue;
       let bn=0,bnn=0,bi=0;
       tickets.forEach((tk,i)=>{const all2=[...tk.main,...tk.bonus];let net=0,near=0;for(const x of all2){if(aSet.has(x))net++;else if(aSet.has(x-1)||aSet.has(x+1))near++;}if(net>bn)bn=net;if(net+near>bnn){bnn=net+near;bi=i;}});
       const u=_cbUnion(tickets,aSet);
+      const pool=C.ranked.filter(x=>C.consTally[x]>0).slice(0,game.count*3);
       bestNetSum+=bn;bestNNSum+=bnn;uNetSum+=u.net;uNNSum+=u.net+u.near;if(bn>=3)ge3++;n++;
-      rows.push({date:actual.date,aSet,best:tickets[bi],bn,bnn,u});
+      rows.push({date:actual.date,aSet,best:tickets[bi],bn,bnn,u,pool,consTally:C.consTally,nA:C.nA});
     }
     if(!n){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Test yapılamadı.</div>';return;}
     const single=(game.count*(game.id==='onnumara'?22:game.count+game.bonusCount)/game.max);
@@ -15063,6 +15065,12 @@ function _cbBacktest(){
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.55rem;color:var(--accent)">🏆 grubun en iyi bileti</span><span style="display:flex;align-items:center;gap:6px"><span style="font-size:.6rem;font-weight:800;color:${r.bn>=3?'var(--green)':'var(--muted)'}">${r.bn} net · ${r.bnn} n+y</span><button onclick="_caCopy('${bm.join(' ')}')" title="Kopyala" style="font-size:.56rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></span></div>`;
       h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${bm.map(badge).join('')}</div>`;
       h+=`<div style="font-size:.54rem;color:var(--green);margin-top:4px">🧲 birleşik kapsama: ${r.u.net} net · ${r.u.near} ±1 (${r.u.size} farklı sayı)</div>`;
+      if(r.pool&&r.pool.length){
+        h+=`<div style="margin-top:6px;padding:7px 9px;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.25);border-radius:7px">`;
+        h+=`<div style="font-size:.52rem;font-weight:800;color:#0a9a6a;margin-bottom:4px">🧲 Kullanılan uzlaşı havuzu (${r.pool.length} sayı)</div>`;
+        h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${r.pool.map(x=>{const hit=r.aSet.has(x),near=!hit&&(r.aSet.has(x-1)||r.aSet.has(x+1));const col=hit?'var(--green)':near?'#c2410c':(r.consTally[x]>=r.nA*0.5?'var(--green)':'var(--text)');return `<span style="font-family:monospace;font-size:.58rem;font-weight:${hit||near?800:600};color:${col};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${x}${hit?'✓':near?'~':''}<sup style="font-size:.46rem;color:var(--muted)">${r.consTally[x]}</sup></span>`;}).join('')}</div>`;
+        h+=`</div>`;
+      }
       h+=`</div>`;
     });
     h+=`</div></div>`;
@@ -15134,21 +15142,29 @@ function _onaCompute(sfx){
   h+=`</div>`;
   el.innerHTML=h;
 }
+// 'kendi' (kullanıcı eklediği, tarihsiz) → en güncel kabul edilir; "DD.MM · Tip" örnekleri MM/DD'ye göre sıralanır.
+function _onaSortKey(s){
+  if(s.date==='kendi')return 999999;
+  const m=String(s.date||'').match(/^(\d{1,2})\.(\d{1,2})/);
+  if(!m)return -1;
+  return parseInt(m[2],10)*100+parseInt(m[1],10); // MM*100+DD
+}
 function _onaBacktest(sfx){
   sfx=sfx||'';
   const el=document.getElementById('onaBtOut'+sfx);if(!el)return;
   let user=[];try{user=JSON.parse(localStorage.getItem('_onaTickets')||'[]');}catch(e){}
-  const all=[...user,..._ONA_SAMPLES];
+  const all=[...user.map((s,i)=>({...s,_userIdx:i})),..._ONA_SAMPLES]
+    .sort((a,b)=>_onaSortKey(b)-_onaSortKey(a));
   if(!all.length){el.innerHTML='';return;}
   const mode=_onaMode(sfx);
   let totNet=0,totCand=0,baseSum=0,n=0,rows='';
-  all.forEach((s,i)=>{
+  all.forEach((s)=>{
     const no=String(s.no).replace(/\D/g,'');const c=_onaCandidates(no,s.max||60,mode);const dset=new Set(s.draw);
     const hit=c.all.filter(x=>dset.has(x));
     totNet+=hit.length;totCand+=c.all.length;baseSum+=c.all.length*(s.draw.length/(s.max||60));n++;
     const own=s.date==='kendi';
     rows+=`<div style="padding:6px 8px;background:rgba(0,0,0,.02);border-radius:7px;margin-bottom:5px">
-      <div style="font-size:.54rem;color:var(--muted)">${s.date||''} · Oyun No <span style="font-family:monospace;color:var(--text)">${no}</span> · çıkan: <span style="font-family:monospace;color:var(--text)">${s.draw.join(' ')}</span>${own?` <button onclick="_onaDel(${i})" style="font-size:.5rem;color:#cc2222;background:none;border:none;cursor:pointer">✕</button>`:''}</div>
+      <div style="font-size:.54rem;color:var(--muted)">${s.date||''} · Oyun No <span style="font-family:monospace;color:var(--text)">${no}</span> · çıkan: <span style="font-family:monospace;color:var(--text)">${s.draw.join(' ')}</span>${own?` <button onclick="_onaDel(${s._userIdx})" style="font-size:.5rem;color:#cc2222;background:none;border:none;cursor:pointer">✕</button>`:''}</div>
       <div style="font-size:.52rem;color:var(--muted);line-height:1.7;margin-top:2px">🔢 Çarpım: <span style="font-family:monospace;color:var(--text)">${c.P.toLocaleString('tr-TR')}</span> · ÷33: <span style="font-family:monospace;color:var(--text)">${c.q33.toLocaleString('tr-TR',{maximumFractionDigits:9})}</span> · ÷19: <span style="font-family:monospace;color:var(--text)">${c.q19.toLocaleString('tr-TR',{maximumFractionDigits:9})}</span></div>
       <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px"><div style="display:flex;gap:4px;flex-wrap:wrap">${c.all.map(x=>_onaBadge(x,dset)).join('')}</div><span style="margin-left:auto;font-size:.6rem;font-weight:800;color:${hit.length?'var(--green)':'var(--muted)'}">${hit.length} eşleşme</span></div>
       ${_onaSrcLine('🔢 Çarpımdan',c.cProd,dset)}${_onaSrcLine('➗33 sonucundan',c.c33,dset)}${_onaSrcLine('➗19 sonucundan',c.c19,dset)}
