@@ -1190,6 +1190,10 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <!-- ═══════════ PAGE: HIZLI TAHMİN ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-hizlitahmin">
+ <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface2);border-radius:10px;border:1px solid var(--border);margin-bottom:8px">
+  <input type="checkbox" id="qtExcludeLastChk" onchange="_qtRunAll(true)" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer">
+  <label for="qtExcludeLastChk" style="font-size:.78rem;color:var(--text);cursor:pointer;user-select:none">Son oyunu hariç bırak <span style="color:var(--muted);font-weight:400">— işaretliyken tahmin bir önceki çekilişe göre üretilir, hariç tutulan çekilişin sayıları ✓ net (yeşil) / ~ ±1 yakın (turuncu) işaretlenir</span></label>
+ </div>
  <div class="card">
   <div class="card-title">⚡ Hızlı Tahmin — Tüm Yapılar Bir Arada</div>
   <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Seçili oyun için tüm bilet/analiz yapılarını tek yerde üretir: <strong>🤖 AI Bilet Üretici</strong>, <strong>🎯⁰ Gülsis Sıfır</strong>, <strong>🏁 Nihai</strong> (+ ardışık çiftler), <strong>📈 12&#39;li 3+ (Yakın Dönem Ağırlıklı)</strong> ve <strong>🔮 Gülay fark-analizi</strong> (toplama/çıkarma/fark zinciri). En altta hepsini <strong>birleştiren bir AI tahmini</strong> verir.</div>
@@ -1329,7 +1333,8 @@ const ALGOS = [
 // ── Real historical draw data ────────────────────────────────
 // Source: Milli Piyango / lotobil.com archive (Sep 2025 – May 2026). Sayısal Loto: 6 main + Joker merged into 7 main, with Süperstar bonus.
 const DRAW_DATA = {
-sayisal:`2026-07-08 4 16 45 53 61 72 89 | 47
+sayisal:`2026-07-11 36 46 58 61 67 72 83 | 15
+2026-07-08 4 16 45 53 61 72 89 | 47
 2026-07-06 3 10 19 56 59 90 51 | 76
 2026-07-04 20 38 61 84 85 86 36 | 39
 2026-07-01 3 63 72 76 78 86 77 | 80
@@ -17639,9 +17644,14 @@ function _qtRenderAll(targetEl,game,prior,actual){
 function _qtRunAll(force){
   const el=document.getElementById('qtOut');if(!el)return;
   const game=getGame(_qtGame),draws=_kbGetDraws(_qtGame);
-  if(!draws||draws.length<60){el.innerHTML='<div style="padding:14px;font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥60 çekiliş gerekli) — önce “Gerçek Verileri Yükle”.</div>';return;}
+  const exLast=!!document.getElementById('qtExcludeLastChk')?.checked;
+  const minNeed=exLast?61:60;
+  if(!draws||draws.length<minNeed){el.innerHTML='<div style="padding:14px;font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥'+minNeed+' çekiliş gerekli) — önce “Gerçek Verileri Yükle”.</div>';return;}
   el.innerHTML='<div style="padding:16px;font-size:.74rem;color:var(--muted)">⏳ Tüm yapılar üretiliyor…</div>';
-  setTimeout(()=>{_qtRenderAll(el,game,draws,null);},30);
+  setTimeout(()=>{
+    if(exLast)_qtRenderAll(el,game,draws.slice(1),draws[0]);
+    else _qtRenderAll(el,game,draws,null);
+  },30);
 }
 function _qtDateTest(){
   const el=document.getElementById('qtDateOut');if(!el)return;
