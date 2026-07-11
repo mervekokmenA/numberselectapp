@@ -1197,7 +1197,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
    <span style="font-size:.66rem;color:var(--muted)">🧠 AI bilet:</span>
    <select id="qtAiK" onchange="_qtRunAll(true)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-    <option value="10">10</option><option value="20">20</option><option value="30" selected>30</option><option value="50">50 (3+ için)</option><option value="100">100 (en yüksek)</option>
+    <option value="10" selected>10</option><option value="20">20</option><option value="30">30</option><option value="50">50 (3+ için)</option><option value="100">100 (en yüksek)</option>
    </select>
    <button onclick="_qtRunAll(true)" style="flex:1;min-width:180px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🚀 Tümünü Üret + AI Tahmini</button>
    <button onclick="_qtCopyAll()" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Tümünü Kopyala</button>
@@ -17599,6 +17599,22 @@ function _qtTicketsBlock(emoji,title,tickets,game,accent,aSet){
   return h;
 }
 // tüm yapıları + birleşik AI'ı targetEl'e render eder (actual verilirse geçmiş test)
+// 🏁 Nihai ve 📈 12'li 3+ demetlerinde ORTAK geçen sayılar — iki bağımsız yapının uzlaştığı sayılar
+function _qtNihaiYakInter(src,game,aSet){
+  if(!src.ni||!src.ni.length||!src.yak||!src.yak.length)return '';
+  const niNums=new Set();src.ni.forEach(t=>t.main.forEach(n=>niNums.add(n)));
+  const yakNums=new Set();src.yak.forEach(t=>t.main.forEach(n=>yakNums.add(n)));
+  const inter=[...niNums].filter(n=>yakNums.has(n)).sort((a,b)=>a-b);
+  const copyKey=aSet?'_qtInterT':'_qtInter';
+  window[copyKey]='Nihai 3+Kapsamlı Kesişim ('+game.name+')\n'+(inter.join(' ')||'(ortak sayı yok)');
+  let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(129,140,248,.4)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:var(--accent)">🔗 Nihai × 3+ Kapsamlı Kesişim (${inter.length})</span><button onclick="_caCopy(window.${copyKey})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">🏁 Nihai ve 📈 12&#39;li 3+ demetlerinde ORTAK geçen sayılar — iki bağımsız yapı da aynı sayıyı öneriyor.</div>`;
+  if(!inter.length)h+=`<div style="font-size:.62rem;color:var(--muted)">Bu üretimde ortak sayı çıkmadı.</div>`;
+  else h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${inter.map(n=>{const hit=aSet&&aSet.has(n),near=!hit&&aSet&&(aSet.has(n-1)||aSet.has(n+1));const col=hit?'var(--green)':near?'#c2410c':'var(--text)';return `<span style="font-family:monospace;font-size:.74rem;font-weight:800;color:${col};background:var(--surface2);border:1px solid ${hit?'rgba(0,200,100,.5)':near?'rgba(244,114,63,.4)':'var(--border)'};border-radius:7px;padding:2px 8px">${n}${hit?'✓':near?'~':''}</span>`;}).join('')}</div>`;
+  h+=`</div>`;
+  return h;
+}
 function _qtRenderAll(targetEl,game,prior,actual){
   const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
   const src=_qtBuildSources(game,prior);
@@ -17615,6 +17631,7 @@ function _qtRenderAll(targetEl,game,prior,actual){
     }
   }
   h+=_qtTicketsBlock('📈',"12'li 3+ — Yakın Dönem",src.yak,game,'var(--accent)',aSet);
+  h+=_qtNihaiYakInter(src,game,aSet);
   if(src.ga)h+=_qtGulayBlock(src.ga,game,aSet);
   h+=_qtAiBlock(game,prior,src,aSet);
   targetEl.innerHTML=h;
@@ -17711,6 +17728,7 @@ function _qtCopyAll(){
   if(window._qtAiTk)parts.push(window._qtAiTk);
   Object.keys(window).filter(k=>k.startsWith('_qtCopy_')&&!k.endsWith('t')).forEach(k=>{if(window[k])parts.push(window[k]);});
   if(window._qtNiPairs)parts.push(window._qtNiPairs);
+  if(window._qtInter)parts.push(window._qtInter);
   if(window._qtGulayTxt)parts.push(window._qtGulayTxt);
   if(!parts.length){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
   _caCopy(parts.join('\n\n'));
