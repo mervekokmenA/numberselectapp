@@ -1277,15 +1277,19 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <strong style="color:#f97316">⚠️ Dürüst çerçeve — önce bunu oku.</strong> Loto <strong>hafızasızdır</strong>: her çekiliş bağımsızdır, geçmiş sayılar geleceği <em>belirlemez</em>. Bu yüzden <strong>“3 kesin sayı” bulmak matematiksel olarak imkânsızdır</strong> — 3 milyar bilet de tek bir biletin şansını değiştirmez. Aşağıda internette/Reddit'te dolaşan <strong>tüm popüler yöntemleri</strong> (sıcak/soğuk/gecikmiş/tekrar/delta/pair-markov/pozisyon/Gülay) son 30 oyunluk kayan pencerede, yüz binlerce biletle <strong>dürüstçe</strong> test ediyoruz. Sonuç: hepsi <strong>şans çizgisine yakın</strong> kalır. <strong>Ulaşılabilir hedef</strong> ise senin ikinci isteğin: <strong>“3 yakın” (±1)</strong> tasarımları — bunlar tek biletle bile ~%17–28 oranında tutuyor. “3 net”e yaklaşmanın tek gerçek kaldıracı <strong>bilet adedi (K)</strong>; onu da her yöntem için hesaplıyoruz.
   </div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px" id="mrGameRow"></div>
+  <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--surface2);border-radius:9px;border:1px solid var(--border);margin-bottom:10px">
+   <input type="checkbox" id="mrExcludeLastChk" style="width:16px;height:16px;accent-color:#f97316;cursor:pointer">
+   <label for="mrExcludeLastChk" style="font-size:.72rem;color:var(--text);cursor:pointer;user-select:none">Son oyunu hariç bırak <span style="color:var(--muted);font-weight:400">— işaretliyken şampiyon yöntem bilinmeyen bir sonraki çekiliş yerine, hariç tutulan (bilinen) son çekiliş için tahmin üretir; gerçek sonuca göre ✓ net / ~ ±1 yakın işaretlenir</span></label>
+  </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
    <span style="font-size:.66rem;color:var(--muted)">Test derinliği:</span>
    <select id="mrDepth" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-    <option value="120">Hızlı (120 çekiliş × 150 örnek)</option>
-    <option value="250" selected>Standart (250 × 250)</option>
-    <option value="500">Derin (500 × 400)</option>
-    <option value="9999">Tümü (tüm geçmiş × 500)</option>
+    <option value="120" selected>Hızlı (120 çekiliş × 80 örnek)</option>
+    <option value="250">Standart (250 × 150)</option>
+    <option value="500">Derin (500 × 250)</option>
+    <option value="9999">Tümü (tüm geçmiş × 300)</option>
    </select>
-   <button onclick="_mrRun()" style="flex:1;min-width:200px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(244,114,63,.92),rgba(234,88,12,.8));border:1px solid rgba(244,114,63,.6);color:#fff;cursor:pointer;font-weight:800">🔬 Araştırmayı Çalıştır (son 30 pencere)</button>
+   <button onclick="_mrRun()" id="mrRunBtn" style="flex:1;min-width:200px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(244,114,63,.92),rgba(234,88,12,.8));border:1px solid rgba(244,114,63,.6);color:#fff;cursor:pointer;font-weight:800">🔬 Araştırmayı Çalıştır (son 30 pencere)</button>
   </div>
  </div>
  <div id="mrOut"></div>
@@ -17561,7 +17565,7 @@ let _qtGame='super',_qtGameManual=false;
 function _htInit(){ _qtInit(); }
 
 // ═══════════ YÖNTEM ARAŞTIRMA (internet/Reddit yöntemleri, son-30 pencere backtest) ═══════════
-let _mrGame='sayisal';
+let _mrGame='sayisal', _mrGameManual=false, _mrBusy=false;
 const _mrRng=(()=>{let s=987654321>>>0;return()=>{s^=s<<13;s^=s>>>17;s^=s<<5;s>>>=0;return s/4294967296;};})();
 function _mrFreqW(win,max){const f={};win.forEach(d=>d.nums.forEach(n=>{if(n<=max)f[n]=(f[n]||0)+1;}));return f;}
 function _mrColdW(win,max){const f=_mrFreqW(win,max),w={};for(let n=1;n<=max;n++)w[n]=1/((f[n]||0)+1);return w;}
@@ -17580,50 +17584,73 @@ const _MR_METHODS=[
  {k:'🔮 Gülay farkı',   f:_mrGulayW,   d:'Fark-analizi (toplama zinciri)'},
 ];
 function _mrTopW(w,max,k){const a=[];for(let n=1;n<=max;n++)a.push(n);a.sort((x,y)=>(w[y]||0)-(w[x]||0)||x-y);return a.slice(0,k).sort((x,y)=>x-y);}
-function _mrWSample(w,max,k){const pool=[];for(let n=1;n<=max;n++)pool.push(n);const ww=pool.map(n=>Math.max(1e-6,w[n]||1e-6)),out=[];for(let c=0;c<k&&pool.length;c++){let tot=0;for(const x of ww)tot+=x;let r=_mrRng()*tot,idx=0;for(let j=0;j<ww.length;j++){r-=ww[j];if(r<=0){idx=j;break;}}out.push(pool[idx]);pool.splice(idx,1);ww.splice(idx,1);}return out;}
+// tek sample: paylaşılan taban pool/ağırlık dizilerinden (bir test+yöntem için bir kez kurulur) klonlayıp örnekler; çalışan toplam tutularak O(k*max) taramaya indirgenir
+function _mrWSampleFrom(basePool,baseW,k){const pool=basePool.slice(),ww=baseW.slice(),out=[];let tot=0;for(let i=0;i<ww.length;i++)tot+=ww[i];for(let c=0;c<k&&pool.length;c++){let r=_mrRng()*tot,idx=0;for(let j=0;j<ww.length;j++){r-=ww[j];if(r<=0){idx=j;break;}}tot-=ww[idx];out.push(pool[idx]);pool.splice(idx,1);ww.splice(idx,1);}return out;}
+function _mrBaseArrays(w,max){const pool=[];for(let n=1;n<=max;n++)pool.push(n);const ww=pool.map(n=>Math.max(1e-6,w[n]||1e-6));return{pool,ww};}
 function _mrScore(pick,aset){let net=0,near=0;pick.forEach(n=>{if(aset.has(n))net++;else if(aset.has(n-1)||aset.has(n+1))near++;});return{net,n3:net>=3,near3:(net+near)>=3};}
 // çekilişin son-30 penceresinden şampiyon yöntemin ağırlığı — Hızlı Tahmin de bunu kullanır
 const _MR_CHAMP={sayisal:_mrEwfW,sans:_mrRepeatW,super:_mrRepeatW,onnumara:_mrRepeatW};
 function _mrChampionWeights(game,prior){const f=(_MR_CHAMP[game.id]||_mrRepeatW);const win=prior.slice(0,30);return f(win,game.max);}
 function _mrInit(){
   const row=document.getElementById('mrGameRow');if(!row)return;
-  if(state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_mrGame=state.selectedGame;
+  if(!_mrGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_mrGame=state.selectedGame;
   row.innerHTML=GAMES.map(g=>{const a=g.id===_mrGame;return `<button onclick="_mrSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(244,114,63,.7)':'var(--border)'};background:${a?'rgba(244,114,63,.13)':'var(--surface2)'};color:${a?'#f97316':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
 }
-function _mrSetGame(g){_mrGame=g;_mrInit();const o=document.getElementById('mrOut');if(o)o.innerHTML='';}
+function _mrSetGame(g){_mrGame=g;_mrGameManual=true;_mrInit();const o=document.getElementById('mrOut');if(o)o.innerHTML='';}
 function _mrRun(){
+  if(_mrBusy)return;
   const out=document.getElementById('mrOut');if(!out)return;
-  const game=getGame(_mrGame),draws=_kbGetDraws(_mrGame);
-  if(!draws||draws.length<40){out.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥40 çekiliş gerekli).</div>';return;}
-  const depth=parseInt(document.getElementById('mrDepth')?.value)||250;
+  const game=getGame(_mrGame),allDraws=_kbGetDraws(_mrGame);
+  const exLast=!!document.getElementById('mrExcludeLastChk')?.checked;
+  const minNeed=exLast?41:40;
+  if(!allDraws||allDraws.length<minNeed){out.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥'+minNeed+' çekiliş gerekli).</div>';return;}
+  const actual=exLast?allDraws[0]:null;
+  const draws=exLast?allDraws.slice(1):allDraws;
+  const depth=parseInt(document.getElementById('mrDepth')?.value)||120;
   const maxTests=depth>=9999?9999:depth;
-  const MC=depth<=120?150:depth<=250?250:depth<=500?400:500;
-  out.innerHTML='<div class="card" style="font-size:.74rem;color:var(--muted)">🔬 Son-30 pencere backtest yürütülüyor… (yüz binlerce bilet — birkaç saniye sürebilir)</div>';
-  setTimeout(()=>{
-    const WINDOW=30,cnt=game.count,max=game.max;
-    const tests=[];for(let t=0;t<draws.length&&tests.length<maxTests;t++){const prior=draws.slice(t+1);if(prior.length>=WINDOW)tests.push(t);}
-    const agg=_MR_METHODS.map(m=>({k:m.k,d:m.d,net:0,n3:0,near3:0,mcT:0,mcN3:0}));
-    let totTickets=0;
-    tests.forEach(t=>{
-      const actual=draws[t],aset=new Set(actual.nums),win=draws.slice(t+1,t+1+WINDOW);
+  const MC=depth<=120?80:depth<=250?150:depth<=500?250:300;
+  const WINDOW=30,cnt=game.count,max=game.max;
+  const tests=[];for(let t=0;t<draws.length&&tests.length<maxTests;t++){const prior=draws.slice(t+1);if(prior.length>=WINDOW)tests.push(t);}
+  const nT=tests.length;
+  if(!nT){out.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli test noktası yok.</div>';return;}
+  _mrBusy=true;
+  const btn=document.getElementById('mrRunBtn');if(btn){btn.disabled=true;btn.style.opacity='.6';}
+  const agg=_MR_METHODS.map(m=>({k:m.k,d:m.d,net:0,n3:0,near3:0,mcT:0,mcN3:0}));
+  let totTickets=0,ti=0;
+  const CHUNK=15; // her tikte işlenecek test-çekiliş sayısı — UI donmasın
+  function step(){
+    const end=Math.min(ti+CHUNK,nT);
+    for(;ti<end;ti++){
+      const t=tests[ti],act=draws[t],aset=new Set(act.nums),win=draws.slice(t+1,t+1+WINDOW);
       _MR_METHODS.forEach((m,mi)=>{
         const w=m.f(win,max);
         const s=_mrScore(_mrTopW(w,max,cnt),aset);
         agg[mi].net+=s.net;if(s.n3)agg[mi].n3++;if(s.near3)agg[mi].near3++;
-        for(let i=0;i<MC;i++){const ss=_mrScore(_mrWSample(w,max,cnt),aset);agg[mi].mcT++;if(ss.n3)agg[mi].mcN3++;totTickets++;}
+        const {pool,ww}=_mrBaseArrays(w,max);
+        for(let i=0;i<MC;i++){const ss=_mrScore(_mrWSampleFrom(pool,ww,cnt),aset);agg[mi].mcT++;if(ss.n3)agg[mi].mcN3++;totTickets++;}
       });
-    });
-    const nT=tests.length,base=_ticketGE(game,3);
-    const rows=agg.map(a=>{const pTick=a.mcT?a.mcN3/a.mcT:0;const K90=pTick>0?Math.ceil(Math.log(1-0.90)/Math.log(1-pTick)):Infinity;return{k:a.k,d:a.d,avgNet:a.net/nT,p3det:a.n3/nT,near3det:a.near3/nT,pTick,K90};}).sort((x,y)=>y.pTick-x.pTick);
-    _mrRender(out,game,rows,nT,base,totTickets,MC);
-  },30);
+    }
+    if(ti<nT){
+      const pct=Math.round(100*ti/nT);
+      out.innerHTML=`<div class="card" style="font-size:.74rem;color:var(--muted)">🔬 Son-30 pencere backtest yürütülüyor… %${pct} (${ti}/${nT} çekiliş)</div>`;
+      setTimeout(step,0);
+    }else{
+      const base=_ticketGE(game,3);
+      const rows=agg.map(a=>{const pTick=a.mcT?a.mcN3/a.mcT:0;const K90=pTick>0?Math.ceil(Math.log(1-0.90)/Math.log(1-pTick)):Infinity;return{k:a.k,d:a.d,avgNet:a.net/nT,p3det:a.n3/nT,near3det:a.near3/nT,pTick,K90};}).sort((x,y)=>y.pTick-x.pTick);
+      _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual);
+      _mrBusy=false;if(btn){btn.disabled=false;btn.style.opacity='1';}
+    }
+  }
+  out.innerHTML='<div class="card" style="font-size:.74rem;color:var(--muted)">🔬 Son-30 pencere backtest başlıyor…</div>';
+  setTimeout(step,20);
 }
-function _mrRender(out,game,rows,nT,base,totTickets,MC){
+function _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual){
   const champ=rows[0];
-  const draws=_kbGetDraws(game.id);
+  const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
   const nearPct=Math.max(...rows.map(r=>r.near3det));
   const fmtN=n=>n.toLocaleString('tr-TR');
   let h='';
+  if(actual){const res=[...(actual.nums||[])].sort((a,b)=>a-b);h+=`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Araştırma bu tarihten ÖNCEKİ verilerle yürütüldü · Araştırma Şampiyonu biletinde ✓ net · ~ ±1 yakın.</div></div>`;}
   // özet / dürüst sonuç
   h+=`<div class="card" style="border-color:rgba(0,230,118,.3);margin-bottom:12px">`;
   h+=`<div style="font-size:.8rem;font-weight:800;color:var(--text);margin-bottom:8px">📋 Dürüst Sonuç — ${game.name}</div>`;
@@ -17643,19 +17670,21 @@ function _mrRender(out,game,rows,nT,base,totTickets,MC){
   h+=`</table>`;
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:8px;line-height:1.7">📌 <strong>Not:</strong> Şansın 1.0× civarındaki tüm değerler istatistiksel gürültüdür — hiçbir yöntem çekilişi “tahmin” edemez. <strong>Delta sistemi, pozisyon ve tekerlek (wheeling)</strong> yöntemleri hangi sayıların seçileceğini değil biletin <em>yapısını</em> (bitişiklik/yayılım) değiştirir; bu da “3-yakın” sütununa yansır. <strong>Doğum günü/ayna sayı</strong> gibi yöntemler ise kazanma şansını değil yalnızca ikramiye paylaşımını etkiler.</div>`;
   h+=`</div>`;
-  // şampiyon üretici (en son çekilişten önceki 30 pencere ile bugünün tahmini)
+  // şampiyon üretici (hariç bırakılmışsa o çekilişten önceki, değilse en son 30 pencere ile tahmin)
   const prior=draws;const w=(_MR_CHAMP[game.id]||_mrRepeatW)(prior.slice(0,30),game.max);
   const rawTop=_mrTopW(w,game.max,game.count);
   const freqForShape=_mrFreqW(prior.slice(0,30),game.max);
   let shaped=rawTop;try{shaped=_nearShape(game,rawTop,freqForShape);}catch(e){}
-  window._mrChampTxt=`🔬 Araştırma Şampiyonu — ${champ.k} (${game.name})\nEn güçlü ${game.count}: ${rawTop.join(' ')}\n3-yakın odaklı bilet: ${[...shaped].sort((a,b)=>a-b).join(' ')}`;
+  const sortedShaped=[...shaped].sort((a,b)=>a-b);
+  let champNet=0,champNear=0;if(aSet)sortedShaped.forEach(n=>{if(aSet.has(n))champNet++;else if(aSet.has(n-1)||aSet.has(n+1))champNear++;});
+  window._mrChampTxt=`🔬 Araştırma Şampiyonu — ${champ.k} (${game.name})\nEn güçlü ${game.count}: ${rawTop.join(' ')}\n3-yakın odaklı bilet: ${sortedShaped.join(' ')}`;
   h+=`<div class="card" style="border:2px solid rgba(244,114,63,.45);background:linear-gradient(135deg,rgba(244,114,63,.06),rgba(0,230,118,.04))">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.8rem;font-weight:800;color:#f97316">🏆 Araştırma Şampiyonu — ${champ.k}</span><button onclick="_caCopy(window._mrChampTxt)" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋</button></div>`;
-  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">En yüksek P(≥3) veren yöntemin en son 30 oyundan çıkardığı en güçlü ${game.count} sayı. Bu yöntem <strong>Hızlı Tahmin</strong> sayfasına da <strong>🔬 Araştırma Şampiyonu</strong> bloğu olarak eklendi.</div>`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.8rem;font-weight:800;color:#f97316">🏆 Araştırma Şampiyonu — ${champ.k}</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${champNet>=3?'var(--green)':'var(--muted)'}">🏆 ${champNet} net · ${champNear} yakın</span>`:''}<button onclick="_caCopy(window._mrChampTxt)" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋</button></span></div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">${aSet?'Hariç tutulan çekilişten ÖNCEKİ 30 oyunla üretildi, gerçek sonuca göre işaretlendi.':'En yüksek P(≥3) veren yöntemin en son 30 oyundan çıkardığı en güçlü '+game.count+' sayı.'} Bu yöntem <strong>Hızlı Tahmin</strong> sayfasına da <strong>🔬 Araştırma Şampiyonu</strong> bloğu olarak eklendi.</div>`;
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">En güçlü ${game.count} (ham):</div>`;
-  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${rawTop.map(n=>`<span style="font-family:monospace;font-size:.82rem;font-weight:800;background:var(--surface2);border:1.5px solid rgba(244,114,63,.4);border-radius:8px;padding:3px 9px;color:var(--text)">${n}</span>`).join('')}</div>`;
+  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${rawTop.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="font-family:monospace;font-size:.82rem;font-weight:800;background:var(--surface2);border:1.5px solid rgba(244,114,63,.4);border-radius:8px;padding:3px 9px;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span>`;}).join('')}</div>`;
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">🎯 “3-yakın” odaklı (ardışık komşular yerleştirilmiş):</div>`;
-  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${[...shaped].sort((a,b)=>a-b).map(n=>`<span style="font-family:monospace;font-size:.82rem;font-weight:800;background:rgba(0,230,118,.1);border:1.5px solid rgba(0,200,100,.4);border-radius:8px;padding:3px 9px;color:var(--green)">${n}</span>`).join('')}</div>`;
+  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${sortedShaped.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--green)'):'var(--green)';return `<span style="font-family:monospace;font-size:.82rem;font-weight:800;background:rgba(0,230,118,.1);border:1.5px solid rgba(0,200,100,.4);border-radius:8px;padding:3px 9px;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span>`;}).join('')}</div>`;
   h+=`</div>`;
   out.innerHTML=h;
 }
