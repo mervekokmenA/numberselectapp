@@ -1293,6 +1293,18 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
  </div>
  <div id="mrOut"></div>
+ <div class="card" style="margin-top:16px">
+  <div class="card-title">📊 Geçmiş Test</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; araştırma o tarihten ÖNCEKİ verilerle yürütülür ve şampiyon yöntemin bileti gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
+  <div style="display:flex;gap:6px;align-items:stretch">
+   <select id="mrDateSel" onchange="_mrDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+   <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+    <button onclick="_mrStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+    <button onclick="_mrStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+   </div>
+  </div>
+  <div id="mrDateOut" style="margin-top:10px"></div>
+ </div>
 </div><!-- /page-arastirma -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
@@ -17565,7 +17577,7 @@ let _qtGame='super',_qtGameManual=false;
 function _htInit(){ _qtInit(); }
 
 // ═══════════ YÖNTEM ARAŞTIRMA (internet/Reddit yöntemleri, son-30 pencere backtest) ═══════════
-let _mrGame='sayisal', _mrGameManual=false, _mrBusy=false;
+let _mrGame='sayisal', _mrGameManual=false, _mrBusy={};
 const _mrRng=(()=>{let s=987654321>>>0;return()=>{s^=s<<13;s^=s>>>17;s^=s<<5;s>>>=0;return s/4294967296;};})();
 function _mrFreqW(win,max){const f={};win.forEach(d=>d.nums.forEach(n=>{if(n<=max)f[n]=(f[n]||0)+1;}));return f;}
 function _mrColdW(win,max){const f=_mrFreqW(win,max),w={};for(let n=1;n<=max;n++)w[n]=1/((f[n]||0)+1);return w;}
@@ -17595,26 +17607,21 @@ function _mrInit(){
   const row=document.getElementById('mrGameRow');if(!row)return;
   if(!_mrGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_mrGame=state.selectedGame;
   row.innerHTML=GAMES.map(g=>{const a=g.id===_mrGame;return `<button onclick="_mrSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(244,114,63,.7)':'var(--border)'};background:${a?'rgba(244,114,63,.13)':'var(--surface2)'};color:${a?'#f97316':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
+  _mrDates();
 }
-function _mrSetGame(g){_mrGame=g;_mrGameManual=true;_mrInit();const o=document.getElementById('mrOut');if(o)o.innerHTML='';}
-function _mrRun(){
-  if(_mrBusy)return;
-  const out=document.getElementById('mrOut');if(!out)return;
-  const game=getGame(_mrGame),allDraws=_kbGetDraws(_mrGame);
-  const exLast=!!document.getElementById('mrExcludeLastChk')?.checked;
-  const minNeed=exLast?41:40;
-  if(!allDraws||allDraws.length<minNeed){out.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥'+minNeed+' çekiliş gerekli).</div>';return;}
-  const actual=exLast?allDraws[0]:null;
-  const draws=exLast?allDraws.slice(1):allDraws;
-  const depth=parseInt(document.getElementById('mrDepth')?.value)||120;
-  const maxTests=depth>=9999?9999:depth;
-  const MC=depth<=120?80:depth<=250?150:depth<=500?250:300;
+function _mrSetGame(g){_mrGame=g;_mrGameManual=true;_mrInit();['mrOut','mrDateOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
+// paylaşılan hesaplama motoru: game+draws(actual hariç geçmiş)+actual(varsa işaretlenecek gerçek çekiliş) al, targetEl'e çiz
+function _mrCompute(game,draws,actual,targetEl,depth,busyKey){
+  if(_mrBusy[busyKey])return;
+  const depthN=depth||120;
+  const maxTests=depthN>=9999?9999:depthN;
+  const MC=depthN<=120?80:depthN<=250?150:depthN<=500?250:300;
   const WINDOW=30,cnt=game.count,max=game.max;
   const tests=[];for(let t=0;t<draws.length&&tests.length<maxTests;t++){const prior=draws.slice(t+1);if(prior.length>=WINDOW)tests.push(t);}
   const nT=tests.length;
-  if(!nT){out.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli test noktası yok.</div>';return;}
-  _mrBusy=true;
-  const btn=document.getElementById('mrRunBtn');if(btn){btn.disabled=true;btn.style.opacity='.6';}
+  if(!nT){targetEl.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli test noktası yok.</div>';return;}
+  _mrBusy[busyKey]=true;
+  const btn=busyKey==='main'?document.getElementById('mrRunBtn'):null;if(btn){btn.disabled=true;btn.style.opacity='.6';}
   const agg=_MR_METHODS.map(m=>({k:m.k,d:m.d,net:0,n3:0,near3:0,mcT:0,mcN3:0}));
   let totTickets=0,ti=0;
   const CHUNK=15; // her tikte işlenecek test-çekiliş sayısı — UI donmasın
@@ -17632,17 +17639,52 @@ function _mrRun(){
     }
     if(ti<nT){
       const pct=Math.round(100*ti/nT);
-      out.innerHTML=`<div class="card" style="font-size:.74rem;color:var(--muted)">🔬 Son-30 pencere backtest yürütülüyor… %${pct} (${ti}/${nT} çekiliş)</div>`;
+      targetEl.innerHTML=`<div class="card" style="font-size:.74rem;color:var(--muted)">🔬 Son-30 pencere backtest yürütülüyor… %${pct} (${ti}/${nT} çekiliş)</div>`;
       setTimeout(step,0);
     }else{
       const base=_ticketGE(game,3);
       const rows=agg.map(a=>{const pTick=a.mcT?a.mcN3/a.mcT:0;const K90=pTick>0?Math.ceil(Math.log(1-0.90)/Math.log(1-pTick)):Infinity;return{k:a.k,d:a.d,avgNet:a.net/nT,p3det:a.n3/nT,near3det:a.near3/nT,pTick,K90};}).sort((x,y)=>y.pTick-x.pTick);
-      _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual);
-      _mrBusy=false;if(btn){btn.disabled=false;btn.style.opacity='1';}
+      _mrRender(targetEl,game,rows,nT,base,totTickets,MC,draws,actual);
+      _mrBusy[busyKey]=false;if(btn){btn.disabled=false;btn.style.opacity='1';}
     }
   }
-  out.innerHTML='<div class="card" style="font-size:.74rem;color:var(--muted)">🔬 Son-30 pencere backtest başlıyor…</div>';
+  targetEl.innerHTML='<div class="card" style="font-size:.74rem;color:var(--muted)">🔬 Son-30 pencere backtest başlıyor…</div>';
   setTimeout(step,20);
+}
+function _mrRun(){
+  const out=document.getElementById('mrOut');if(!out)return;
+  const game=getGame(_mrGame),allDraws=_kbGetDraws(_mrGame);
+  const exLast=!!document.getElementById('mrExcludeLastChk')?.checked;
+  const minNeed=exLast?41:40;
+  if(!allDraws||allDraws.length<minNeed){out.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥'+minNeed+' çekiliş gerekli).</div>';return;}
+  const actual=exLast?allDraws[0]:null;
+  const draws=exLast?allDraws.slice(1):allDraws;
+  const depth=parseInt(document.getElementById('mrDepth')?.value)||120;
+  _mrCompute(game,draws,actual,out,depth,'main');
+}
+// ── Geçmiş Test: seçilen tarihten ÖNCEKİ verilerle araştırma, gerçek sonuca göre işaretli ──
+function _mrDates(){
+  const sel=document.getElementById('mrDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_mrGame);const prev=sel.value;
+  let h=`<option value="">— Geçmiş test için tarih seçin —</option>`;
+  draws.forEach((d,i)=>{if(draws.length-i-1<40)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;if(prev)sel.value=prev;
+}
+function _mrStepDate(dir){
+  const sel=document.getElementById('mrDateSel');if(!sel||sel.options.length<2)return;
+  let idx=sel.selectedIndex;
+  if(idx<1)idx=1;else idx=Math.min(sel.options.length-1,Math.max(1,idx+dir));
+  sel.selectedIndex=idx;_mrDateTest();
+}
+function _mrDateTest(){
+  const el=document.getElementById('mrDateOut');if(!el)return;
+  const date=document.getElementById('mrDateSel')?.value||'';
+  if(!date){el.innerHTML='';return;}
+  const game=getGame(_mrGame),draws=_kbGetDraws(_mrGame);
+  const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
+  const actual=draws[idx],prior=draws.slice(idx+1);
+  if(prior.length<40){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
+  _mrCompute(game,prior,actual,el,120,'date');
 }
 function _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual){
   const champ=rows[0];
