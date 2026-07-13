@@ -17760,6 +17760,7 @@ function _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual){
   h+=sumH+tblH;
   h+=_mrK90Block(game,champ,prior,aSet);
   out.innerHTML=h;
+  try{_mrK90ApplyFilter();}catch(e){}
 }
 // 🎫 "Dürüst Sonuç"ta belirtilen bilet sayısını (~%90 için gereken K) gerçekten üretir — SADECE Araştırma sayfasında
 function _mrK90Block(game,champ,prior,aSet){
@@ -17780,19 +17781,42 @@ function _mrK90Block(game,champ,prior,aSet){
     const fmtN=n=>n.toLocaleString('tr-TR');
     const ck=aSet?'_mrK90TxtT':'_mrK90Txt';
     window[ck]=`Dürüst Sonuç Bileti Demeti — ${champ.k} (${game.name}, ${K} bilet)\n`+tickets.map(tk=>tk.join(' ')).join('\n');
+    // filtreleme için ham veriyi sakla — bilinen sayı(lar) girilince sadece o sayıları içeren biletler gösterilir
+    window._mrK90Tickets=tickets.map(tk=>({nums:tk,net:netOf(tk)}));
+    window._mrK90ASet=aSet||null;
     let h=`<div class="card" style="margin-top:16px">`;
     h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span style="font-size:.78rem;font-weight:800;color:var(--text)">🎫 Dürüst Sonuç Bileti Demeti (${fmtN(K)} bilet)</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 en iyi: ${bestNet} net · ${ge3Count}/${K} bilet 3+</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋 Tümünü Kopyala</button></span></div>`;
     h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Yukarıdaki "Dürüst Sonuç"ta belirtilen, ~%90 ihtimalle en az bir biletin ≥3 net yakalaması için gereken <strong>${champ.k}</strong> ağırlıklı ${fmtN(K)} bilet — gerçek kaldıraç budur (K etkisi), "akıllı seçim" değil.${K<champ.K90?` (Performans için tam ${fmtN(champ.K90)} yerine ${fmtN(K)} bilet üretildi.)`:''}</div>`;
-    h+=`<div style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:1px;font-family:monospace;font-size:.62rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px">`;
-    h+=tickets.map((tk,i)=>{
-      const n=netOf(tk);
-      const strong=aSet&&n>=3;
-      const nums=tk.map(x=>aSet&&aSet.has(x)?`<strong style="color:var(--green)">${x}✓</strong>`:x).join(' ');
-      return `<div style="padding:2px 5px;border-radius:4px;color:${strong?'var(--green)':'var(--text)'}">${String(i+1).padStart(3,' ')}. ${nums}${aSet?` <span style="color:var(--muted)">(${n} net)</span>`:''}</div>`;
-    }).join('');
-    h+=`</div></div>`;
+    h+=`<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;flex-wrap:wrap">`;
+    h+=`<input type="text" id="mrK90Filter" oninput="_mrK90ApplyFilter()" placeholder="Bilinen sayı(lar) — örn: 14 30" style="flex:1;min-width:160px;font-size:.72rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px">`;
+    h+=`<span id="mrK90Count" style="font-size:.6rem;color:var(--muted)"></span>`;
+    h+=`</div>`;
+    h+=`<div id="mrK90List" style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;font-family:monospace;font-size:.82rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px"></div>`;
+    h+=`</div>`;
     return h;
   }catch(e){return '';}
+}
+function _mrK90RowHtml(d,i,filterNums,aSet){
+  const strong=aSet&&d.net>=3;
+  const nums=d.nums.map(x=>{
+    const hit=aSet&&aSet.has(x);
+    const known=filterNums.includes(x);
+    const color=hit?'var(--green)':known?'var(--accent)':'inherit';
+    const weight=hit||known?800:400;
+    const deco=known&&!hit?'text-decoration:underline':'';
+    return `<span style="color:${color};font-weight:${weight};${deco}">${x}${hit?'✓':''}</span>`;
+  }).join(' ');
+  return `<div style="padding:4px 7px;border-radius:5px;color:${strong?'var(--green)':'var(--text)'};font-weight:${strong?700:400}">${String(i+1).padStart(3,' ')}. ${nums}${aSet?` <span style="font-size:.72rem;color:var(--muted)">(${d.net} net)</span>`:''}</div>`;
+}
+function _mrK90ApplyFilter(){
+  const listEl=document.getElementById('mrK90List');if(!listEl)return;
+  const data=window._mrK90Tickets||[];
+  const aSet=window._mrK90ASet||null;
+  const filterNums=[...new Set((document.getElementById('mrK90Filter')?.value||'').match(/\d+/g)||[])].map(Number);
+  const filtered=filterNums.length?data.filter(d=>filterNums.every(fn=>d.nums.includes(fn))):data;
+  const countEl=document.getElementById('mrK90Count');
+  if(countEl)countEl.textContent=filterNums.length?`${filtered.length}/${data.length} bilet eşleşti`:'';
+  listEl.innerHTML=filtered.length?filtered.map((d,i)=>_mrK90RowHtml(d,i,filterNums,aSet)).join(''):`<div style="padding:10px;color:var(--muted);font-size:.7rem">Bu sayı(ları) içeren bilet yok.</div>`;
 }
 function _qtRenderControls(){
   const row=document.getElementById('qtGameRow');if(!row)return;
