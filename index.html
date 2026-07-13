@@ -17762,6 +17762,14 @@ function _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual){
   h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${rowSpan(row3)}</div>`;
   h+=`</div>`;
   h+=_qtMrPoolBlock(game,rawTop,sortedShaped,row3,aSet);
+  try{
+    let aiB=[],g0=[],ni=[],yak=[];
+    try{aiB=_cbGenBundle(game,prior,8);}catch(e){}
+    try{g0=(typeof _g0GenBundle==='function')?_g0GenBundle(game,prior,10):[];}catch(e){}
+    try{ni=_niGenBundle(game,prior,10,_niCompute(game,prior));}catch(e){}
+    try{yak=_coverageBundle(game,'axrecency',12,buildFreq(prior),prior);}catch(e){}
+    h+=_qtWidePoolBlock(game,{aiB,g0,ni,yak},aSet);
+  }catch(e){}
   h+=sumH+tblH;
   out.innerHTML=h;
 }
@@ -17894,6 +17902,7 @@ function _qtRenderAll(targetEl,game,prior,actual){
   h+=_qtNihaiYakGulayInter(src,game,aSet);
   if(src.ga)h+=_qtGulayBlock(src.ga,game,aSet);
   h+=_qtMrChampBlock(game,prior,src,aSet);
+  h+=_qtWidePoolBlock(game,src,aSet);
   h+=_qtAiBlock(game,prior,src,aSet);
   targetEl.innerHTML=h;
 }
@@ -17940,6 +17949,31 @@ function _qtMrPoolBlock(game,rawTop,sortedShaped,row3,aSet){
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.68rem;font-weight:800;color:#f97316">🧺 3 Satırın Birleşik Havuzu (${pool.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${net>=3?'var(--green)':'var(--muted)'}">🏆 ${net} net · ${near} yakın</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></span></div>`;
   h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:6px">3 satırdaki TÜM benzersiz sayılar — tek bilete sığmaz (${game.count} yerine ${pool.length} sayı), ama isabet olasılığı daha yüksek. Birden fazla bilet oluştururken öncelik sırası / referans havuzu olarak kullan.</div>`;
   h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${pool.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="font-family:monospace;font-size:.7rem;font-weight:800;background:var(--surface2);border:1.5px dashed rgba(244,114,63,.35);border-radius:7px;padding:2px 7px;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span>`;}).join('')}</div>`;
+  h+=`</div>`;
+  return h;
+}
+// aynı boyutta TAMAMEN RASTGELE bir havuzun ≥3 net bulma şansı (hipergeometrik) — dürüst kıyas için
+function _mrPoolChanceGE3(poolSize,max,cnt){
+  if(poolSize<=0||poolSize>max)return 0;
+  let p=0;
+  for(let x=3;x<=cnt;x++)p+=_binomC(cnt,x)*_binomC(max-cnt,poolSize-x)/_binomC(max,poolSize);
+  return p;
+}
+// 🌐 Geniş Havuz: AI Bilet Üretici + Gülsis Sıfır + Nihai + 12'li 3+ yapılarının TÜM benzersiz sayılarının birleşimi.
+// Çok daha büyük bir havuz (tipik ~%40-90 sayı alanı) — ≥3 net bulma oranı yüksektir AMA bunun sebebi çoğunlukla
+// havuz BOYUTUdur, "akıllı seçim" değil: aynı boyutta rastgele bir havuzla karşılaştırma dürüstçe gösterilir.
+function _qtWidePoolBlock(game,src,aSet){
+  const bundles=[...(src.aiB||[]),...(src.g0||[]),...(src.ni||[]),...(src.yak||[])];
+  if(!bundles.length)return '';
+  const pool=[...new Set(bundles.flatMap(t=>t.main))].sort((a,b)=>a-b);
+  let net=0,near=0;if(aSet)pool.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+  let chance=0;try{chance=_mrPoolChanceGE3(pool.length,game.max,game.count);}catch(e){}
+  const copy='Geniş Havuz — AI Bilet+Gülsis+Nihai+12li birleşimi ('+game.name+', '+pool.length+' sayı)\n'+pool.join(' ');
+  const ck=aSet?'_qtWidePoolTxtT':'_qtWidePoolTxt';window[ck]=copy;
+  let h=`<div class="card" style="margin-bottom:12px;border:1.5px dashed rgba(99,102,241,.4)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.68rem;font-weight:800;color:var(--accent)">🌐 Geniş Havuz — Tüm Yapıların Birleşimi (${pool.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${net>=3?'var(--green)':'var(--muted)'}">🏆 ${net} net · ${near} yakın</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></span></div>`;
+  h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:6px">🤖 AI Bilet · 🎯⁰ Gülsis · 🏁 Nihai · 📈 12&#39;li 3+ yapılarındaki TÜM benzersiz sayılar — ${game.max} sayının ${pool.length} tanesi (%${Math.round(100*pool.length/game.max)}). <strong>Dürüst kıyas:</strong> aynı boyutta tamamen RASTGELE bir havuzun da ≥3 net bulma şansı <strong>%${(chance*100).toFixed(1)}</strong> — yani bu havuzun yüksek isabeti çoğunlukla <em>boyutundan</em> geliyor, "akıllı seçim"den değil. Tek kupona sığmaz; geniş referans/eleme listesi olarak kullan.</div>`;
+  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${pool.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="font-family:monospace;font-size:.6rem;font-weight:700;background:var(--surface2);border:1px dashed rgba(99,102,241,.35);border-radius:6px;padding:1px 6px;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span>`;}).join('')}</div>`;
   h+=`</div>`;
   return h;
 }
