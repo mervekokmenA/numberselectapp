@@ -17758,7 +17758,41 @@ function _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual){
   const inter=_qtNihaiYakGulaySet(ni,yak,ga);
   h+=_qtNihaiYakGulayRender(inter,game,aSet,'_mrInter3');
   h+=sumH+tblH;
+  h+=_mrK90Block(game,champ,prior,aSet);
   out.innerHTML=h;
+}
+// 🎫 "Dürüst Sonuç"ta belirtilen bilet sayısını (~%90 için gereken K) gerçekten üretir — SADECE Araştırma sayfasında
+function _mrK90Block(game,champ,prior,aSet){
+  if(!champ||!isFinite(champ.K90)||champ.K90<=0)return '';
+  try{
+    const K=Math.min(champ.K90,500); // güvenlik/performans sınırı
+    const champFn=(_MR_METHODS.find(m=>m.k===champ.k)||{}).f||_mrRepeatW;
+    const win=prior.slice(0,30);
+    const w=champFn(win,game.max);
+    const tickets=[];
+    for(let i=0;i<K;i++){
+      const {pool,ww}=_mrBaseArrays(w,game.max);
+      tickets.push(_mrWSampleFrom(pool,ww,game.count).sort((a,b)=>a-b));
+    }
+    const netOf=tk=>aSet?tk.filter(n=>aSet.has(n)).length:null;
+    let bestNet=0,ge3Count=0;
+    if(aSet)tickets.forEach(tk=>{const n=netOf(tk);if(n>bestNet)bestNet=n;if(n>=3)ge3Count++;});
+    const fmtN=n=>n.toLocaleString('tr-TR');
+    const ck=aSet?'_mrK90TxtT':'_mrK90Txt';
+    window[ck]=`Dürüst Sonuç Bileti Demeti — ${champ.k} (${game.name}, ${K} bilet)\n`+tickets.map(tk=>tk.join(' ')).join('\n');
+    let h=`<div class="card" style="margin-top:16px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span style="font-size:.78rem;font-weight:800;color:var(--text)">🎫 Dürüst Sonuç Bileti Demeti (${fmtN(K)} bilet)</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 en iyi: ${bestNet} net · ${ge3Count}/${K} bilet 3+</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋 Tümünü Kopyala</button></span></div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Yukarıdaki "Dürüst Sonuç"ta belirtilen, ~%90 ihtimalle en az bir biletin ≥3 net yakalaması için gereken <strong>${champ.k}</strong> ağırlıklı ${fmtN(K)} bilet — gerçek kaldıraç budur (K etkisi), "akıllı seçim" değil.${K<champ.K90?` (Performans için tam ${fmtN(champ.K90)} yerine ${fmtN(K)} bilet üretildi.)`:''}</div>`;
+    h+=`<div style="max-height:420px;overflow-y:auto;display:flex;flex-direction:column;gap:1px;font-family:monospace;font-size:.62rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px">`;
+    h+=tickets.map((tk,i)=>{
+      const n=netOf(tk);
+      const strong=aSet&&n>=3;
+      const nums=tk.map(x=>aSet&&aSet.has(x)?`<strong style="color:var(--green)">${x}✓</strong>`:x).join(' ');
+      return `<div style="padding:2px 5px;border-radius:4px;color:${strong?'var(--green)':'var(--text)'}">${String(i+1).padStart(3,' ')}. ${nums}${aSet?` <span style="color:var(--muted)">(${n} net)</span>`:''}</div>`;
+    }).join('');
+    h+=`</div></div>`;
+    return h;
+  }catch(e){return '';}
 }
 function _qtRenderControls(){
   const row=document.getElementById('qtGameRow');if(!row)return;
