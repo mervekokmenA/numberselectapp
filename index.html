@@ -12639,53 +12639,6 @@ function _navScroll(dir){
   if(links)links.scrollBy({left:dir*160,behavior:'smooth'});
 }
 
-// Buton tetiklenince "⏳ hesaplanıyor" mesajından tam sonuca geçişte kutuların aniden küçülüp
-// büyümesini (zıplama hissi) önler: yükseklik anlık düşünce min-height kilitlenir, içerik
-// değişmeyi bırakıp oturana kadar (mutation quiescence) tutulur, sonra yumuşakça bırakılır —
-// tek seferlik hızlı render'larda da, çok adımlı/ilerlemeli (chunked) render'larda da doğru çalışır.
-// Tüm statik id'li konteynerleri kapsar; sayfa (page-*) ve nav sarmalayıcıları hariç tutulur.
-(function(){
-  if(typeof ResizeObserver==='undefined'||typeof MutationObserver==='undefined')return;
-  const prevH=new WeakMap(),locked=new WeakMap();
-  const QUIET_MS=150,MAX_LOCK_MS=8000;
-  function skip(el){
-    if(!el||!el.id)return true;
-    if(el.id.indexOf('page-')===0||el.id==='mainNav'||el.id==='navLinks')return true;
-    return false;
-  }
-  const ro=new ResizeObserver(entries=>{
-    for(const entry of entries){
-      const el=entry.target;
-      if(locked.has(el))continue;
-      const h=Math.round(entry.contentRect.height);
-      const prev=prevH.get(el);
-      if(prev!=null&&h>0&&h<prev*0.55&&prev>60){
-        el.style.transition='none';
-        el.style.minHeight=prev+'px';
-        void el.offsetHeight;
-        el.style.transition='min-height .25s ease';
-        let quietTimer=null,hardTimer=null;
-        function release(){
-          clearTimeout(quietTimer);clearTimeout(hardTimer);
-          mo.disconnect();
-          el.style.minHeight='';
-          locked.delete(el);
-        }
-        const mo=new MutationObserver(()=>{clearTimeout(quietTimer);quietTimer=setTimeout(release,QUIET_MS);});
-        mo.observe(el,{childList:true,subtree:true,characterData:true});
-        quietTimer=setTimeout(release,QUIET_MS);
-        hardTimer=setTimeout(release,MAX_LOCK_MS);
-        locked.set(el,{mo,quietTimer,hardTimer});
-      }else{
-        prevH.set(el,h);
-      }
-    }
-  });
-  function attach(){document.querySelectorAll('[id]').forEach(el=>{if(!skip(el))ro.observe(el);});}
-  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',attach);
-  else attach();
-})();
-
 function _scanGetDraws(gameId){
   const raw=DRAW_DATA[gameId]||'';
   const draws=[];
