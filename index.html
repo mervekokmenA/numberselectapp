@@ -1296,12 +1296,21 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div class="card" style="margin-top:16px">
   <div class="card-title">📊 Geçmiş Test</div>
   <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; araştırma o tarihten ÖNCEKİ verilerle yürütülür ve şampiyon yöntemin bileti gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
-  <div style="display:flex;gap:6px;align-items:stretch">
+  <div style="display:flex;gap:6px;align-items:stretch;margin-bottom:8px">
    <select id="mrDateSel" onchange="_mrDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
     <button onclick="_mrStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
     <button onclick="_mrStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
    </div>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+   <span style="font-size:.62rem;color:var(--muted)">Test derinliği:</span>
+   <select id="mrDateDepth" onchange="_mrDateTest()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px">
+    <option value="120" selected>Hızlı (120 × 80)</option>
+    <option value="250">Standart (250 × 150)</option>
+    <option value="500">Derin (500 × 250)</option>
+    <option value="9999">Tümü (tüm geçmiş × 300)</option>
+   </select>
   </div>
   <div id="mrDateOut" style="margin-top:10px"></div>
  </div>
@@ -17684,7 +17693,8 @@ function _mrDateTest(){
   const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
   const actual=draws[idx],prior=draws.slice(idx+1);
   if(prior.length<40){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
-  _mrCompute(game,prior,actual,el,120,'date');
+  const depth=parseInt(document.getElementById('mrDateDepth')?.value)||120;
+  _mrCompute(game,prior,actual,el,depth,'date');
 }
 function _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual){
   const champ=rows[0];
