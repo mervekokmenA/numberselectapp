@@ -17737,39 +17737,14 @@ function _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual){
   tblH+=`</table>`;
   tblH+=`<div style="font-size:.56rem;color:var(--muted);margin-top:8px;line-height:1.7">📌 <strong>Not:</strong> Şansın 1.0× civarındaki tüm değerler istatistiksel gürültüdür — hiçbir yöntem çekilişi “tahmin” edemez. <strong>Delta sistemi, pozisyon ve tekerlek (wheeling)</strong> yöntemleri hangi sayıların seçileceğini değil biletin <em>yapısını</em> (bitişiklik/yayılım) değiştirir; bu da “3-yakın” sütununa yansır. <strong>Doğum günü/ayna sayı</strong> gibi yöntemler ise kazanma şansını değil yalnızca ikramiye paylaşımını etkiler.</div>`;
   tblH+=`</div>`;
-  // şampiyon üretici (hariç bırakılmışsa o çekilişten önceki, değilse en son 30 pencere ile tahmin) — 3 bağımsız satır
-  const champFn=_MR_CHAMP[game.id]||_mrRepeatW;
-  const champLabel=(_MR_METHODS.find(m=>m.f===champFn)||{}).k||champ.k;
-  const prior=draws;const wBase=champFn(prior.slice(0,30),game.max);
-  const rawTop=_mrTopW(wBase,game.max,game.count);
-  const freqForShape=_mrFreqW(prior.slice(0,30),game.max);
-  let shaped=rawTop;try{shaped=_nearShape(game,rawTop,freqForShape);}catch(e){}
-  const sortedShaped=[...shaped].sort((a,b)=>a-b);
-  const row3=_mrNiYakInterTop(game,prior,wBase);
-  const rowNet=arr=>{let net=0,near=0;if(aSet)arr.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});return{net,near};};
-  const r1=rowNet(rawTop),r2=rowNet(sortedShaped),r3=rowNet(row3);
-  const bestNet=Math.max(r1.net,r2.net,r3.net),bestNear=Math.max(r1.near,r2.near,r3.near);
-  window._mrChampTxt=`🔬 Araştırma Şampiyonu — ${champLabel} (${game.name})\n1. satır: ${rawTop.join(' ')}\n2. satır (3-yakın odaklı): ${sortedShaped.join(' ')}\n3. satır (Nihai×12li uzlaşısı): ${row3.join(' ')}`;
-  const rowSpan=arr=>arr.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="font-family:monospace;font-size:.82rem;font-weight:800;background:var(--surface2);border:1.5px solid rgba(244,114,63,.4);border-radius:8px;padding:3px 9px;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span>`;}).join('');
-  h+=`<div class="card" style="border:2px solid rgba(244,114,63,.45);background:linear-gradient(135deg,rgba(244,114,63,.06),rgba(0,230,118,.04))">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.8rem;font-weight:800;color:#f97316">🏆 Araştırma Şampiyonu — ${champLabel}</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 demet en iyisi: ${bestNet} net · ${bestNear} yakın</span>`:''}<button onclick="_caCopy(window._mrChampTxt)" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋</button></span></div>`;
-  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">${aSet?'Hariç tutulan çekilişten ÖNCEKİ 30 oyunla üretildi, gerçek sonuca göre işaretlendi.':'250 çekilişlik geriye dönük testte "hiç bulamama" (sıfır net) riski en düşük yöntemin en son 30 oyundan çıkardığı seçim.'} 3 bağımsız satır sunulur — 1. satır ham seçim, 2. satır 3-yakın odaklı, 3. satır 🏁 Nihai × 📈 12&#39;li 3+ Kapsamlı uzlaşısı. Bu yöntem <strong>Hızlı Tahmin</strong> sayfasına da <strong>🔬 Araştırma Şampiyonu</strong> bloğu olarak eklendi.</div>`;
-  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">1. satır — En güçlü ${game.count} (ham)${aSet?` · ${r1.net} net · ${r1.near} yakın`:''}:</div>`;
-  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${rowSpan(rawTop)}</div>`;
-  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">2. satır — 🎯 “3-yakın” odaklı (ardışık komşular yerleştirilmiş)${aSet?` · ${r2.net} net · ${r2.near} yakın`:''}:</div>`;
-  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${rowSpan(sortedShaped)}</div>`;
-  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">3. satır — 🏁 Nihai × 📈 12&#39;li 3+ Kapsamlı uzlaşısı${aSet?` · ${r3.net} net · ${r3.near} yakın`:''}:</div>`;
-  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${rowSpan(row3)}</div>`;
-  h+=`</div>`;
-  h+=_qtMrPoolBlock(game,rawTop,sortedShaped,row3,aSet);
-  try{
-    let aiB=[],g0=[],ni=[],yak=[];
-    try{aiB=_cbGenBundle(game,prior,8);}catch(e){}
-    try{g0=(typeof _g0GenBundle==='function')?_g0GenBundle(game,prior,10):[];}catch(e){}
-    try{ni=_niGenBundle(game,prior,10,_niCompute(game,prior));}catch(e){}
-    try{yak=_coverageBundle(game,'axrecency',12,buildFreq(prior),prior);}catch(e){}
-    h+=_qtWidePoolBlock(game,{aiB,g0,ni,yak},aSet);
-  }catch(e){}
+  // 🔗 Nihai × 3+ Kapsamlı × Gülay Kesişimi — havuz olarak gösterilir, tek tek satır/bilet dökümü yok
+  const prior=draws;
+  let ni=[],yak=[],ga=null;
+  try{ni=_niGenBundle(game,prior,10,_niCompute(game,prior));}catch(e){}
+  try{yak=_coverageBundle(game,'axrecency',12,buildFreq(prior),prior);}catch(e){}
+  try{ga=_soGapAnalysisCompute(prior[0],game);}catch(e){}
+  const inter=_qtNihaiYakGulaySet(ni,yak,ga);
+  h+=_qtNihaiYakGulayRender(inter,game,aSet,'_mrInter3');
   h+=sumH+tblH;
   out.innerHTML=h;
 }
@@ -17860,26 +17835,36 @@ function _qtNihaiYakInter(src,game,aSet){
   return h;
 }
 // 🏁 Nihai × 📈 12'li 3+ × 🔮 Gülay — üç bağımsız yapının ORTAK önerdiği sayılar
-function _qtNihaiYakGulayInter(src,game,aSet){
-  if(!src.ni||!src.ni.length||!src.yak||!src.yak.length||!src.ga)return '';
-  const niNums=new Set();src.ni.forEach(t=>t.main.forEach(n=>niNums.add(n)));
-  const yakNums=new Set();src.yak.forEach(t=>t.main.forEach(n=>yakNums.add(n)));
+// saf hesaplama: Nihai × 12li Kapsamlı × Gülay kesişim kümesi (üç yapının ORTAK önerdiği sayılar) — reuse edilebilir
+function _qtNihaiYakGulaySet(niList,yakList,ga){
+  if(!niList||!niList.length||!yakList||!yakList.length||!ga)return [];
+  const niNums=new Set();niList.forEach(t=>t.main.forEach(n=>niNums.add(n)));
+  const yakNums=new Set();yakList.forEach(t=>t.main.forEach(n=>yakNums.add(n)));
   // Gülay Fark-Analizi bloğunda GÖRÜNEN tüm adaylarla birebir aynı küme (TOPLAMA+ÇIKARMA+FARK ZİNCİRİ) — kırpma yok
   const gulayNums=new Set();
-  (src.ga.topRows||[]).forEach(r=>r.forEach(n=>gulayNums.add(n)));
-  (src.ga.cikRows||[]).forEach(r=>r.forEach(n=>gulayNums.add(n)));
-  (src.ga.chainRows||[]).forEach(({chain})=>chain.slice(1).forEach(n=>gulayNums.add(n)));
-  const inter=[...niNums].filter(n=>yakNums.has(n)&&gulayNums.has(n)).sort((a,b)=>a-b);
-  const copyKey=aSet?'_qtInter3T':'_qtInter3';
+  (ga.topRows||[]).forEach(r=>r.forEach(n=>gulayNums.add(n)));
+  (ga.cikRows||[]).forEach(r=>r.forEach(n=>gulayNums.add(n)));
+  (ga.chainRows||[]).forEach(({chain})=>chain.slice(1).forEach(n=>gulayNums.add(n)));
+  return [...niNums].filter(n=>yakNums.has(n)&&gulayNums.has(n)).sort((a,b)=>a-b);
+}
+// render — hem Hızlı Tahmin (src üzerinden) hem Yöntem Araştırma (fresh hesap) tarafından kullanılır
+function _qtNihaiYakGulayRender(inter,game,aSet,copyKeyBase){
+  const copyKey=aSet?copyKeyBase+'T':copyKeyBase;
   window[copyKey]='Nihai × 3+Kapsamlı × Gülay Kesişimi ('+game.name+')\n'+(inter.join(' ')||'(ortak sayı yok)');
   let iNet=0,iNear=0;if(aSet){inter.forEach(n=>{if(aSet.has(n))iNet++;else if(aSet.has(n-1)||aSet.has(n+1))iNear++;});}
+  let chance=0;try{chance=_mrPoolChanceGE3(inter.length,game.max,game.count);}catch(e){}
   let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(108,92,231,.4)">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:#6c5ce7">🔗 Nihai × 3+ Kapsamlı × Gülay Kesişimi (${inter.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${iNet>=3?'var(--green)':'var(--muted)'}">🏆 ${iNet} net · ${iNear} yakın</span>`:''}<button onclick="_caCopy(window.${copyKey})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
-  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">🏁 Nihai · 📈 12&#39;li 3+ · 🔮 Gülay — ÜÇ bağımsız yapının aynı anda önerdiği sayılar (en güçlü uzlaşı).</div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">🏁 Nihai · 📈 12&#39;li 3+ · 🔮 Gülay — ÜÇ bağımsız yapının aynı anda önerdiği sayılar (en güçlü uzlaşı) — ${game.max} sayının ${inter.length} tanesi. Dürüst kıyas: aynı boyutta tamamen rastgele bir havuzun ≥3 net bulma şansı %${(chance*100).toFixed(1)}.</div>`;
   if(!inter.length)h+=`<div style="font-size:.62rem;color:var(--muted)">Bu üretimde üçü de ortak bir sayıda buluşmadı.</div>`;
   else h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${inter.map(n=>{const hit=aSet&&aSet.has(n),near=!hit&&aSet&&(aSet.has(n-1)||aSet.has(n+1));const col=hit?'var(--green)':near?'#c2410c':'var(--text)';return `<span style="font-family:monospace;font-size:.74rem;font-weight:800;color:${col};background:var(--surface2);border:1px solid ${hit?'rgba(0,200,100,.5)':near?'rgba(244,114,63,.4)':'rgba(108,92,231,.4)'};border-radius:7px;padding:2px 8px">${n}${hit?'✓':near?'~':''}</span>`;}).join('')}</div>`;
   h+=`</div>`;
   return h;
+}
+function _qtNihaiYakGulayInter(src,game,aSet){
+  const inter=_qtNihaiYakGulaySet(src.ni,src.yak,src.ga);
+  if(!inter.length&&!(src.ni&&src.ni.length&&src.yak&&src.yak.length&&src.ga))return '';
+  return _qtNihaiYakGulayRender(inter,game,aSet,'_qtInter3');
 }
 function _qtRenderAll(targetEl,game,prior,actual){
   const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
@@ -17902,7 +17887,6 @@ function _qtRenderAll(targetEl,game,prior,actual){
   h+=_qtNihaiYakGulayInter(src,game,aSet);
   if(src.ga)h+=_qtGulayBlock(src.ga,game,aSet);
   h+=_qtMrChampBlock(game,prior,src,aSet);
-  h+=_qtWidePoolBlock(game,src,aSet);
   h+=_qtAiBlock(game,prior,src,aSet);
   targetEl.innerHTML=h;
 }
@@ -17962,21 +17946,6 @@ function _mrPoolChanceGE3(poolSize,max,cnt){
 // 🌐 Geniş Havuz: AI Bilet Üretici + Gülsis Sıfır + Nihai + 12'li 3+ yapılarının TÜM benzersiz sayılarının birleşimi.
 // Çok daha büyük bir havuz (tipik ~%40-90 sayı alanı) — ≥3 net bulma oranı yüksektir AMA bunun sebebi çoğunlukla
 // havuz BOYUTUdur, "akıllı seçim" değil: aynı boyutta rastgele bir havuzla karşılaştırma dürüstçe gösterilir.
-function _qtWidePoolBlock(game,src,aSet){
-  const bundles=[...(src.aiB||[]),...(src.g0||[]),...(src.ni||[]),...(src.yak||[])];
-  if(!bundles.length)return '';
-  const pool=[...new Set(bundles.flatMap(t=>t.main))].sort((a,b)=>a-b);
-  let net=0,near=0;if(aSet)pool.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
-  let chance=0;try{chance=_mrPoolChanceGE3(pool.length,game.max,game.count);}catch(e){}
-  const copy='Geniş Havuz — AI Bilet+Gülsis+Nihai+12li birleşimi ('+game.name+', '+pool.length+' sayı)\n'+pool.join(' ');
-  const ck=aSet?'_qtWidePoolTxtT':'_qtWidePoolTxt';window[ck]=copy;
-  let h=`<div class="card" style="margin-bottom:12px;border:1.5px dashed rgba(99,102,241,.4)">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.68rem;font-weight:800;color:var(--accent)">🌐 Geniş Havuz — Tüm Yapıların Birleşimi (${pool.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${net>=3?'var(--green)':'var(--muted)'}">🏆 ${net} net · ${near} yakın</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></span></div>`;
-  h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:6px">🤖 AI Bilet · 🎯⁰ Gülsis · 🏁 Nihai · 📈 12&#39;li 3+ yapılarındaki TÜM benzersiz sayılar — ${game.max} sayının ${pool.length} tanesi (%${Math.round(100*pool.length/game.max)}). <strong>Dürüst kıyas:</strong> aynı boyutta tamamen RASTGELE bir havuzun da ≥3 net bulma şansı <strong>%${(chance*100).toFixed(1)}</strong> — yani bu havuzun yüksek isabeti çoğunlukla <em>boyutundan</em> geliyor, "akıllı seçim"den değil. Tek kupona sığmaz; geniş referans/eleme listesi olarak kullan.</div>`;
-  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${pool.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="font-family:monospace;font-size:.6rem;font-weight:700;background:var(--surface2);border:1px dashed rgba(99,102,241,.35);border-radius:6px;padding:1px 6px;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span>`;}).join('')}</div>`;
-  h+=`</div>`;
-  return h;
-}
 function _qtRunAll(force){
   const el=document.getElementById('qtOut');if(!el)return;
   const game=getGame(_qtGame),draws=_kbGetDraws(_qtGame);
