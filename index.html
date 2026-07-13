@@ -15164,6 +15164,9 @@ const _ONA_SAMPLES=[
  {no:'2373966352',max:60,draw:[3,16,35,44,50,57],date:'09.07 · Süper'},
  {no:'1594077210',max:60,draw:[3,16,35,44,50,57],date:'09.07 · Süper'},
  {no:'2394217989',max:60,draw:[3,16,35,44,50,57],date:'09.07 · Süper'},
+ {no:'2926232072',max:60,draw:null,date:'12.07 · (bekliyor)'},
+ {no:'4209872899',max:60,draw:null,date:'12.07 · (bekliyor)'},
+ {no:'2662333975',max:60,draw:null,date:'12.07 · (bekliyor)'},
 ];
 function _onaProduct(no){let p=1,any=false;for(const ch of String(no)){const d=+ch;if(d>0){p*=d;any=true;}}return any?p:0;}
 function _onaAllDigits(v){return String(v).replace(/[^\d]/g,'');}
@@ -15230,14 +15233,16 @@ function _onaBacktest(sfx){
   const mode=_onaMode(sfx);
   let totNet=0,totCand=0,baseSum=0,n=0,rows='';
   all.forEach((s)=>{
-    const no=String(s.no).replace(/\D/g,'');const c=_onaCandidates(no,s.max||60,mode);const dset=new Set(s.draw);
-    const hit=c.all.filter(x=>dset.has(x));
-    totNet+=hit.length;totCand+=c.all.length;baseSum+=c.all.length*(s.draw.length/(s.max||60));n++;
+    const no=String(s.no).replace(/\D/g,'');const c=_onaCandidates(no,s.max||60,mode);
+    const pending=!s.draw||!s.draw.length;
+    const dset=pending?null:new Set(s.draw);
+    const hit=pending?[]:c.all.filter(x=>dset.has(x));
+    if(!pending){totNet+=hit.length;totCand+=c.all.length;baseSum+=c.all.length*(s.draw.length/(s.max||60));n++;}
     const own=s.date==='kendi';
     rows+=`<div style="padding:6px 8px;background:rgba(0,0,0,.02);border-radius:7px;margin-bottom:5px">
-      <div style="font-size:.54rem;color:var(--muted)">${s.date||''} · Oyun No <span style="font-family:monospace;color:var(--text)">${no}</span> · çıkan: <span style="font-family:monospace;color:var(--text)">${s.draw.join(' ')}</span>${own?` <button onclick="_onaDel(${s._userIdx})" style="font-size:.5rem;color:#cc2222;background:none;border:none;cursor:pointer">✕</button>`:''}</div>
+      <div style="font-size:.54rem;color:var(--muted)">${s.date||''} · Oyun No <span style="font-family:monospace;color:var(--text)">${no}</span>${pending?' · <span style="color:#f97316">⏳ sonuç bekleniyor</span>':' · çıkan: <span style="font-family:monospace;color:var(--text)">'+s.draw.join(' ')+'</span>'}${own?` <button onclick="_onaDel(${s._userIdx})" style="font-size:.5rem;color:#cc2222;background:none;border:none;cursor:pointer">✕</button>`:''}</div>
       <div style="font-size:.52rem;color:var(--muted);line-height:1.7;margin-top:2px">🔢 Çarpım: <span style="font-family:monospace;color:var(--text)">${c.P.toLocaleString('tr-TR')}</span> · ÷33: <span style="font-family:monospace;color:var(--text)">${c.q33.toLocaleString('tr-TR',{maximumFractionDigits:9})}</span> · ÷19: <span style="font-family:monospace;color:var(--text)">${c.q19.toLocaleString('tr-TR',{maximumFractionDigits:9})}</span></div>
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px"><div style="display:flex;gap:4px;flex-wrap:wrap">${c.all.map(x=>_onaBadge(x,dset)).join('')}</div><span style="margin-left:auto;font-size:.6rem;font-weight:800;color:${hit.length?'var(--green)':'var(--muted)'}">${hit.length} eşleşme</span></div>
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:3px"><div style="display:flex;gap:4px;flex-wrap:wrap">${c.all.map(x=>_onaBadge(x,dset)).join('')}</div>${pending?'<span style="margin-left:auto;font-size:.6rem;font-weight:800;color:#f97316">⏳ bekliyor</span>':`<span style="margin-left:auto;font-size:.6rem;font-weight:800;color:${hit.length?'var(--green)':'var(--muted)'}">${hit.length} eşleşme</span>`}</div>
       ${_onaSrcLine('🔢 Çarpımdan',c.cProd,dset)}${_onaSrcLine('➗33 sonucundan',c.c33,dset)}${_onaSrcLine('➗19 sonucundan',c.c19,dset)}
     </div>`;
   });
