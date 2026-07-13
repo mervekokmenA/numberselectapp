@@ -336,6 +336,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-nsa" onclick="showMainPage('nsa')">🔐 NSA</button>
       <button class="nav-link" id="navBtn-hizlitahmin" onclick="showMainPage('hizlitahmin')">⚡ Hızlı Tahmin</button>
       <button class="nav-link" id="navBtn-arastirma" onclick="showMainPage('arastirma')" style="border-color:rgba(244,114,63,.4);color:#f97316">🔬 Yöntem Araştırma</button>
+      <button class="nav-link" id="navBtn-formul" onclick="showMainPage('formul')" style="border-color:rgba(99,102,241,.4);color:var(--accent)">🧮 Formül Sistemi</button>
       <button class="nav-link" id="navBtn-scan" onclick="showMainPage('scan')">🔍 Tarama</button>
       <button class="nav-link" id="navBtn-listeler" onclick="showMainPage('listeler')">📋 Listeler</button>
       <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Kazanan/Kronoloji</button>
@@ -1300,6 +1301,29 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="mrDateOut" style="margin-top:10px"></div>
  </div>
 </div><!-- /page-arastirma -->
+
+<!-- ═══════════ PAGE: FORMÜL SİSTEMİ ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-formul">
+ <div class="card" style="border-color:rgba(99,102,241,.4)">
+  <div class="card-title">🧮 Formül Sistemi — Excel Hesaplamaların</div>
+  <div style="font-size:.64rem;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:rgba(99,102,241,.06);border-radius:8px;line-height:1.7">Kendi Excel dosyandaki formüllerin buraya taşındı — her biri kendi mod-aritmetik hesaplamasıyla (son 1-3 çekilişin sayılarından + bazılarında tarihten) aday sayı üretiyor. Her formül ayrı bir kutuda; en üstte hepsini birleştiren <strong>Kendi Tahmin Yapım</strong> var.</div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap" id="snGameRow"></div>
+ </div>
+ <div id="snNewOut"></div>
+ <div class="card" style="margin-top:16px">
+  <div class="card-title">📊 Geçmiş Test</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; tüm formüller o tarihten ÖNCEKİ çekilişlerle yeniden hesaplanır ve gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
+  <div style="display:flex;gap:6px;align-items:stretch">
+   <select id="snDateSel" onchange="_snDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+   <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+    <button onclick="_snStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+    <button onclick="_snStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+   </div>
+  </div>
+  <div id="snTestOut" style="margin-top:10px"></div>
+ </div>
+ <div id="snBottomOut"></div>
+</div><!-- /page-formul -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-kapsamli">
@@ -12599,11 +12623,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-arastirma','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-arastirma','page-formul','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-arastirma','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-arastirma','navBtn-formul','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -12616,6 +12640,7 @@ function showMainPage(id){
   if(id==='nsa')_nsaInit();
   if(id==='hizlitahmin')_htInit();
   if(id==='arastirma')_mrInit();
+  if(id==='formul')_snInit();
   if(id==='astro')_astroInit();
 }
 
@@ -17817,6 +17842,183 @@ function _mrK90ApplyFilter(){
   const countEl=document.getElementById('mrK90Count');
   if(countEl)countEl.textContent=filterNums.length?`${filtered.length}/${data.length} bilet eşleşti`:'';
   listEl.innerHTML=filtered.length?filtered.map((d,i)=>_mrK90RowHtml(d,i,filterNums,aSet)).join(''):`<div style="padding:10px;color:var(--muted);font-size:.7rem">Bu sayı(ları) içeren bilet yok.</div>`;
+}
+
+// ══════════════════════════════════════════════════════════════
+// 🧮 FORMÜL SİSTEMİ — kullanıcının Excel dosyasındaki formülleri
+// ══════════════════════════════════════════════════════════════
+let _snGame='sayisal',_snGameManual=false;
+function _snMod(a,b){return ((a%b)+b)%b;}
+function _snWrap(v,max){v=Math.round(v);const w=_snMod(v,max);return w===0?max:w;}
+function _snDateParts(dateStr){const d=new Date(dateStr+'T00:00:00');return {day:d.getDate(),month:d.getMonth()+1,year:d.getFullYear()};}
+function _snFactMod(n,m){let r=1n;const M=BigInt(m);const lim=BigInt(Math.max(1,Math.round(n)));for(let i=2n;i<=lim;i++)r=(r*i)%M;return Number(r);} // n! mod m — her adımda mod alınır (doğru sonuç için, büyük faktöriyel taşmasını önler)
+function _snGap(mainArr){const g=[];for(let i=1;i<mainArr.length;i++)g.push(mainArr[i]-mainArr[i-1]);return g;}
+
+// her sistem: compute(r1,r2,r3,dateParts,aVal,max) → [{pos, val}] (pos = pozisyon etiketi, val = 1..max aday sayı)
+const _SN_SYSTEMS={
+  sayisal:[
+    {id:'s1',name:'Sistem 1 — Çift Toplam (−7)',desc:'Son iki çekilişin aynı pozisyondaki sayıları toplanır, 7 çıkarılır, 90’a göre mod alınır.',
+     compute(r1,r2,r3,dp,aVal,max){return r1.main.map((_,k)=>({pos:'CDEFGHI'[k],val:_snWrap(r2.main[k]+r1.main[k]-7,max)}));}},
+    {id:'s2',name:'Sistem 2 — (+6)',desc:'Son iki çekiliş önceki (R+2) çekilişin her pozisyonuna +6 eklenir, 90’a göre mod alınır (Süperstar dahil).',
+     compute(r1,r2,r3,dp,aVal,max){const all=[...r2.main,...r2.bonus];return all.map((v,k)=>({pos:(k<7?'CDEFGHI'[k]:'J(★)'),val:_snWrap(v+6,max)}));}},
+    {id:'s3',name:'Sistem 3 — (+35)',desc:'İki önceki çekilişin her pozisyonuna +35 (33+2) eklenir, 90’a göre mod alınır (Süperstar dahil).',
+     compute(r1,r2,r3,dp,aVal,max){const all=[...r2.main,...r2.bonus];return all.map((v,k)=>({pos:(k<7?'CDEFGHI'[k]:'J(★)'),val:_snWrap(v+35,max)}));}},
+    {id:'s4',name:'Sistem 4 — Gün×3+19',desc:'Son çekilişin bazı pozisyonlarına, hedef tarihin günü×3+19 eklenir (C,E,F,G,H,I).',
+     compute(r1,r2,r3,dp,aVal,max){const idxs=[0,2,3,4,5,6];return idxs.map(k=>({pos:'CDEFGHI'[k],val:_snWrap(r1.main[k]+dp.day*3+19,max)}));}},
+    {id:'s5',name:'Sistem 5 — 13+20k Ağırlıklı',desc:'Son çekilişin her pozisyonuna farklı sabitler eklenir (13, 32, 53, 92, 173, 213, 253 — G hariç).',
+     compute(r1,r2,r3,dp,aVal,max){const all=[...r1.main,...r1.bonus];const adds=[13,32,53,92,null,173,213,253];const labels=['C','D','E','F','G','H','I','J(★)'];const out=[];all.forEach((v,k)=>{if(adds[k]==null)return;out.push({pos:labels[k],val:_snWrap(v+adds[k],max)});});return out;}},
+    {id:'s6',name:'Sistem 6 — Karma Kombinasyonlar',desc:'7 bağımsız özel formül: farklı pozisyonların 1-3 çekiliş öncesiyle, tarih ve sıra numarasıyla karışımı.',
+     compute(r1,r2,r3,dp,aVal,max){
+       const out=[];
+       out.push({pos:'E',val:_snWrap(r1.main[2]+(r3?r3.main[2]:r1.main[2])+14,max)});
+       out.push({pos:'I',val:_snWrap(r1.main[6]+r2.main[6]+dp.day,max)});
+       out.push({pos:'F',val:_snWrap(r1.main[3]+r2.main[3]+30,max)});
+       out.push({pos:'I',val:_snWrap(r1.main[6]+aVal,max)});
+       out.push({pos:'C',val:_snWrap(r1.main[0]+aVal+dp.day-1,max)});
+       out.push({pos:'F',val:_snWrap(r1.main[3]+39,max)});
+       out.push({pos:'J(★)',val:_snWrap(r1.bonus[0]+49,max)});
+       return out;
+     }},
+    {id:'s7',name:'Sistem 7 — Fark Analizi',desc:'Son çekilişin ardışık pozisyon farkları (Gülay’a benzer): fark, farkla topla, farkla çıkar.',
+     compute(r1,r2,r3,dp,aVal,max){
+       const g1=_snGap(r1.main),g2=_snGap(r2.main);
+       const out=[];
+       g1.forEach((v,k)=>out.push({pos:'Fark '+(k+1),val:v}));
+       for(let k=0;k<6;k++)out.push({pos:'Çıkar '+(k+1),val:_snWrap(r1.main[k]-g2[k],max)});
+       for(let k=0;k<6;k++)out.push({pos:'Topla '+(k+1),val:_snWrap(r1.main[k]+g2[k],max)});
+       return out;
+     }},
+  ],
+  super:[
+    {id:'s1',name:'Sistem 1 — (+6)',desc:'İki önceki çekilişin her pozisyonuna +6 eklenir, 60’a göre mod alınır.',
+     compute(r1,r2,r3,dp,aVal,max){return r2.main.map((v,k)=>({pos:'CDEFGH'[k],val:_snWrap(v+6,max)}));}},
+    {id:'s2',name:'Sistem 2 — Gün×3+19',desc:'Son çekilişin her pozisyonuna, hedef tarihin günü×3+19 eklenir.',
+     compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFGH'[k],val:_snWrap(v+dp.day*3+19,max)}));}},
+    {id:'s3',name:'Sistem 3 — Gün+9',desc:'Son çekilişin her pozisyonuna, hedef tarihin günü+9 eklenir.',
+     compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFGH'[k],val:_snWrap(v+dp.day+9,max)}));}},
+    {id:'s4',name:'Sistem 4 — Çapraz Toplam+Gün',desc:'Orta pozisyonlar (D,E,F,G): son çekiliş + gün + iki önceki çekilişin komşu pozisyonları +10.',
+     compute(r1,r2,r3,dp,aVal,max){const out=[];for(let k=1;k<=4;k++)out.push({pos:'CDEFGH'[k],val:_snWrap(r1.main[k]+dp.day+r2.main[k+1]+r2.main[k-1]+10,max)});return out;}},
+    {id:'s5',name:'Sistem 5 — Üçlü+Sıra',desc:'Her pozisyon: son çekiliş + iki önceki çekilişin bir sonraki pozisyonu + son çekilişin ikinci sonraki pozisyonu + sıra no (kenarlarda kısalır).',
+     compute(r1,r2,r3,dp,aVal,max){const out=[];for(let k=0;k<6;k++){let v=r1.main[k]+aVal;if(r2.main[k+1]!=null)v+=r2.main[k+1];if(r1.main[k+2]!=null)v+=r1.main[k+2];out.push({pos:'CDEFGH'[k],val:_snWrap(v,max)});}return out;}},
+  ],
+  sans:[
+    {id:'s1',name:'Sistem 1 — (+33)',desc:'Son çekilişin ana 5 sayısına +33 eklenir, 34’e göre mod alınır.',
+     compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFG'[k],val:_snWrap(v+33,max)}));}},
+    {id:'s2',name:'Sistem 2 — 34−|Toplam|',desc:'Son iki çekilişin aynı pozisyonu toplanır, mutlak değeri 34’ten çıkarılır.',
+     compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFG'[k],val:_snWrap(max-Math.abs(v+r2.main[k]),max)}));}},
+    {id:'s3',name:'Sistem 3 — Faktöriyel',desc:'Son çekilişin ilk sayısının faktöriyeli alınır, 34’e göre mod alınır.',
+     compute(r1,r2,r3,dp,aVal,max){return [{pos:'C',val:_snWrap(_snFactMod(r1.main[0],max),max)}];}},
+    {id:'s4',name:'Sistem 4 — Ondalık Çarpan',desc:'Son çekilişin D,E,F,G pozisyonları 1.432×1.1317157 ile çarpılır (E,F,G’de −1), 34’e göre mod alınır.',
+     compute(r1,r2,r3,dp,aVal,max){const idxs=[1,2,3,4];const labels='CDEFG';return idxs.map((k,i)=>({pos:labels[k],val:_snWrap(r1.main[k]*1.432*1.1317157-(i>0?1:0),max)}));}},
+  ],
+  onnumara:[
+    {id:'s1',name:'Sistem 1 — Kendisiyle Toplam (×2)',desc:'Son çekilişin her pozisyonu kendisiyle toplanır (×2), 80’e göre mod alınır.',
+     compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'P'+(k+1),val:_snWrap(v*2,max)}));}},
+  ],
+};
+function _snR(draws,i){const d=draws[i];if(!d)return null;return {main:[...(d.nums||[])].sort((a,b)=>a-b),bonus:[...(d.bonus||[])]};}
+function _snInit(){
+  const row=document.getElementById('snGameRow');if(!row)return;
+  if(!_snGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_snGame=state.selectedGame;
+  row.innerHTML=GAMES.map(g=>{const a=g.id===_snGame;return `<button onclick="_snSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(99,102,241,.7)':'var(--border)'};background:${a?'rgba(99,102,241,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
+  _snDates();
+  _snRunNew();
+}
+function _snSetGame(g){_snGame=g;_snGameManual=true;_snInit();['snTestOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
+function _snDates(){
+  const sel=document.getElementById('snDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_snGame);const prev=sel.value;
+  let h=`<option value="">— Geçmiş test için tarih seçin —</option>`;
+  draws.forEach((d,i)=>{if(draws.length-i-1<5)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;if(prev)sel.value=prev;
+}
+function _snStepDate(dir){
+  const sel=document.getElementById('snDateSel');if(!sel||sel.options.length<2)return;
+  let idx=sel.selectedIndex;
+  if(idx<1)idx=1;else idx=Math.min(sel.options.length-1,Math.max(1,idx+dir));
+  sel.selectedIndex=idx;_snDateTest();
+}
+function _snDateTest(){
+  const el=document.getElementById('snTestOut');if(!el)return;
+  const date=document.getElementById('snDateSel')?.value||'';
+  if(!date){el.innerHTML='';return;}
+  const game=getGame(_snGame),draws=_kbGetDraws(_snGame);
+  const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
+  const actual=draws[idx];
+  if(draws.length<idx+4){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok (en az 3 önceki çekiliş gerekir).</div>';return;}
+  _snRender(el,game,draws,idx,actual);
+}
+function _snRunNew(){
+  const el=document.getElementById('snNewOut');if(!el)return;
+  const game=getGame(_snGame),draws=_kbGetDraws(_snGame);
+  if(draws.length<3){el.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥3 çekiliş gerekli).</div>';return;}
+  _snRender(el,game,draws,-1,null);
+}
+// idx=-1 → yeni tahmin (bilinmeyen sonraki çekiliş); idx>=0 → geçmiş test (draws[idx] gerçek sonuç)
+function _snRender(el,game,draws,idx,actual){
+  const max=game.max;
+  const r1=_snR(draws,idx+1),r2=_snR(draws,idx+2),r3=_snR(draws,idx+3);
+  if(!r1||!r2){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Yeterli önceki çekiliş yok.</div>';return;}
+  const targetDateStr=actual?actual.date:(_predNextDrawDate(game.id)||draws[0].date);
+  const dp=_snDateParts(targetDateStr);
+  const aVal=draws.length-(idx+1);
+  const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
+  const systems=_SN_SYSTEMS[game.id]||[];
+  const results=systems.map(sys=>{
+    let out=[];try{out=sys.compute(r1,r2,r3,dp,aVal,max)||[];}catch(e){out=[];}
+    out=out.filter(o=>o&&o.val>=1&&o.val<=max);
+    return {sys,out};
+  });
+  let h='';
+  if(actual){const res=[...(actual.nums||[])].sort((a,b)=>a-b);h+=`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Tüm formüller bu tarihten ÖNCEKİ çekilişlerle hesaplandı · ✓ net · ~ ±1 yakın.</div></div>`;}
+  else h+=`<div style="font-size:.6rem;color:var(--muted);margin:2px 0 12px 2px">🔮 Yeni tahmin — <strong style="color:var(--text)">${targetDateStr}</strong> tarihli sonraki çekiliş için hesaplandı.</div>`;
+  // Kendi Tahmin Yapım — tüm sistemlerin oyladığı sayılar
+  const tally={};results.forEach(({out})=>out.forEach(o=>{tally[o.val]=(tally[o.val]||0)+1;}));
+  const ranked=Object.keys(tally).map(Number).sort((a,b)=>tally[b]-tally[a]||a-b);
+  const synthesis=ranked.slice(0,game.count).sort((a,b)=>a-b);
+  window['_snSynth'+(aSet?'T':'')]='Kendi Tahmin Yapım ('+game.name+')\n'+synthesis.join(' ');
+  let synNet=0,synNear=0;if(aSet)synthesis.forEach(n=>{if(aSet.has(n))synNet++;else if(aSet.has(n-1)||aSet.has(n+1))synNear++;});
+  h+=`<div class="card" style="margin-bottom:14px;border:2px solid rgba(99,102,241,.45);background:linear-gradient(135deg,rgba(99,102,241,.07),transparent)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.8rem;font-weight:800;color:var(--accent)">🧠 Kendi Tahmin Yapım</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${synNet>=3?'var(--green)':'var(--muted)'}">🏆 ${synNet} net · ${synNear} yakın</span>`:''}<button onclick="_caCopy(window._snSynth${aSet?'T':''})" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋</button></span></div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Aşağıdaki ${systems.length} formülün TÜMÜNÜN oyladığı sayılar — en çok formülün önerdiği ${game.count} sayı (uzlaşı).</div>`;
+  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${synthesis.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 8px;border-radius:8px;background:var(--surface2);border:1.5px solid rgba(99,102,241,.4)"><span style="font-size:.82rem;font-weight:800;font-family:monospace;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span><span style="font-size:.44rem;color:var(--muted)">${tally[n]}/${systems.length}</span></span>`;}).join('')}</div>`;
+  h+=`</div>`;
+  // her formül — ayrı container
+  results.forEach(({sys,out})=>{
+    if(!out.length)return;
+    const nums=[...new Set(out.map(o=>o.val))].sort((a,b)=>a-b);
+    let net=0,near=0;if(aSet)nums.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+    const ck='_sn'+sys.id+(aSet?'T':'');
+    window[ck]=sys.name+' ('+game.name+')\n'+out.map(o=>o.pos+': '+o.val).join('\n');
+    h+=`<div class="card" style="margin-bottom:12px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:var(--text)">🧮 ${sys.name}</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.6rem;font-weight:800;color:${net>=3?'var(--green)':'var(--muted)'}">🏆 ${net} net · ${near} yakın</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></span></div>`;
+    h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:6px">${sys.desc}</div>`;
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${out.map(o=>{const c=aSet?(aSet.has(o.val)?'var(--green)':(aSet.has(o.val-1)||aSet.has(o.val+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:0;padding:2px 7px;border-radius:6px;background:var(--surface2);border:1px solid var(--border)"><span style="font-size:.74rem;font-weight:700;font-family:monospace;color:${c}">${o.val}${aSet?(aSet.has(o.val)?'✓':(aSet.has(o.val-1)||aSet.has(o.val+1))?'~':''):''}</span><span style="font-size:.42rem;color:var(--muted)">${o.pos}</span></span>`;}).join('')}</div>`;
+    h+=`</div>`;
+  });
+  el.innerHTML=h;
+  // en altta: bu sayfanın (kendi tahmin yapımın) Nihai×12li Kapsamlı ile ortak sayıları — SADECE yeni tahmin modunda (sayfanın en altı)
+  if(idx===-1){
+    const bottomEl=document.getElementById('snBottomOut');
+    if(bottomEl){
+      try{
+        const prior=draws;
+        let ni=[],yak=[];
+        try{ni=_niGenBundle(game,prior,10,_niCompute(game,prior));}catch(e){}
+        try{yak=_coverageBundle(game,'axrecency',12,buildFreq(prior),prior);}catch(e){}
+        const niNums=new Set();ni.forEach(t=>t.main.forEach(n=>niNums.add(n)));
+        const yakNums=new Set();yak.forEach(t=>t.main.forEach(n=>yakNums.add(n)));
+        const inter=synthesis.filter(n=>niNums.has(n)&&yakNums.has(n));
+        window._snBottomTxt='Kendi Tahmin Yapım × Nihai × 12li Kapsamlı Ortak Sayılar ('+game.name+')\n'+(inter.join(' ')||'(ortak sayı yok)');
+        let h2=`<div class="card" style="margin-top:16px;border-color:rgba(108,92,231,.4)">`;
+        h2+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.72rem;font-weight:800;color:#6c5ce7">🔗 Kendi Tahmin Yapım × Nihai × 12'li Kapsamlı — Ortak Sayılar (${inter.length})</span><button onclick="_caCopy(window._snBottomTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
+        h2+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">🧮 Kendi Tahmin Yapım · 🏁 Nihai · 📈 12'li 3+ Kapsamlı — ÜÇÜNÜN de ortak önerdiği sayılar (en güçlü uzlaşı).</div>`;
+        h2+=inter.length?`<div style="display:flex;gap:5px;flex-wrap:wrap">${inter.map(n=>`<span style="font-family:monospace;font-size:.74rem;font-weight:800;color:var(--text);background:var(--surface2);border:1px solid rgba(108,92,231,.4);border-radius:7px;padding:2px 8px">${n}</span>`).join('')}</div>`:`<div style="font-size:.62rem;color:var(--muted)">Bu üretimde ortak sayı çıkmadı.</div>`;
+        h2+=`</div>`;
+        bottomEl.innerHTML=h2;
+      }catch(e){bottomEl.innerHTML='';}
+    }
+  }
 }
 function _qtRenderControls(){
   const row=document.getElementById('qtGameRow');if(!row)return;
