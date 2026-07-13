@@ -17838,6 +17838,24 @@ function _qtNihaiYakInter(src,game,aSet){
   h+=`</div>`;
   return h;
 }
+// 🏁 Nihai × 📈 12'li 3+ × 🔮 Gülay — üç bağımsız yapının ORTAK önerdiği sayılar
+function _qtNihaiYakGulayInter(src,game,aSet){
+  if(!src.ni||!src.ni.length||!src.yak||!src.yak.length||!src.ga)return '';
+  const niNums=new Set();src.ni.forEach(t=>t.main.forEach(n=>niNums.add(n)));
+  const yakNums=new Set();src.yak.forEach(t=>t.main.forEach(n=>yakNums.add(n)));
+  const gulayNums=new Set((src.ga.gulayCands||[]).slice(0,25).map(c=>c.n));
+  const inter=[...niNums].filter(n=>yakNums.has(n)&&gulayNums.has(n)).sort((a,b)=>a-b);
+  const copyKey=aSet?'_qtInter3T':'_qtInter3';
+  window[copyKey]='Nihai × 3+Kapsamlı × Gülay Kesişimi ('+game.name+')\n'+(inter.join(' ')||'(ortak sayı yok)');
+  let iNet=0,iNear=0;if(aSet){inter.forEach(n=>{if(aSet.has(n))iNet++;else if(aSet.has(n-1)||aSet.has(n+1))iNear++;});}
+  let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(108,92,231,.4)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:#6c5ce7">🔗 Nihai × 3+ Kapsamlı × Gülay Kesişimi (${inter.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${iNet>=3?'var(--green)':'var(--muted)'}">🏆 ${iNet} net · ${iNear} yakın</span>`:''}<button onclick="_caCopy(window.${copyKey})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">🏁 Nihai · 📈 12&#39;li 3+ · 🔮 Gülay — ÜÇ bağımsız yapının aynı anda önerdiği sayılar (en güçlü uzlaşı).</div>`;
+  if(!inter.length)h+=`<div style="font-size:.62rem;color:var(--muted)">Bu üretimde üçü de ortak bir sayıda buluşmadı.</div>`;
+  else h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${inter.map(n=>{const hit=aSet&&aSet.has(n),near=!hit&&aSet&&(aSet.has(n-1)||aSet.has(n+1));const col=hit?'var(--green)':near?'#c2410c':'var(--text)';return `<span style="font-family:monospace;font-size:.74rem;font-weight:800;color:${col};background:var(--surface2);border:1px solid ${hit?'rgba(0,200,100,.5)':near?'rgba(244,114,63,.4)':'rgba(108,92,231,.4)'};border-radius:7px;padding:2px 8px">${n}${hit?'✓':near?'~':''}</span>`;}).join('')}</div>`;
+  h+=`</div>`;
+  return h;
+}
 function _qtRenderAll(targetEl,game,prior,actual){
   const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
   const src=_qtBuildSources(game,prior);
@@ -17856,6 +17874,7 @@ function _qtRenderAll(targetEl,game,prior,actual){
   }
   h+=_qtTicketsBlock('📈',"12'li 3+ — Yakın Dönem",src.yak,game,'var(--accent)',aSet);
   h+=_qtNihaiYakInter(src,game,aSet);
+  h+=_qtNihaiYakGulayInter(src,game,aSet);
   if(src.ga)h+=_qtGulayBlock(src.ga,game,aSet);
   h+=_qtMrChampBlock(game,prior,aSet);
   h+=_qtAiBlock(game,prior,src,aSet);
