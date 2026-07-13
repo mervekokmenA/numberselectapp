@@ -1322,7 +1322,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
   <div id="snTestOut" style="margin-top:10px"></div>
  </div>
- <div id="snBottomOut"></div>
 </div><!-- /page-formul -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
@@ -18002,28 +18001,6 @@ function _snRender(el,game,draws,idx,actual){
     h+=`</div>`;
   });
   el.innerHTML=h;
-  // en altta: bu sayfanın (kendi tahmin yapımın) Nihai×12li Kapsamlı ile ortak sayıları — SADECE yeni tahmin modunda (sayfanın en altı)
-  if(idx===-1){
-    const bottomEl=document.getElementById('snBottomOut');
-    if(bottomEl){
-      try{
-        const prior=draws;
-        let ni=[],yak=[];
-        try{ni=_niGenBundle(game,prior,10,_niCompute(game,prior));}catch(e){}
-        try{yak=_coverageBundle(game,'axrecency',12,buildFreq(prior),prior);}catch(e){}
-        const niNums=new Set();ni.forEach(t=>t.main.forEach(n=>niNums.add(n)));
-        const yakNums=new Set();yak.forEach(t=>t.main.forEach(n=>yakNums.add(n)));
-        const inter=synthesis.filter(n=>niNums.has(n)&&yakNums.has(n));
-        window._snBottomTxt='Kendi Tahmin Yapım × Nihai × 12li Kapsamlı Ortak Sayılar ('+game.name+')\n'+(inter.join(' ')||'(ortak sayı yok)');
-        let h2=`<div class="card" style="margin-top:16px;border-color:rgba(108,92,231,.4)">`;
-        h2+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.72rem;font-weight:800;color:#6c5ce7">🔗 Kendi Tahmin Yapım × Nihai × 12'li Kapsamlı — Ortak Sayılar (${inter.length})</span><button onclick="_caCopy(window._snBottomTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
-        h2+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">🧮 Kendi Tahmin Yapım · 🏁 Nihai · 📈 12'li 3+ Kapsamlı — ÜÇÜNÜN de ortak önerdiği sayılar (en güçlü uzlaşı).</div>`;
-        h2+=inter.length?`<div style="display:flex;gap:5px;flex-wrap:wrap">${inter.map(n=>`<span style="font-family:monospace;font-size:.74rem;font-weight:800;color:var(--text);background:var(--surface2);border:1px solid rgba(108,92,231,.4);border-radius:7px;padding:2px 8px">${n}</span>`).join('')}</div>`:`<div style="font-size:.62rem;color:var(--muted)">Bu üretimde ortak sayı çıkmadı.</div>`;
-        h2+=`</div>`;
-        bottomEl.innerHTML=h2;
-      }catch(e){bottomEl.innerHTML='';}
-    }
-  }
 }
 function _qtRenderControls(){
   const row=document.getElementById('qtGameRow');if(!row)return;
