@@ -17693,25 +17693,25 @@ function _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual){
   const fmtN=n=>n.toLocaleString('tr-TR');
   let h='';
   if(actual){const res=[...(actual.nums||[])].sort((a,b)=>a-b);h+=`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Araştırma bu tarihten ÖNCEKİ verilerle yürütüldü · Araştırma Şampiyonu biletinde ✓ net · ~ ±1 yakın.</div></div>`;}
-  // özet / dürüst sonuç
-  h+=`<div class="card" style="border-color:rgba(0,230,118,.3);margin-bottom:12px">`;
-  h+=`<div style="font-size:.8rem;font-weight:800;color:var(--text);margin-bottom:8px">📋 Dürüst Sonuç — ${game.name}</div>`;
-  h+=`<div style="font-size:.66rem;color:var(--muted);line-height:1.8">`;
-  h+=`• Test edildi: <strong style="color:var(--text)">${nT} çekiliş × ${MC} örnek = ${fmtN(totTickets)} bilet</strong> (son-30 kayan pencere).<br>`;
-  h+=`• Şans çizgisi: bir rastgele biletin <strong>P(≥3 net) = %${(base*100).toFixed(3)}</strong>.<br>`;
-  h+=`• En iyi yöntem: <strong style="color:#f97316">${champ.k}</strong> → P(≥3 net)/bilet = <strong style="color:var(--text)">%${(champ.pTick*100).toFixed(3)}</strong> (şansın <strong>${(champ.pTick/base).toFixed(2)}×</strong> katı — fark gürültü seviyesinde).<br>`;
-  h+=`• <strong style="color:var(--green)">Ulaşılabilir hedef → “3 yakın” (±1):</strong> en iyi yöntem tek biletle <strong style="color:var(--green)">%${(nearPct*100).toFixed(1)}</strong> oranında 3 sayıyı ±1 komşuluğunda tutuyor.<br>`;
-  h+=`• <strong>“3 net’e” yaklaşmak</strong> için tek kaldıraç bilet adedi: ${champ.k} ağırlığıyla ~%90 için <strong style="color:var(--text)">${isFinite(champ.K90)?fmtN(champ.K90):'∞'} bilet</strong> gerekir.`;
-  h+=`</div></div>`;
-  // tablo
-  h+=`<div class="card" style="margin-bottom:12px;overflow-x:auto">`;
-  h+=`<div style="font-size:.78rem;font-weight:800;color:var(--text);margin-bottom:8px">🔬 Yöntem Sıralaması (şansa göre)</div>`;
-  h+=`<table style="width:100%;border-collapse:collapse;font-size:.62rem;min-width:520px">`;
-  h+=`<tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border)"><th style="padding:5px 6px">Yöntem</th><th style="padding:5px 6px">Tek-pick 3+net</th><th style="padding:5px 6px">3-yakın</th><th style="padding:5px 6px">MC P(≥3)/bilet</th><th style="padding:5px 6px">vs şans</th><th style="padding:5px 6px">%90 için K</th></tr>`;
-  rows.forEach((r,i)=>{const lift=r.pTick/base;const best=i===0;h+=`<tr style="border-bottom:1px solid rgba(128,128,128,.12);${best?'background:rgba(244,114,63,.08)':''}"><td style="padding:5px 6px;font-weight:${best?800:600};color:${best?'#f97316':'var(--text)'}">${r.k}<div style="font-size:.5rem;color:var(--muted);font-weight:400">${r.d}</div></td><td style="padding:5px 6px">%${(r.p3det*100).toFixed(1)}</td><td style="padding:5px 6px;color:var(--green);font-weight:700">%${(r.near3det*100).toFixed(1)}</td><td style="padding:5px 6px">%${(r.pTick*100).toFixed(3)}</td><td style="padding:5px 6px;color:${lift>=1.15?'var(--green)':lift<0.9?'#ef4444':'var(--muted)'}">${lift.toFixed(2)}×</td><td style="padding:5px 6px">${isFinite(r.K90)?fmtN(r.K90):'∞'}</td></tr>`;});
-  h+=`</table>`;
-  h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:8px;line-height:1.7">📌 <strong>Not:</strong> Şansın 1.0× civarındaki tüm değerler istatistiksel gürültüdür — hiçbir yöntem çekilişi “tahmin” edemez. <strong>Delta sistemi, pozisyon ve tekerlek (wheeling)</strong> yöntemleri hangi sayıların seçileceğini değil biletin <em>yapısını</em> (bitişiklik/yayılım) değiştirir; bu da “3-yakın” sütununa yansır. <strong>Doğum günü/ayna sayı</strong> gibi yöntemler ise kazanma şansını değil yalnızca ikramiye paylaşımını etkiler.</div>`;
-  h+=`</div>`;
+  // özet / dürüst sonuç (en altta gösterilecek)
+  let sumH=`<div class="card" style="border-color:rgba(0,230,118,.3);margin-bottom:12px">`;
+  sumH+=`<div style="font-size:.8rem;font-weight:800;color:var(--text);margin-bottom:8px">📋 Dürüst Sonuç — ${game.name}</div>`;
+  sumH+=`<div style="font-size:.66rem;color:var(--muted);line-height:1.8">`;
+  sumH+=`• Test edildi: <strong style="color:var(--text)">${nT} çekiliş × ${MC} örnek = ${fmtN(totTickets)} bilet</strong> (son-30 kayan pencere).<br>`;
+  sumH+=`• Şans çizgisi: bir rastgele biletin <strong>P(≥3 net) = %${(base*100).toFixed(3)}</strong>.<br>`;
+  sumH+=`• En iyi yöntem: <strong style="color:#f97316">${champ.k}</strong> → P(≥3 net)/bilet = <strong style="color:var(--text)">%${(champ.pTick*100).toFixed(3)}</strong> (şansın <strong>${(champ.pTick/base).toFixed(2)}×</strong> katı — fark gürültü seviyesinde).<br>`;
+  sumH+=`• <strong style="color:var(--green)">Ulaşılabilir hedef → “3 yakın” (±1):</strong> en iyi yöntem tek biletle <strong style="color:var(--green)">%${(nearPct*100).toFixed(1)}</strong> oranında 3 sayıyı ±1 komşuluğunda tutuyor.<br>`;
+  sumH+=`• <strong>“3 net’e” yaklaşmak</strong> için tek kaldıraç bilet adedi: ${champ.k} ağırlığıyla ~%90 için <strong style="color:var(--text)">${isFinite(champ.K90)?fmtN(champ.K90):'∞'} bilet</strong> gerekir.`;
+  sumH+=`</div></div>`;
+  // tablo (en altta gösterilecek)
+  let tblH=`<div class="card" style="margin-bottom:12px;overflow-x:auto">`;
+  tblH+=`<div style="font-size:.78rem;font-weight:800;color:var(--text);margin-bottom:8px">🔬 Yöntem Sıralaması (şansa göre)</div>`;
+  tblH+=`<table style="width:100%;border-collapse:collapse;font-size:.62rem;min-width:520px">`;
+  tblH+=`<tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border)"><th style="padding:5px 6px">Yöntem</th><th style="padding:5px 6px">Tek-pick 3+net</th><th style="padding:5px 6px">3-yakın</th><th style="padding:5px 6px">MC P(≥3)/bilet</th><th style="padding:5px 6px">vs şans</th><th style="padding:5px 6px">%90 için K</th></tr>`;
+  rows.forEach((r,i)=>{const lift=r.pTick/base;const best=i===0;tblH+=`<tr style="border-bottom:1px solid rgba(128,128,128,.12);${best?'background:rgba(244,114,63,.08)':''}"><td style="padding:5px 6px;font-weight:${best?800:600};color:${best?'#f97316':'var(--text)'}">${r.k}<div style="font-size:.5rem;color:var(--muted);font-weight:400">${r.d}</div></td><td style="padding:5px 6px">%${(r.p3det*100).toFixed(1)}</td><td style="padding:5px 6px;color:var(--green);font-weight:700">%${(r.near3det*100).toFixed(1)}</td><td style="padding:5px 6px">%${(r.pTick*100).toFixed(3)}</td><td style="padding:5px 6px;color:${lift>=1.15?'var(--green)':lift<0.9?'#ef4444':'var(--muted)'}">${lift.toFixed(2)}×</td><td style="padding:5px 6px">${isFinite(r.K90)?fmtN(r.K90):'∞'}</td></tr>`;});
+  tblH+=`</table>`;
+  tblH+=`<div style="font-size:.56rem;color:var(--muted);margin-top:8px;line-height:1.7">📌 <strong>Not:</strong> Şansın 1.0× civarındaki tüm değerler istatistiksel gürültüdür — hiçbir yöntem çekilişi “tahmin” edemez. <strong>Delta sistemi, pozisyon ve tekerlek (wheeling)</strong> yöntemleri hangi sayıların seçileceğini değil biletin <em>yapısını</em> (bitişiklik/yayılım) değiştirir; bu da “3-yakın” sütununa yansır. <strong>Doğum günü/ayna sayı</strong> gibi yöntemler ise kazanma şansını değil yalnızca ikramiye paylaşımını etkiler.</div>`;
+  tblH+=`</div>`;
   // şampiyon üretici (hariç bırakılmışsa o çekilişten önceki, değilse en son 30 pencere ile tahmin)
   const prior=draws;const w=(_MR_CHAMP[game.id]||_mrRepeatW)(prior.slice(0,30),game.max);
   const rawTop=_mrTopW(w,game.max,game.count);
@@ -17728,6 +17728,7 @@ function _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual){
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">🎯 “3-yakın” odaklı (ardışık komşular yerleştirilmiş):</div>`;
   h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${sortedShaped.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--green)'):'var(--green)';return `<span style="font-family:monospace;font-size:.82rem;font-weight:800;background:rgba(0,230,118,.1);border:1.5px solid rgba(0,200,100,.4);border-radius:8px;padding:3px 9px;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span>`;}).join('')}</div>`;
   h+=`</div>`;
+  h+=sumH+tblH;
   out.innerHTML=h;
 }
 function _qtRenderControls(){
