@@ -17760,6 +17760,7 @@ function _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual){
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">3. satır — 🏁 Nihai × 📈 12&#39;li 3+ Kapsamlı uzlaşısı${aSet?` · ${r3.net} net · ${r3.near} yakın`:''}:</div>`;
   h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${rowSpan(row3)}</div>`;
   h+=`</div>`;
+  h+=_qtMrPoolBlock(game,rawTop,sortedShaped,row3,aSet);
   h+=sumH+tblH;
   out.innerHTML=h;
 }
@@ -17923,8 +17924,23 @@ function _qtMrChampBlock(game,prior,src,aSet){
     h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${rowSpan(sortedShaped)}</div>`;
     h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${rowSpan(row3)}</div>`;
     h+=`</div>`;
+    h+=_qtMrPoolBlock(game,rawTop,sortedShaped,row3,aSet);
     return h;
   }catch(e){return '';}
+}
+// 3 satırın birleşik BENZERSİZ havuzu — tek bilete sığmaz (havuz büyüklüğü cnt'in üzerinde) ama isabet olasılığı daha yüksek;
+// birden fazla bilet oluştururken öncelik sırası / referans havuzu olarak kullanılır
+function _qtMrPoolBlock(game,rawTop,sortedShaped,row3,aSet){
+  const pool=[...new Set([...rawTop,...sortedShaped,...row3])].sort((a,b)=>a-b);
+  let net=0,near=0;if(aSet)pool.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+  const copy='🔬 Araştırma Şampiyonu — Birleşik Havuz ('+game.name+', '+pool.length+' sayı)\n'+pool.join(' ');
+  const ck=aSet?'_qtMrPoolTxtT':'_qtMrPoolTxt';window[ck]=copy;
+  let h=`<div class="card" style="margin-bottom:12px;border:1.5px dashed rgba(244,114,63,.4)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.68rem;font-weight:800;color:#f97316">🧺 3 Satırın Birleşik Havuzu (${pool.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${net>=3?'var(--green)':'var(--muted)'}">🏆 ${net} net · ${near} yakın</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></span></div>`;
+  h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:6px">3 satırdaki TÜM benzersiz sayılar — tek bilete sığmaz (${game.count} yerine ${pool.length} sayı), ama isabet olasılığı daha yüksek. Birden fazla bilet oluştururken öncelik sırası / referans havuzu olarak kullan.</div>`;
+  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${pool.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="font-family:monospace;font-size:.7rem;font-weight:800;background:var(--surface2);border:1.5px dashed rgba(244,114,63,.35);border-radius:7px;padding:2px 7px;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span>`;}).join('')}</div>`;
+  h+=`</div>`;
+  return h;
 }
 function _qtRunAll(force){
   const el=document.getElementById('qtOut');if(!el)return;
