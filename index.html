@@ -1306,7 +1306,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <div style="grid-column:1/-1;display:none" id="page-formul">
  <div class="card" style="border-color:rgba(99,102,241,.4)">
   <div class="card-title">🧮 Formül Sistemi — Excel Hesaplamaların</div>
-  <div style="font-size:.64rem;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:rgba(99,102,241,.06);border-radius:8px;line-height:1.7">Kendi Excel dosyandaki formüllerin buraya taşındı — her biri kendi mod-aritmetik hesaplamasıyla (son 1-3 çekilişin sayılarından + bazılarında tarihten) aday sayı üretiyor. Her formül ayrı bir kutuda; en üstte hepsini birleştiren <strong>Kendi Tahmin Yapım</strong> var.</div>
+  <div style="font-size:.64rem;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:rgba(99,102,241,.06);border-radius:8px;line-height:1.7">Kendi Excel dosyandaki formüllerin buraya taşındı — her biri kendi mod-aritmetik hesaplamasıyla (son 1-3 çekilişin sayılarından + bazılarında tarihten) aday sayı üretiyor. Her formül ayrı bir kutuda; en üstte hepsini birleştiren <strong>Kendi Tahmin Yapım</strong> var. <strong style="color:var(--text)">200 çekilişlik geriye dönük testle</strong> her formülü şansla kıyasladım: Süper Loto'nun 4 tarih-bağımlı formülü ve Şans Topu'nun Faktöriyel/Ondalık Çarpan formülleri şansın altında/yapısal olarak yetersiz çıktığı için silindi; her oyuna <strong style="color:var(--accent)">🆕 Uzlaşı Ağırlıklı</strong> adında, geriye dönük testte en güvenilir bulunan yeni bir sistem eklendi.</div>
   <div style="display:flex;gap:5px;flex-wrap:wrap" id="snGameRow"></div>
  </div>
  <div id="snNewOut"></div>
@@ -17855,7 +17855,18 @@ function _snDateParts(dateStr){const d=new Date(dateStr+'T00:00:00');return {day
 function _snFactMod(n,m){let r=1n;const M=BigInt(m);const lim=BigInt(Math.max(1,Math.round(n)));for(let i=2n;i<=lim;i++)r=(r*i)%M;return Number(r);} // n! mod m — her adımda mod alınır (doğru sonuç için, büyük faktöriyel taşmasını önler)
 function _snGap(mainArr){const g=[];for(let i=1;i<mainArr.length;i++)g.push(mainArr[i]-mainArr[i-1]);return g;}
 
-// her sistem: compute(r1,r2,r3,dateParts,aVal,max) → [{pos, val}] (pos = pozisyon etiketi, val = 1..max aday sayı)
+// 🆕 eklenen sistem — Yöntem Araştırma sayfasında 250+ çekilişlik testte oyuna göre en güvenilir bulunan yöntemin
+// (_MR_CHAMP) son 30 oyunluk ağırlıklı seçimi. Ekstra (win30, game) parametreleri _snRender'dan geçirilir.
+const _SN_CHAMP_SYSTEM={id:'champ',name:'🆕 Uzlaşı Ağırlıklı (Şampiyon Yöntem)',desc:'Yöntem Araştırma sayfasında geriye dönük testte en güvenilir bulunan yöntemin (oyuna göre değişir) son 30 oyunluk ağırlıklı seçimi — eklenmiş, ayrıca kanıtlanmış bir sistem.',
+  compute(r1,r2,r3,dp,aVal,max,win30,game){
+    try{
+      const champFn=(game&&_MR_CHAMP[game.id])||_mrRepeatW;
+      const w=champFn(win30||[],max);
+      const top=_mrTopW(w,max,(game&&game.count)||r1.main.length);
+      return top.map(v=>({pos:'★',val:v}));
+    }catch(e){return [];}
+  }};
+// her sistem: compute(r1,r2,r3,dateParts,aVal,max,win30,game) → [{pos, val}] (pos = pozisyon etiketi, val = 1..max aday sayı)
 const _SN_SYSTEMS={
   sayisal:[
     {id:'s1',name:'Sistem 1 — Çift Toplam (−7)',desc:'Son iki çekilişin aynı pozisyondaki sayıları toplanır, 7 çıkarılır, 90’a göre mod alınır.',
@@ -17889,32 +17900,24 @@ const _SN_SYSTEMS={
        for(let k=0;k<6;k++)out.push({pos:'Topla '+(k+1),val:_snWrap(r1.main[k]+g2[k],max)});
        return out;
      }},
+    _SN_CHAMP_SYSTEM,
   ],
   super:[
-    {id:'s1',name:'Sistem 1 — (+6)',desc:'İki önceki çekilişin her pozisyonuna +6 eklenir, 60’a göre mod alınır.',
+    {id:'s1',name:'Sistem 1 — (+6)',desc:'İki önceki çekilişin her pozisyonuna +6 eklenir, 60’a göre mod alınır. (200 çekilişlik testte tek hayatta kalan — diğer 4 tarih-bağımlı formül şansın da altında çıktığı için silindi.)',
      compute(r1,r2,r3,dp,aVal,max){return r2.main.map((v,k)=>({pos:'CDEFGH'[k],val:_snWrap(v+6,max)}));}},
-    {id:'s2',name:'Sistem 2 — Gün×3+19',desc:'Son çekilişin her pozisyonuna, hedef tarihin günü×3+19 eklenir.',
-     compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFGH'[k],val:_snWrap(v+dp.day*3+19,max)}));}},
-    {id:'s3',name:'Sistem 3 — Gün+9',desc:'Son çekilişin her pozisyonuna, hedef tarihin günü+9 eklenir.',
-     compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFGH'[k],val:_snWrap(v+dp.day+9,max)}));}},
-    {id:'s4',name:'Sistem 4 — Çapraz Toplam+Gün',desc:'Orta pozisyonlar (D,E,F,G): son çekiliş + gün + iki önceki çekilişin komşu pozisyonları +10.',
-     compute(r1,r2,r3,dp,aVal,max){const out=[];for(let k=1;k<=4;k++)out.push({pos:'CDEFGH'[k],val:_snWrap(r1.main[k]+dp.day+r2.main[k+1]+r2.main[k-1]+10,max)});return out;}},
-    {id:'s5',name:'Sistem 5 — Üçlü+Sıra',desc:'Her pozisyon: son çekiliş + iki önceki çekilişin bir sonraki pozisyonu + son çekilişin ikinci sonraki pozisyonu + sıra no (kenarlarda kısalır).',
-     compute(r1,r2,r3,dp,aVal,max){const out=[];for(let k=0;k<6;k++){let v=r1.main[k]+aVal;if(r2.main[k+1]!=null)v+=r2.main[k+1];if(r1.main[k+2]!=null)v+=r1.main[k+2];out.push({pos:'CDEFGH'[k],val:_snWrap(v,max)});}return out;}},
+    _SN_CHAMP_SYSTEM,
   ],
   sans:[
     {id:'s1',name:'Sistem 1 — (+33)',desc:'Son çekilişin ana 5 sayısına +33 eklenir, 34’e göre mod alınır.',
      compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFG'[k],val:_snWrap(v+33,max)}));}},
-    {id:'s2',name:'Sistem 2 — 34−|Toplam|',desc:'Son iki çekilişin aynı pozisyonu toplanır, mutlak değeri 34’ten çıkarılır.',
+    {id:'s2',name:'Sistem 2 — 34−|Toplam|',desc:'Son iki çekilişin aynı pozisyonu toplanır, mutlak değeri 34’ten çıkarılır. (Faktöriyel ve Ondalık Çarpan formülleri 200 çekilişlik testte şansın altında/yapısal olarak 3+e ulaşamadığı için silindi.)',
      compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFG'[k],val:_snWrap(max-Math.abs(v+r2.main[k]),max)}));}},
-    {id:'s3',name:'Sistem 3 — Faktöriyel',desc:'Son çekilişin ilk sayısının faktöriyeli alınır, 34’e göre mod alınır.',
-     compute(r1,r2,r3,dp,aVal,max){return [{pos:'C',val:_snWrap(_snFactMod(r1.main[0],max),max)}];}},
-    {id:'s4',name:'Sistem 4 — Ondalık Çarpan',desc:'Son çekilişin D,E,F,G pozisyonları 1.432×1.1317157 ile çarpılır (E,F,G’de −1), 34’e göre mod alınır.',
-     compute(r1,r2,r3,dp,aVal,max){const idxs=[1,2,3,4];const labels='CDEFG';return idxs.map((k,i)=>({pos:labels[k],val:_snWrap(r1.main[k]*1.432*1.1317157-(i>0?1:0),max)}));}},
+    _SN_CHAMP_SYSTEM,
   ],
   onnumara:[
     {id:'s1',name:'Sistem 1 — Kendisiyle Toplam (×2)',desc:'Son çekilişin her pozisyonu kendisiyle toplanır (×2), 80’e göre mod alınır.',
      compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'P'+(k+1),val:_snWrap(v*2,max)}));}},
+    _SN_CHAMP_SYSTEM,
   ],
 };
 function _snR(draws,i){const d=draws[i];if(!d)return null;return {main:[...(d.nums||[])].sort((a,b)=>a-b),bonus:[...(d.bonus||[])]};}
@@ -17965,8 +17968,9 @@ function _snRender(el,game,draws,idx,actual){
   const aVal=draws.length-(idx+1);
   const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
   const systems=_SN_SYSTEMS[game.id]||[];
+  const win30=draws.slice(idx+1,idx+1+30);
   const results=systems.map(sys=>{
-    let out=[];try{out=sys.compute(r1,r2,r3,dp,aVal,max)||[];}catch(e){out=[];}
+    let out=[];try{out=sys.compute(r1,r2,r3,dp,aVal,max,win30,game)||[];}catch(e){out=[];}
     out=out.filter(o=>o&&o.val>=1&&o.val<=max);
     return {sys,out};
   });
