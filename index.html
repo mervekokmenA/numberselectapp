@@ -415,6 +415,12 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div id="ticketContainer"></div>
   </div>
 
+  <div class="card" style="margin-top:12px">
+    <div class="card-title">🔤 Alfabe Referans Tablosu</div>
+    <div style="font-size:.62rem;color:var(--muted);margin-bottom:8px;line-height:1.6">İngiliz alfabesindeki 26 harf, seçili oyunun sayı aralığına 26'şar 26'şar bölünerek eşleşiyor (A=1, B=2, ... Z=26, sonra A=27, B=28, ... tekrar).</div>
+    <div id="alphaRefOut"></div>
+  </div>
+
 </div><!-- /page-generator -->
 
 <!-- ═══════════ PAGE: BACKTEST ═══════════ -->
@@ -6193,11 +6199,33 @@ function updateGenFilterLabel(){
   const b6=document.getElementById('btFilter6Label');  if(b6)b6.textContent=tb(6,10);
   const b32=document.getElementById('btFilter5Label2'); if(b32)b32.textContent=tb(3,7);
 }
+// 🔤 Alfabe Referans Tablosu — 26 harf (A-Z) başlık satırı, altında seçili oyunun 1..max sayıları 26'şar 26'şar bölünüp dikey sıralanır
+function _alphaRefRender(){
+  const el=document.getElementById('alphaRefOut');if(!el)return;
+  const gid=state.selectedGame||(GAMES[0]&&GAMES[0].id);
+  const game=getGame(gid);if(!game)return;
+  const max=game.max;
+  const rows=Math.ceil(max/26);
+  const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  let h=`<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.68rem;font-family:monospace;width:100%">`;
+  h+=`<tr>${letters.map(l=>`<th style="padding:3px 5px;color:var(--accent);font-weight:800;border-bottom:2px solid var(--border);text-align:center">${l}</th>`).join('')}</tr>`;
+  for(let r=0;r<rows;r++){
+    h+=`<tr>`;
+    letters.forEach((l,i)=>{
+      const val=i+1+r*26;
+      h+=`<td style="padding:3px 5px;text-align:center;color:${val<=max?'var(--text)':'var(--muted)'};border-bottom:1px solid rgba(128,128,128,.1)">${val<=max?val:''}</td>`;
+    });
+    h+=`</tr>`;
+  }
+  h+=`</table></div>`;
+  el.innerHTML=h;
+}
 function selectGame(id){
   state.selectedGame=id; state.drawGameId=null; state.genRunCount=0; state.btRunCount=0;
   updateRunCounters(); initGameGrid(); initBtGameGrid(); loadBtHistory(true); updateGenFilterLabel();
   setTimeout(initAlgoGrid,200);
   _syncOtherGameGrids(id);
+  _alphaRefRender();
 }
 function _syncOtherGameGrids(id){
   // Listeler
@@ -15302,7 +15330,7 @@ function _onaInit(){_onaBacktest('');}
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();_hbInit();_caInit();_cbInit();_onaInit();
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();_hbInit();_caInit();_cbInit();_onaInit();_alphaRefRender();
 setTimeout(()=>{_autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);},800);
 
 // ══════════════════════════════════════════════════════════════
