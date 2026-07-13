@@ -1282,13 +1282,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <label for="mrExcludeLastChk" style="font-size:.72rem;color:var(--text);cursor:pointer;user-select:none">Son oyunu hariç bırak <span style="color:var(--muted);font-weight:400">— işaretliyken şampiyon yöntem bilinmeyen bir sonraki çekiliş yerine, hariç tutulan (bilinen) son çekiliş için tahmin üretir; gerçek sonuca göre ✓ net / ~ ±1 yakın işaretlenir</span></label>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-   <span style="font-size:.66rem;color:var(--muted)">Test derinliği:</span>
-   <select id="mrDepth" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-    <option value="120" selected>Hızlı (120 çekiliş × 80 örnek)</option>
-    <option value="250">Standart (250 × 150)</option>
-    <option value="500">Derin (500 × 250)</option>
-    <option value="9999">Tümü (tüm geçmiş × 300)</option>
-   </select>
    <button onclick="_mrRun()" id="mrRunBtn" style="flex:1;min-width:200px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(244,114,63,.92),rgba(234,88,12,.8));border:1px solid rgba(244,114,63,.6);color:#fff;cursor:pointer;font-weight:800">🔬 Araştırmayı Çalıştır (son 30 pencere)</button>
   </div>
  </div>
@@ -1296,21 +1289,12 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div class="card" style="margin-top:16px">
   <div class="card-title">📊 Geçmiş Test</div>
   <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; araştırma o tarihten ÖNCEKİ verilerle yürütülür ve şampiyon yöntemin bileti gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
-  <div style="display:flex;gap:6px;align-items:stretch;margin-bottom:8px">
+  <div style="display:flex;gap:6px;align-items:stretch">
    <select id="mrDateSel" onchange="_mrDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
     <button onclick="_mrStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
     <button onclick="_mrStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
    </div>
-  </div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-   <span style="font-size:.62rem;color:var(--muted)">Test derinliği:</span>
-   <select id="mrDateDepth" onchange="_mrDateTest()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px">
-    <option value="120" selected>Hızlı (120 × 80)</option>
-    <option value="250">Standart (250 × 150)</option>
-    <option value="500">Derin (500 × 250)</option>
-    <option value="9999">Tümü (tüm geçmiş × 300)</option>
-   </select>
   </div>
   <div id="mrDateOut" style="margin-top:10px"></div>
  </div>
@@ -17634,6 +17618,7 @@ function _htInit(){ _qtInit(); }
 
 // ═══════════ YÖNTEM ARAŞTIRMA (internet/Reddit yöntemleri, son-30 pencere backtest) ═══════════
 let _mrGame='sayisal', _mrGameManual=false, _mrBusy={};
+const _MR_DEPTH=250; // Standart derinlik (250 çekiliş × 150 örnek) — kullanıcı seçmesin, sabit
 const _mrRng=(()=>{let s=987654321>>>0;return()=>{s^=s<<13;s^=s>>>17;s^=s<<5;s>>>=0;return s/4294967296;};})();
 function _mrFreqW(win,max){const f={};win.forEach(d=>d.nums.forEach(n=>{if(n<=max)f[n]=(f[n]||0)+1;}));return f;}
 function _mrColdW(win,max){const f=_mrFreqW(win,max),w={};for(let n=1;n<=max;n++)w[n]=1/((f[n]||0)+1);return w;}
@@ -17715,8 +17700,7 @@ function _mrRun(){
   if(!allDraws||allDraws.length<minNeed){out.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥'+minNeed+' çekiliş gerekli).</div>';return;}
   const actual=exLast?allDraws[0]:null;
   const draws=exLast?allDraws.slice(1):allDraws;
-  const depth=parseInt(document.getElementById('mrDepth')?.value)||120;
-  _mrCompute(game,draws,actual,out,depth,'main');
+  _mrCompute(game,draws,actual,out,_MR_DEPTH,'main');
 }
 // ── Geçmiş Test: seçilen tarihten ÖNCEKİ verilerle araştırma, gerçek sonuca göre işaretli ──
 function _mrDates(){
@@ -17740,8 +17724,7 @@ function _mrDateTest(){
   const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
   const actual=draws[idx],prior=draws.slice(idx+1);
   if(prior.length<40){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
-  const depth=parseInt(document.getElementById('mrDateDepth')?.value)||120;
-  _mrCompute(game,prior,actual,el,depth,'date');
+  _mrCompute(game,prior,actual,el,_MR_DEPTH,'date');
 }
 function _mrRender(out,game,rows,nT,base,totTickets,MC,draws,actual){
   const champ=rows[0];
@@ -17890,7 +17873,11 @@ function _qtNihaiYakGulayInter(src,game,aSet){
   if(!src.ni||!src.ni.length||!src.yak||!src.yak.length||!src.ga)return '';
   const niNums=new Set();src.ni.forEach(t=>t.main.forEach(n=>niNums.add(n)));
   const yakNums=new Set();src.yak.forEach(t=>t.main.forEach(n=>yakNums.add(n)));
-  const gulayNums=new Set((src.ga.gulayCands||[]).slice(0,25).map(c=>c.n));
+  // Gülay Fark-Analizi bloğunda GÖRÜNEN tüm adaylarla birebir aynı küme (TOPLAMA+ÇIKARMA+FARK ZİNCİRİ) — kırpma yok
+  const gulayNums=new Set();
+  (src.ga.topRows||[]).forEach(r=>r.forEach(n=>gulayNums.add(n)));
+  (src.ga.cikRows||[]).forEach(r=>r.forEach(n=>gulayNums.add(n)));
+  (src.ga.chainRows||[]).forEach(({chain})=>chain.slice(1).forEach(n=>gulayNums.add(n)));
   const inter=[...niNums].filter(n=>yakNums.has(n)&&gulayNums.has(n)).sort((a,b)=>a-b);
   const copyKey=aSet?'_qtInter3T':'_qtInter3';
   window[copyKey]='Nihai × 3+Kapsamlı × Gülay Kesişimi ('+game.name+')\n'+(inter.join(' ')||'(ortak sayı yok)');
@@ -17983,7 +17970,15 @@ function _qtDateTest(){
 function _qtGulayBlock(ga,game,aSet){
   const {nums,gaps,gapSum,topRows,cikRows,chainRows}=ga;
   let txt=`🔮 Gülay fark-analizi (${game.name})\nSayılar: ${nums.join(' ')}\nFarklar: ${gaps.join(' ')} = ${gapSum}\n`;
-  let gNet=0,gNear=0;if(aSet){nums.forEach(n=>{if(aSet.has(n))gNet++;else if(aSet.has(n-1)||aSet.has(n+1))gNear++;});}
+  // net/yakın rozeti aşağıda GÖRÜNEN tüm adaylar (TOPLAMA+ÇIKARMA+FARK ZİNCİRİ) üzerinden — sadece kaynak sayılar üzerinden değil
+  let gNet=0,gNear=0;
+  if(aSet){
+    const candSet=new Set();
+    topRows.forEach(r=>r.forEach(n=>candSet.add(n)));
+    cikRows.forEach(r=>r.forEach(n=>candSet.add(n)));
+    chainRows.forEach(r=>r.chain.slice(1).forEach(n=>candSet.add(n)));
+    candSet.forEach(n=>{if(aSet.has(n))gNet++;else if(aSet.has(n-1)||aSet.has(n+1))gNear++;});
+  }
   let h=`<div class="card" style="margin-bottom:12px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:#6c5ce7">🔮 Gülay Fark-Analizi</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${gNet>=3?'var(--green)':'var(--muted)'}">🏆 ${gNet} net · ${gNear} yakın</span>`:''}<button onclick="_caCopy(window._qtGulayTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
   h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Sayılar: <strong style="color:var(--text);font-family:monospace">${nums.join(' ')}</strong> · Farklar: <strong style="color:var(--text);font-family:monospace">${gaps.join(' ')} = ${gapSum}</strong></div>`;
