@@ -17595,11 +17595,12 @@ function _mrWSampleFrom(basePool,baseW,k){const pool=basePool.slice(),ww=baseW.s
 function _mrBaseArrays(w,max){const pool=[];for(let n=1;n<=max;n++)pool.push(n);const ww=pool.map(n=>Math.max(1e-6,w[n]||1e-6));return{pool,ww};}
 function _mrScore(pick,aset){let net=0,near=0;pick.forEach(n=>{if(aset.has(n))net++;else if(aset.has(n-1)||aset.has(n+1))near++;});return{net,n3:net>=3,near3:(net+near)>=3};}
 // çekilişin son-30 penceresinden şampiyon yöntemin ağırlığı — Hızlı Tahmin de bunu kullanır
-// 250 çekilişlik geriye dönük ölçümle seçildi — kriter "en yüksek P(≥3)" değil, "en az sıfır-net (hiç bulamama) günü"
-// (sayisal: EWF %26.4 sıfır → Pair-Markov %25.2, hem daha iyi avgNet hem 3+; sans: Tekrar %17.2 → Sıcak %13.6, tüm metriklerde üstün;
-//  super: Tekrar %20.8 → Soğuk %18 (avgNet/3+ hafif düşük — bilinçli ödünleşim, hedef az bulma riskini azaltmak);
-//  onnumara: sıfır zaten %0, Tekrar en zayıf avgNet/3+'ydi → Sıcak'a geçildi)
-const _MR_CHAMP={sayisal:_mrPairW,sans:_mrFreqW,super:_mrColdW,onnumara:_mrFreqW};
+// 250 çekilişlik geriye dönük ölçümle seçildi — birincil kriter ≥3 net oranı (kullanıcı önceliği), ikincil kriter sıfır-net (hiç bulamama) günü azaltmak
+// (sayisal: EWF 3+ %6.4 → Pair-Markov %9.2, HEM daha iyi 3+ HEM daha az sıfır — net kazanç;
+//  sans: Tekrar 3+ %14.8 → Sıcak %16.4, HEM daha iyi 3+ HEM daha az sıfır — net kazanç;
+//  super: Soğuk'a geçmek sıfırı azaltsa da 3+ oranını %10.8'den %8'e düşürüyordu — kullanıcı 3+ önceliğini net belirtti, ORİJİNAL Tekrar (3+ %10.8) korunuyor;
+//  onnumara: sıfır zaten %0, Tekrar en zayıf 3+ idi (%96.4) → Sıcak %97.2 ile hem 3+ hem avgNet daha iyi)
+const _MR_CHAMP={sayisal:_mrPairW,sans:_mrFreqW,super:_mrRepeatW,onnumara:_mrFreqW};
 function _mrChampionWeights(game,prior){const f=(_MR_CHAMP[game.id]||_mrRepeatW);const win=prior.slice(0,30);return f(win,game.max);}
 function _mrInit(){
   const row=document.getElementById('mrGameRow');if(!row)return;
