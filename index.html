@@ -1313,7 +1313,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <div style="grid-column:1/-1;display:none" id="page-formul">
  <div class="card" style="border-color:rgba(99,102,241,.4)">
   <div class="card-title">🧮 Formül Sistemi — Excel Hesaplamaların</div>
-  <div style="font-size:.64rem;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:rgba(99,102,241,.06);border-radius:8px;line-height:1.7">Kendi Excel dosyandaki formüllerin buraya taşındı — her biri kendi mod-aritmetik hesaplamasıyla (son 1-3 çekilişin sayılarından + bazılarında tarihten) aday sayı üretiyor. Her formül ayrı bir kutuda; en üstte hepsini birleştiren <strong>Kendi Tahmin Yapım</strong> var. <strong style="color:var(--text)">200 çekilişlik geriye dönük testle</strong> her formülü şansla kıyasladım: Süper Loto'nun 4 tarih-bağımlı formülü ve Şans Topu'nun Faktöriyel/Ondalık Çarpan formülleri şansın altında/yapısal olarak yetersiz çıktığı için silindi; her oyuna <strong style="color:var(--accent)">🆕 Uzlaşı Ağırlıklı</strong> adında, geriye dönük testte en güvenilir bulunan yeni bir sistem eklendi.</div>
+  <div style="font-size:.64rem;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:rgba(99,102,241,.06);border-radius:8px;line-height:1.7">Kendi Excel dosyandaki formüllerin buraya taşındı — her biri kendi mod-aritmetik hesaplamasıyla (son 1-3 çekilişin sayılarından + bazılarında tarihten) aday sayı üretiyor. Her formül ayrı bir kutuda; en üstte hepsini birleştiren <strong>Kendi Tahmin Yapım</strong> var. <strong style="color:var(--text)">200 çekilişlik geriye dönük testle</strong> her formülü şansla kıyasladım: Süper Loto'nun 4 tarih-bağımlı formülü ve Şans Topu'nun Faktöriyel/Ondalık Çarpan formülleri şansın altında/yapısal olarak yetersiz çıktığı için silindi; her oyuna <strong style="color:var(--accent)">🆕 Uzlaşı Ağırlıklı</strong> ve Yöntem Araştırma sayfasında ayrıca test edilmiş 6 farklı istatistiksel sistem (Sıcak, Soğuk, Gecikmiş, EWF, Tekrar, Pair-Markov, Gülay farkı — oyuna göre değişir) eklendi. <strong style="color:var(--text)">"En az 1 sayı doğru bulma" oranı:</strong> geriye dönük testte sistemlerin çoğu bu oranı <strong style="color:var(--green)">%40-80</strong> arasında yakalıyor (aşağıdaki 📊 karşılaştırma panelinde her sistem için ayrı ayrı görünür) — ama bu, "3 kesin sayı" garantisi DEĞİL: piyango hafızasızdır, bu oran büyük ölçüde kaç aday sayı üretildiğine bağlıdır ve aynı büyüklükte rastgele bir havuz da benzer bir orana ulaşır.</div>
   <div style="display:flex;gap:5px;flex-wrap:wrap" id="snGameRow"></div>
  </div>
  <div id="snNewOut"></div>
@@ -17903,6 +17903,25 @@ const _SN_CHAMP_SYSTEM={id:'champ',name:'🆕 Uzlaşı Ağırlıklı (Şampiyon 
       return top.map(v=>({pos:'★',val:v}));
     }catch(e){return [];}
   }};
+// _MR_METHODS'taki (Yöntem Araştırma sayfasında zaten geriye dönük test edilmiş) 7 istatistiksel
+// yöntemden, oyunun şampiyonu olarak zaten kullanılan biri (_SN_CHAMP_SYSTEM) hariç kalanı, ayrı
+// birer "formül sistemi" olarak eklenir — çeşitlilik için. Her biri son 30 çekilişlik ağırlığa göre
+// en güçlü game.count kadar sayıyı seçer (şampiyonla aynı teknik, farklı ağırlıklandırma mantığı).
+function _snMrSystem(method){
+  return {id:'mr'+method.k.replace(/[^A-Za-z0-9]/g,''),name:method.k,
+    desc:method.d+' — son 30 çekilişlik ağırlığa göre en güçlü sayılar (istatistiksel yöntem, Yöntem Araştırma sayfasında geriye dönük test edilmiş).',
+    compute(r1,r2,r3,dp,aVal,max,win30,game){
+      try{
+        const w=method.f(win30||[],max);
+        const top=_mrTopW(w,max,(game&&game.count)||r1.main.length);
+        return top.map(v=>({pos:'★',val:v}));
+      }catch(e){return [];}
+    }};
+}
+function _snMrSystemsFor(gameId){
+  const champFn=_MR_CHAMP[gameId];
+  return _MR_METHODS.filter(m=>m.f!==champFn).map(_snMrSystem);
+}
 // her sistem: compute(r1,r2,r3,dateParts,aVal,max,win30,game) → [{pos, val}] (pos = pozisyon etiketi, val = 1..max aday sayı)
 const _SN_SYSTEMS={
   sayisal:[
@@ -17938,11 +17957,13 @@ const _SN_SYSTEMS={
        return out;
      }},
     _SN_CHAMP_SYSTEM,
+    ..._snMrSystemsFor('sayisal'),
   ],
   super:[
     {id:'s1',name:'Sistem 1 — (+6)',desc:'İki önceki çekilişin her pozisyonuna +6 eklenir, 60’a göre mod alınır. (200 çekilişlik testte tek hayatta kalan — diğer 4 tarih-bağımlı formül şansın da altında çıktığı için silindi.)',
      compute(r1,r2,r3,dp,aVal,max){return r2.main.map((v,k)=>({pos:'CDEFGH'[k],val:_snWrap(v+6,max)}));}},
     _SN_CHAMP_SYSTEM,
+    ..._snMrSystemsFor('super'),
   ],
   sans:[
     {id:'s1',name:'Sistem 1 — (+33)',desc:'Son çekilişin ana 5 sayısına +33 eklenir, 34’e göre mod alınır.',
@@ -17950,14 +17971,52 @@ const _SN_SYSTEMS={
     {id:'s2',name:'Sistem 2 — 34−|Toplam|',desc:'Son iki çekilişin aynı pozisyonu toplanır, mutlak değeri 34’ten çıkarılır. (Faktöriyel ve Ondalık Çarpan formülleri 200 çekilişlik testte şansın altında/yapısal olarak 3+e ulaşamadığı için silindi.)',
      compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFG'[k],val:_snWrap(max-Math.abs(v+r2.main[k]),max)}));}},
     _SN_CHAMP_SYSTEM,
+    ..._snMrSystemsFor('sans'),
   ],
   onnumara:[
     {id:'s1',name:'Sistem 1 — Kendisiyle Toplam (×2)',desc:'Son çekilişin her pozisyonu kendisiyle toplanır (×2), 80’e göre mod alınır.',
      compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'P'+(k+1),val:_snWrap(v*2,max)}));}},
     _SN_CHAMP_SYSTEM,
+    ..._snMrSystemsFor('onnumara'),
   ],
 };
 function _snR(draws,i){const d=draws[i];if(!d)return null;return {main:[...(d.nums||[])].sort((a,b)=>a-b),bonus:[...(d.bonus||[])]};}
+// Dürüst geriye dönük performans: her sistemin ürettiği aday sayı grubunda GERÇEK çekilişten en az
+// 1 / en az 2 sayının çıkma oranı (son N çekiliş üzerinde). Oyun/idx'ten bağımsız — bir kez hesaplanıp
+// önbelleğe alınır (tarih testinde ileri/geri gezinirken tekrar tekrar hesaplanmasın diye).
+let _snPerfCache={};
+function _snComputePerf(game,draws,windowN){
+  const systems=_SN_SYSTEMS[game.id]||[];
+  const stats={};systems.forEach(s=>stats[s.id]={hit1:0,hit2:0,netSum:0,tested:0});
+  const n=Math.min(windowN,draws.length-34);
+  for(let i=0;i<n;i++){
+    const actual=draws[i];
+    const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+    const r1=_snR(draws,i+1),r2=_snR(draws,i+2),r3=_snR(draws,i+3);
+    if(!r1||!r2)continue;
+    const dp=_snDateParts(actual.date);
+    const aVal=draws.length-(i+1);
+    const win30=draws.slice(i+1,i+1+30);
+    systems.forEach(sys=>{
+      let out=[];try{out=sys.compute(r1,r2,r3,dp,aVal,game.max,win30,game)||[];}catch(e){out=[];}
+      const nums=[...new Set(out.filter(o=>o&&o.val>=1&&o.val<=game.max).map(o=>o.val))];
+      if(!nums.length)return;
+      let net=0;nums.forEach(v=>{if(aSet.has(v))net++;});
+      const st=stats[sys.id];st.tested++;st.netSum+=net;
+      if(net>=1)st.hit1++;
+      if(net>=2)st.hit2++;
+    });
+  }
+  return systems.map(s=>{const st=stats[s.id]||{tested:0,hit1:0,hit2:0,netSum:0};
+    return {id:s.id,name:s.name,tested:st.tested,
+      hit1:st.tested?st.hit1/st.tested:0,hit2:st.tested?st.hit2/st.tested:0,avgNet:st.tested?st.netSum/st.tested:0};});
+}
+function _snGetPerf(game,draws){
+  if(_snPerfCache[game.id])return _snPerfCache[game.id];
+  const perf=_snComputePerf(game,draws,200);
+  _snPerfCache[game.id]=perf;
+  return perf;
+}
 function _snInit(){
   const row=document.getElementById('snGameRow');if(!row)return;
   if(!_snGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_snGame=state.selectedGame;
@@ -18024,6 +18083,23 @@ function _snRender(el,game,draws,idx,actual){
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.8rem;font-weight:800;color:var(--accent)">🧠 Kendi Tahmin Yapım</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${synNet>=3?'var(--green)':'var(--muted)'}">🏆 ${synNet} net · ${synNear} yakın</span>`:''}<button onclick="_caCopy(window._snSynth${aSet?'T':''})" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋</button></span></div>`;
   h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Aşağıdaki ${systems.length} formülün TÜMÜNÜN oyladığı sayılar — en çok formülün önerdiği ${game.count} sayı (uzlaşı).</div>`;
   h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${synthesis.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 8px;border-radius:8px;background:var(--surface2);border:1.5px solid rgba(99,102,241,.4)"><span style="font-size:.82rem;font-weight:800;font-family:monospace;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span><span style="font-size:.44rem;color:var(--muted)">${tally[n]}/${systems.length}</span></span>`;}).join('')}</div>`;
+  h+=`</div>`;
+  // 📊 Sistem Güvenilirlik Karşılaştırması — dürüst geriye dönük test (idx/actual'dan bağımsız, önbellekli)
+  const perf=_snGetPerf(game,draws);
+  const testedN=perf.reduce((m,p)=>Math.max(m,p.tested),0);
+  h+=`<div class="card" style="margin-bottom:14px">`;
+  h+=`<div style="font-size:.74rem;font-weight:800;color:var(--text);margin-bottom:4px">📊 Sistem Güvenilirlik Karşılaştırması <span style="font-weight:600;color:var(--muted);font-size:.56rem">(son ${testedN} çekiliş, geriye dönük test)</span></div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:9px;line-height:1.65">Her sistemin ürettiği aday sayı grubunda GERÇEK çekilişten en az 1 / en az 2 sayının çıkma oranı — dürüst geriye dönük test sonucu. Bu oran büyük ölçüde kaç aday sayı üretildiğine bağlıdır (havuz ne kadar genişse oran o kadar yükselir); "kesin doğru" garantisi değildir, piyango hafızasızdır — aynı büyüklükte rastgele bir havuz da benzer bir orana ulaşır.</div>`;
+  h+=[...perf].sort((a,b)=>b.hit1-a.hit1).map(p=>{
+    const pct1=(p.hit1*100),pct2=(p.hit2*100);
+    const barColor=pct1>=50?'var(--green)':pct1>=35?'#eab308':'var(--muted)';
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <span style="font-size:.58rem;color:var(--text);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</span>
+      <div style="flex:0 0 70px;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden"><div style="width:${Math.min(100,pct1)}%;height:100%;background:${barColor}"></div></div>
+      <span style="font-size:.6rem;font-weight:800;color:${barColor};font-family:monospace;flex:0 0 34px;text-align:right">${pct1.toFixed(0)}%</span>
+      <span style="font-size:.5rem;color:var(--muted);font-family:monospace;flex:0 0 52px;text-align:right">(≥2: ${pct2.toFixed(0)}%)</span>
+    </div>`;
+  }).join('');
   h+=`</div>`;
   // her formül — 3'lü sütun grid içinde ayrı container
   h+=`<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" id="snSysGrid">`;
