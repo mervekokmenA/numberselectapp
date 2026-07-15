@@ -220,11 +220,17 @@ async function main() {
   let anyChange = false;
   const summary = [];
   for (const g of games) {
-    const { text, inserted } = await updateGame(g.id, g.text);
-    if (inserted.length) {
-      anyChange = true;
-      g.text = text;
-      summary.push(`${g.id}: +${inserted.length} (${inserted.map(l => l.slice(0, 10)).join(', ')})`);
+    // Bir oyunun kaynakları TAMAMEN beklenmedik bir hatayla patlarsa (ör. site yapısı kökten
+    // değişti) bile diğer 3 oyunun güncellenmesini engellemesin — her oyun bağımsız denenir.
+    try {
+      const { text, inserted } = await updateGame(g.id, g.text);
+      if (inserted.length) {
+        anyChange = true;
+        g.text = text;
+        summary.push(`${g.id}: +${inserted.length} (${inserted.map(l => l.slice(0, 10)).join(', ')})`);
+      }
+    } catch (e) {
+      console.warn(`[updateGame] ${g.id} tamamen başarısız: ${e.message}`);
     }
   }
 

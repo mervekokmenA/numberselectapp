@@ -2,12 +2,15 @@ name: Çekiliş Verilerini Güncelle
 
 on:
   schedule:
-    # 21:00 UTC = 00:00 Türkiye saati (UTC+3) — günde 1 kez
-    - cron: '0 21 * * *'
+    # Günde tek çalıştırma yerine 4 kez: kaynaklardan biri o an geçici olarak
+    # erişilemez/güncel değilse bile birkaç saat içinde bir sonraki deneme yakalar,
+    # bir günlük boşluk oluşmaz. Saatler TR saatiyle ~04:00 / 10:00 / 16:00 / 22:00.
+    - cron: '0 1,7,13,19 * * *'
   workflow_dispatch: {}
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: update-draws
@@ -48,3 +51,63 @@ jobs:
           done
           echo "Push 4 denemeden sonra başarısız oldu." >&2
           exit 1
+
+      - name: Çekiliş tazelik kontrolü
+        id: freshness
+        if: always()
+        run: |
+          OUT=$(node scripts/check-draw-freshness.mjs)
+          echo "$OUT"
+          {
+            echo "detail<<FRESHNESS_EOF"
+            echo "$OUT"
+            echo "FRESHNESS_EOF"
+          } >> "$GITHUB_OUTPUT"
+          if echo "$OUT" | grep -q '^STALE:'; then
+            echo "stale=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "stale=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Tüm kaynaklar (mynet + lotobil + millipiyangoonline) aynı anda başarısız olursa ve
+      # bir oyunun verisi beklenenden 3+ gün eskiyse, repo sahibine e-posta ile haber vermesi
+      # için bir GitHub issue açılır/güncellenir — sorun kimse fark etmeden günlerce sürmesin.
+      # gh komutları kasıtlı olarak `|| true` ile korunuyor: issue yönetimi başarısız olsa bile
+      # veri güncelleme adımı (yukarıda) zaten tamamlanmış olur, job asıl görevini yerine getirir.
+      - name: Gecikme varsa issue aç/güncelle
+        if: always() && steps.freshness.outputs.stale == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DETAIL: ${{ steps.freshness.outputs.detail }}
+        run: |
+          TITLE="⚠️ Çekiliş verisi güncel değil"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --json number,title \
+            --jq ".[] | select(.title==\"$TITLE\") | .number" | head -1 || true)
+          BODY_FILE=$(mktemp)
+          {
+            echo "Otomatik tazelik kontrolü, aşağıdaki oyun(lar)da beklenen çekiliş tarihinden 3+ gün geçtiği halde yeni veri bulunamadığını tespit etti — kaynaklar (mynet.com, lotobil.com, millipiyangoonline.com) geçici olarak hepsi birden erişilemez olmuş ya da site yapıları değişmiş olabilir, elle kontrol gerekebilir:"
+            echo ""
+            echo '```'
+            echo "$DETAIL"
+            echo '```'
+            echo ""
+            echo "Bu issue veri güncellenince otomatik kapanır."
+          } > "$BODY_FILE"
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body-file "$BODY_FILE" || true
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body-file "$BODY_FILE" || true
+          fi
+
+      - name: Sorun çözüldüyse açık issue'yu kapat
+        if: always() && steps.freshness.outputs.stale == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TITLE="⚠️ Çekiliş verisi güncel değil"
+          EXISTING=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --json number,title \
+            --jq ".[] | select(.title==\"$TITLE\") | .number" | head -1 || true)
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --repo "$GITHUB_REPOSITORY" --body "Veri güncellendi, tüm oyunlar güncel — issue kapatılıyor." || true
+            gh issue close "$EXISTING" --repo "$GITHUB_REPOSITORY" || true
+          fi
