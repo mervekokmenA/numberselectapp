@@ -17961,8 +17961,8 @@ function _qtRenderAll(targetEl,game,prior,actual){
   if(src.ga)h+=_qtGulayBlock(src.ga,game,aSet);
   h+=_qtMrChampBlock(game,prior,src,aSet);
   h+=_qt3PlusYakBlock(game,prior,aSet);
-  h+=_qtNihaiSection(game,prior,src,aSet,mode);
   h+=_qtAiBlock(game,prior,src,aSet);
+  h+=_qtNihaiSection(game,prior,src,aSet,mode);
   targetEl.innerHTML=h;
   _qtNihaiRerender(mode);
 }
@@ -18778,60 +18778,76 @@ function _soGulayCandSet(ga){
 // yuvarlak/çerçeveli işaretlenir. Aynı son haneye sahip satırlar tekrar listelenmez ("aynı, bkz. X").
 // Altta, işaretli TÜM sayıların birleşimi 🎯 Sonuç olarak ayrıca verilir.
 // nextSet verilirse (geçmiş test): sadece GERÇEKTEN çıkan sayılar yeşil işaretlenir, yakın (±1) renklendirmesi YOK.
+function _soNihaiSonucChips(sonucArr,nextSet){
+  if(!sonucArr.length)return `<div style="font-size:.6rem;color:var(--muted)">Bu turda aday kümesiyle eşleşen sayı yok.</div>`;
+  return `<div style="display:flex;gap:6px;flex-wrap:wrap">${sonucArr.map(n=>{
+    const hit=!!(nextSet&&nextSet.has(n));
+    return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 4px;border-radius:8px;background:${hit?'rgba(0,230,118,.28)':'rgba(37,99,235,.12)'};border:1.5px solid ${hit?'rgba(0,230,118,.85)':'#2563eb'};color:${hit?'var(--green)':'#2563eb'};font-weight:800;font-family:monospace;font-size:.78rem">${n}${hit?'✓':''}</span>`;
+  }).join('')}</div>`;
+}
 function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHtml){
   if(!rowsInfo)return '';
   const{gapSum,nihai,rows,max}=rowsInfo;
   const decades=[];for(let d=0;d<=max;d+=10)decades.push(d);
   const copyLines=[`Nihai Sayı Tablosu (${game.name})`,`Fark toplamı: ${gapSum} → Nihai Sayı: ${nihai}`,''];
+  // 1. geçiş: satır verilerini (dedup + eşleşenler) önce hesapla — böylece 🎯 Sonuç hem başlığın
+  // hemen altında hem de satır dökümünün altında, aynı veriyle, gösterilebilir.
   const firstLabelForDigit={};
   const sonucSet=new Set();
-  let h=`<div style="background:rgba(37,99,235,.05);border:1px solid rgba(37,99,235,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:.74rem;font-weight:800;color:#2563eb">🧮 Nihai Sayı Tablosu</div><button onclick="${copyFn}" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(37,99,235,.3);background:rgba(37,99,235,.06);color:#2563eb;cursor:pointer">📋</button></div>`;
-  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:9px;line-height:1.6">Fark toplamı (<strong>${gapSum}</strong>) tek haneye düşene kadar toplanır → <strong style="color:#2563eb">Nihai Sayı = ${nihai}</strong>. Bu sayı çekilişin (★ = Süperstar/Joker dahil) her sayısına eklenir; sonucun <strong>son hanesi</strong> hedef kabul edilir — o haneye sahip onluk-grup sayılarından, ${noteHtml||'aday kümesinde de olanlar'} aşağıda sırayla listelenir.</div>`;
-  rows.forEach(r=>{
+  const rowsData=rows.map(r=>{
     const dup=r.lastDigit in firstLabelForDigit;
-    copyLines.push(`${r.label}${r.isBonus?' ★':''}: ${r.num}+${nihai}=${r.sum} → son hane ${r.lastDigit}`+(dup?` (aynı, bkz. ${firstLabelForDigit[r.lastDigit]})`:''));
-    h+=`<div style="margin-bottom:9px">`;
-    h+=`<div style="font-size:.6rem;color:var(--text);font-weight:800;margin-bottom:4px">${r.label}${r.isBonus?' <span style="color:#2563eb">★</span>':''} <span style="color:var(--muted);font-weight:400">(${r.num}+${nihai}=${r.sum})</span> <span style="color:#2563eb">→ son hane ${r.lastDigit}</span></div>`;
-    if(dup){
-      h+=`<div style="font-size:.56rem;color:var(--muted);padding-left:2px">= ${firstLabelForDigit[r.lastDigit]} satırıyla aynı (yukarıda)</div>`;
-    }else{
+    let found=null;
+    if(!dup){
       firstLabelForDigit[r.lastDigit]=r.label;
-      const found=[];
+      found=[];
       decades.forEach(d=>{
         const target=d+r.lastDigit;
         if(target<1||target>max)return;
-        if(candSet&&candSet.has(target))found.push(target);
+        if(candSet&&candSet.has(target)){found.push(target);sonucSet.add(target);}
       });
-      if(!found.length){
-        h+=`<div style="font-size:.56rem;color:var(--muted);padding-left:2px">Bu hanede eşleşen sayı yok.</div>`;
-      }else{
-        h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">`;
-        found.forEach(target=>{
-          const hit=!!(nextSet&&nextSet.has(target));
-          sonucSet.add(target);
-          const style=hit
-            ?'background:rgba(0,230,118,.28);border:2px solid rgba(0,230,118,.85);color:var(--green);font-weight:800'
-            :'background:rgba(37,99,235,.1);border:2px solid #2563eb;color:#2563eb;font-weight:800';
-          h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:50%;font-size:.64rem;font-family:monospace;${style}">${target}${hit?'✓':''}</span>`;
-        });
-        h+=`</div>`;
-      }
+    }
+    return{r,dup,dupOf:dup?firstLabelForDigit[r.lastDigit]:null,found};
+  });
+  const sonucArr=[...sonucSet].sort((a,b)=>a-b);
+  const netCount=nextSet?sonucArr.filter(n=>nextSet.has(n)).length:null;
+  const netBadge=netCount!==null?` <span style="font-weight:800;color:${netCount>0?'var(--green)':'var(--muted)'}">· ${netCount} net</span>`:'';
+  rowsData.forEach(({r,dup,dupOf})=>{
+    copyLines.push(`${r.label}${r.isBonus?' ★':''}: ${r.num}+${nihai}=${r.sum} → son hane ${r.lastDigit}`+(dup?` (aynı, bkz. ${dupOf})`:''));
+  });
+  copyLines.push('','🎯 Sonuç: '+(sonucArr.join(' ')||'(yok)')+(netCount!==null?` (${netCount} net)`:''));
+
+  let h=`<div style="background:rgba(37,99,235,.05);border:1px solid rgba(37,99,235,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:.74rem;font-weight:800;color:#2563eb">🧮 Nihai Sayı Tablosu</div><button onclick="${copyFn}" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(37,99,235,.3);background:rgba(37,99,235,.06);color:#2563eb;cursor:pointer">📋</button></div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:9px;line-height:1.6">Fark toplamı (<strong>${gapSum}</strong>) tek haneye düşene kadar toplanır → <strong style="color:#2563eb">Nihai Sayı = ${nihai}</strong>. Bu sayı çekilişin (★ = Süperstar/Joker dahil) her sayısına eklenir; sonucun <strong>son hanesi</strong> hedef kabul edilir — o haneye sahip onluk-grup sayılarından, ${noteHtml||'aday kümesinde de olanlar'} aşağıda sırayla listelenir.</div>`;
+  // Başlığın hemen altında — kompakt Sonuç özeti (dinamik net sayacıyla)
+  h+=`<div style="margin-bottom:12px;padding:9px 10px;background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.2);border-radius:8px">`;
+  h+=`<div style="font-size:.64rem;font-weight:800;color:#2563eb;margin-bottom:6px">🎯 Sonuç (${sonucArr.length})${netBadge}</div>`;
+  h+=_soNihaiSonucChips(sonucArr,nextSet);
+  h+=`</div>`;
+  rowsData.forEach(({r,dup,dupOf,found})=>{
+    h+=`<div style="margin-bottom:9px">`;
+    h+=`<div style="font-size:.6rem;color:var(--text);font-weight:800;margin-bottom:4px">${r.label}${r.isBonus?' <span style="color:#2563eb">★</span>':''} <span style="color:var(--muted);font-weight:400">(${r.num}+${nihai}=${r.sum})</span> <span style="color:#2563eb">→ son hane ${r.lastDigit}</span></div>`;
+    if(dup){
+      h+=`<div style="font-size:.56rem;color:var(--muted);padding-left:2px">= ${dupOf} satırıyla aynı (yukarıda)</div>`;
+    }else if(!found.length){
+      h+=`<div style="font-size:.56rem;color:var(--muted);padding-left:2px">Bu hanede eşleşen sayı yok.</div>`;
+    }else{
+      h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">`;
+      found.forEach(target=>{
+        const hit=!!(nextSet&&nextSet.has(target));
+        const style=hit
+          ?'background:rgba(0,230,118,.28);border:2px solid rgba(0,230,118,.85);color:var(--green);font-weight:800'
+          :'background:rgba(37,99,235,.1);border:2px solid #2563eb;color:#2563eb;font-weight:800';
+        h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:50%;font-size:.64rem;font-family:monospace;${style}">${target}${hit?'✓':''}</span>`;
+      });
+      h+=`</div>`;
     }
     h+=`</div>`;
   });
-  const sonucArr=[...sonucSet].sort((a,b)=>a-b);
-  copyLines.push('','🎯 Sonuç: '+(sonucArr.join(' ')||'(yok)'));
+  // Satır dökümünün altında — aynı Sonuç, ayrıca büyük gösterimle
   h+=`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(37,99,235,.3)">`;
-  h+=`<div style="font-size:.66rem;font-weight:800;color:#2563eb;margin-bottom:6px">🎯 Sonuç (${sonucArr.length})</div>`;
-  if(!sonucArr.length){
-    h+=`<div style="font-size:.6rem;color:var(--muted)">Bu turda aday kümesiyle eşleşen sayı yok.</div>`;
-  }else{
-    h+=`<div style="display:flex;gap:6px;flex-wrap:wrap">${sonucArr.map(n=>{
-      const hit=!!(nextSet&&nextSet.has(n));
-      return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 4px;border-radius:8px;background:${hit?'rgba(0,230,118,.28)':'rgba(37,99,235,.12)'};border:1.5px solid ${hit?'rgba(0,230,118,.85)':'#2563eb'};color:${hit?'var(--green)':'#2563eb'};font-weight:800;font-family:monospace;font-size:.78rem">${n}${hit?'✓':''}</span>`;
-    }).join('')}</div>`;
-  }
+  h+=`<div style="font-size:.66rem;font-weight:800;color:#2563eb;margin-bottom:6px">🎯 Sonuç (${sonucArr.length})${netBadge}</div>`;
+  h+=_soNihaiSonucChips(sonucArr,nextSet);
   h+=`</div>`;
   h+=`</div>`;
   window[copyVar]=copyLines.join('\n');
