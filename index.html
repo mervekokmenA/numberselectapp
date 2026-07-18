@@ -19026,18 +19026,14 @@ function _soNihaiRowsFromDraw(draw,game){
   }
   return{gapSum:ga.gapSum,nihai,rows,max:ga.max};
 }
-// Gülay'ın toplama+çıkarma+fark-zinciri çıktılarında BİRDEN FAZLA (≥2) kez tekrar eden sayıları
-// toplar — "birden fazla sütunda tekrar eden sayılar güçlü banko adayıdır" kuralı (Gülay sayfasının
-// kendi açıklaması) burada da uygulanır; tek seferlik çıkan sayılar elenir.
+// Gülay'ın toplama, çıkarma VEYA fark zincirinden herhangi birinde o son-hane koşulunu sağlayan
+// TÜM sayıları toplar — birden fazlasında ortak çıkma şartı YOK, tek bir tabloda geçmesi yeterli.
 function _soGulayCandSet(ga){
   const s=new Set();
   if(!ga)return s;
-  const cnt={};
-  const add=n=>{cnt[n]=(cnt[n]||0)+1;};
-  (ga.topRows||[]).forEach(r=>r.forEach(add));
-  (ga.cikRows||[]).forEach(r=>r.forEach(add));
-  (ga.chainRows||[]).forEach(({chain})=>chain.slice(1).forEach(add));
-  Object.keys(cnt).forEach(n=>{if(cnt[n]>=2)s.add(parseInt(n));});
+  (ga.topRows||[]).forEach(r=>r.forEach(n=>s.add(n)));
+  (ga.cikRows||[]).forEach(r=>r.forEach(n=>s.add(n)));
+  (ga.chainRows||[]).forEach(({chain})=>chain.forEach(n=>s.add(n)));
   return s;
 }
 // Ortak tablo render'ı — Gülay (sabit kaynak) ve Hızlı Tahmin (seçilebilir kaynak) tarafından paylaşılır.
