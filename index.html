@@ -16705,6 +16705,7 @@ function _soRenderFull(){
   if(_soDate===''){
     // New prediction: analyze latest draw, no validation target
     h+=_soDoAnalysis(draws[0],game,null,true);
+    h+=_soRenderNihaiBlock(draws[0],game,null);
     h+=_soAiSection(draws,game,draws[0],null);
   } else {
     const targetDraw=draws.find(d=>d.date===_soDate);
@@ -16713,6 +16714,7 @@ function _soRenderFull(){
       const srcDraw=tIdx<draws.length-1?draws[tIdx+1]:null; // draw BEFORE target
       if(srcDraw){
         h+=_soDoAnalysis(srcDraw,game,targetDraw,false);
+        h+=_soRenderNihaiBlock(srcDraw,game,targetDraw);
         h+=_soAiSection(draws.slice(tIdx+1),game,srcDraw,targetDraw); // only data available before target — no lookahead
       }
       else{h+=`<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için kaynak (önceki) çekiliş bulunamadı.</div>`;}
@@ -18242,6 +18244,7 @@ function _qtNihaiYakGulayInter(src,game,aSet){
 function _qtRenderAll(targetEl,game,prior,actual){
   const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
   const src=_qtBuildSources(game,prior);
+  const mode=targetEl&&targetEl.id==='qtDateOut'?'test':'live';
   let h='';
   if(actual){const res=[...(actual.nums||[])].sort((a,b)=>a-b);h+=`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Tüm yapılar bu tarihten ÖNCEKİ verilerle üretildi · ✓ net · ~ ±1 yakın.</div></div>`;}
   h+=_qtTicketsBlock('🤖','AI Bilet Üretici',src.aiB,game,'#0a9a6a',aSet);
@@ -18260,8 +18263,10 @@ function _qtRenderAll(targetEl,game,prior,actual){
   h+=_qtNihaiYakGulayInter(src,game,aSet);
   if(src.ga)h+=_qtGulayBlock(src.ga,game,aSet);
   h+=_qtMrChampBlock(game,prior,src,aSet);
+  h+=_qtNihaiSection(game,prior,src,aSet,mode);
   h+=_qtAiBlock(game,prior,src,aSet);
   targetEl.innerHTML=h;
+  _qtNihaiRerender(mode);
 }
 // 🔬 Yöntem Araştırma sayfasının şampiyon yöntemi — 2 bağımsız satır:
 // 1. satır = ayarlanmış yöntemin ham en güçlü seçimi (değişmeyen, yüksek güvenli seçim)
@@ -18308,6 +18313,67 @@ function _qtMrPoolBlock(game,rawTop,sortedShaped,row3,aSet){
   h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${pool.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="font-family:monospace;font-size:.7rem;font-weight:800;background:var(--surface2);border:1.5px dashed rgba(244,114,63,.35);border-radius:7px;padding:2px 7px;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span>`;}).join('')}</div>`;
   h+=`</div>`;
   return h;
+}
+// ── Nihai Sayı Tablosu (Hızlı Tahmin sürümü) — Gülay'ın SABİT kaynağı yerine, sayfadaki
+// analiz/bilet gruplarından seçilebilir bir kaynak kullanır (dropdown = filtre).
+// Satır/son-hane hesabı Gülay ile AYNI mantık (_soNihaiRowsFromDraw): en güncel çekilişin
+// fark toplamının dijital kökü. Değişen SADECE hangi kümeye göre hücrelerin dolduğu.
+function _qtBuildAnalysisGroups(game,prior,src){
+  const groups={};
+  const flat=arr=>{const s=new Set();(arr||[]).forEach(t=>{[...(t.main||[]),...(t.bonus||[])].forEach(n=>s.add(n));});return s;};
+  if(src.aiB&&src.aiB.length)groups['🤖 AI Bilet Üretici']=flat(src.aiB);
+  if(src.g0&&src.g0.length)groups['🎯⁰ Gülsis Sıfır']=flat(src.g0);
+  if(src.ni&&src.ni.length)groups['🏁 Nihai']=flat(src.ni);
+  if(src.yak&&src.yak.length)groups["📈 12'li 3+ (Yakın Dönem)"]=flat(src.yak);
+  if(src.ga){const gs=_soGulayCandSet(src.ga);if(gs.size)groups['🔮 Gülay Fark-Analizi']=gs;}
+  try{
+    if(prior&&prior.length>=30){
+      const champFn=_MR_CHAMP[game.id]||_mrRepeatW;
+      const win=prior.slice(0,30);
+      const wBase=champFn(win,game.max);
+      const rawTop=_mrTopW(wBase,game.max,game.count);
+      const freqForShape=_mrFreqW(win,game.max);
+      let shaped=rawTop;try{shaped=_nearShape(game,rawTop,freqForShape);}catch(e){}
+      const row3=_mrNiYakInterTop(game,prior,wBase);
+      groups['🔬 Araştırma Şampiyonu']=new Set([...rawTop,...shaped,...row3]);
+    }
+  }catch(e){}
+  try{
+    const K=parseInt(document.getElementById('qtAiK')?.value)||30;
+    const C=_qtCombineWeights(game,prior,src);
+    const tickets=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});
+    if(tickets&&tickets.length)groups['🧠 Birleşik AI']=flat(tickets);
+  }catch(e){}
+  return groups;
+}
+function _qtNihaiUnionAll(groups){const s=new Set();Object.values(groups).forEach(g=>g.forEach(n=>s.add(n)));return s;}
+let _qtNihaiState={},_qtNihaiFilter={};
+function _qtNihaiSection(game,prior,src,aSet,mode){
+  if(!prior||!prior.length)return '';
+  const rowsInfo=_soNihaiRowsFromDraw(prior[0],game);
+  if(!rowsInfo)return '';
+  const groups=_qtBuildAnalysisGroups(game,prior,src);
+  _qtNihaiState[mode]={rowsInfo,game,groups,nextSet:aSet||null};
+  if(!(mode in _qtNihaiFilter))_qtNihaiFilter[mode]='';
+  const selId='qtNihaiSel_'+mode,wrapId='qtNihaiWrap_'+mode;
+  let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(37,99,235,.35)">`;
+  h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span style="font-size:.62rem;color:var(--muted);white-space:nowrap">🔎 Kaynak analiz:</span><select id="${selId}" onchange="_qtNihaiFilterChange('${mode}',this.value)" style="font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:140px">`;
+  h+=`<option value="">🌐 Tümü (herhangi birinde varsa göster)</option>`;
+  Object.keys(groups).forEach(name=>{h+=`<option value="${name.replace(/"/g,'&quot;')}"${_qtNihaiFilter[mode]===name?' selected':''}>${name} (${groups[name].size})</option>`;});
+  h+=`</select></div>`;
+  h+=`<div id="${wrapId}"></div>`;
+  h+=`</div>`;
+  return h;
+}
+function _qtNihaiFilterChange(mode,val){_qtNihaiFilter[mode]=val;_qtNihaiRerender(mode);}
+function _qtNihaiRerender(mode){
+  const st=_qtNihaiState[mode];if(!st)return;
+  const wrap=document.getElementById('qtNihaiWrap_'+mode);if(!wrap)return;
+  const filt=_qtNihaiFilter[mode]||'';
+  const candSet=(filt&&st.groups[filt])?st.groups[filt]:_qtNihaiUnionAll(st.groups);
+  const copyVar=mode==='test'?'_qtNihaiCopyT':'_qtNihaiCopy';
+  const note=filt?`Hücrelerde sadece <strong>${filt}</strong> analizinin ŞU ANKİ sayılarında da geçen sayılar listelenir.`:`Hücrelerde, sayfadaki analizlerden <strong>herhangi birinde</strong> geçen sayılar listelenir — filtrelemek için yukarıdan bir analiz seçin.`;
+  wrap.innerHTML=_soNihaiTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note);
 }
 // aynı boyutta TAMAMEN RASTGELE bir havuzun ≥3 net bulma şansı (hipergeometrik) — dürüst kıyas için
 function _mrPoolChanceGE3(poolSize,max,cnt){
@@ -18426,7 +18492,11 @@ function _qtCopyAll(){
   Object.keys(window).filter(k=>k.startsWith('_qtCopy_')&&!k.endsWith('t')).forEach(k=>{if(window[k])parts.push(window[k]);});
   if(window._qtNiPairs)parts.push(window._qtNiPairs);
   if(window._qtInter)parts.push(window._qtInter);
+  if(window._qtInter3)parts.push(window._qtInter3);
   if(window._qtGulayTxt)parts.push(window._qtGulayTxt);
+  if(window._qtMrChampTxt)parts.push(window._qtMrChampTxt);
+  if(window._qtMrPoolTxt)parts.push(window._qtMrPoolTxt);
+  if(window._qtNihaiCopy)parts.push(window._qtNihaiCopy);
   if(!parts.length){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
   _caCopy(parts.join('\n\n'));
   if(typeof showToast==='function')showToast('📋 Tüm yapılar kopyalandı');
@@ -18939,6 +19009,76 @@ function _soGapAnalysisComputeRaw(draw,game){
   const gulayCands=Object.entries(gm).map(([n,c])=>({n:parseInt(n),cnt:+c})).sort((a,b)=>b.cnt-a.cnt).slice(0,40);
   return{max,nums,gaps,gapSum,drawSet,cikRows,topRows,chainRows,gulayCands};
 }
+
+// ═══════════ NİHAİ SAYI TABLOSU (kullanıcının kendi bulduğu sistem) ═══════════
+// Fark toplamı (gapSum) tek haneye düşene kadar toplanır ("dijital kök") → Nihai Sayı.
+// Bu sayı, kaynak çekilişin HER sayısına eklenir; sonucun SON HANESİ hedef kabul edilir.
+// Tablo: satırlar = çekilişteki her sayı için bir satır (A,B,C...), sütunlar = onluk gruplar
+// (0'lar,10'lar,20'ler...); her hücrede, o onluk+son hane kombinasyonundaki sayı, SADECE
+// verilen aday kümesinde (Gülay toplama/çıkarma/fark zinciri VEYA Hızlı Tahmin'de seçilen analiz)
+// de varsa gösterilir.
+function _soDigitalRoot(n){
+  n=Math.abs(Math.round(n||0));
+  if(n===0)return 0;
+  while(n>=10){let s=0;while(n>0){s+=n%10;n=Math.floor(n/10);}n=s;}
+  return n;
+}
+const _SO_DECADE_SUFFIX={0:'lar',10:'lar',20:'ler',30:'lar',40:'lar',50:'ler',60:'lar',70:'ler',80:'ler',90:'lar'};
+// Kaynak çekilişten nihai-sayı satırlarını hesaplar (oyun/sayfa bağımsız — hem Gülay hem Hızlı Tahmin kullanır)
+function _soNihaiRowsFromDraw(draw,game){
+  const ga=_soGapAnalysisCompute(draw,game);
+  if(!ga)return null;
+  const nihai=_soDigitalRoot(ga.gapSum);
+  const letters='ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const rows=ga.nums.map((n,i)=>({label:letters[i]||('#'+(i+1)),num:n,sum:n+nihai,lastDigit:_snMod(n+nihai,10)}));
+  return{gapSum:ga.gapSum,nihai,rows,max:ga.max};
+}
+// Gülay'ın toplama+çıkarma+fark-zinciri çıktılarının TAMAMINI (kırpılmamış) tek kümede toplar
+function _soGulayCandSet(ga){
+  const s=new Set();
+  if(!ga)return s;
+  (ga.topRows||[]).forEach(r=>r.forEach(n=>s.add(n)));
+  (ga.cikRows||[]).forEach(r=>r.forEach(n=>s.add(n)));
+  (ga.chainRows||[]).forEach(({chain})=>chain.forEach(n=>s.add(n)));
+  return s;
+}
+// Ortak tablo render'ı — Gülay (sabit kaynak) ve Hızlı Tahmin (seçilebilir kaynak) tarafından paylaşılır.
+// nextSet verilirse (geçmiş test): sadece GERÇEKTEN çıkan sayılar yeşil işaretlenir, yakın (±1) renklendirmesi YOK.
+function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHtml){
+  if(!rowsInfo)return '';
+  const{gapSum,nihai,rows,max}=rowsInfo;
+  const decades=[];for(let d=0;d*10<=max;d+=10)decades.push(d);
+  const copyLines=[`Nihai Sayı Tablosu (${game.name})`,`Fark toplamı: ${gapSum} → Nihai Sayı: ${nihai}`,''];
+  let h=`<div style="background:rgba(37,99,235,.05);border:1px solid rgba(37,99,235,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:.74rem;font-weight:800;color:#2563eb">🧮 Nihai Sayı Tablosu</div><button onclick="${copyFn}" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(37,99,235,.3);background:rgba(37,99,235,.06);color:#2563eb;cursor:pointer">📋</button></div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:9px;line-height:1.6">Fark toplamı (<strong>${gapSum}</strong>) tek haneye düşene kadar toplanır → <strong style="color:#2563eb">Nihai Sayı = ${nihai}</strong>. Bu sayı çekilişin her sayısına eklenir; sonucun <strong>son hanesi</strong> hedef kabul edilir. ${noteHtml||''}</div>`;
+  h+=`<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.62rem;font-family:monospace;width:100%">`;
+  h+=`<tr><th style="padding:4px 7px;text-align:left;color:var(--muted);border-bottom:1px solid var(--border)"> </th><th style="padding:4px 7px;text-align:center;color:var(--muted);border-bottom:1px solid var(--border)">Son Hane</th>`;
+  decades.forEach(d=>{h+=`<th style="padding:4px 7px;text-align:center;color:var(--muted);border-bottom:1px solid var(--border)">${d}${_SO_DECADE_SUFFIX[d]||'lar'}</th>`;});
+  h+=`</tr>`;
+  rows.forEach(r=>{
+    copyLines.push(`${r.label}: ${r.num}+${nihai}=${r.sum} → son hane ${r.lastDigit}`);
+    h+=`<tr><td style="padding:4px 7px;font-weight:800;color:var(--text);white-space:nowrap">${r.label} <span style="color:var(--muted);font-weight:400">(${r.num}+${nihai})</span></td><td style="padding:4px 7px;text-align:center;font-weight:800;color:#2563eb">${r.lastDigit}</td>`;
+    const found=[];
+    decades.forEach(d=>{
+      const target=d+r.lastDigit;
+      let cell='<span style="color:var(--border)">–</span>';
+      if(target>=1&&target<=max&&candSet&&candSet.has(target)){
+        const hit=!!(nextSet&&nextSet.has(target));
+        if(hit)found.push(target);
+        cell=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:19px;padding:0 3px;border-radius:4px;background:${hit?'rgba(0,230,118,.3)':'rgba(37,99,235,.08)'};border:1px solid ${hit?'rgba(0,230,118,.7)':'rgba(37,99,235,.25)'};color:${hit?'var(--green)':'var(--text)'};font-weight:${hit?800:600}">${target}${hit?'✓':''}</span>`;
+      }
+      h+=`<td style="padding:3px 5px;text-align:center">${cell}</td>`;
+    });
+    h+=`</tr>`;
+    if(found.length)copyLines.push('  ✓ isabet: '+found.join(' '));
+  });
+  h+=`</table></div>`;
+  h+=`</div>`;
+  window[copyVar]=copyLines.join('\n');
+  return h;
+}
+
 function _soDoAnalysis(draw,game,nextDraw,isFuture){
   const ga=_soGapAnalysisCompute(draw,game);
   if(!ga)return'<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için yeterli sayı yok.</div>';
@@ -19055,6 +19195,18 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   window._soCopy=`${game.name} — ${draw.date}\nSayılar: ${nums.join(' ')}\nFarklar: ${gaps.join(' ')} = ${gapSum}\n\nTOPLAMA:\n${allTop}\n\nÇIKARMA:\n${allCik}\n\nFARK ZİNCİRİ:\n${allChain}`;
   // Gülay adaylarını Kombine Analiz için sakla
   window._soGulayCands={game:game.id,date:draw.date,nums:ga.gulayCands};
+  return h;
+}
+// Nihai Sayı Tablosu'nu Gülay sayfası için üretir (kaynak: aynı çekilişin toplama/çıkarma/fark
+// zinciri) ve "Tüm Analizi Kopyala" metnine de ekler.
+function _soRenderNihaiBlock(draw,game,nextDraw){
+  const rowsInfo=_soNihaiRowsFromDraw(draw,game);
+  if(!rowsInfo)return '';
+  const ga=_soGapAnalysisCompute(draw,game);
+  const candSet=_soGulayCandSet(ga);
+  const nextSet=nextDraw?new Set([...(nextDraw.nums||[]),...(nextDraw.bonus||[])]):null;
+  const h=_soNihaiTableRender(rowsInfo,game,candSet,nextSet,'_soNihaiCopy',"_kbCopy(window._soNihaiCopy)",'Hücrelerde yalnızca <strong>Gülay\'ın toplama/çıkarma/fark zincirinde</strong> de çıkan sayılar listelenir.');
+  if(window._soNihaiCopy&&window._soCopy)window._soCopy+='\n\n'+window._soNihaiCopy;
   return h;
 }
 
