@@ -18813,11 +18813,22 @@ function _soGulayCandSet(ga){
 // Altta, işaretli TÜM sayıların birleşimi 🎯 Sonuç olarak ayrıca verilir.
 // nextSet verilirse (geçmiş test): sadece GERÇEKTEN çıkan sayılar yeşil işaretlenir, yakın (±1) renklendirmesi YOK.
 // Sadece gerçekten çıkan (nextSet'te olan) sayıları gösterir — bilinmiyorsa/hiç yoksa uygun mesaj.
-function _soNihaiSonucHitsOnly(sonucArr,nextSet){
+// Ana (main) sayılardan gelen isabetleri normal, Süperstar/Joker (★) satırından gelenleri
+// "+ ★sayı" olarak ayrı gösterir — bilet formatındaki "ana sayılar + bonus" gösterimine benzer.
+function _soNihaiSonucHitsOnly(mainArr,bonusArr,nextSet){
   if(!nextSet)return `<div style="font-size:.6rem;color:var(--muted)">Bu çekilişin gerçek sonucu henüz bilinmiyor — bilindiğinde burada sadece çıkan sayılar görünecek.</div>`;
-  const hits=sonucArr.filter(n=>nextSet.has(n));
-  if(!hits.length)return `<div style="font-size:.6rem;color:var(--muted)">Bu turda çıkan sayı yok.</div>`;
-  return `<div style="display:flex;gap:6px;flex-wrap:wrap">${hits.map(n=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 4px;border-radius:8px;background:rgba(0,230,118,.28);border:1.5px solid rgba(0,230,118,.85);color:var(--green);font-weight:800;font-family:monospace;font-size:.78rem">${n}✓</span>`).join('')}</div>`;
+  const mainHits=mainArr.filter(n=>nextSet.has(n));
+  const bonusHits=bonusArr.filter(n=>nextSet.has(n));
+  if(!mainHits.length&&!bonusHits.length)return `<div style="font-size:.6rem;color:var(--muted)">Bu turda çıkan sayı yok.</div>`;
+  const chip=(n,star)=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 4px;border-radius:8px;background:rgba(0,230,118,.28);border:1.5px solid rgba(0,230,118,.85);color:var(--green);font-weight:800;font-family:monospace;font-size:.78rem">${star?'★':''}${n}✓</span>`;
+  let h=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">`;
+  mainHits.forEach(n=>h+=chip(n,false));
+  if(bonusHits.length){
+    h+=`<span style="font-size:.9rem;font-weight:800;color:var(--muted);padding:0 2px">+</span>`;
+    bonusHits.forEach(n=>h+=chip(n,true));
+  }
+  h+=`</div>`;
+  return h;
 }
 function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHtml){
   if(!rowsInfo)return '';
@@ -18828,6 +18839,7 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
   // hemen altında hem de satır dökümünün altında, aynı veriyle, gösterilebilir.
   const firstLabelForDigit={};
   const sonucSet=new Set();
+  const mainSonucSet=new Set(),bonusSonucSet=new Set();
   const rowsData=rows.map(r=>{
     const dup=r.lastDigit in firstLabelForDigit;
     let found=null;
@@ -18837,12 +18849,17 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
       decades.forEach(d=>{
         const target=d+r.lastDigit;
         if(target<1||target>max)return;
-        if(candSet&&candSet.has(target)){found.push(target);sonucSet.add(target);}
+        if(candSet&&candSet.has(target)){
+          found.push(target);sonucSet.add(target);
+          (r.isBonus?bonusSonucSet:mainSonucSet).add(target);
+        }
       });
     }
     return{r,dup,dupOf:dup?firstLabelForDigit[r.lastDigit]:null,found};
   });
   const sonucArr=[...sonucSet].sort((a,b)=>a-b);
+  const mainSonucArr=[...mainSonucSet].sort((a,b)=>a-b);
+  const bonusSonucArr=[...bonusSonucSet].sort((a,b)=>a-b);
   const netCount=nextSet?sonucArr.filter(n=>nextSet.has(n)).length:null;
   const netBadge=netCount!==null?` <span style="font-weight:800;color:${netCount>0?'var(--green)':'var(--muted)'}">· ${netCount} net</span>`:'';
   copyLines.push('Son haneler:');
@@ -18856,7 +18873,7 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
   // Başlığın hemen altında — SADECE gerçekten çıkan sayılar (dinamik net sayacıyla)
   h+=`<div style="margin-bottom:12px;padding:9px 10px;background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.2);border-radius:8px">`;
   h+=`<div style="font-size:.64rem;font-weight:800;color:#2563eb;margin-bottom:6px">🎯 Sonuç${netBadge}</div>`;
-  h+=_soNihaiSonucHitsOnly(sonucArr,nextSet);
+  h+=_soNihaiSonucHitsOnly(mainSonucArr,bonusSonucArr,nextSet);
   h+=`</div>`;
   rowsData.forEach(({r,dup,dupOf,found})=>{
     h+=`<div style="margin-bottom:9px">`;
