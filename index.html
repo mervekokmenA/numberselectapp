@@ -18811,10 +18811,10 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
   const sonucArr=[...sonucSet].sort((a,b)=>a-b);
   const netCount=nextSet?sonucArr.filter(n=>nextSet.has(n)).length:null;
   const netBadge=netCount!==null?` <span style="font-weight:800;color:${netCount>0?'var(--green)':'var(--muted)'}">· ${netCount} net</span>`:'';
-  rowsData.forEach(({r,dup,dupOf})=>{
-    copyLines.push(`${r.label}${r.isBonus?' ★':''}: ${r.num}+${nihai}=${r.sum} → son hane ${r.lastDigit}`+(dup?` (aynı, bkz. ${dupOf})`:''));
-  });
-  copyLines.push('','🎯 Sonuç: '+(sonucArr.join(' ')||'(yok)')+(netCount!==null?` (${netCount} net)`:''));
+  copyLines.push('Son haneler:');
+  copyLines.push(rowsData.map(({r,dup,dupOf})=>`${r.label}${r.isBonus?' ★':''}: ${r.lastDigit}`+(dup?` (aynı, bkz. ${dupOf})`:'')).join(' , '));
+  copyLines.push('','🎯 Sonuç:'+(netCount!==null?` (${netCount} net)`:''));
+  rowsData.forEach(({dup,found})=>{if(!dup)copyLines.push(found.join(' ')||'(yok)');});
 
   let h=`<div style="background:rgba(37,99,235,.05);border:1px solid rgba(37,99,235,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:.74rem;font-weight:800;color:#2563eb">🧮 Nihai Sayı Tablosu</div><button onclick="${copyFn}" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(37,99,235,.3);background:rgba(37,99,235,.06);color:#2563eb;cursor:pointer">📋</button></div>`;
