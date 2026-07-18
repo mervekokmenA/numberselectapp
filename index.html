@@ -18263,10 +18263,36 @@ function _qtRenderAll(targetEl,game,prior,actual){
   h+=_qtNihaiYakGulayInter(src,game,aSet);
   if(src.ga)h+=_qtGulayBlock(src.ga,game,aSet);
   h+=_qtMrChampBlock(game,prior,src,aSet);
+  h+=_qt3PlusYakBlock(game,prior,aSet);
   h+=_qtNihaiSection(game,prior,src,aSet,mode);
   h+=_qtAiBlock(game,prior,src,aSet);
   targetEl.innerHTML=h;
   _qtNihaiRerender(mode);
+}
+// Ana sayfadaki "📈 Yakın Dönem Ağırlıklı" analizi + "🎯 Kapsama modu" + "3+ Hedefli Demet Üret"
+// akışının BİREBİR aynısı (generate3PlusBundle → _coverageBundle(game,'axrecency',12)) — burada
+// ayrı, tek tıkla görünen bir blok olarak.
+function _qt3PlusYakBlock(game,prior,aSet){
+  if(!prior||prior.length<25)return '';
+  let bundle=[];
+  try{
+    const freq=buildFreq(prior);
+    bundle=_coverageBundle(game,'axrecency',12,freq,prior);
+  }catch(e){return '';}
+  if(!bundle.length)return '';
+  const ck=aSet?'_qt3PlusYakTxtT':'_qt3PlusYakTxt';
+  window[ck]='🎯 3+ Hedefli Demet — Yakın Dönem (Kapsamlı) ('+game.name+', '+bundle.length+' bilet)\n'+bundle.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  let bestNet=0;if(aSet)bundle.forEach(t=>{const net=[...t.main,...t.bonus].filter(x=>aSet.has(x)).length;if(net>bestNet)bestNet=net;});
+  let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(16,185,129,.4)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:#0a9a6a">🎯 3+ Hedefli Demet — Yakın Dönem (Kapsamlı) (${bundle.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Ana sayfadaki <strong>📈 Yakın Dönem Ağırlıklı</strong> analizi + <strong>🎯 Kapsama modu</strong> + <strong>3+ Hedefli Demet Üret</strong> akışıyla BİREBİR aynı üretim (12 bilet, birbirini tamamlayan kapsama seçimi).</div>`;
+  h+=bundle.map((t,i)=>{
+    let lbl='';
+    if(aSet){const all2=[...t.main,...t.bonus];let net=0,near=0;all2.forEach(x=>{if(aSet.has(x))net++;else if(aSet.has(x-1)||aSet.has(x+1))near++;});lbl=`<div style="font-size:.54rem;margin:${i>0?'6px':'0'} 0 -2px 4px;color:${net>=3?'var(--green)':'var(--muted)'};font-weight:${net>=3?800:400}">${net} net · ${near} yakın</div>`;}
+    return lbl+renderTicket(t,game,'',i,null,aSet||null,aSet||null,null,true);
+  }).join('');
+  h+=`</div>`;
+  return h;
 }
 // 🔬 Yöntem Araştırma sayfasının şampiyon yöntemi — 2 bağımsız satır:
 // 1. satır = ayarlanmış yöntemin ham en güçlü seçimi (değişmeyen, yüksek güvenli seçim)
@@ -18496,6 +18522,7 @@ function _qtCopyAll(){
   if(window._qtGulayTxt)parts.push(window._qtGulayTxt);
   if(window._qtMrChampTxt)parts.push(window._qtMrChampTxt);
   if(window._qtMrPoolTxt)parts.push(window._qtMrPoolTxt);
+  if(window._qt3PlusYakTxt)parts.push(window._qt3PlusYakTxt);
   if(window._qtNihaiCopy)parts.push(window._qtNihaiCopy);
   if(!parts.length){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
   _caCopy(parts.join('\n\n'));
