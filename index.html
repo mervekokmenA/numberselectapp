@@ -18819,15 +18819,6 @@ function _soNihaiSonucHitsOnly(sonucArr,nextSet){
   if(!hits.length)return `<div style="font-size:.6rem;color:var(--muted)">Bu turda çıkan sayı yok.</div>`;
   return `<div style="display:flex;gap:6px;flex-wrap:wrap">${hits.map(n=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 4px;border-radius:8px;background:rgba(0,230,118,.28);border:1.5px solid rgba(0,230,118,.85);color:var(--green);font-weight:800;font-family:monospace;font-size:.78rem">${n}✓</span>`).join('')}</div>`;
 }
-// Haneye göre gruplu görünüm — her benzersiz son-hane satırının bulduğu sayılar KENDİ satırında.
-function _soNihaiSonucGrouped(rowsData,nextSet){
-  const groups=rowsData.filter(({dup,found})=>!dup&&found&&found.length);
-  if(!groups.length)return `<div style="font-size:.6rem;color:var(--muted)">Bu turda aday kümesiyle eşleşen sayı yok.</div>`;
-  return groups.map(({found})=>`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${found.map(n=>{
-    const hit=!!(nextSet&&nextSet.has(n));
-    return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:26px;padding:0 4px;border-radius:7px;background:${hit?'rgba(0,230,118,.28)':'rgba(37,99,235,.12)'};border:1.5px solid ${hit?'rgba(0,230,118,.85)':'#2563eb'};color:${hit?'var(--green)':'#2563eb'};font-weight:800;font-family:monospace;font-size:.72rem">${n}${hit?'✓':''}</span>`;
-  }).join('')}</div>`).join('');
-}
 function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHtml){
   if(!rowsInfo)return '';
   const{gapSum,nihai,rows,max}=rowsInfo;
@@ -18881,17 +18872,12 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
         const style=hit
           ?'background:rgba(0,230,118,.28);border:2px solid rgba(0,230,118,.85);color:var(--green);font-weight:800'
           :'background:rgba(37,99,235,.1);border:2px solid #2563eb;color:#2563eb;font-weight:800';
-        h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:50%;font-size:.64rem;font-family:monospace;${style}">${target}${hit?'✓':''}</span>`;
+        h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:7px;font-size:.64rem;font-family:monospace;${style}">${target}${hit?'✓':''}</span>`;
       });
       h+=`</div>`;
     }
     h+=`</div>`;
   });
-  // Satır dökümünün altında — TÜM aday sayılar, haneye göre grupla (her satır kendi hanesi)
-  h+=`<div style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(37,99,235,.3)">`;
-  h+=`<div style="font-size:.66rem;font-weight:800;color:#2563eb;margin-bottom:6px">🎯 Sonuç (${sonucArr.length})${netBadge}</div>`;
-  h+=_soNihaiSonucGrouped(rowsData,nextSet);
-  h+=`</div>`;
   h+=`</div>`;
   window[copyVar]=copyLines.join('\n');
   return h;
