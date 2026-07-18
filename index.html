@@ -18049,6 +18049,11 @@ function _qtBuildAnalysisGroups(game,prior,src){
   if(src.ni&&src.ni.length)groups['🏁 Nihai']=flat(src.ni);
   if(src.yak&&src.yak.length)groups["📈 12'li 3+ (Yakın Dönem)"]=flat(src.yak);
   if(src.ga){const gs=_soGulayCandSet(src.ga);if(gs.size)groups['🔮 Gülay Fark-Analizi']=gs;}
+  if(src.ni&&src.ni.length&&src.yak&&src.yak.length){
+    const niNums=flat(src.ni),yakNums=flat(src.yak);
+    const inter=new Set([...niNums].filter(n=>yakNums.has(n)));
+    if(inter.size)groups['🔗 Nihai × 3+ Kapsamlı Kesişim']=inter;
+  }
   try{
     if(prior&&prior.length>=30){
       const champFn=_MR_CHAMP[game.id]||_mrRepeatW;
@@ -18077,25 +18082,54 @@ function _qtNihaiSection(game,prior,src,aSet,mode){
   if(!rowsInfo)return '';
   const groups=_qtBuildAnalysisGroups(game,prior,src);
   _qtNihaiState[mode]={rowsInfo,game,groups,nextSet:aSet||null};
-  if(!(mode in _qtNihaiFilter))_qtNihaiFilter[mode]='';
-  const selId='qtNihaiSel_'+mode,wrapId='qtNihaiWrap_'+mode;
+  if(!(mode in _qtNihaiFilter))_qtNihaiFilter[mode]=new Set();
+  const chipsId='qtNihaiChips_'+mode,wrapId='qtNihaiWrap_'+mode;
   let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(37,99,235,.35)">`;
-  h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span style="font-size:.62rem;color:var(--muted);white-space:nowrap">🔎 Kaynak analiz:</span><select id="${selId}" onchange="_qtNihaiFilterChange('${mode}',this.value)" style="font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:140px">`;
-  h+=`<option value="">🌐 Tümü (herhangi birinde varsa göster)</option>`;
-  Object.keys(groups).forEach(name=>{h+=`<option value="${name.replace(/"/g,'&quot;')}"${_qtNihaiFilter[mode]===name?' selected':''}>${name} (${groups[name].size})</option>`;});
-  h+=`</select></div>`;
+  h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">🔎 Kaynak analiz(ler) <span style="opacity:.75">— birden fazla seçersen aralarındaki ORTAK (kesişim) sayılar baz alınır; hiçbiri seçili değilse tümünün birleşimi gösterilir</span></div>`;
+  h+=`<div id="${chipsId}" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px"></div>`;
   h+=`<div id="${wrapId}"></div>`;
   h+=`</div>`;
   return h;
 }
-function _qtNihaiFilterChange(mode,val){_qtNihaiFilter[mode]=val;_qtNihaiRerender(mode);}
+function _qtNihaiChipsHtml(mode){
+  const st=_qtNihaiState[mode];if(!st)return '';
+  const sel=_qtNihaiFilter[mode]||new Set();
+  let h='';
+  Object.keys(st.groups).forEach(name=>{
+    const active=sel.has(name);
+    const esc=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    h+=`<button onclick="_qtNihaiToggleFilter('${mode}','${esc}')" style="font-size:.62rem;padding:4px 10px;border-radius:7px;border:1px solid ${active?'#2563eb':'var(--border)'};background:${active?'rgba(37,99,235,.15)':'var(--surface2)'};color:${active?'#2563eb':'var(--muted)'};cursor:pointer;font-weight:${active?700:400}">${name} (${st.groups[name].size})</button>`;
+  });
+  if(sel.size)h+=`<button onclick="_qtNihaiClearFilter('${mode}')" style="font-size:.62rem;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">✕ Temizle</button>`;
+  return h;
+}
+function _qtNihaiToggleFilter(mode,name){
+  if(!(mode in _qtNihaiFilter))_qtNihaiFilter[mode]=new Set();
+  const s=_qtNihaiFilter[mode];
+  if(s.has(name))s.delete(name);else s.add(name);
+  _qtNihaiRerender(mode);
+}
+function _qtNihaiClearFilter(mode){_qtNihaiFilter[mode]=new Set();_qtNihaiRerender(mode);}
 function _qtNihaiRerender(mode){
   const st=_qtNihaiState[mode];if(!st)return;
+  const chipsEl=document.getElementById('qtNihaiChips_'+mode);
+  if(chipsEl)chipsEl.innerHTML=_qtNihaiChipsHtml(mode);
   const wrap=document.getElementById('qtNihaiWrap_'+mode);if(!wrap)return;
-  const filt=_qtNihaiFilter[mode]||'';
-  const candSet=(filt&&st.groups[filt])?st.groups[filt]:_qtNihaiUnionAll(st.groups);
+  const sel=_qtNihaiFilter[mode]||new Set();
+  const names=[...sel].filter(n=>st.groups[n]);
+  let candSet;
+  if(!names.length){
+    candSet=_qtNihaiUnionAll(st.groups);
+  }else if(names.length===1){
+    candSet=st.groups[names[0]];
+  }else{
+    candSet=new Set([...st.groups[names[0]]].filter(n=>names.every(nm=>st.groups[nm].has(n))));
+  }
   const copyVar=mode==='test'?'_qtNihaiCopyT':'_qtNihaiCopy';
-  const note=filt?`<strong>${filt}</strong> analizinin ŞU ANKİ sayılarında da var (filtrelemek için yukarıdan seçin)`:`sayfadaki analizlerden <strong>herhangi birinde</strong> de var (filtrelemek için yukarıdan bir analiz seçin)`;
+  let note;
+  if(!names.length)note=`sayfadaki analizlerden <strong>herhangi birinde</strong> de var (daraltmak için yukarıdan bir veya daha fazla analiz seç)`;
+  else if(names.length===1)note=`<strong>${names[0]}</strong> analizinin ŞU ANKİ sayılarında da var`;
+  else note=`seçtiğin <strong>${names.length} analizin TÜMÜNDE ORTAK</strong> (kesişim) var: ${names.join(' × ')}`;
   wrap.innerHTML=_soNihaiTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note);
 }
 // aynı boyutta TAMAMEN RASTGELE bir havuzun ≥3 net bulma şansı (hipergeometrik) — dürüst kıyas için
