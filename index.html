@@ -18161,7 +18161,8 @@ function _qtNihaiRerender(mode){
   if(!names.length)note=`sayfadaki analizlerden <strong>herhangi birinde</strong> de var (daraltmak için yukarıdan bir veya daha fazla analiz seç)`;
   else if(names.length===1)note=`<strong>${names[0]}</strong> analizinin ŞU ANKİ sayılarında da var`;
   else note=`seçtiğin <strong>${names.length} analizin TÜMÜNDE ORTAK</strong> (kesişim) var: ${names.join(' × ')}`;
-  wrap.innerHTML=_soNihaiTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note);
+  const sourceLabel=!names.length?'Tümü (birleşim)':names.join(' × ');
+  wrap.innerHTML=_soNihaiTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note,sourceLabel);
 }
 // aynı boyutta TAMAMEN RASTGELE bir havuzun ≥3 net bulma şansı (hipergeometrik) — dürüst kıyas için
 function _mrPoolChanceGE3(poolSize,max,cnt){
@@ -18303,7 +18304,8 @@ function _qtCopyAllGrouped(){
     const arr=[...(set||[])].sort((a,b)=>a-b);
     return arr.length?`${emoji} ${name} (${arr.length}): ${arr.join(' ')}`:null;
   };
-  const lines=[`${game.emoji||''} ${game.name||''} — Hızlı Tahmin (tekil sayı grupları)`,''];
+  const header=`${game.emoji||''} ${game.name||''} — Hızlı Tahmin (tekil sayı grupları)`;
+  const lines=[];
   const groups=_qtBuildAnalysisGroups(game,prior,src);
   const GROUP_LABELS=[
     ['🤖 AI Bilet Üretici','🤖','AI Bilet Üretici'],
@@ -18342,8 +18344,8 @@ function _qtCopyAllGrouped(){
       if(l)lines.push(l);
     }
   }
-  if(lines.length<=2){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
-  _caCopy(lines.join('\n'));
+  if(!lines.length){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
+  _caCopy(header+'\n\n'+lines.join('\n\n'));
   if(typeof showToast==='function')showToast('📋 Tekil sayı grupları kopyalandı');
 }
 function _htRenderGameRow(){
@@ -18917,11 +18919,11 @@ function _soNihaiSonucHitsOnly(mainArr,bonusArr,nextSet){
   h+=`</div>`;
   return h;
 }
-function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHtml){
+function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHtml,sourceLabel){
   if(!rowsInfo)return '';
   const{gapSum,nihai,rows,max}=rowsInfo;
   const decades=[];for(let d=0;d<=max;d+=10)decades.push(d);
-  const copyLines=[`Nihai Sayı Tablosu (${game.name})`,`Fark toplamı: ${gapSum} → Nihai Sayı: ${nihai}`,''];
+  const copyLines=[`Nihai Sayı Tablosu (${game.name})${sourceLabel?' — Kaynak: '+sourceLabel:''}`,`Fark toplamı: ${gapSum} → Nihai Sayı: ${nihai}`,''];
   // 1. geçiş: satır verilerini (dedup + eşleşenler) önce hesapla — böylece 🎯 Sonuç hem başlığın
   // hemen altında hem de satır dökümünün altında, aynı veriyle, gösterilebilir.
   const firstLabelForDigit={};
@@ -19116,7 +19118,7 @@ function _soRenderNihaiBlock(draw,game,nextDraw){
   const ga=_soGapAnalysisCompute(draw,game);
   const candSet=_soGulayCandSet(ga);
   const nextSet=nextDraw?new Set([...(nextDraw.nums||[]),...(nextDraw.bonus||[])]):null;
-  const h=_soNihaiTableRender(rowsInfo,game,candSet,nextSet,'_soNihaiCopy',"_kbCopy(window._soNihaiCopy)",'<strong>Gülay\'ın toplama/çıkarma/fark zincirinde</strong> de var');
+  const h=_soNihaiTableRender(rowsInfo,game,candSet,nextSet,'_soNihaiCopy',"_kbCopy(window._soNihaiCopy)",'<strong>Gülay\'ın toplama/çıkarma/fark zincirinde</strong> de var','Gülay Fark-Analizi (toplama/çıkarma/fark zinciri)');
   if(window._soNihaiCopy&&window._soCopy)window._soCopy+='\n\n'+window._soNihaiCopy;
   return h;
 }
