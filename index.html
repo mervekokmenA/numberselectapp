@@ -1207,6 +1207,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    </select>
    <button onclick="_qtRunAll(true)" style="flex:1;min-width:180px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🚀 Tümünü Üret + AI Tahmini</button>
    <button onclick="_qtCopyAll()" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Tümünü Kopyala</button>
+   <button onclick="_qtCopyAllGrouped()" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700" title="Her alanın biletleri tek tek değil, o alandaki tüm benzersiz sayıların birleşimi olarak kopyalanır">📋 Sayı Gruplarını Kopyala</button>
   </div>
  </div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start" id="qtGrid">
@@ -17957,7 +17958,6 @@ function _qtRenderAll(targetEl,game,prior,actual){
       h+=`<div class="card" style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.68rem;font-weight:800;color:#0a9a6a">🔗 Ardışık Çiftler (${niPairs.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${pNet>=3?'var(--green)':'var(--muted)'}">🏆 ${pNet} net · ${pNear} yakın</span>`:''}<button onclick="_caCopy(window.${pk})" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></span></div><div style="display:flex;gap:5px;flex-wrap:wrap">${niPairs.map(p=>{const m=n=>aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="font-family:monospace;font-size:.66rem;font-weight:700;background:var(--surface);border:1px solid rgba(16,185,129,.35);border-radius:6px;padding:1px 7px"><span style="color:${m(p[0])}">${p[0]}</span>·<span style="color:${m(p[1])}">${p[1]}</span></span>`;}).join('')}</div></div>`;
     }
   }
-  h+=_qtTicketsBlock('📈',"12'li 3+ — Yakın Dönem",src.yak,game,'var(--accent)',aSet);
   h+=_qtNihaiYakInter(src,game,aSet);
   h+=_qtNihaiYakGulayInter(src,game,aSet);
   if(src.ga)h+=_qtGulayBlock(src.ga,game,aSet);
@@ -17967,6 +17967,7 @@ function _qtRenderAll(targetEl,game,prior,actual){
   h+=_qtNihaiSection(game,prior,src,aSet,mode);
   targetEl.innerHTML=h;
   _qtNihaiRerender(mode);
+  if(mode==='live')_qtLastRenderState={game,prior,src};
 }
 // Ana sayfadaki "📈 Yakın Dönem Ağırlıklı" analizi + "🎯 Kapsama modu" + "3+ Hedefli Demet Üret"
 // akışının BİREBİR aynısı (generate3PlusBundle → _coverageBundle(game,'axrecency',12)) — burada
@@ -18263,6 +18264,61 @@ function _qtCopyAll(){
   if(!parts.length){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
   _caCopy(parts.join('\n\n'));
   if(typeof showToast==='function')showToast('📋 Tüm yapılar kopyalandı');
+}
+// "Tümünü Kopyala"nın aksine, çoklu-biletli alanları (AI Bilet Üretici, Gülsis Sıfır, Nihai, 3+
+// Hedefli Demet, Birleşik AI) TEK TEK bilet olarak değil, o alandaki TÜM biletlerin BENZERSİZ
+// sayılarının tek satırlık birleşimi olarak yazar — her alan için bir satır.
+let _qtLastRenderState=null;
+function _qtCopyAllGrouped(){
+  const st=_qtLastRenderState;
+  if(!st){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
+  const{game,prior,src}=st;
+  const line=(emoji,name,set)=>{
+    const arr=[...(set||[])].sort((a,b)=>a-b);
+    return arr.length?`${emoji} ${name} (${arr.length}): ${arr.join(' ')}`:null;
+  };
+  const lines=[`${game.emoji||''} ${game.name||''} — Hızlı Tahmin (tekil sayı grupları)`,''];
+  const groups=_qtBuildAnalysisGroups(game,prior,src);
+  const GROUP_LABELS=[
+    ['🤖 AI Bilet Üretici','🤖','AI Bilet Üretici'],
+    ['🎯⁰ Gülsis Sıfır','🎯⁰','Gülsis Sıfır'],
+    ['🏁 Nihai','🏁','Nihai'],
+    ["📈 12'li 3+ (Yakın Dönem)",'🎯','3+ Hedefli Demet — Yakın Dönem'],
+    ['🔮 Gülay Fark-Analizi','🔮','Gülay Fark-Analizi'],
+    ['🔗 Nihai × 3+ Kapsamlı Kesişim','🔗','Nihai × 3+ Kapsamlı Kesişim'],
+    ['🔬 Araştırma Şampiyonu','🔬','Araştırma Şampiyonu (3 satır + birleşik havuz)'],
+    ['🧠 Birleşik AI','🧠','Birleşik AI'],
+  ];
+  GROUP_LABELS.forEach(([key,emoji,name])=>{
+    if(!groups[key])return;
+    const l=line(emoji,name,groups[key]);
+    if(l)lines.push(l);
+  });
+  if(src.ni&&src.ni.length){
+    const niPairs=_niConsecPairs(src.ni);
+    if(niPairs.length){const l=line('🔗','Ardışık Çiftler',new Set(niPairs.flat()));if(l)lines.push(l);}
+  }
+  if(src.ga){
+    const inter3=_qtNihaiYakGulaySet(src.ni,src.yak,src.ga);
+    if(inter3.length){const l=line('🔗','Nihai × 3+ Kapsamlı × Gülay Kesişimi',new Set(inter3));if(l)lines.push(l);}
+  }
+  if(prior&&prior.length){
+    const rowsInfo=_soNihaiRowsFromDraw(prior[0],game);
+    if(rowsInfo){
+      const union=_qtNihaiUnionAll(groups);
+      const decades=[];for(let d=0;d<=rowsInfo.max;d+=10)decades.push(d);
+      const sonucSet=new Set(),seen={};
+      rowsInfo.rows.forEach(r=>{
+        if(r.lastDigit in seen)return;seen[r.lastDigit]=true;
+        decades.forEach(d=>{const t=d+r.lastDigit;if(t>=1&&t<=rowsInfo.max&&union.has(t))sonucSet.add(t);});
+      });
+      const l=line('🧮','Nihai Sayı Tablosu — Sonuç',sonucSet);
+      if(l)lines.push(l);
+    }
+  }
+  if(lines.length<=2){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
+  _caCopy(lines.join('\n'));
+  if(typeof showToast==='function')showToast('📋 Tekil sayı grupları kopyalandı');
 }
 function _htRenderGameRow(){
   const row=document.getElementById('htSozGameRow');if(!row)return;
