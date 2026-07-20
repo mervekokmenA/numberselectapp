@@ -17875,14 +17875,24 @@ function _qtCombineWeights(game,prior,src){
 }
 function _qtCombinedBundle(game,prior,K){const src=_qtBuildSources(game,prior);const C=_qtCombineWeights(game,prior,src);let tk=[];try{tk=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){}return tk;}
 // bilet demeti bloğu (aSet verilirse geçmiş test: isabetler işaretli + net)
+// Bilet listesinin TÜM benzersiz sayılarını tek satırlık bir gruba indirger; bilet-bilet kopyalamaya
+// alternatif olarak, her blokta normal 📋 butonunun yanına ikinci bir 🔢 buton olarak eklenir.
+function _qtGroupCopyBtn(tickets,label,gameName,id){
+  const groupSet=new Set();(tickets||[]).forEach(t=>{[...(t.main||[]),...(t.bonus||[])].forEach(n=>groupSet.add(n));});
+  const groupArr=[...groupSet].sort((a,b)=>a-b);
+  const gk='_qtCopyGrp_'+id;
+  window[gk]=label+' — Sayı Grubu ('+gameName+', '+groupArr.length+' sayı)\n'+groupArr.join(' ');
+  return `<button onclick="_caCopy(window['${gk}'])" class="copy-btn" style="font-size:.62rem;padding:3px 9px" title="Bilet bilet değil, bu alanın TÜM benzersiz sayılarını tek grup olarak kopyalar">🔢</button>`;
+}
 function _qtTicketsBlock(emoji,title,tickets,game,accent,aSet){
   if(!tickets||!tickets.length)return '';
   const copy=title+' ('+game.name+')\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
   const id='qtc'+Math.abs(_qtHash(title))+(aSet?'t':'');
   window['_qtCopy_'+id]=copy;
+  const grpBtn=_qtGroupCopyBtn(tickets,title,game.name,id);
   let bestNet=0;if(aSet)tickets.forEach(t=>{const net=[...t.main,...t.bonus].filter(x=>aSet.has(x)).length;if(net>bestNet)bestNet=net;});
   let h=`<div class="card" style="margin-bottom:12px">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:${accent||'var(--accent)'}">${emoji} ${title} <span style="font-size:.56rem;color:var(--muted);font-weight:600">(${tickets.length})</span></span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net</span>`:''}<button onclick="_caCopy(window['_qtCopy_${id}'])" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:${accent||'var(--accent)'}">${emoji} ${title} <span style="font-size:.56rem;color:var(--muted);font-weight:600">(${tickets.length})</span></span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net</span>`:''}<button onclick="_caCopy(window['_qtCopy_${id}'])" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button>${grpBtn}</span></div>`;
   h+=tickets.map((t,i)=>{
     let lbl='';
     if(aSet){const all2=[...t.main,...t.bonus];let net=0,near=0;all2.forEach(x=>{if(aSet.has(x))net++;else if(aSet.has(x-1)||aSet.has(x+1))near++;});lbl=`<div style="font-size:.54rem;margin:${i>0?'6px':'0'} 0 -2px 4px;color:${net>=3?'var(--green)':'var(--muted)'};font-weight:${net>=3?800:400}">${net} net · ${near} yakın</div>`;}
@@ -17982,9 +17992,10 @@ function _qt3PlusYakBlock(game,prior,aSet){
   if(!bundle.length)return '';
   const ck=aSet?'_qt3PlusYakTxtT':'_qt3PlusYakTxt';
   window[ck]='🎯 3+ Hedefli Demet — Yakın Dönem (Kapsamlı) ('+game.name+', '+bundle.length+' bilet)\n'+bundle.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  const grpBtn=_qtGroupCopyBtn(bundle,'🎯 3+ Hedefli Demet — Yakın Dönem (Kapsamlı)',game.name,'3plusyak'+(aSet?'t':''));
   let bestNet=0;if(aSet)bundle.forEach(t=>{const net=[...t.main,...t.bonus].filter(x=>aSet.has(x)).length;if(net>bestNet)bestNet=net;});
   let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(16,185,129,.4)">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:#0a9a6a">🎯 3+ Hedefli Demet — Yakın Dönem (Kapsamlı) (${bundle.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:#0a9a6a">🎯 3+ Hedefli Demet — Yakın Dönem (Kapsamlı) (${bundle.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button>${grpBtn}</span></div>`;
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Ana sayfadaki <strong>📈 Yakın Dönem Ağırlıklı</strong> analizi + <strong>🎯 Kapsama modu</strong> + <strong>3+ Hedefli Demet Üret</strong> akışıyla BİREBİR aynı üretim (12 bilet, birbirini tamamlayan kapsama seçimi).</div>`;
   h+=bundle.map((t,i)=>{
     let lbl='';
@@ -18214,9 +18225,10 @@ function _qtAiBlock(game,prior,src,aSet){
   const topNums=C.ranked.filter(n=>C.tally[n]>0).slice(0,cnt*2);
   const pick=C.ranked.filter(n=>C.tally[n]>0).slice(0,cnt).sort((a,b)=>a-b);
   if(!aSet)window._qtAiTk='Hızlı Tahmin — Birleşik AI ('+game.name+')\nEn güçlü '+cnt+': '+pick.join(' ')+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  const grpBtn=!aSet?_qtGroupCopyBtn(tickets,'🧠 Birleşik AI',game.name,'aiblok'):'';
   let bestNet=0;if(aSet)tickets.forEach(t=>{const net=[...t.main,...t.bonus].filter(x=>aSet.has(x)).length;if(net>bestNet)bestNet=net;});
   let h=`<div class="card" style="margin-bottom:12px;border:2px solid rgba(129,140,248,.5);background:linear-gradient(135deg,rgba(129,140,248,.06),rgba(0,230,118,.05))">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.78rem;font-weight:800;color:var(--accent)">🧠 BİRLEŞİK AI</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net</span>`:`<button onclick="_caCopy(window._qtAiTk)" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋</button>`}</span></div>`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.78rem;font-weight:800;color:var(--accent)">🧠 BİRLEŞİK AI</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net</span>`:`<button onclick="_caCopy(window._qtAiTk)" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋</button>${grpBtn}`}</span></div>`;
   h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.6">5 yapının ürettiği tüm sayıları birleştirir; alt rakam = kaç farklı yapı önerdi (0–${nSrc}).</div>`;
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">🎯 En çok uzlaşılan:</div>`;
   h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${topNums.map(n=>{const strong=(C.srcCount[n]||0)>=3;const hit=aSet&&aSet.has(n),near=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));const cc=hit?'var(--green)':near?'#c2410c':strong?'var(--green)':'var(--text)';const bg=hit?'rgba(0,230,118,.18)':strong?'rgba(0,230,118,.1)':'var(--surface2)';return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 7px;border-radius:8px;background:${bg};border:1.5px solid ${hit?'rgba(0,200,100,.6)':strong?'rgba(0,200,100,.4)':'var(--border)'}"><span style="font-size:.76rem;font-weight:800;font-family:monospace;color:${cc}">${n}${hit?'✓':near?'~':''}</span><span style="font-size:.44rem;color:var(--muted)">${C.srcCount[n]||0}/${nSrc}</span></span>`;}).join('')}</div>`;
