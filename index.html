@@ -18104,6 +18104,13 @@ function _qtBuildAnalysisGroups(game,prior,src){
     const tickets=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});
     if(tickets&&tickets.length)groups['🧠 Birleşik AI']=flat(tickets);
   }catch(e){}
+  // Listeler sayfasının "🔍 Bulunan Sayılar" çıktıları — sadece Listeler'de SEÇİLİ OYUN, Hızlı
+  // Tahmin'in seçili oyunuyla aynıysa eklenir (farklı oyunun sayılarını karıştırmamak için).
+  if(_listelerGame===game.id){
+    if(window._listelerKirmiziNums&&window._listelerKirmiziNums.length)groups['🔴 Listeler — Kırmızı Hücreler']=new Set(window._listelerKirmiziNums);
+    if(window._listelerOrtakNums&&window._listelerOrtakNums.length)groups['🔗 Listeler — Ortak Sayılar (B10×Dönüşüm)']=new Set(window._listelerOrtakNums);
+    if(window._listelerAiNums&&window._listelerAiNums.length)groups['🔎 Listeler — AI Biletler']=new Set(window._listelerAiNums);
+  }
   return groups;
 }
 function _qtNihaiUnionAll(groups){const s=new Set();Object.values(groups).forEach(g=>g.forEach(n=>s.add(n)));return s;}
@@ -18320,6 +18327,9 @@ function _qtCopyAllGrouped(){
     ['🔗 Nihai × 3+ Kapsamlı Kesişim','🔗','Nihai × 3+ Kapsamlı Kesişim'],
     ['🔬 Araştırma Şampiyonu','🔬','Araştırma Şampiyonu (3 satır + birleşik havuz)'],
     ['🧠 Birleşik AI','🧠','Birleşik AI'],
+    ['🔴 Listeler — Kırmızı Hücreler','🔴','Listeler — Kırmızı Hücreler'],
+    ['🔗 Listeler — Ortak Sayılar (B10×Dönüşüm)','🔗','Listeler — Ortak Sayılar (B10×Dönüşüm)'],
+    ['🔎 Listeler — AI Biletler','🔎','Listeler — AI Biletler'],
   ];
   GROUP_LABELS.forEach(([key,emoji,name])=>{
     if(!groups[key])return;
