@@ -19081,6 +19081,10 @@ function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,note
   if(!rowsInfo)return '';
   const{gapSum,nihai,rows,max}=rowsInfo;
   const copyLines=[`İlk Hane Tablosu (${game.name})${sourceLabel?' — Kaynak: '+sourceLabel:''}`,`Fark toplamı: ${gapSum} → Nihai Sayı: ${nihai}`,''];
+  // Nihai Sayı Tablosu'nun (Son Hane) satırlarından çıkan son-hane rakamları — İlk Hane'de bir
+  // adayın SAYILMASI için hem candSet'te olması hem de SON HANESİNİN bu kümede olması gerekir.
+  // (ör. üstte "son hane 5" hiç yoksa, İlk Hane'de de 5 ile biten hiçbir sayı — 25, 45... — çıkmaz.)
+  const sonHaneDigits=new Set(rows.map(r=>r.lastDigit));
   const firstLabelForDigit={};
   const sonucSet=new Set();
   const rowsData=rows.map(r=>{
@@ -19092,7 +19096,7 @@ function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,note
       found=[];
       const lo=Math.max(1,fd*10),hi=Math.min(max,fd*10+9);
       for(let t=lo;t<=hi;t++){
-        if(candSet&&candSet.has(t)){found.push(t);sonucSet.add(t);}
+        if(candSet&&candSet.has(t)&&sonHaneDigits.has(t%10)){found.push(t);sonucSet.add(t);}
       }
     }
     return{r,fd,dup,dupOf:dup?firstLabelForDigit[fd]:null,found};
@@ -19107,7 +19111,7 @@ function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,note
 
   let h=`<div style="background:rgba(124,58,237,.05);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:.74rem;font-weight:800;color:#7c3aed">🔢 İlk Hane Tablosu</div><button onclick="${copyFn}" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(124,58,237,.3);background:rgba(124,58,237,.06);color:#7c3aed;cursor:pointer">📋</button></div>`;
-  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:9px;line-height:1.6">Nihai Sayı Tablosu'nun aynısı ama hedef <strong>son hane değil ilk hane</strong> (onlar basamağı): fark toplamı → Nihai Sayı = <strong style="color:#7c3aed">${nihai}</strong>, çekilişin (★ = Süperstar/Joker dahil) her sayısına eklenir, toplamın <strong>onlar basamağıyla başlayan</strong> onluk-grup sayılarından ${noteHtml||'aday kümesinde de olanlar'} listelenir. <strong>Dürüst not:</strong> gerçek geriye dönük testte bu yöntem son-hane yöntemiyle aynı orana ulaşıyor (~%94-100) ama aynı büyüklükte rastgele bir havuz da aynı orana ulaşır — yüksek oran havuz büyüklüğünden, "ilk hane bilmekten" değil.</div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:9px;line-height:1.6">Nihai Sayı Tablosu'nun aynısı ama hedef <strong>son hane değil ilk hane</strong> (onlar basamağı): fark toplamı → Nihai Sayı = <strong style="color:#7c3aed">${nihai}</strong>, çekilişin (★ = Süperstar/Joker dahil) her sayısına eklenir, toplamın <strong>onlar basamağıyla başlayan</strong> onluk-grup sayılarından ${noteHtml||'aday kümesinde de olanlar'} <strong>VE son hanesi Nihai Sayı Tablosu'nda (Son Hane) çıkan hanelerden biri olanlar</strong> listelenir — yukarıda hiç çıkmayan bir son hane varsa (ör. 5), o haneyle biten hiçbir sayı (25, 45...) burada da çıkmaz. <strong>Dürüst not:</strong> gerçek geriye dönük testte bu yöntem son-hane yöntemiyle aynı orana ulaşıyor (~%94-100) ama aynı büyüklükte rastgele bir havuz da aynı orana ulaşır — yüksek oran havuz büyüklüğünden, "ilk hane bilmekten" değil.</div>`;
   h+=`<div style="margin-bottom:12px;padding:9px 10px;background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.2);border-radius:8px">`;
   h+=`<div style="font-size:.64rem;font-weight:800;color:#7c3aed;margin-bottom:6px">🎯 Sonuç${netBadge}</div>`;
   h+=_soNihaiSonucHitsOnly(sonucSet,actualDraw);
