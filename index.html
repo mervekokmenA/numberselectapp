@@ -18154,8 +18154,9 @@ function _qtNihaiToggleFilter(mode,name){
   const s=_qtNihaiFilter[mode];
   if(s.has(name))s.delete(name);else s.add(name);
   _qtNihaiRerender(mode);
+  _qtIlkHaneRerender(mode); // İlk Hane, Nihai'nin seçimini paylaşıyor — o da güncellensin
 }
-function _qtNihaiClearFilter(mode){_qtNihaiFilter[mode]=new Set();_qtNihaiRerender(mode);}
+function _qtNihaiClearFilter(mode){_qtNihaiFilter[mode]=new Set();_qtNihaiRerender(mode);_qtIlkHaneRerender(mode);}
 function _qtNihaiRerender(mode){
   const st=_qtNihaiState[mode];if(!st)return;
   const chipsEl=document.getElementById('qtNihaiChips_'+mode);
@@ -18180,8 +18181,9 @@ function _qtNihaiRerender(mode){
   wrap.innerHTML=_soNihaiTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note,sourceLabel);
 }
 // İlk Hane Tablosu (Hızlı Tahmin) — Nihai Sayı Tablosu ile AYNI rowsInfo/groups'u tekrar hesaplamadan
-// paylaşır (tutarlılık + performans için _qtNihaiState[mode]'dan okur, o zaten önce render edilmiş olur).
-let _qtIlkHaneState={},_qtIlkHaneFilter={};
+// paylaşır VE kaynak analiz seçimini de AYRICA sormaz — Nihai Sayı Tablosu'nda o an seçili olan
+// analiz(ler) neyse İlk Hane de otomatik olarak onu kullanır (_qtNihaiFilter[mode] paylaşılır).
+let _qtIlkHaneState={};
 function _qtIlkHaneSection(game,prior,src,aSet,mode){
   if(!prior||!prior.length)return '';
   const nihaiSt=_qtNihaiState[mode];
@@ -18189,42 +18191,17 @@ function _qtIlkHaneSection(game,prior,src,aSet,mode){
   if(!rowsInfo)return '';
   const groups=nihaiSt?nihaiSt.groups:_qtBuildAnalysisGroups(game,prior,src);
   _qtIlkHaneState[mode]={rowsInfo,game,groups,nextSet:aSet||null};
-  if(!(mode in _qtIlkHaneFilter)){
-    _qtIlkHaneFilter[mode]=new Set(groups['🔮 Gülay Fark-Analizi']?['🔮 Gülay Fark-Analizi']:[]);
-  }
-  const chipsId='qtIlkHaneChips_'+mode,wrapId='qtIlkHaneWrap_'+mode;
+  const wrapId='qtIlkHaneWrap_'+mode;
   let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(124,58,237,.35)">`;
-  h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">🔎 Kaynak analiz(ler) <span style="opacity:.75">— birden fazla seçersen aralarındaki ORTAK (kesişim) sayılar baz alınır; hiçbiri seçili değilse tümünün birleşimi gösterilir</span></div>`;
-  h+=`<div id="${chipsId}" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px"></div>`;
   h+=`<div id="${wrapId}"></div>`;
   h+=`</div>`;
   return h;
 }
-function _qtIlkHaneChipsHtml(mode){
-  const st=_qtIlkHaneState[mode];if(!st)return '';
-  const sel=_qtIlkHaneFilter[mode]||new Set();
-  let h='';
-  Object.keys(st.groups).forEach(name=>{
-    const active=sel.has(name);
-    const esc=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    h+=`<button onclick="_qtIlkHaneToggleFilter('${mode}','${esc}')" style="font-size:.62rem;padding:4px 10px;border-radius:7px;border:1px solid ${active?'#7c3aed':'var(--border)'};background:${active?'rgba(124,58,237,.15)':'var(--surface2)'};color:${active?'#7c3aed':'var(--muted)'};cursor:pointer;font-weight:${active?700:400}">${name} (${st.groups[name].size})</button>`;
-  });
-  if(sel.size)h+=`<button onclick="_qtIlkHaneClearFilter('${mode}')" style="font-size:.62rem;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">✕ Temizle</button>`;
-  return h;
-}
-function _qtIlkHaneToggleFilter(mode,name){
-  if(!(mode in _qtIlkHaneFilter))_qtIlkHaneFilter[mode]=new Set();
-  const s=_qtIlkHaneFilter[mode];
-  if(s.has(name))s.delete(name);else s.add(name);
-  _qtIlkHaneRerender(mode);
-}
-function _qtIlkHaneClearFilter(mode){_qtIlkHaneFilter[mode]=new Set();_qtIlkHaneRerender(mode);}
 function _qtIlkHaneRerender(mode){
   const st=_qtIlkHaneState[mode];if(!st)return;
-  const chipsEl=document.getElementById('qtIlkHaneChips_'+mode);
-  if(chipsEl)chipsEl.innerHTML=_qtIlkHaneChipsHtml(mode);
   const wrap=document.getElementById('qtIlkHaneWrap_'+mode);if(!wrap)return;
-  const sel=_qtIlkHaneFilter[mode]||new Set();
+  // Nihai Sayı Tablosu'nun O ANKİ seçimini kullan — ayrı bir seçim yapılmaz
+  const sel=_qtNihaiFilter[mode]||new Set();
   const names=[...sel].filter(n=>st.groups[n]);
   let candSet;
   if(!names.length){
@@ -18236,9 +18213,9 @@ function _qtIlkHaneRerender(mode){
   }
   const copyVar=mode==='test'?'_qtIlkHaneCopyT':'_qtIlkHaneCopy';
   let note;
-  if(!names.length)note=`sayfadaki analizlerden <strong>herhangi birinde</strong> de var (daraltmak için yukarıdan bir veya daha fazla analiz seç)`;
-  else if(names.length===1)note=`<strong>${names[0]}</strong> analizinin ŞU ANKİ sayılarında da var`;
-  else note=`seçtiğin <strong>${names.length} analizin TÜMÜNDE ORTAK</strong> (kesişim) var: ${names.join(' × ')}`;
+  if(!names.length)note=`sayfadaki analizlerden <strong>herhangi birinde</strong> de var (kaynak, Nihai Sayı Tablosu'ndaki seçime göre belirlenir)`;
+  else if(names.length===1)note=`<strong>${names[0]}</strong> analizinin ŞU ANKİ sayılarında da var (Nihai Sayı Tablosu'ndaki seçimle aynı)`;
+  else note=`seçtiğin <strong>${names.length} analizin TÜMÜNDE ORTAK</strong> (kesişim) var: ${names.join(' × ')} (Nihai Sayı Tablosu'ndaki seçimle aynı)`;
   const sourceLabel=!names.length?'Tümü (birleşim)':names.join(' × ');
   wrap.innerHTML=_soIlkHaneTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note,sourceLabel);
 }
@@ -18366,6 +18343,7 @@ function _qtCopyAll(){
   if(window._qtMrPoolTxt)parts.push(window._qtMrPoolTxt);
   if(window._qt3PlusYakTxt)parts.push(window._qt3PlusYakTxt);
   if(window._qtNihaiCopy)parts.push(window._qtNihaiCopy);
+  if(window._qtIlkHaneCopy)parts.push(window._qtIlkHaneCopy);
   if(!parts.length){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
   _caCopy(parts.join('\n\n'));
   if(typeof showToast==='function')showToast('📋 Tüm yapılar kopyalandı');
@@ -18414,15 +18392,31 @@ function _qtCopyAllGrouped(){
   if(prior&&prior.length){
     const rowsInfo=_soNihaiRowsFromDraw(prior[0],game);
     if(rowsInfo){
-      const union=_qtNihaiUnionAll(groups);
+      // Nihai Sayı Tablosu'nda o an ekranda seçili olan kaynak neyse (Tümü/tek/kesişim) onu kullan —
+      // ekranda görünenle kopyalanan birebir tutarlı olsun.
+      const selNames=[...(_qtNihaiFilter.live||new Set())].filter(n=>groups[n]);
+      let candSet;
+      if(!selNames.length)candSet=_qtNihaiUnionAll(groups);
+      else if(selNames.length===1)candSet=groups[selNames[0]];
+      else candSet=new Set([...groups[selNames[0]]].filter(n=>selNames.every(nm=>groups[nm].has(n))));
       const decades=[];for(let d=0;d<=rowsInfo.max;d+=10)decades.push(d);
-      const sonucSet=new Set(),seen={};
+      const sonucSet=new Set(),seenLast={};
       rowsInfo.rows.forEach(r=>{
-        if(r.lastDigit in seen)return;seen[r.lastDigit]=true;
-        decades.forEach(d=>{const t=d+r.lastDigit;if(t>=1&&t<=rowsInfo.max&&union.has(t))sonucSet.add(t);});
+        if(r.lastDigit in seenLast)return;seenLast[r.lastDigit]=true;
+        decades.forEach(d=>{const t=d+r.lastDigit;if(t>=1&&t<=rowsInfo.max&&candSet.has(t))sonucSet.add(t);});
       });
       const l=line('🧮','Nihai Sayı Tablosu — Sonuç',sonucSet);
       if(l)lines.push(l);
+      // İlk Hane Tablosu — AYNI candSet'i (Nihai'nin seçimi) kullanır, sadece hedef ilk hane (onlar basamağı)
+      const ilkSonucSet=new Set(),seenFirst={};
+      rowsInfo.rows.forEach(r=>{
+        const fd=Math.floor(r.sum/10);
+        if(fd in seenFirst)return;seenFirst[fd]=true;
+        const lo=Math.max(1,fd*10),hi=Math.min(rowsInfo.max,fd*10+9);
+        for(let t=lo;t<=hi;t++)if(candSet.has(t))ilkSonucSet.add(t);
+      });
+      const l2=line('🔢','İlk Hane Tablosu — Sonuç',ilkSonucSet);
+      if(l2)lines.push(l2);
     }
   }
   if(!lines.length){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
