@@ -17994,8 +17994,8 @@ function _qtRenderAll(targetEl,game,prior,actual){
   h+=_qtMrChampBlock(game,prior,src,aSet);
   h+=_qt3PlusYakBlock(game,prior,aSet);
   h+=_qtAiBlock(game,prior,src,aSet);
-  h+=_qtNihaiSection(game,prior,src,aSet,mode);
-  h+=_qtIlkHaneSection(game,prior,src,aSet,mode);
+  h+=_qtNihaiSection(game,prior,src,aSet,mode,actual);
+  h+=_qtIlkHaneSection(game,prior,src,aSet,mode,actual);
   targetEl.innerHTML=h;
   _qtNihaiRerender(mode);
   _qtIlkHaneRerender(mode);
@@ -18119,12 +18119,12 @@ function _qtBuildAnalysisGroups(game,prior,src){
 }
 function _qtNihaiUnionAll(groups){const s=new Set();Object.values(groups).forEach(g=>g.forEach(n=>s.add(n)));return s;}
 let _qtNihaiState={},_qtNihaiFilter={};
-function _qtNihaiSection(game,prior,src,aSet,mode){
+function _qtNihaiSection(game,prior,src,aSet,mode,actual){
   if(!prior||!prior.length)return '';
   const rowsInfo=_soNihaiRowsFromDraw(prior[0],game);
   if(!rowsInfo)return '';
   const groups=_qtBuildAnalysisGroups(game,prior,src);
-  _qtNihaiState[mode]={rowsInfo,game,groups,nextSet:aSet||null};
+  _qtNihaiState[mode]={rowsInfo,game,groups,nextSet:aSet||null,actualDraw:actual||null};
   if(!(mode in _qtNihaiFilter)){
     // varsayılan: Gülay Fark-Analizi otomatik seçili gelsin (varsa) — kullanıcı isterse değiştirebilir
     _qtNihaiFilter[mode]=new Set(groups['🔮 Gülay Fark-Analizi']?['🔮 Gülay Fark-Analizi']:[]);
@@ -18178,19 +18178,19 @@ function _qtNihaiRerender(mode){
   else if(names.length===1)note=`<strong>${names[0]}</strong> analizinin ŞU ANKİ sayılarında da var`;
   else note=`seçtiğin <strong>${names.length} analizin TÜMÜNDE ORTAK</strong> (kesişim) var: ${names.join(' × ')}`;
   const sourceLabel=!names.length?'Tümü (birleşim)':names.join(' × ');
-  wrap.innerHTML=_soNihaiTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note,sourceLabel);
+  wrap.innerHTML=_soNihaiTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note,sourceLabel,st.actualDraw);
 }
 // İlk Hane Tablosu (Hızlı Tahmin) — Nihai Sayı Tablosu ile AYNI rowsInfo/groups'u tekrar hesaplamadan
 // paylaşır VE kaynak analiz seçimini de AYRICA sormaz — Nihai Sayı Tablosu'nda o an seçili olan
 // analiz(ler) neyse İlk Hane de otomatik olarak onu kullanır (_qtNihaiFilter[mode] paylaşılır).
 let _qtIlkHaneState={};
-function _qtIlkHaneSection(game,prior,src,aSet,mode){
+function _qtIlkHaneSection(game,prior,src,aSet,mode,actual){
   if(!prior||!prior.length)return '';
   const nihaiSt=_qtNihaiState[mode];
   const rowsInfo=nihaiSt?nihaiSt.rowsInfo:_soNihaiRowsFromDraw(prior[0],game);
   if(!rowsInfo)return '';
   const groups=nihaiSt?nihaiSt.groups:_qtBuildAnalysisGroups(game,prior,src);
-  _qtIlkHaneState[mode]={rowsInfo,game,groups,nextSet:aSet||null};
+  _qtIlkHaneState[mode]={rowsInfo,game,groups,nextSet:aSet||null,actualDraw:actual||null};
   const wrapId='qtIlkHaneWrap_'+mode;
   let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(124,58,237,.35)">`;
   h+=`<div id="${wrapId}"></div>`;
@@ -18217,7 +18217,7 @@ function _qtIlkHaneRerender(mode){
   else if(names.length===1)note=`<strong>${names[0]}</strong> analizinin ŞU ANKİ sayılarında da var (Nihai Sayı Tablosu'ndaki seçimle aynı)`;
   else note=`seçtiğin <strong>${names.length} analizin TÜMÜNDE ORTAK</strong> (kesişim) var: ${names.join(' × ')} (Nihai Sayı Tablosu'ndaki seçimle aynı)`;
   const sourceLabel=!names.length?'Tümü (birleşim)':names.join(' × ');
-  wrap.innerHTML=_soIlkHaneTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note,sourceLabel);
+  wrap.innerHTML=_soIlkHaneTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note,sourceLabel,st.actualDraw);
 }
 // aynı boyutta TAMAMEN RASTGELE bir havuzun ≥3 net bulma şansı (hipergeometrik) — dürüst kıyas için
 function _mrPoolChanceGE3(poolSize,max,cnt){
@@ -18979,22 +18979,30 @@ function _soGulayCandSet(ga){
 // Sadece gerçekten çıkan (nextSet'te olan) sayıları gösterir — bilinmiyorsa/hiç yoksa uygun mesaj.
 // Ana (main) sayılardan gelen isabetleri normal, Süperstar/Joker (★) satırından gelenleri
 // "+ ★sayı" olarak ayrı gösterir — bilet formatındaki "ana sayılar + bonus" gösterimine benzer.
-function _soNihaiSonucHitsOnly(mainArr,bonusArr,nextSet){
-  if(!nextSet)return `<div style="font-size:.6rem;color:var(--muted)">Bu çekilişin gerçek sonucu henüz bilinmiyor — bilindiğinde burada sadece çıkan sayılar görünecek.</div>`;
-  const mainHits=mainArr.filter(n=>nextSet.has(n));
-  const bonusHits=bonusArr.filter(n=>nextSet.has(n));
-  if(!mainHits.length&&!bonusHits.length)return `<div style="font-size:.6rem;color:var(--muted)">Bu turda çıkan sayı yok.</div>`;
-  const chip=(n,star)=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 4px;border-radius:8px;background:rgba(0,230,118,.28);border:1.5px solid rgba(0,230,118,.85);color:var(--green);font-weight:800;font-family:monospace;font-size:.78rem">${star?'★':''}${n}✓</span>`;
+// Çekilişin GERÇEK sonucundaki TÜM sayıları gösterir (sadece isabetleri değil); sonucSet'te
+// (tablonun kendi Sonuç kümesinde) de olanlar yeşil ✓ ile işaretlenir, olmayanlar nötr/soluk kalır.
+function _soNihaiSonucHitsOnly(sonucSet,actualDraw){
+  if(!actualDraw)return `<div style="font-size:.6rem;color:var(--muted)">Bu çekilişin gerçek sonucu henüz bilinmiyor — bilindiğinde burada çekilişin TÜM sayıları, tutanlar işaretli olarak görünecek.</div>`;
+  const mainNums=[...(actualDraw.nums||[])].sort((a,b)=>a-b);
+  const bonusNums=actualDraw.bonus||[];
+  if(!mainNums.length&&!bonusNums.length)return `<div style="font-size:.6rem;color:var(--muted)">Bu çekiliş için sayı bulunamadı.</div>`;
+  const chip=(n,star)=>{
+    const hit=!!(sonucSet&&sonucSet.has(n));
+    const style=hit
+      ?'background:rgba(0,230,118,.28);border:1.5px solid rgba(0,230,118,.85);color:var(--green);font-weight:800'
+      :'background:var(--surface2);border:1.5px solid var(--border);color:var(--text);font-weight:600';
+    return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:28px;padding:0 4px;border-radius:8px;font-family:monospace;font-size:.78rem;${style}">${star?'★':''}${n}${hit?'✓':''}</span>`;
+  };
   let h=`<div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">`;
-  mainHits.forEach(n=>h+=chip(n,false));
-  if(bonusHits.length){
+  mainNums.forEach(n=>h+=chip(n,false));
+  if(bonusNums.length){
     h+=`<span style="font-size:.9rem;font-weight:800;color:var(--muted);padding:0 2px">+</span>`;
-    bonusHits.forEach(n=>h+=chip(n,true));
+    bonusNums.forEach(n=>h+=chip(n,true));
   }
   h+=`</div>`;
   return h;
 }
-function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHtml,sourceLabel){
+function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHtml,sourceLabel,actualDraw){
   if(!rowsInfo)return '';
   const{gapSum,nihai,rows,max}=rowsInfo;
   const decades=[];for(let d=0;d<=max;d+=10)decades.push(d);
@@ -19003,7 +19011,6 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
   // hemen altında hem de satır dökümünün altında, aynı veriyle, gösterilebilir.
   const firstLabelForDigit={};
   const sonucSet=new Set();
-  const mainSonucSet=new Set(),bonusSonucSet=new Set();
   const rowsData=rows.map(r=>{
     const dup=r.lastDigit in firstLabelForDigit;
     let found=null;
@@ -19013,17 +19020,12 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
       decades.forEach(d=>{
         const target=d+r.lastDigit;
         if(target<1||target>max)return;
-        if(candSet&&candSet.has(target)){
-          found.push(target);sonucSet.add(target);
-          (r.isBonus?bonusSonucSet:mainSonucSet).add(target);
-        }
+        if(candSet&&candSet.has(target)){found.push(target);sonucSet.add(target);}
       });
     }
     return{r,dup,dupOf:dup?firstLabelForDigit[r.lastDigit]:null,found};
   });
   const sonucArr=[...sonucSet].sort((a,b)=>a-b);
-  const mainSonucArr=[...mainSonucSet].sort((a,b)=>a-b);
-  const bonusSonucArr=[...bonusSonucSet].sort((a,b)=>a-b);
   const netCount=nextSet?sonucArr.filter(n=>nextSet.has(n)).length:null;
   const netBadge=netCount!==null?` <span style="font-weight:800;color:${netCount>0?'var(--green)':'var(--muted)'}">· ${netCount} net</span>`:'';
   copyLines.push('Son haneler:');
@@ -19037,7 +19039,7 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
   // Başlığın hemen altında — SADECE gerçekten çıkan sayılar (dinamik net sayacıyla)
   h+=`<div style="margin-bottom:12px;padding:9px 10px;background:rgba(37,99,235,.07);border:1px solid rgba(37,99,235,.2);border-radius:8px">`;
   h+=`<div style="font-size:.64rem;font-weight:800;color:#2563eb;margin-bottom:6px">🎯 Sonuç${netBadge}</div>`;
-  h+=_soNihaiSonucHitsOnly(mainSonucArr,bonusSonucArr,nextSet);
+  h+=_soNihaiSonucHitsOnly(sonucSet,actualDraw);
   h+=`</div>`;
   // Sonuç kutusunun hemen altında — tüm satırların son haneleri, virgülle ayrılmış tek satırda
   const sonHanelerLine=rowsData.map(({r,dup,dupOf})=>`${r.label}${r.isBonus?' ★':''}: ${r.lastDigit}`+(dup?` (aynı, bkz. ${dupOf})`:'')).join(' , ');
@@ -19075,13 +19077,12 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
 // aday havuzunun BÜYÜKLÜĞÜ — Nihai Sayı Tablosu'yla birebir aynı dürüstlük çerçevesi geçerli.
 // (sum, num+nihai) ONLAR basamağı ("ilk hane") hedef alınır; o basamakla başlayan (fd*10..fd*10+9)
 // TÜM aday sayılar listelenir. Satır/dedup/bonus/Sonuç mantığı Nihai Sayı Tablosu ile birebir aynı.
-function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHtml,sourceLabel){
+function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHtml,sourceLabel,actualDraw){
   if(!rowsInfo)return '';
   const{gapSum,nihai,rows,max}=rowsInfo;
   const copyLines=[`İlk Hane Tablosu (${game.name})${sourceLabel?' — Kaynak: '+sourceLabel:''}`,`Fark toplamı: ${gapSum} → Nihai Sayı: ${nihai}`,''];
   const firstLabelForDigit={};
   const sonucSet=new Set();
-  const mainSonucSet=new Set(),bonusSonucSet=new Set();
   const rowsData=rows.map(r=>{
     const fd=Math.floor(r.sum/10);
     const dup=fd in firstLabelForDigit;
@@ -19091,17 +19092,12 @@ function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,note
       found=[];
       const lo=Math.max(1,fd*10),hi=Math.min(max,fd*10+9);
       for(let t=lo;t<=hi;t++){
-        if(candSet&&candSet.has(t)){
-          found.push(t);sonucSet.add(t);
-          (r.isBonus?bonusSonucSet:mainSonucSet).add(t);
-        }
+        if(candSet&&candSet.has(t)){found.push(t);sonucSet.add(t);}
       }
     }
     return{r,fd,dup,dupOf:dup?firstLabelForDigit[fd]:null,found};
   });
   const sonucArr=[...sonucSet].sort((a,b)=>a-b);
-  const mainSonucArr=[...mainSonucSet].sort((a,b)=>a-b);
-  const bonusSonucArr=[...bonusSonucSet].sort((a,b)=>a-b);
   const netCount=nextSet?sonucArr.filter(n=>nextSet.has(n)).length:null;
   const netBadge=netCount!==null?` <span style="font-weight:800;color:${netCount>0?'var(--green)':'var(--muted)'}">· ${netCount} net</span>`:'';
   copyLines.push('İlk haneler:');
@@ -19114,7 +19110,7 @@ function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,note
   h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:9px;line-height:1.6">Nihai Sayı Tablosu'nun aynısı ama hedef <strong>son hane değil ilk hane</strong> (onlar basamağı): fark toplamı → Nihai Sayı = <strong style="color:#7c3aed">${nihai}</strong>, çekilişin (★ = Süperstar/Joker dahil) her sayısına eklenir, toplamın <strong>onlar basamağıyla başlayan</strong> onluk-grup sayılarından ${noteHtml||'aday kümesinde de olanlar'} listelenir. <strong>Dürüst not:</strong> gerçek geriye dönük testte bu yöntem son-hane yöntemiyle aynı orana ulaşıyor (~%94-100) ama aynı büyüklükte rastgele bir havuz da aynı orana ulaşır — yüksek oran havuz büyüklüğünden, "ilk hane bilmekten" değil.</div>`;
   h+=`<div style="margin-bottom:12px;padding:9px 10px;background:rgba(124,58,237,.07);border:1px solid rgba(124,58,237,.2);border-radius:8px">`;
   h+=`<div style="font-size:.64rem;font-weight:800;color:#7c3aed;margin-bottom:6px">🎯 Sonuç${netBadge}</div>`;
-  h+=_soNihaiSonucHitsOnly(mainSonucArr,bonusSonucArr,nextSet);
+  h+=_soNihaiSonucHitsOnly(sonucSet,actualDraw);
   h+=`</div>`;
   const ilkHanelerLine=rowsData.map(({r,fd,dup,dupOf})=>`${r.label}${r.isBonus?' ★':''}: ${fd}`+(dup?` (aynı, bkz. ${dupOf})`:'')).join(' , ');
   h+=`<div style="margin-bottom:12px;font-size:.58rem;color:var(--muted);line-height:1.6"><strong style="color:var(--text)">İlk haneler:</strong> ${ilkHanelerLine}</div>`;
@@ -19269,7 +19265,7 @@ function _soRenderNihaiBlock(draw,game,nextDraw){
   const ga=_soGapAnalysisCompute(draw,game);
   const candSet=_soGulayCandSet(ga);
   const nextSet=nextDraw?new Set([...(nextDraw.nums||[]),...(nextDraw.bonus||[])]):null;
-  const h=_soNihaiTableRender(rowsInfo,game,candSet,nextSet,'_soNihaiCopy',"_kbCopy(window._soNihaiCopy)",'<strong>Gülay\'ın toplama/çıkarma/fark zincirinde</strong> de var','Gülay Fark-Analizi (toplama/çıkarma/fark zinciri)');
+  const h=_soNihaiTableRender(rowsInfo,game,candSet,nextSet,'_soNihaiCopy',"_kbCopy(window._soNihaiCopy)",'<strong>Gülay\'ın toplama/çıkarma/fark zincirinde</strong> de var','Gülay Fark-Analizi (toplama/çıkarma/fark zinciri)',nextDraw);
   if(window._soNihaiCopy&&window._soCopy)window._soCopy+='\n\n'+window._soNihaiCopy;
   return h;
 }
@@ -19279,7 +19275,7 @@ function _soRenderIlkHaneBlock(draw,game,nextDraw){
   const ga=_soGapAnalysisCompute(draw,game);
   const candSet=_soGulayCandSet(ga);
   const nextSet=nextDraw?new Set([...(nextDraw.nums||[]),...(nextDraw.bonus||[])]):null;
-  const h=_soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,'_soIlkHaneCopy',"_kbCopy(window._soIlkHaneCopy)",'<strong>Gülay\'ın toplama/çıkarma/fark zincirinde</strong> de var','Gülay Fark-Analizi (toplama/çıkarma/fark zinciri)');
+  const h=_soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,'_soIlkHaneCopy',"_kbCopy(window._soIlkHaneCopy)",'<strong>Gülay\'ın toplama/çıkarma/fark zincirinde</strong> de var','Gülay Fark-Analizi (toplama/çıkarma/fark zinciri)',nextDraw);
   if(window._soIlkHaneCopy&&window._soCopy)window._soCopy+='\n\n'+window._soIlkHaneCopy;
   return h;
 }
