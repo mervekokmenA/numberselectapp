@@ -1318,13 +1318,26 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button class="kb-game-btn" data-game="sans"     onclick="_kbSetGame('sans')"     style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔴 Şans Topu</button>
    <button class="kb-game-btn" data-game="onnumara" onclick="_kbSetGame('onnumara')" style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🟢 On Numara</button>
   </div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;border-bottom:1px solid var(--border);padding-bottom:12px">
-   <button class="kb-mode-btn" data-mode="banko"   onclick="_kbSetMode('banko')"   style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🎯 Banko & Konsensüs</button>
-   <button class="kb-mode-btn" data-mode="test"    onclick="_kbSetMode('test')"    style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🔬 Geri Test</button>
-   <button class="kb-mode-btn" data-mode="gulsis0" onclick="_kbSetMode('gulsis0')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🎯⁰ Gülsis Sıfır Bilet</button>
-   <button class="kb-mode-btn" data-mode="kazanan" onclick="_kbSetMode('kazanan')" style="font-size:.72rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:600">🏆 Kazanan Bilet</button>
+ </div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start" id="kbGrid">
+  <div>
+   <div style="font-size:.82rem;font-weight:800;color:var(--accent);margin-bottom:8px;padding-left:2px">🔮 Yeni Tahmin — Banko & Konsensüs</div>
+   <div id="kbContent"></div>
   </div>
-  <div id="kbContent"></div>
+  <div>
+   <div class="card" style="margin:0">
+    <div class="card-title">📊 Geçmiş Test</div>
+    <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; konsensüs o tarihten ÖNCEKİ verilerle yeniden hesaplanır ve gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
+    <div style="display:flex;gap:6px;align-items:stretch">
+     <select id="kbDateSel" onchange="_kbDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+      <button onclick="_kbStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+      <button onclick="_kbStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+     </div>
+    </div>
+    <div id="kbDateOut" style="margin-top:10px"></div>
+   </div>
+  </div>
  </div>
 </div>
 
@@ -8647,7 +8660,7 @@ function renderFreqChart(){
   chart.innerHTML=sorted.map(([num,cnt],i)=>`
     <div class="freq-row">
       <div class="freq-num">${num}</div>
-      <div class="freq-bar-wrap"><div class="freq-bar-fill" style="width:${Math.round(cnt/mx*100)}%;background:${colors[i%colors.length]}"></div></div>
+      
       <div class="freq-count">${cnt}</div>
     </div>`).join('');
 }
@@ -8714,7 +8727,7 @@ function showAlgoRankTable(perf,gameId){
       <span style="font-size:.62rem;width:14px;text-align:center">${medals[rank]||''}</span>
       <div style="flex:1">
         <div style="font-size:.68rem;${isSelected?'color:var(--green);font-weight:700':'color:var(--text)'}">${a.name}</div>
-        <div style="height:3px;background:var(--border);border-radius:2px;margin-top:2px"><div style="height:100%;width:${bar}%;background:${isSelected?'var(--green)':'var(--accent)'};border-radius:2px"></div></div>
+        
       </div>
     </div>
     <span style="font-family:monospace;font-size:.7rem;color:var(--accent);text-align:right">${a.avg}</span>
@@ -8735,7 +8748,7 @@ async function runAlgoRank(){
   const TRIALS=4; // simulate real usage: 4 tickets per algo, take best match
   const minHits3=game.id==='onnumara'?5:3;
   panel.innerHTML=`<div style="font-size:.73rem;color:var(--muted)">⏳ ${testN} çekiliş · ${ALGOS.length} algoritma · ${TRIALS} bilet/çekiliş test ediliyor...</div>
-  <div style="height:5px;background:var(--border);border-radius:3px;margin-top:8px"><div id="arBar" style="height:100%;width:0%;background:var(--accent);border-radius:3px;transition:width .15s"></div></div>
+  
   <div id="arStatus" style="font-size:.6rem;color:var(--muted);margin-top:4px"></div>`;
 
   const totHits={},totM3={},totN={};
@@ -9811,7 +9824,7 @@ function runNaTransform(){
     if(hit) html+=`<span style="font-size:.52rem;font-weight:700;color:var(--green)">✓</span>`;
     html+=`<span style="font-size:.56rem;font-weight:700;color:${clr};margin-left:auto">${r.v}oy</span>`;
     html+=`</div>`;
-    html+=`<div style="background:var(--surface2);border-radius:3px;height:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${clr};border-radius:3px"></div></div>`;
+    html+=``;
     html+=`<div id="naCardSrcs-${r.n}" style="display:none;font-size:.58rem;color:var(--muted);line-height:1.4;margin-top:3px">`;
     r.srcs.forEach(s=>{ html+=`<span style="display:inline-block;background:var(--surface);border-radius:3px;padding:1px 4px;margin:1px;border:1px solid var(--border);white-space:nowrap">${s.from}→${s.via}</span>`; });
     html+=`</div>`;
@@ -9943,7 +9956,7 @@ function runNaJoker(){
     html+=`<div style="background:${isTop?'rgba(0,230,118,.10)':'var(--surface2)'};border:1px solid ${isTop?'rgba(0,230,118,.35)':'var(--border)'};border-radius:8px;padding:8px 10px">`;
     html+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px">`;
     html+=`<span style="font-size:1.1rem;font-weight:800;color:${isTop?'var(--green)':'var(--text)'};min-width:26px">${c.n}</span>`;
-    html+=`<div style="flex:1"><div style="background:var(--border);border-radius:3px;height:5px;overflow:hidden;margin-bottom:3px"><div style="width:${pct}%;height:100%;background:${isTop?'var(--green)':'var(--accent)'};border-radius:3px"></div></div>`;
+    html+=`<div style="flex:1">`;
     html+=`<div style="font-size:.57rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.reason}</div></div>`;
     html+=`<span style="font-size:.57rem;color:var(--muted);flex-shrink:0">${pct}%</span></div>`;
     html+=`<div style="display:flex;gap:4px;flex-wrap:wrap">`;
@@ -11509,9 +11522,7 @@ function runB10(suffix=''){
     const pct=wPct(k);const lv=lPct(k);const isPos=!ci.lift||(ci.lift[k]||0)>=0;
     return`<div style="display:flex;align-items:center;gap:5px;font-size:.59rem;margin-bottom:2px">
       <span style="min-width:60px;color:var(--muted)">${_B10_SIG_NAMES[k]}</span>
-      <div style="flex:1;height:5px;background:rgba(0,0,0,.07);border-radius:2px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${isPos?'var(--accent)':'rgba(255,82,82,.6)'};border-radius:2px"></div>
-      </div>
+      
       <span style="min-width:24px;color:var(--muted);text-align:right">${pct}%</span>
       <span style="min-width:58px;color:${isPos?'var(--green)':'rgba(255,100,100,.8)'};text-align:right;font-size:.54rem">${lv>=0?'+':''}${lv.toFixed(1)}% lift</span>
     </div>`;
@@ -11523,9 +11534,7 @@ function runB10(suffix=''){
       <span style="font-size:.59rem;color:var(--muted);min-width:16px">${i+1}.</span>
       <span style="font-family:monospace;font-size:.87rem;font-weight:800;min-width:26px;color:${isBk?'var(--accent)':'var(--text)'}">${n}</span>
       <span style="font-size:.59rem;min-width:72px;color:${tier.color}">${tier.icon} ${lift.toFixed(2)}× ${tier.label}</span>
-      <div style="flex:1;height:6px;background:rgba(0,0,0,.08);border-radius:3px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${isBk?'linear-gradient(90deg,var(--accent),rgba(255,101,132,.8))':'rgba(0,0,0,.12)'};border-radius:3px"></div>
-      </div>
+      
       <span style="font-size:.59rem;color:var(--muted);min-width:32px;text-align:right">${Math.round(conf*100)}%</span>
     </div>`;
   }).join('');
@@ -11718,9 +11727,7 @@ function runB10Backtest(suffix=''){
     const a=tierAgg[tl];const rate=a.h/a.t;const lv=rate/expPer;
     return`<div style="display:flex;align-items:center;gap:7px;font-size:.6rem;padding:3px 0">
       <span style="min-width:76px;color:${tierColor[tl]}">${tierIcon[tl]} ${tl}</span>
-      <div style="flex:1;height:7px;background:rgba(0,0,0,.07);border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${Math.min(100,Math.round(rate/Math.max(0.01,rankMax)*100))}%;background:${tierColor[tl]};border-radius:4px"></div>
-      </div>
+      
       <span style="min-width:28px;text-align:right;color:var(--muted)">${Math.round(rate*100)}%</span>
       <span style="min-width:38px;text-align:right;font-weight:700;color:${lv>=1.2?'var(--green)':lv>=1?'#8a6200':'var(--muted)'}">${lv.toFixed(2)}×</span>
     </div>`;
@@ -12079,9 +12086,12 @@ function _kbHtComboBacktest(draws,game,rounds,extra){
 }
 
 // ── KB yardımcılar ─────────────────────────────────────────────
-function _kbBadge(n,strong,sub){
-  const bg=strong?'rgba(0,230,118,.2)':'rgba(0,0,0,.05)',bd=strong?'rgba(0,230,118,.55)':'rgba(0,0,0,.1)',cl=strong?'var(--green)':'var(--text)';
-  return `<span style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:34px;padding:3px 5px;border-radius:8px;background:${bg};border:1px solid ${bd};color:${cl};font-family:monospace"><span style="font-size:.82rem;font-weight:800">${n}</span>${sub?`<span style="font-size:.5rem;color:var(--muted);font-weight:600">${sub}</span>`:''}</span>`;
+function _kbBadge(n,strong,sub,hitColor,hitMark){
+  const isHit=hitColor==='var(--green)';
+  const bg=isHit?'rgba(0,230,118,.2)':strong?'rgba(0,230,118,.12)':'rgba(0,0,0,.05)';
+  const bd=isHit?'rgba(0,230,118,.6)':strong?'rgba(0,230,118,.4)':'rgba(0,0,0,.1)';
+  const cl=hitColor||(strong?'var(--green)':'var(--text)');
+  return `<span style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:34px;padding:3px 5px;border-radius:8px;background:${bg};border:1px solid ${bd};color:${cl};font-family:monospace"><span style="font-size:.82rem;font-weight:800">${n}${hitMark||''}</span>${sub?`<span style="font-size:.5rem;color:var(--muted);font-weight:600">${sub}</span>`:''}</span>`;
 }
 function _kbColRepeats(cols){const c={};cols.forEach(col=>[...new Set(col)].forEach(n=>c[n]=(c[n]||0)+1));return Object.entries(c).filter(([n,x])=>x>=2).map(([n,x])=>({n:+n,c:x})).sort((a,b)=>b.c-a.c||a.n-b.n);}
 function _kbArith(col){const s=[...col].sort((a,b)=>a-b);if(s.length<3)return null;const d=s[1]-s[0];if(d<=0)return null;return s.every((v,i)=>i===0||v-s[i-1]===d)?d:null;}
@@ -12097,21 +12107,40 @@ function _kbInit(){
   _kbRender();
 }
 function _kbSetGame(g){_kbGame=g;_kbRender();}
-function _kbSetMode(m){_kbMode=m;_kbRender();}
 function _kbRender(){
   document.querySelectorAll('.kb-game-btn').forEach(b=>{const on=b.dataset.game===_kbGame;b.style.background=on?'rgba(129,140,248,.25)':'var(--surface2)';b.style.borderColor=on?'rgba(129,140,248,.55)':'var(--border)';b.style.color=on?'var(--accent)':'var(--muted)';b.style.fontWeight=on?'700':'400';});
-  document.querySelectorAll('.kb-mode-btn').forEach(b=>{const on=b.dataset.mode===_kbMode;b.style.background=on?'rgba(0,150,58,.15)':'var(--surface2)';b.style.borderColor=on?'rgba(0,150,58,.4)':'var(--border)';b.style.color=on?'var(--green)':'var(--muted)';b.style.fontWeight=on?'800':'600';});
   const el=document.getElementById('kbContent');if(!el)return;
   el.innerHTML='<div style="padding:30px;text-align:center;color:var(--muted);font-size:.8rem">⏳ Hesaplanıyor…</div>';
+  _kbDates();
+  const dOut=document.getElementById('kbDateOut');if(dOut)dOut.innerHTML='';
   setTimeout(()=>{
-    try{
-      if(_kbMode==='banko')el.innerHTML=_kbRenderBanko();
-      else if(_kbMode==='test')el.innerHTML=_kbRenderTest();
-      else if(_kbMode==='bilet'){el.innerHTML=_kbRenderBilet();_kbBiletInitDateSel();}
-      else if(_kbMode==='gulsis0')el.innerHTML=_kbRenderGulsis0();
-      else if(_kbMode==='kazanan')el.innerHTML=_kbRenderKazanan();
-    }catch(e){el.innerHTML='<div style="padding:20px;color:#cc2222;font-size:.75rem">Hata: '+e.message+'</div>';}
+    try{ el.innerHTML=_kbRenderBanko(_kbGetDraws(_kbGame),null); }
+    catch(e){el.innerHTML='<div style="padding:20px;color:#cc2222;font-size:.75rem">Hata: '+e.message+'</div>';}
   },40);
+}
+// Geçmiş Test tarih seçici — Hızlı Tahmin'deki (qtDateSel) desenle aynı
+function _kbDates(){
+  const sel=document.getElementById('kbDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_kbGame);const prev=sel.value;
+  let h=`<option value="">— Geçmiş test için tarih seçin —</option>`;
+  draws.forEach((d,i)=>{if(draws.length-i-1<20)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;if(prev)sel.value=prev;
+}
+function _kbStepDate(dir){
+  const sel=document.getElementById('kbDateSel');if(!sel||sel.options.length<2)return;
+  let idx=sel.selectedIndex;if(idx<1)idx=1;else idx=Math.min(sel.options.length-1,Math.max(1,idx+dir));
+  sel.selectedIndex=idx;_kbDateTest();
+}
+function _kbDateTest(){
+  const el=document.getElementById('kbDateOut');if(!el)return;
+  const date=document.getElementById('kbDateSel')?.value||'';
+  if(!date){el.innerHTML='';return;}
+  const draws=_kbGetDraws(_kbGame);const idx=draws.findIndex(d=>d.date===date);
+  if(idx<0){el.innerHTML='';return;}
+  const actual=draws[idx];const prior=draws.slice(idx+1);
+  if(prior.length<20){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok (en az 20 çekiliş gerekir).</div>';return;}
+  el.innerHTML='<div style="padding:20px;text-align:center;color:var(--muted);font-size:.75rem">⏳ Hesaplanıyor…</div>';
+  setTimeout(()=>{try{el.innerHTML=_kbRenderBanko(prior,actual);}catch(e){el.innerHTML='<div style="padding:14px;color:#cc2222;font-size:.72rem">Hata: '+e.message+'</div>';}},30);
 }
 
 // Gülsis Sıfır kapsama-optimal bilet grubu üreticisi — Kapsamlı'ya ayrı bir mod olarak entegre.
@@ -12203,24 +12232,29 @@ function _kbGulsisPanel(game,draws,cnt,bankoSet){
   h+=`</div>`;
   return h;
 }
-function _kbRenderBanko(){
-  const game=getGame(_kbGame),draws=_kbGetDraws(_kbGame);
+function _kbRenderBanko(prior,actual){
+  const game=getGame(_kbGame);const draws=prior||_kbGetDraws(_kbGame);
   if(draws.length<20)return '<div class="empty-state"><span class="empty-icon">📭</span>Yeterli veri yok.</div>';
   const cal=_kbCalibrate(draws,game),rows=_kbConsensus(draws,game,cal),cnt=Math.min(game.count,7);
   const strong=rows.filter(r=>r.support>=3),bankoList=(strong.length?strong:rows).slice(0,Math.max(cnt+2,8));
+  const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
+  const hitCol=n=>aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':null):null;
+  const hitMk=n=>aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):'';
   let h='';
+  if(actual){
+    const res=[...(actual.nums||[])].sort((a,b)=>a-b);
+    const bNet=aSet?bankoList.slice(0,cnt).filter(r=>aSet.has(r.n)).length:0;
+    h+=`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div><span style="font-size:.64rem;font-weight:800;color:${bNet>=3?'var(--green)':'var(--muted)'}">🔒 banko: ${bNet} net</span></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Konsensüs bu tarihten ÖNCEKİ verilerle hesaplandı · ✓ net · ~ ±1 yakın.</div></div>`;
+  }
   h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:11px 14px;margin-bottom:12px"><div style="font-size:.8rem;font-weight:800;color:var(--accent)">🎯 ${game.emoji} ${game.name} — Banko Konsensüsü</div><div style="font-size:.62rem;color:var(--muted);margin-top:3px">${draws.length} çekiliş · ${_KB_METHODS.length} yöntem · walk-forward kalibrasyon (${cal.valid} tur)</div></div>`;
-  h+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px"><div style="font-size:.78rem;font-weight:800;color:var(--green)">🔒 En Güçlü Banko Adayları</div><button onclick="_kbCopy('Kapsamlı\\n🔒 En Güçlü Banko Adayları\\n${bankoList.slice(0,cnt).map(r=>r.n).sort((a,b)=>a-b).join(' ')}')" style="background:rgba(0,150,58,.1);border:1px solid rgba(0,150,58,.3);color:var(--green);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.65rem;font-weight:700">📋 Kopyala</button></div><div style="font-size:.6rem;color:var(--muted);margin-bottom:9px">Birden çok bağımsız yöntemin aynı anda öne çıkardığı sayılar. Alt rakam = kaç yöntemin desteklediği (0–6).</div><div style="display:flex;gap:6px;flex-wrap:wrap">${bankoList.map(r=>_kbBadge(r.n,r.support>=3,r.support+'/6')).join('')}</div></div>`;
+  h+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px"><div style="font-size:.78rem;font-weight:800;color:var(--green)">🔒 En Güçlü Banko Adayları</div><button onclick="_kbCopy('Kapsamlı\\n🔒 En Güçlü Banko Adayları\\n${bankoList.slice(0,cnt).map(r=>r.n).sort((a,b)=>a-b).join(' ')}')" style="background:rgba(0,150,58,.1);border:1px solid rgba(0,150,58,.3);color:var(--green);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.65rem;font-weight:700">📋 Kopyala</button></div><div style="font-size:.6rem;color:var(--muted);margin-bottom:9px">Birden çok bağımsız yöntemin aynı anda öne çıkardığı sayılar. Alt rakam = kaç yöntemin desteklediği (0–6).</div><div style="display:flex;gap:6px;flex-wrap:wrap">${bankoList.map(r=>_kbBadge(r.n,r.support>=3,r.support+'/6',hitCol(r.n),hitMk(r.n))).join('')}</div></div>`;
   h+=_kbGulsisPanel(game,draws,cnt,new Set(bankoList.map(r=>r.n)));
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:9px">📊 Konsensüs Sıralaması</div>`;
   rows.slice(0,18).forEach((r,i)=>{
     const icons=r.supBy.map(id=>_KB_MICON[id]).join('');
-    h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.04)"><span style="font-size:.6rem;color:var(--muted);min-width:18px">${i+1}</span><span style="font-size:.85rem;font-weight:800;font-family:monospace;color:${r.support>=3?'var(--green)':'var(--text)'};min-width:26px">${r.n}</span><div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.05);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;background:linear-gradient(90deg,rgba(129,140,248,.6),rgba(0,230,118,.6));width:${Math.round(r.consN*100)}%"></div></div><span style="font-size:.6rem;min-width:78px;text-align:right;letter-spacing:1px">${icons||'—'}</span><span style="font-size:.58rem;color:var(--muted);min-width:24px;text-align:right">${r.support}/6</span></div>`;
+    const col=hitCol(r.n)||(r.support>=3?'var(--green)':'var(--text)');
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.04)"><span style="font-size:.6rem;color:var(--muted);min-width:18px">${i+1}</span><span style="font-size:.85rem;font-weight:800;font-family:monospace;color:${col};min-width:32px">${r.n}${hitMk(r.n)}</span><span style="flex:1;font-size:.62rem;font-weight:700;color:var(--accent)">%${Math.round(r.consN*100)}</span><span style="font-size:.6rem;min-width:78px;text-align:right;letter-spacing:1px">${icons||'—'}</span><span style="font-size:.58rem;color:var(--muted);min-width:24px;text-align:right">${r.support}/6</span></div>`;
   });
-  h+=`</div>`;
-  const sortedM=[..._KB_METHODS].sort((a,b)=>cal.lift[b.id]-cal.lift[a.id]);
-  h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:4px">⚖️ Yöntem Ağırlıkları</div><div style="font-size:.58rem;color:var(--muted);margin-bottom:9px">Her yöntemin geçmiş isabet katkısına (lift) göre otomatik ağırlığı. Negatif lift = rastgeleden kötü → ağırlık kısılır.</div>`;
-  sortedM.forEach(m=>{const w=cal.weights[m.id],lift=cal.lift[m.id];h+=`<div style="display:flex;align-items:center;gap:8px;padding:3px 0"><span style="font-size:.66rem;min-width:122px">${m.icon} ${m.name}</span><div style="flex:1;height:8px;border-radius:4px;background:rgba(0,0,0,.05);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;background:rgba(129,140,248,.6);width:${Math.round(w*100)}%"></div></div><span style="font-size:.62rem;color:var(--accent);min-width:36px;text-align:right;font-weight:700">${Math.round(w*100)}%</span><span style="font-size:.56rem;color:${lift>=0?'var(--green)':'#cc2222'};min-width:52px;text-align:right">lift ${lift>=0?'+':''}${(lift*100).toFixed(1)}%</span></div>`;});
   h+=`</div>`;
   // NS kümülatif toplamlar ve ±k adaylar (son çekilişten)
   const consMap={};rows.forEach((r,i)=>consMap[r.n]={rank:i+1,support:r.support,consN:r.consN});
@@ -12566,7 +12600,7 @@ function _kbRunBilet(){
     h+=`<div style="display:grid;grid-template-columns:auto auto 1fr auto auto;gap:3px 8px;align-items:center;padding:2px 0;border-bottom:1px solid rgba(0,0,0,.03)">`;
     h+=`<span style="font-size:.6rem;color:var(--muted)">${x.rank}.</span>`;
     h+=`<span style="font-size:.72rem;font-weight:${s?'800':t2?'700':'500'};color:${s?'var(--green)':t2?'var(--accent)':'var(--text)'};font-family:monospace;min-width:24px">${x.n}</span>`;
-    h+=`<div style="height:6px;border-radius:3px;background:rgba(0,0,0,.07);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:3px;background:${s?'rgba(0,230,118,.6)':t2?'rgba(129,140,248,.55)':'rgba(0,0,0,.22)'};width:${Math.round(x.consN*100)}%"></div></div>`;
+    h+=``;
     h+=`<span style="font-size:.62rem;color:${s?'var(--green)':t2?'var(--accent)':'var(--muted)'};font-weight:${s||t2?'800':'400'}">${x.support}/6</span>`;
     h+=`<span style="font-size:.62rem;color:var(--muted)">${x.coverage}k</span>`;
     h+=`</div>`;
@@ -13574,7 +13608,7 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn,silent){
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
           <span style="font-size:.7rem;min-width:18px">${medal}</span>
           <span style="font-size:.6rem;color:var(--text);font-weight:700;min-width:48px">Bilet #${t.ti+1}</span>
-          <div style="flex:1;height:4px;background:rgba(0,0,0,.07);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:linear-gradient(90deg,rgba(129,140,248,.85),rgba(255,101,132,.65));border-radius:3px"></div></div>
+          
           <span style="font-size:.6rem;color:var(--accent);font-weight:700;min-width:20px">${pct}</span>
           ${t.redCnt>0?`<span style="font-size:.54rem;background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.3);color:#ef9a9a;border-radius:4px;padding:1px 4px">🔴${t.redCnt}</span>`:''}
           ${t.nsCnt>0?`<span style="font-size:.54rem;background:rgba(129,140,248,.12);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:4px;padding:1px 4px">🔗${t.nsCnt}</span>`:''}
@@ -13846,7 +13880,7 @@ function _scanTopCands(game,algoId,pred,draws,freq){
     const inPred=predSet.has(n);
     h+=`<div style="display:flex;align-items:center;gap:5px;padding:2px 0">`;
     h+=`<span style="font-family:monospace;font-size:.72rem;font-weight:${inPred?800:500};color:${inPred?'var(--green)':'var(--text)'};min-width:24px">${n}</span>`;
-    h+=`<div style="flex:1;height:6px;border-radius:3px;background:rgba(0,0,0,.08)"><div style="height:100%;border-radius:3px;background:${inPred?'rgba(0,230,118,.7)':'rgba(108,99,255,.45)'};width:${pct}%"></div></div>`;
+    h+=``;
     h+=`<span style="font-size:.56rem;color:var(--muted);min-width:28px;text-align:right">${pct}%</span>`;
     h+=`</div>`;
   });
@@ -14923,7 +14957,7 @@ function _caRenderCurrent(){
     h+=`<div style="display:flex;flex-direction:column;gap:3px">`;
     show.forEach(c=>{
       const pct=Math.round(c.c/maxC*100);const bl=gulay.has(c.n);
-      h+=`<div style="display:flex;align-items:center;gap:8px"><span style="font-family:monospace;font-size:.68rem;font-weight:${bl?800:700};min-width:26px;color:${bl?'#2f6fed':'var(--text)'}">${c.n}</span><div style="flex:1;height:6px;background:rgba(0,0,0,.06);border-radius:4px;overflow:hidden;max-width:340px"><div style="height:100%;width:${pct}%;background:${bl?'linear-gradient(90deg,rgba(47,111,237,.9),rgba(37,99,235,.6))':'linear-gradient(90deg,rgba(129,140,248,.85),rgba(99,102,241,.6))'}"></div></div><span style="font-size:.56rem;color:var(--muted);min-width:34px">${c.c}/40</span></div>`;
+      h+=`<div style="display:flex;align-items:center;gap:8px"><span style="font-family:monospace;font-size:.68rem;font-weight:${bl?800:700};min-width:26px;color:${bl?'#2f6fed':'var(--text)'}">${c.n}</span><span style="font-size:.56rem;color:var(--muted);min-width:34px">${c.c}/40</span></div>`;
     });
     h+=`</div></div>`;
     el.innerHTML=h;
@@ -15036,7 +15070,7 @@ function _caBacktest(){
       h+=`<div style="display:flex;align-items:center;gap:8px;${sel?'background:rgba(129,140,248,.1);border-radius:6px;':''}padding:2px 4px">`;
       h+=`<span style="font-size:.55rem;color:var(--muted);min-width:16px">${i+1}.</span>`;
       h+=`<span style="font-size:.6rem;font-weight:${sel?800:600};color:${sel?'var(--accent)':'var(--text)'};min-width:150px;flex-shrink:0">${r.name}</span>`;
-      h+=`<div style="flex:1;height:6px;background:rgba(0,0,0,.06);border-radius:4px;overflow:hidden;max-width:240px"><div style="height:100%;width:${pct}%;background:${beat?'linear-gradient(90deg,rgba(0,200,100,.85),rgba(67,160,71,.6))':'linear-gradient(90deg,rgba(129,140,248,.7),rgba(99,102,241,.5))'}"></div></div>`;
+      h+=``;
       h+=`<span style="font-size:.58rem;font-weight:700;color:${beat?'var(--green)':'var(--muted)'};min-width:34px">${r.avg.toFixed(2)}</span>`;
       h+=`<span style="font-size:.54rem;color:var(--muted);min-width:60px">≥3: ${r.hit3.toFixed(0)}%</span>`;
       h+=`</div>`;
@@ -15832,7 +15866,7 @@ function _mpRRenderPrediction(tickets,poolRows,game,gid,totalDraws,cal,actual){
     html+=`<div style="display:grid;grid-template-columns:auto auto 1fr auto auto${hasCols6?' auto':''};gap:3px 8px;align-items:center;padding:2px 0;border-bottom:1px solid rgba(0,0,0,.03)">`;
     html+=`<span style="font-size:.6rem;color:var(--muted)">${x.rank}.</span>`;
     html+=`<span style="font-size:.72rem;font-weight:${s?'800':t?'700':'500'};color:${s||hit?'var(--green)':t?'var(--accent)':'var(--text)'};font-family:monospace;min-width:24px">${x.n}</span>`;
-    html+=`<div style="height:6px;border-radius:3px;background:rgba(0,0,0,.07);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:3px;background:${s?'rgba(0,230,118,.6)':t?'rgba(129,140,248,.55)':'rgba(0,0,0,.22)'};width:${Math.round(x.consN*100)}%"></div></div>`;
+    html+=``;
     html+=`<span style="font-size:.62rem;color:${s?'var(--green)':t?'var(--accent)':'var(--muted)'};font-weight:${s||t?'800':'400'}">${x.support}/${_KB_METHODS.length}</span>`;
     html+=`<span style="font-size:.62rem;color:var(--muted)">${x.coverage}k</span>`;
     if(hasCols6)html+=`<span style="font-size:.7rem;color:var(--green);font-weight:800">${hit?'✓':''}</span>`;
@@ -17315,7 +17349,7 @@ function _astroRenderResult(d,game,ticket){
   h+=`</div>`;
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
   h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">⚡ Kozmik Enerji Hizalaması</div>`;
-  h+=`<div style="background:rgba(0,0,0,.06);border-radius:6px;height:10px;overflow:hidden;margin-bottom:6px"><div style="height:100%;width:${energy}%;background:linear-gradient(90deg,var(--accent),rgba(99,102,241,.8))"></div></div>`;
+  h+=``;
   h+=`<div style="font-size:.64rem;color:${eLbl.color};font-weight:700;margin-bottom:6px">${energy}/100 — ${eLbl.label}</div>`;
   h+=`<div style="font-size:.6rem;color:var(--muted)">Bu ay şanslı günleriniz: <strong style="color:var(--text)">${luckyDays.join(', ')}</strong></div>`;
   h+=`</div>`;
@@ -17942,7 +17976,7 @@ function _snRender(el,game,draws,idx,actual){
     const barColor=pct1>=50?'var(--green)':pct1>=35?'#eab308':'var(--muted)';
     return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
       <span style="font-size:.58rem;color:var(--text);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${p.name}">${p.name}</span>
-      <div style="flex:0 0 70px;height:6px;background:var(--surface2);border-radius:3px;overflow:hidden"><div style="width:${Math.min(100,pct1)}%;height:100%;background:${barColor}"></div></div>
+      
       <span style="font-size:.6rem;font-weight:800;color:${barColor};font-family:monospace;flex:0 0 34px;text-align:right">${pct1.toFixed(0)}%</span>
       <span style="font-size:.5rem;color:var(--muted);font-family:monospace;flex:0 0 52px;text-align:right">(≥2: ${pct2.toFixed(0)}%)</span>
     </div>`;
@@ -18890,7 +18924,7 @@ function _htRenderGroups(){
   h+=`<div style="font-size:.62rem;font-weight:700;color:var(--text);margin-bottom:6px">📐 Onluk Bölge Dağılımı — beklenen sayı adedi <span style="font-weight:400;color:${relCol(rel.band)}">(±1 içinde geçmiş isabet %${rel.band})</span></div>`;
   bands.forEach((b,i)=>{
     const e=live.bandExp[i],er=Math.round(e),hot=e>=Math.max(1,bandMax*0.7);
-    h+=`<div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span style="font-size:.62rem;min-width:48px;color:${hot?'var(--accent)':'var(--muted)'};font-weight:${hot?800:400}">${_htBandLabel(b)}</span><div style="flex:1;height:9px;border-radius:4px;background:rgba(0,0,0,.05);position:relative"><div style="position:absolute;left:0;top:0;height:100%;border-radius:4px;background:${hot?'linear-gradient(90deg,rgba(129,140,248,.75),rgba(0,230,118,.7))':'rgba(129,140,248,.4)'};width:${Math.round(e/bandMax*100)}%"></div></div><span style="font-size:.6rem;font-weight:700;min-width:58px;text-align:right;color:${hot?'var(--accent)':'var(--muted)'}">~${er} sayı</span></div>`;
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:2px 0"><span style="font-size:.62rem;min-width:48px;color:${hot?'var(--accent)':'var(--muted)'};font-weight:${hot?800:400}">${_htBandLabel(b)}</span><span style="font-size:.6rem;font-weight:700;min-width:58px;text-align:right;color:${hot?'var(--accent)':'var(--muted)'}">~${er} sayı</span></div>`;
   });
   // Erişim tahmini
   const rangeRow=(lbl,band,rv)=>`<div style="display:flex;align-items:center;gap:8px;padding:3px 0;flex-wrap:wrap"><span style="font-size:.62rem;min-width:88px;color:var(--muted)">${lbl}</span><span style="font-size:.74rem;font-weight:800;font-family:monospace;color:var(--text)">${band[0]} – ${band[1]}</span><span style="font-size:.56rem;color:${relCol(rv)};margin-left:auto">geçmiş isabet %${rv}</span></div>`;
