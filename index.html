@@ -804,6 +804,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="caAllOut"></div>
   <div id="caBtOut"></div>
  </div>
+ <div id="nihaiIlkHane_caSec"></div>
 </div>
 
 <!-- ═══════════ NEW: AI Bilet Üretici (Uzlaşı Tabanlı) ═══════════ -->
@@ -840,6 +841,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="cbOut"></div>
   <div id="cbBtOut"></div>
  </div>
+ <div id="nihaiIlkHane_cbSec"></div>
 </div>
 
 <!-- ═══════════ NEW: Oyun No Analizi ═══════════ -->
@@ -6916,6 +6918,17 @@ function _nearShape(game,mainNums,freq){
   return out;
 }
 
+// Bir çekilişin GERÇEK uzunluğu (L), bir biletin ihtiyaç duyduğu sayı adedinden (count) fazlaysa
+// (yalnızca On Numara'da olur: çekiliş 22 sayı, bilet 10 sayı) toplamı count/L oranıyla ölçekler —
+// rastgele count'luk bir alt-kümenin BEKLENEN toplamını verir. Önceki `.slice(0,count)` yaklaşımı
+// çekilişin en KÜÇÜK count sayısını alıyordu (diziler artan sıralı), bu da On Numara'da toplam-bandı
+// hesaplarını yapay biçimde düşük sayılara kilitleyip üretilen aday/uzlaşı havuzlarını 1-30 aralığına
+// sıkıştırıyordu. L===count olan oyunlarda (Sayısal/Süper/Şans) ölçek 1'dir, davranış DEĞİŞMEZ.
+function _estTicketSum(nums,count){
+  const L=nums.length;if(!L)return 0;
+  let total=0;for(let i=0;i<L;i++)total+=nums[i];
+  return total*count/L;
+}
 // ── Yeni analiz tipleri (ax*) — 50M+ biletlik geri-testle seçilen çeşitlendirilmiş üreticiler ──
 // Her tip bir "ağırlık vektörü" (sayı → ağırlık) üretir; _axGen bunu toplam-bandı + bölge dengesiyle
 // örnekler. NOT: tam-net isabet tüm tiplerde rastgele seviyesindedir (bkz. scratchpad/phaseA/B).
@@ -6941,7 +6954,10 @@ function _axSignalsRaw(prior,game){
   const hotSet=new Set(range(1,max).sort((a,b)=>freq[b]-freq[a]).slice(0,Math.round(max*0.2)));
   const pair={};for(let n=1;n<=max;n++)pair[n]=0;prior.slice(0,80).forEach(d=>{const ns=d.nums.filter(n=>n<=max);ns.forEach(n=>ns.forEach(m=>{if(m!==n&&hotSet.has(m))pair[n]++;}));});
   const neigh={};for(let n=1;n<=max;n++)neigh[n]=0;prior.slice(0,12).forEach((d,i)=>{const w=Math.pow(0.8,i);d.nums.forEach(m=>[m-2,m-1,m+1,m+2].forEach(c=>{if(c>=1&&c<=max)neigh[c]+=w*(Math.abs(c-m)===1?1:0.5);}));});
-  const posB={};for(let n=1;n<=max;n++)posB[n]=0;prior.forEach(d=>{const s=[...d.nums].sort((a,b)=>a-b);for(let p=0;p<Math.min(s.length,count);p++){if(s[p]<=max)posB[s[p]]++;}});
+  // Pozisyon örneklemesi çekilişin TAM uzunluğuna (L) orantılı yapılır — L===count olan oyunlarda
+  // (Sayısal/Süper/Şans) davranış aynıdır; L>count olan On Numara'da (22 çekiliş, 10'luk bilet) ilk
+  // count (en küçük) sayıya kilitlenmek yerine düşükten yükseğe TÜM aralığa yayılır.
+  const posB={};for(let n=1;n<=max;n++)posB[n]=0;prior.forEach(d=>{const s=[...d.nums].sort((a,b)=>a-b);const L=s.length;for(let p=0;p<count;p++){const idx=Math.floor(p*L/count);if(idx<L&&s[idx]<=max)posB[s[idx]]++;}});
   // ── Yeni çeşitlendirilmiş sinyaller (mekanizmaları farklı — uzlaşı/aday çeşitliliğini artırır) ──
   const last=prior[0]?prior[0].nums.filter(n=>n<=max):[];
   // gaps[n] = sayının kendi ritmi (ortalama tekrar aralığı, çekiliş cinsinden)
@@ -7020,7 +7036,7 @@ function _axGen(game,prior,algo){
   const w=(_AX_WFN[algo]||_AX_WFN.axfused)(sig);
   const pool=range(1,max);
   const norm=(prior||[]).map(d=>Array.isArray(d)?{nums:d}:{nums:d.nums||[]});
-  const sums=norm.map(d=>d.nums.slice(0,count).reduce((a,b)=>a+b,0)).filter(s=>s>0).sort((a,b)=>a-b);
+  const sums=norm.map(d=>_estTicketSum(d.nums,count)).filter(s=>s>0).sort((a,b)=>a-b);
   const lo=sums[Math.floor(sums.length*0.2)]||(max+1)*count*0.3,hi=sums[Math.floor(sums.length*0.8)]||(max+1)*count*0.7,mid=(lo+hi)/2;
   const bands=[];const bsz=max/count;for(let z=0;z<count;z++)bands.push([Math.floor(z*bsz)+1,z===count-1?max:Math.floor((z+1)*bsz)]);
   const sample=()=>{const rem=pool.slice(),ww=pool.map(n=>Math.max(1e-6,w[n]||1e-6));const out=[];for(let k=0;k<count&&rem.length;k++){let tot=0;for(const x of ww)tot+=x;let r=Math.random()*tot,idx=0;for(let j=0;j<ww.length;j++){r-=ww[j];if(r<=0){idx=j;break;}}out.push(rem[idx]);rem.splice(idx,1);ww.splice(idx,1);}return out.sort((a,b)=>a-b);};
@@ -7105,7 +7121,7 @@ function _peGetProensembleSetup(game,freqOverride,drawsOverride){
     const gap=peLastSeen[n]===999?60:peLastSeen[n];
     if(gap>peAvgGap*1.5)peVotes[n]*=1+Math.min(1,(gap-peAvgGap)/peAvgGap*0.4);
   }
-  const peSums=peDraws.map(d=>(Array.isArray(d)?d:(d.nums||[])).slice(0,game.count).reduce((s,v)=>s+v,0)).filter(s=>s>0).sort((a,b)=>a-b);
+  const peSums=peDraws.map(d=>_estTicketSum(Array.isArray(d)?d:(d.nums||[]),game.count)).filter(s=>s>0).sort((a,b)=>a-b);
   const peSumLo=peSums[Math.floor(peSums.length*0.18)]||(game.max+1)*game.count*0.3;
   const peSumHi=peSums[Math.floor(peSums.length*0.82)]||(game.max+1)*game.count*0.7;
   const data={peVotes,peCo,peSumLo,peSumHi};
@@ -7226,7 +7242,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride,gnOpts){
       // Sum nudge to P25-P75
       let hSumLo=0,hSumHi=Infinity;
       if(hDraws.length>=5){
-        const hSums=hDraws.map(d=>hGN(d).slice(0,game.count).reduce((s,x)=>s+x,0)).filter(s=>s>0).sort((a,b)=>a-b);
+        const hSums=hDraws.map(d=>_estTicketSum(hGN(d),game.count)).filter(s=>s>0).sort((a,b)=>a-b);
         hSumLo=hSums[Math.floor(hSums.length*.25)];hSumHi=hSums[Math.floor(hSums.length*.75)];
       }
       if(hSumLo>0){
@@ -7272,7 +7288,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride,gnOpts){
       // Historical sum target (30th-70th percentile)
       let btLo=0,btHi=Infinity;
       if(bDraws.length>=5){
-        const ss=bDraws.map(d=>bGN(d).slice(0,game.count).reduce((s,x)=>s+x,0)).filter(s=>s>0).sort((a,b)=>a-b);
+        const ss=bDraws.map(d=>_estTicketSum(bGN(d),game.count)).filter(s=>s>0).sort((a,b)=>a-b);
         btLo=ss[Math.floor(ss.length*.30)];btHi=ss[Math.floor(ss.length*.70)];
       }
       // Zone-biased weighted sampling; weaker for super
@@ -7400,7 +7416,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride,gnOpts){
       // ── Target sum range (20th–80th pct of historical sums) ──
       let sTLo=(game.max+1)*game.count*.28,sTHi=(game.max+1)*game.count*.72;
       if(sDraws.length>5){
-        const sSums=sDraws.map(d=>(Array.isArray(d)?d:d.nums||[]).slice(0,game.count).reduce((s,n)=>s+n,0)).filter(s=>s>0).sort((a,b)=>a-b);
+        const sSums=sDraws.map(d=>_estTicketSum(Array.isArray(d)?d:d.nums||[],game.count)).filter(s=>s>0).sort((a,b)=>a-b);
         sTLo=sSums[Math.floor(sSums.length*.2)]||sTLo;sTHi=sSums[Math.floor(sSums.length*.8)]||sTHi;
       }
       const sTMid=(sTLo+sTHi)/2;
@@ -7457,7 +7473,7 @@ function generateNumbers(game,algo,freqOverride,drawsOverride,gnOpts){
       // Target sum range (20th-80th pct historical) — Sisal-LCG ile aynı
       let gsTLo=(game.max+1)*game.count*.28,gsTHi=(game.max+1)*game.count*.72;
       if(gsDraws.length>5){
-        const gsSums=gsDraws.map(d=>gsNorm(d).nums.slice(0,game.count).reduce((s,n)=>s+n,0)).filter(s=>s>0).sort((a,b)=>a-b);
+        const gsSums=gsDraws.map(d=>_estTicketSum(gsNorm(d).nums,game.count)).filter(s=>s>0).sort((a,b)=>a-b);
         gsTLo=gsSums[Math.floor(gsSums.length*.2)]||gsTLo;gsTHi=gsSums[Math.floor(gsSums.length*.8)]||gsTHi;
       }
       const gsTMid=(gsTLo+gsTHi)/2;
@@ -13653,7 +13669,7 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn,silent){
 function _aiSumRange(draws,count){
   if(!draws||draws.length<5)return null;
   const gn=d=>Array.isArray(d)?d:[...(d.nums||[]),...(d.bonus||[])];
-  const sums=draws.map(d=>gn(d).slice(0,count).reduce((s,n)=>s+n,0)).filter(s=>s>0).sort((a,b)=>a-b);
+  const sums=draws.map(d=>_estTicketSum(gn(d),count)).filter(s=>s>0).sort((a,b)=>a-b);
   if(sums.length<5)return null;
   return[sums[Math.floor(sums.length*0.30)],sums[Math.floor(sums.length*0.70)]];
 }
@@ -14523,7 +14539,7 @@ function _niComputeRaw(game,prior){
   }catch(e){}
   const f=sig.nrm(sig.freq),e=sig.nrm(sig.ewf82),d=sig.nrm(sig.delay);
   const wMap={};for(let n=1;n<=max;n++)wMap[n]=(0.5+f[n])*(0.6+e[n])*(0.5+0.5*d[n])*(1+0.6*vote[n]/9);
-  const sums=prior.map(x=>x.nums.slice(0,game.count).reduce((a,b)=>a+b,0)).filter(x=>x>0).sort((a,b)=>a-b);
+  const sums=prior.map(x=>_estTicketSum(x.nums,game.count)).filter(x=>x>0).sort((a,b)=>a-b);
   const lo=sums[Math.floor(sums.length*0.15)]||0,hi=sums[Math.floor(sums.length*0.85)]||max*game.count;
   const ranked=[];for(let n=1;n<=max;n++)ranked.push(n);
   ranked.sort((a,b)=>vote[b]-vote[a]||wMap[b]-wMap[a]);
@@ -14895,11 +14911,11 @@ function _caInit(){
   if(sel&&!sel.dataset.filled){sel.innerHTML=ALGOS.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');sel.dataset.filled='1';}
 }
 function _caSetGame(g){_caGame=g;_caGameManual=true;_caInit();
-  ['caCurrentOut','caAllOut','caBtOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  ['caCurrentOut','caAllOut','caBtOut','nihaiIlkHane_caSec'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
 }
 function _caBadge(n,aSet,extra,blue){
   const hit=aSet&&aSet.has(n),near=!hit&&aSet&&(aSet.has(n-1)||aSet.has(n+1));
-  let c='var(--text)',bg='var(--surface2)',bd='var(--border)';
+  let c='var(--muted)',bg='var(--surface2)',bd='var(--border)';
   if(hit){c='var(--green)';bg='rgba(0,230,118,.14)';bd='rgba(0,200,100,.55)';}
   else if(near){c='#c2410c';bg='rgba(244,114,63,.12)';bd='rgba(244,114,63,.4)';}
   else if(blue){c='#2f6fed';bg='rgba(47,111,237,.14)';bd='rgba(47,111,237,.55)';}
@@ -14998,6 +15014,11 @@ function _caRenderAll(){
     });
     h+=`</div></div>`;
     el.innerHTML=h;
+    // 🧮 Nihai Sayı Tablosu + 🔢 İlk Hane Tablosu — kaynak: yukarıdaki analiz bazlı adaylar + uzlaşı
+    const nihGroups={};
+    rows.forEach(r=>{nihGroups[r.name]=new Set(r.top);});
+    nihGroups['🤝 Analizler-Arası Uzlaşı']=new Set(consArr.slice(0,game.count*3).map(c=>c.n));
+    _homeRenderNihaiIlkHane('caSec',game,prior,nihGroups);
   },20);
 }
 function _caBacktest(){
@@ -15093,7 +15114,7 @@ function _cbInit(){
     return `<button onclick="_cbSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(16,185,129,.7)':'var(--border)'};background:${a?'rgba(16,185,129,.14)':'var(--surface2)'};color:${a?'#0a9a6a':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;
   }).join('');
 }
-function _cbSetGame(g){_cbGame=g;_cbGameManual=true;_cbInit();['cbOut','cbBtOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
+function _cbSetGame(g){_cbGame=g;_cbGameManual=true;_cbInit();['cbOut','cbBtOut','nihaiIlkHane_cbSec'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
 // Uzlaşı ağırlıkları — _niGenBundle ile uyumlu C nesnesi (wMap, lo, hi)
 function _cbCompute(game,prior){return _optApply(game,prior,_cbComputeRaw(game,prior));}
 function _cbComputeRaw(game,prior){
@@ -15101,7 +15122,7 @@ function _cbComputeRaw(game,prior){
   const consTally={};for(let n=1;n<=max;n++)consTally[n]=0;
   ALGOS.forEach(a=>{_caCandidates(game,a.id,prior,10).slice(0,cnt+3).forEach(c=>{consTally[c.n]++;});});
   const wMap={};for(let n=1;n<=max;n++)wMap[n]=Math.pow((consTally[n]/nA)+0.12,1.7)+0.02;
-  const sums=prior.map(x=>x.nums.slice(0,cnt).reduce((a,b)=>a+b,0)).filter(x=>x>0).sort((a,b)=>a-b);
+  const sums=prior.map(x=>_estTicketSum(x.nums,cnt)).filter(x=>x>0).sort((a,b)=>a-b);
   const lo=sums[Math.floor(sums.length*0.15)]||0,hi=sums[Math.floor(sums.length*0.85)]||max*cnt;
   const ranked=[];for(let n=1;n<=max;n++)ranked.push(n);ranked.sort((a,b)=>consTally[b]-consTally[a]||wMap[b]-wMap[a]);
   return {wMap,lo,hi,ranked,consTally,nA};
@@ -15207,7 +15228,7 @@ function _metaWeight(algo,game,prior){
 function _metaGenTicket(game,prior,wMap){
   const max=game.max,count=game.count,pool=range(1,max);
   const norm=(prior||[]).map(d=>Array.isArray(d)?{nums:d}:{nums:d.nums||[]});
-  const sums=norm.map(d=>d.nums.slice(0,count).reduce((a,b)=>a+b,0)).filter(s=>s>0).sort((a,b)=>a-b);
+  const sums=norm.map(d=>_estTicketSum(d.nums,count)).filter(s=>s>0).sort((a,b)=>a-b);
   const lo=sums[Math.floor(sums.length*0.2)]||(max+1)*count*0.3,hi=sums[Math.floor(sums.length*0.8)]||(max+1)*count*0.7,mid=(lo+hi)/2;
   const bands=[];const bsz=max/count;for(let z=0;z<count;z++)bands.push([Math.floor(z*bsz)+1,z===count-1?max:Math.floor((z+1)*bsz)]);
   const sample=()=>{const rem=pool.slice(),ww=pool.map(n=>Math.max(1e-6,wMap[n]||1e-6));const out=[];for(let k=0;k<count&&rem.length;k++){let tot=0;for(const x of ww)tot+=x;let r=Math.random()*tot,idx=0;for(let j=0;j<ww.length;j++){r-=ww[j];if(r<=0){idx=j;break;}}out.push(rem[idx]);rem.splice(idx,1);ww.splice(idx,1);}return out.sort((a,b)=>a-b);};
@@ -15245,7 +15266,7 @@ function _cbGenerate(){
     // uzlaşı havuzu
     h+=`<div style="padding:10px 12px;background:linear-gradient(135deg,rgba(16,185,129,.07),rgba(129,140,248,.06));border:1px solid rgba(16,185,129,.35);border-radius:10px;margin-bottom:12px">`;
     h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.66rem;font-weight:800;color:#0a9a6a">🧲 Kullanılan uzlaşı havuzu (${pool.length} sayı)</span><button onclick="_caCopy(window._cbCopyPool)" class="copy-btn" style="font-size:.58rem;padding:2px 8px">📋</button></div>`;
-    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${pool.map(n=>`<span style="font-family:monospace;font-size:.62rem;color:${C.consTally[n]>=C.nA*0.5?'var(--green)':'var(--text)'};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${n}<sup style="font-size:.5rem;color:var(--muted)">${C.consTally[n]}</sup></span>`).join('')}</div>`;
+    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${pool.map(n=>`<span style="font-family:monospace;font-size:.62rem;color:${C.consTally[n]>=C.nA*0.5?'var(--green)':'var(--muted)'};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${n}<sup style="font-size:.5rem;color:var(--muted)">${C.consTally[n]}</sup></span>`).join('')}</div>`;
     h+=`<div style="font-size:.54rem;color:var(--muted);margin-top:5px">Demet bu havuza kapsama-optimal yayıldı — birleşik kapsama: <strong>${u.size} farklı sayı</strong> (${K} bilet). Alt rakam = kaç analiz önerdi.</div>`;
     // ≥4 / ≥3 net olasılığı (teorik, dürüst) — bu K bilette en iyi biletin tutma şansı
     const p3=Math.round(_bundleGE(game,3,K)*100),p4=Math.round(_bundleGE(game,4,K)*100);
@@ -15256,6 +15277,10 @@ function _cbGenerate(){
     h+=tickets.map((t,i)=>renderTicket(t,game,'',i,null,null,null,null,true)).join('');
     h+=`</div>`;
     el.innerHTML=h;
+    // 🧮 Nihai Sayı Tablosu + 🔢 İlk Hane Tablosu — kaynak: 18 analiz + AI Bilet Üretici'nin kendi uzlaşı havuzu
+    const nihGroups=_homeAnalysisGroups(game,prior);
+    nihGroups['🧲 AI Bilet Üretici (Uzlaşı Havuzu)']=new Set(pool);
+    _homeRenderNihaiIlkHane('cbSec',game,prior,nihGroups);
   },20);
 }
 function _cbBacktest(){
@@ -15305,9 +15330,10 @@ function _cbBacktest(){
       h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${bm.map(badge).join('')}</div>`;
       h+=`<div style="font-size:.54rem;color:var(--green);margin-top:4px">🧲 birleşik kapsama: ${r.u.net} net · ${r.u.near} ±1 (${r.u.size} farklı sayı)</div>`;
       if(r.pool&&r.pool.length){
+        let poolNet=0,poolNear=0;r.pool.forEach(x=>{if(r.aSet.has(x))poolNet++;else if(r.aSet.has(x-1)||r.aSet.has(x+1))poolNear++;});
         h+=`<div style="margin-top:6px;padding:7px 9px;background:rgba(16,185,129,.05);border:1px solid rgba(16,185,129,.25);border-radius:7px">`;
-        h+=`<div style="font-size:.52rem;font-weight:800;color:#0a9a6a;margin-bottom:4px">🧲 Kullanılan uzlaşı havuzu (${r.pool.length} sayı)</div>`;
-        h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${r.pool.map(x=>{const hit=r.aSet.has(x),near=!hit&&(r.aSet.has(x-1)||r.aSet.has(x+1));const col=hit?'var(--green)':near?'#c2410c':(r.consTally[x]>=r.nA*0.5?'var(--green)':'var(--text)');return `<span style="font-family:monospace;font-size:.58rem;font-weight:${hit||near?800:600};color:${col};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${x}${hit?'✓':near?'~':''}<sup style="font-size:.46rem;color:var(--muted)">${r.consTally[x]}</sup></span>`;}).join('')}</div>`;
+        h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:.52rem;font-weight:800;color:#0a9a6a">🧲 Kullanılan uzlaşı havuzu (${r.pool.length} sayı)</span><span style="font-size:.54rem;font-weight:800;color:${poolNet>=3?'var(--green)':'var(--muted)'}">${poolNet} net · ${poolNear} yakın</span></div>`;
+        h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${r.pool.map(x=>{const hit=r.aSet.has(x),near=!hit&&(r.aSet.has(x-1)||r.aSet.has(x+1));const col=hit?'var(--green)':near?'#c2410c':(r.consTally[x]>=r.nA*0.5?'var(--green)':'var(--muted)');return `<span style="font-family:monospace;font-size:.58rem;font-weight:${hit||near?800:600};color:${col};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${x}${hit?'✓':near?'~':''}<sup style="font-size:.46rem;color:var(--muted)">${r.consTally[x]}</sup></span>`;}).join('')}</div>`;
         h+=`</div>`;
       }
       h+=`</div>`;
@@ -18048,7 +18074,7 @@ function _qtCombineWeights(game,prior,src){
   const ranked=[];for(let n=1;n<=max;n++)ranked.push(n);ranked.sort((a,b)=>tally[b]-tally[a]||(srcCount[b]||0)-(srcCount[a]||0)||a-b);
   // ağırlık: ham sayım + BİRDEN ÇOK yapının uzlaşısı (srcCount) vurgulu — yüksek-uzlaşı bölgesine yoğunlaş
   const wMap={};for(let n=1;n<=max;n++)wMap[n]=Math.pow(tally[n]+1.6*(srcCount[n]||0)+0.15,1.6)+0.02;
-  const sums=prior.map(x=>x.nums.slice(0,cnt).reduce((a,b)=>a+b,0)).filter(x=>x>0).sort((a,b)=>a-b);
+  const sums=prior.map(x=>_estTicketSum(x.nums,cnt)).filter(x=>x>0).sort((a,b)=>a-b);
   const lo=sums[Math.floor(sums.length*0.15)]||0,hi=sums[Math.floor(sums.length*0.85)]||max*cnt;
   return {wMap,lo,hi,ranked,tally,srcCount};
 }
@@ -18359,7 +18385,7 @@ function _qtNihaiRerender(mode){
   }else{
     candSet=new Set([...st.groups[names[0]]].filter(n=>names.every(nm=>st.groups[nm].has(n))));
   }
-  const copyVar=mode==='test'?'_qtNihaiCopyT':'_qtNihaiCopy';
+  const copyVar=mode==='test'?'_qtNihaiCopyT':mode==='live'?'_qtNihaiCopy':'_qtNihaiCopy_'+mode;
   let note;
   if(!names.length)note=`sayfadaki analizlerden <strong>herhangi birinde</strong> de var (daraltmak için yukarıdan bir veya daha fazla analiz seç)`;
   else if(names.length===1)note=`<strong>${names[0]}</strong> analizinin ŞU ANKİ sayılarında da var`;
@@ -18398,13 +18424,45 @@ function _qtIlkHaneRerender(mode){
   }else{
     candSet=new Set([...st.groups[names[0]]].filter(n=>names.every(nm=>st.groups[nm].has(n))));
   }
-  const copyVar=mode==='test'?'_qtIlkHaneCopyT':'_qtIlkHaneCopy';
+  const copyVar=mode==='test'?'_qtIlkHaneCopyT':mode==='live'?'_qtIlkHaneCopy':'_qtIlkHaneCopy_'+mode;
   let note;
   if(!names.length)note=`sayfadaki analizlerden <strong>herhangi birinde</strong> de var (kaynak, Nihai Sayı Tablosu'ndaki seçime göre belirlenir)`;
   else if(names.length===1)note=`<strong>${names[0]}</strong> analizinin ŞU ANKİ sayılarında da var (Nihai Sayı Tablosu'ndaki seçimle aynı)`;
   else note=`seçtiğin <strong>${names.length} analizin TÜMÜNDE ORTAK</strong> (kesişim) var: ${names.join(' × ')} (Nihai Sayı Tablosu'ndaki seçimle aynı)`;
   const sourceLabel=!names.length?'Tümü (birleşim)':names.join(' × ');
   wrap.innerHTML=_soIlkHaneTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note,sourceLabel,st.actualDraw);
+}
+// ═══════════ ANASAYFA — 🎰 Aday Sayılar / 🤖 AI Bilet Üretici altına Nihai Sayı Tablosu + İlk Hane
+// Tablosu ═══════════ Hızlı Tahmin'deki AYNI filtrelenebilir mekanizmayı (_qtNihaiState/_qtNihaiFilter/
+// _qtNihaiRerender/_qtIlkHaneRerender — burada 'caSec'/'cbSec' mode anahtarlarıyla) yeniden kullanır;
+// kaynak gruplar bu sayfadaki 18 analizin (ALGOS) aday kümeleridir.
+function _homeAnalysisGroups(game,prior){
+  const groups={};
+  ALGOS.forEach(a=>{
+    try{
+      const cands=_caCandidates(game,a.id,prior,10).slice(0,game.count+2).map(c=>c.n);
+      if(cands.length)groups[a.name]=new Set(cands);
+    }catch(e){}
+  });
+  return groups;
+}
+function _homeRenderNihaiIlkHane(mode,game,prior,groups){
+  const el=document.getElementById('nihaiIlkHane_'+mode);if(!el)return;
+  if(!prior||!prior.length||!groups||!Object.keys(groups).length){el.innerHTML='';return;}
+  const rowsInfo=_soNihaiRowsFromDraw(prior[0],game);
+  if(!rowsInfo){el.innerHTML='';return;}
+  _qtNihaiState[mode]={rowsInfo,game,groups,nextSet:null,actualDraw:null};
+  _qtIlkHaneState[mode]={rowsInfo,game,groups,nextSet:null,actualDraw:null};
+  if(!(mode in _qtNihaiFilter))_qtNihaiFilter[mode]=new Set();
+  let h=`<div class="card" style="margin-top:12px;border-color:rgba(37,99,235,.35)">`;
+  h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">🔎 Kaynak analiz(ler) <span style="opacity:.75">— birden fazla seçersen aralarındaki ORTAK (kesişim) sayılar baz alınır; hiçbiri seçili değilse tümünün birleşimi gösterilir</span></div>`;
+  h+=`<div id="qtNihaiChips_${mode}" style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px"></div>`;
+  h+=`<div id="qtNihaiWrap_${mode}"></div>`;
+  h+=`</div>`;
+  h+=`<div class="card" style="margin-top:12px;border-color:rgba(124,58,237,.35)"><div id="qtIlkHaneWrap_${mode}"></div></div>`;
+  el.innerHTML=h;
+  _qtNihaiRerender(mode);
+  _qtIlkHaneRerender(mode);
 }
 // aynı boyutta TAMAMEN RASTGELE bir havuzun ≥3 net bulma şansı (hipergeometrik) — dürüst kıyas için
 function _mrPoolChanceGE3(poolSize,max,cnt){
@@ -20230,7 +20288,7 @@ function _g0Weights(prior,game){
   return{pool,w,freq};
 }
 function _g0SumBand(prior,game){
-  const s=prior.map(d=>d.nums.slice(0,game.count).reduce((a,n)=>a+n,0)).filter(x=>x>0).sort((a,b)=>a-b);
+  const s=prior.map(d=>_estTicketSum(d.nums,game.count)).filter(x=>x>0).sort((a,b)=>a-b);
   if(!s.length)return[(game.max+1)*game.count*0.28,(game.max+1)*game.count*0.72];
   return[s[Math.floor(s.length*0.2)],s[Math.floor(s.length*0.8)]];
 }
