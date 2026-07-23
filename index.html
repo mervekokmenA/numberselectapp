@@ -1238,6 +1238,16 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     </div>
     <div id="qtDateOut" style="margin-top:10px"></div>
    </div>
+   <div class="card" style="margin-bottom:12px">
+    <div class="card-title">🧪 Tüm Geçmişi Test Et — Her Blok Kaç Kez 2+/3+ Buldu?</div>
+    <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Her blok, son N çekilişin HER birinde o tarihten önceki verilerle üretilir; grubun <strong>en iyi biletinin</strong> ≥2 ve ≥3 net tutma oranı ölçülür (tek biletle 2+ şans seviyesindedir; asıl değer grubun en iyisindedir).</div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+     <span style="font-size:.66rem;color:var(--muted)">Çekiliş:</span>
+     <select id="qtAllBtN" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"><option value="30">30</option><option value="60" selected>60</option><option value="100">100</option></select>
+     <button onclick="_qtAllBacktest()" style="flex:1;min-width:150px;font-size:.75rem;padding:8px;border-radius:9px;background:linear-gradient(135deg,rgba(16,185,129,.9),rgba(5,150,105,.78));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🧪 Tüm Geçmişi Test Et</button>
+    </div>
+    <div id="qtAllBtOut" style="margin-top:10px"></div>
+   </div>
   </div>
  </div>
 </div><!-- /page-hizlitahmin -->
@@ -15057,26 +15067,6 @@ function _caBacktest(){
     h+=card('Şans beklentisi',baseline.toFixed(2),'var(--muted)');
     h+=card('Test',n,'var(--muted)');
     h+=`</div>`;
-    // ── LİDER TABLOSU: tüm analizlerin geçmişteki aday başarısı ──
-    const lb=ALGOS.map(a=>({id:a.id,name:a.name,avg:agg[a.id].net/n,hit3:100*agg[a.id].hit3/n,nearAvg:agg[a.id].near/n})).sort((x,y)=>y.avg-x.avg||y.hit3-x.hit3);
-    const lbMax=lb[0]?.avg||1;
-    h+=`<div style="padding:11px 13px;background:linear-gradient(135deg,rgba(244,114,63,.06),rgba(129,140,248,.06));border:1px solid var(--border);border-radius:11px;margin-bottom:12px">`;
-    h+=`<div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:4px">🏆 TÜM ANALİZLER — GEÇMİŞ ADAY BAŞARISI (son ${n} çekiliş)</div>`;
-    h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:8px">Her analizin, o tarihten önceki verilerle ürettiği ${cnt}-sayılık aday kümesinin ortalama net isabeti. Şans beklentisi ≈ ${baseline.toFixed(2)}. Çubuk = ort. net.</div>`;
-    h+=`<div style="display:flex;flex-direction:column;gap:3px">`;
-    lb.forEach((r,i)=>{
-      const pct=Math.round(r.avg/lbMax*100);
-      const sel=r.id===algo;const beat=r.avg>baseline+0.001;
-      h+=`<div style="display:flex;align-items:center;gap:8px;${sel?'background:rgba(129,140,248,.1);border-radius:6px;':''}padding:2px 4px">`;
-      h+=`<span style="font-size:.55rem;color:var(--muted);min-width:16px">${i+1}.</span>`;
-      h+=`<span style="font-size:.6rem;font-weight:${sel?800:600};color:${sel?'var(--accent)':'var(--text)'};min-width:150px;flex-shrink:0">${r.name}</span>`;
-      h+=``;
-      h+=`<span style="font-size:.58rem;font-weight:700;color:${beat?'var(--green)':'var(--muted)'};min-width:34px">${r.avg.toFixed(2)}</span>`;
-      h+=`<span style="font-size:.54rem;color:var(--muted);min-width:60px">≥3: ${r.hit3.toFixed(0)}%</span>`;
-      h+=`</div>`;
-    });
-    h+=`</div></div>`;
-    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Her satır: o çekilişten ÖNCEKİ verilerle üretilen adaylar (lookahead yok). “Şans beklentisi”ni geçen analizler yeşil — ama fark küçük ve tam isabet yine şans seviyesindedir; değer şeffaflıkta ve uzlaşıda.</div>`;
     // ── satırlar ──
     // Her aday bloğu: üstte etiket + skor + kopya tek satır, altta rozetler sola dayalı (mobilde kaymayı önler)
     const pb=(label,color,pick,aSet,strong)=>`<div style="margin-top:5px;padding-top:4px;border-top:1px dashed var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.56rem;color:${color};font-weight:${strong?700:600};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span><span style="display:flex;align-items:center;gap:5px;flex-shrink:0">${_caScoreLine(pick,aSet)}<button onclick="_caCopy('${pick.join(' ')}')" title="Kopyala" style="font-size:.58rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></span></div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${pick.map(n=>_caBadge(n,aSet)).join('')}</div></div>`;
@@ -18410,6 +18400,59 @@ function _qtDateTest(){
   if(prior.length<60){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
   el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">⏳ Geçmiş test kuruluyor…</div>';
   setTimeout(()=>{_qtRenderAll(el,game,prior,actual);},30);
+}
+// Tüm geçmiş için toplu test: her blok, son N çekilişin HER birinde o tarihten önceki verilerle
+// üretilir; grubun EN İYİ biletinin ≥2/≥3 net oranı ölçülür. Kullanıcı "gerçekten 2+ buluyor mu"yu
+// kendi gözüyle geçmişin tamamında doğrulayabilsin diye.
+function _qtAllBacktest(){
+  const el=document.getElementById('qtAllBtOut');if(!el)return;
+  const game=getGame(_qtGame),draws=_kbGetDraws(_qtGame);
+  const N=parseInt(document.getElementById('qtAllBtN')?.value)||60;
+  const minPrior=60;
+  if(!draws||draws.length<minPrior+5){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
+  el.innerHTML='<div style="padding:14px;font-size:.72rem;color:var(--muted)">⏳ Tüm geçmiş test ediliyor… (her tarih için tüm bloklar yeniden kuruluyor, biraz sürebilir)</div>';
+  setTimeout(()=>{
+   try{
+    const K=parseInt(document.getElementById('qtAiK')?.value)||20;
+    const BLOCKS=[
+      {key:'ai',emoji:'🤖',name:'AI Bilet Üretici',gen:(g,p,src)=>src.aiB},
+      {key:'g0',emoji:'🎯⁰',name:'Gülsis Sıfır',gen:(g,p,src)=>src.g0},
+      {key:'ni',emoji:'🏁',name:'Nihai',gen:(g,p,src)=>src.ni},
+      {key:'yak',emoji:'📈',name:"12'li 3+ (Yakın Dönem)",gen:(g,p,src)=>src.yak},
+      {key:'3p',emoji:'🎯',name:'3+ Hedefli Demet',gen:(g,p,src)=>{try{return _coverageBundle(g,'axrecency',20,buildFreq(p),p);}catch(e){return [];}}},
+      {key:'bai',emoji:'🧠',name:'Birleşik AI',gen:(g,p,src)=>{try{const C=_qtCombineWeights(g,p,src);return _niGenBundle(g,p,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){return [];}}},
+    ];
+    const stat={};BLOCKS.forEach(b=>stat[b.key]={ge2:0,ge3:0,netSum:0,t:0});
+    const n=Math.min(N,draws.length-minPrior-1);
+    for(let i=0;i<n;i++){
+      const actual=draws[i],prior=draws.slice(i+1);if(prior.length<minPrior)break;
+      const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      const src=_qtBuildSources(game,prior);
+      BLOCKS.forEach(b=>{
+        const tk=b.gen(game,prior,src)||[];if(!tk.length)return;
+        let bn=0;tk.forEach(t=>{let net=0;[...t.main,...(t.bonus||[])].forEach(x=>{if(aSet.has(x))net++;});if(net>bn)bn=net;});
+        const s=stat[b.key];s.t++;s.netSum+=bn;if(bn>=2)s.ge2++;if(bn>=3)s.ge3++;
+      });
+    }
+    const rows=BLOCKS.map(b=>{const s=stat[b.key];return {...b,ge2:s.t?100*s.ge2/s.t:0,ge3:s.t?100*s.ge3/s.t:0,avg:s.t?s.netSum/s.t:0,t:s.t};}).sort((a,b)=>b.ge2-a.ge2);
+    const tested=Math.max(...rows.map(r=>r.t));
+    let h=`<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="document.getElementById('qtAllBtOut').innerHTML=''" style="font-size:.64rem;padding:4px 11px;border-radius:8px;border:1px solid rgba(255,82,82,.35);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer;font-weight:700">✕ Kapat</button></div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">${game.emoji} ${game.name} · son ${tested} çekiliş · her blokta grubun en iyi biletinin ≥2 / ≥3 net tutma oranı.</div>`;
+    h+=`<div style="display:flex;flex-direction:column;gap:5px">`;
+    rows.forEach(r=>{
+      const c2=r.ge2>=80?'var(--green)':r.ge2>=60?'#b8860b':'var(--muted)';
+      h+=`<div style="display:flex;align-items:center;gap:8px;padding:6px 9px;background:rgba(0,0,0,.02);border-radius:8px">`;
+      h+=`<span style="font-size:.66rem;font-weight:700;color:var(--text);flex:1;min-width:0">${r.emoji} ${r.name}</span>`;
+      h+=`<span style="font-size:.68rem;font-weight:800;color:${c2};min-width:76px;text-align:right">≥2: %${r.ge2.toFixed(0)}</span>`;
+      h+=`<span style="font-size:.62rem;font-weight:700;color:${r.ge3>=25?'var(--green)':'var(--muted)'};min-width:70px;text-align:right">≥3: %${r.ge3.toFixed(0)}</span>`;
+      h+=`<span style="font-size:.58rem;color:var(--muted);min-width:66px;text-align:right">ort ${r.avg.toFixed(2)} net</span>`;
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+    h+=`<div style="font-size:.54rem;color:var(--muted);margin-top:8px;line-height:1.6">Not: bu, çekiliş gerçekleştikten sonra o gruptaki en iyi biletin kaç net tuttuğunun geçmiş ölçümüdür (lookahead yok). Yüksek ≥2 oranı grup büyüklüğünden gelir — tek biletle 2+ hâlâ şans seviyesindedir.</div>`;
+    el.innerHTML=h;
+   }catch(e){el.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.72rem">Hata: '+e.message+'</div>';}
+  },30);
 }
 function _qtGulayBlock(ga,game,aSet){
   const {nums,gaps,gapSum,topRows,cikRows,chainRows}=ga;
