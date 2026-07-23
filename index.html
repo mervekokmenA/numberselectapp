@@ -17785,11 +17785,14 @@ function _snMrSystemsFor(gameId){
 // p. sayı = son çekilenin p. sayısı + 1 önceki çekilenin (p+1). sayısı + 2 önceki çekilenin (p+2). sayısı
 // (soldan sağa, son haneden sonra başa döner). Sağdan sola sürüm ise son haneden (H) başlayıp ilk haneye
 // (C) doğru aynı mantıkla iner (ilk haneden önce sona döner). r3 (2 önceki çekiliş) yoksa boş döner.
+// Soldan sağa grubunun EN BAŞINDA, Excel'deki "K" sütunu da var: 1. sayının (p=0) TOPLAMININ 2 katı
+// (mod alınmadan önce ×2) — kullanıcının Excel'inde ayrı, öncü bir sütun olarak duruyor.
 const _SN_SHIFT_FWD={id:'shiftF',name:'🔀 Kaydırmalı Toplam (Soldan Sağa)',
-  desc:'p. sayı = son çekilenin p. sayısı + 1 önceki çekilenin (p+1). sayısı + 2 önceki çekilenin (p+2). sayısı — son haneden sonra başa döner.',
+  desc:'p. sayı = son çekilenin p. sayısı + 1 önceki çekilenin (p+1). sayısı + 2 önceki çekilenin (p+2). sayısı — son haneden sonra başa döner. Baştaki ×2 sütunu, 1. sayının toplamının 2 katıdır.',
   compute(r1,r2,r3,dp,aVal,max,win30,game){
     if(!r3)return [];
     const cnt=(game&&game.count)||r1.main.length,out=[];
+    out.push({pos:'×2',val:_snWrap((r1.main[0]+r2.main[1]+r3.main[2])*2,max)});
     for(let p=0;p<cnt;p++)out.push({pos:(p+1)+'→',val:_snWrap(r1.main[p]+r2.main[(p+1)%cnt]+r3.main[(p+2)%cnt],max)});
     return out;
   }};
