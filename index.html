@@ -316,6 +316,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 }
 @media(max-width:720px){#page-nsa #gizliPageKolon>div[style*="grid-template-columns"]{grid-template-columns:1fr !important;}}
 @media(max-width:820px){.qt-pair-row,#qtHdrRow{grid-template-columns:1fr !important;}}
+@media(max-width:820px){#caNihaiGrid,#cbNihaiGrid{grid-template-columns:1fr !important;}}
 @media(max-width:820px){#mrGrid{grid-template-columns:1fr !important;}}
 </style>
 </head>
@@ -804,7 +805,23 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="caAllOut"></div>
   <div id="caBtOut"></div>
  </div>
- <div id="nihaiIlkHane_caSec"></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px;align-items:start" id="caNihaiGrid">
+  <div id="nihaiIlkHane_caSec"></div>
+  <div>
+   <div class="card">
+    <div class="card-title">📊 Geçmiş Test</div>
+    <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; Nihai Sayı Tablosu ve İlk Hane Tablosu o tarihten ÖNCEKİ verilerle yeniden hesaplanır ve gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
+    <div style="display:flex;gap:6px;align-items:stretch">
+     <select id="caNihaiDateSel" onchange="_homeNihaiDateTest('caSec')" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+      <button onclick="_homeNihaiStepDate('caSec',-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+      <button onclick="_homeNihaiStepDate('caSec',1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+     </div>
+    </div>
+   </div>
+   <div id="nihaiIlkHane_caSecTest" style="margin-top:12px"></div>
+  </div>
+ </div>
 </div>
 
 <!-- ═══════════ NEW: AI Bilet Üretici (Uzlaşı Tabanlı) ═══════════ -->
@@ -841,7 +858,23 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="cbOut"></div>
   <div id="cbBtOut"></div>
  </div>
- <div id="nihaiIlkHane_cbSec"></div>
+ <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px;align-items:start" id="cbNihaiGrid">
+  <div id="nihaiIlkHane_cbSec"></div>
+  <div>
+   <div class="card">
+    <div class="card-title">📊 Geçmiş Test</div>
+    <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; Nihai Sayı Tablosu ve İlk Hane Tablosu o tarihten ÖNCEKİ verilerle yeniden hesaplanır ve gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
+    <div style="display:flex;gap:6px;align-items:stretch">
+     <select id="cbNihaiDateSel" onchange="_homeNihaiDateTest('cbSec')" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+      <button onclick="_homeNihaiStepDate('cbSec',-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+      <button onclick="_homeNihaiStepDate('cbSec',1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+     </div>
+    </div>
+   </div>
+   <div id="nihaiIlkHane_cbSecTest" style="margin-top:12px"></div>
+  </div>
+ </div>
 </div>
 
 <!-- ═══════════ NEW: Oyun No Analizi ═══════════ -->
@@ -14911,7 +14944,8 @@ function _caInit(){
   if(sel&&!sel.dataset.filled){sel.innerHTML=ALGOS.map(a=>`<option value="${a.id}">${a.name}</option>`).join('');sel.dataset.filled='1';}
 }
 function _caSetGame(g){_caGame=g;_caGameManual=true;_caInit();
-  ['caCurrentOut','caAllOut','caBtOut','nihaiIlkHane_caSec'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  ['caCurrentOut','caAllOut','caBtOut','nihaiIlkHane_caSec','nihaiIlkHane_caSecTest'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  const sel=document.getElementById('caNihaiDateSel');if(sel)sel.innerHTML='';
 }
 function _caBadge(n,aSet,extra,blue){
   const hit=aSet&&aSet.has(n),near=!hit&&aSet&&(aSet.has(n-1)||aSet.has(n+1));
@@ -15019,6 +15053,7 @@ function _caRenderAll(){
     rows.forEach(r=>{nihGroups[r.name]=new Set(r.top);});
     nihGroups['🤝 Analizler-Arası Uzlaşı']=new Set(consArr.slice(0,game.count*3).map(c=>c.n));
     _homeRenderNihaiIlkHane('caSec',game,prior,nihGroups);
+    _homeNihaiDates('caSec');
   },20);
 }
 function _caBacktest(){
@@ -15114,7 +15149,8 @@ function _cbInit(){
     return `<button onclick="_cbSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(16,185,129,.7)':'var(--border)'};background:${a?'rgba(16,185,129,.14)':'var(--surface2)'};color:${a?'#0a9a6a':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;
   }).join('');
 }
-function _cbSetGame(g){_cbGame=g;_cbGameManual=true;_cbInit();['cbOut','cbBtOut','nihaiIlkHane_cbSec'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
+function _cbSetGame(g){_cbGame=g;_cbGameManual=true;_cbInit();['cbOut','cbBtOut','nihaiIlkHane_cbSec','nihaiIlkHane_cbSecTest'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
+  const sel=document.getElementById('cbNihaiDateSel');if(sel)sel.innerHTML='';}
 // Uzlaşı ağırlıkları — _niGenBundle ile uyumlu C nesnesi (wMap, lo, hi)
 function _cbCompute(game,prior){return _optApply(game,prior,_cbComputeRaw(game,prior));}
 function _cbComputeRaw(game,prior){
@@ -15281,6 +15317,7 @@ function _cbGenerate(){
     const nihGroups=_homeAnalysisGroups(game,prior);
     nihGroups['🧲 AI Bilet Üretici (Uzlaşı Havuzu)']=new Set(pool);
     _homeRenderNihaiIlkHane('cbSec',game,prior,nihGroups);
+    _homeNihaiDates('cbSec');
   },20);
 }
 function _cbBacktest(){
@@ -18446,13 +18483,13 @@ function _homeAnalysisGroups(game,prior){
   });
   return groups;
 }
-function _homeRenderNihaiIlkHane(mode,game,prior,groups){
+function _homeRenderNihaiIlkHane(mode,game,prior,groups,aSet,actualDraw){
   const el=document.getElementById('nihaiIlkHane_'+mode);if(!el)return;
   if(!prior||!prior.length||!groups||!Object.keys(groups).length){el.innerHTML='';return;}
   const rowsInfo=_soNihaiRowsFromDraw(prior[0],game);
   if(!rowsInfo){el.innerHTML='';return;}
-  _qtNihaiState[mode]={rowsInfo,game,groups,nextSet:null,actualDraw:null};
-  _qtIlkHaneState[mode]={rowsInfo,game,groups,nextSet:null,actualDraw:null};
+  _qtNihaiState[mode]={rowsInfo,game,groups,nextSet:aSet||null,actualDraw:actualDraw||null};
+  _qtIlkHaneState[mode]={rowsInfo,game,groups,nextSet:aSet||null,actualDraw:actualDraw||null};
   if(!(mode in _qtNihaiFilter))_qtNihaiFilter[mode]=new Set();
   let h=`<div class="card" style="margin-top:12px;border-color:rgba(37,99,235,.35)">`;
   h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">🔎 Kaynak analiz(ler) <span style="opacity:.75">— birden fazla seçersen aralarındaki ORTAK (kesişim) sayılar baz alınır; hiçbiri seçili değilse tümünün birleşimi gösterilir</span></div>`;
@@ -18463,6 +18500,53 @@ function _homeRenderNihaiIlkHane(mode,game,prior,groups){
   el.innerHTML=h;
   _qtNihaiRerender(mode);
   _qtIlkHaneRerender(mode);
+}
+// 🎰 Aday Sayılar / 🤖 AI Bilet Üretici altındaki Nihai/İlk Hane tabloları için "Geçmiş Test" —
+// Hızlı Tahmin'deki _qtDates/_qtStepDate/_qtDateTest ile AYNI mantık, mode='caSec'|'cbSec' anahtarıyla
+// (canlı tablo 'caSec'/'cbSec', geçmiş test 'caSecTest'/'cbSecTest' olarak ayrı state'te tutulur).
+function _homeAnalysisGroupsWithConsensus(game,prior){
+  const groups=_homeAnalysisGroups(game,prior);
+  const tally={};Object.values(groups).forEach(s=>s.forEach(n=>tally[n]=(tally[n]||0)+1));
+  const consArr=Object.keys(tally).map(Number).map(n=>({n,k:tally[n]})).sort((a,b)=>b.k-a.k||a.n-b.n);
+  groups['🤝 Analizler-Arası Uzlaşı']=new Set(consArr.slice(0,game.count*3).map(c=>c.n));
+  return groups;
+}
+function _homeNihaiDates(mode){
+  const sel=document.getElementById(mode==='caSec'?'caNihaiDateSel':'cbNihaiDateSel');if(!sel)return;
+  const gid=mode==='caSec'?_caGame:_cbGame;
+  const draws=_kbGetDraws(gid);const prev=sel.value;
+  let h=`<option value="">— Geçmiş test için tarih seçin —</option>`;
+  draws.forEach((d,i)=>{if(draws.length-i-1<25)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;if(prev)sel.value=prev;
+}
+function _homeNihaiStepDate(mode,dir){
+  const sel=document.getElementById(mode==='caSec'?'caNihaiDateSel':'cbNihaiDateSel');if(!sel||sel.options.length<2)return;
+  let idx=sel.selectedIndex;
+  if(idx<1)idx=1;else idx=Math.min(sel.options.length-1,Math.max(1,idx+dir));
+  sel.selectedIndex=idx;_homeNihaiDateTest(mode);
+}
+function _homeNihaiDateTest(mode){
+  const selId=mode==='caSec'?'caNihaiDateSel':'cbNihaiDateSel';
+  const testMode=mode+'Test';
+  const date=document.getElementById(selId)?.value||'';
+  if(!date){const e=document.getElementById('nihaiIlkHane_'+testMode);if(e)e.innerHTML='';return;}
+  const gid=mode==='caSec'?_caGame:_cbGame;
+  const game=getGame(gid),draws=_kbGetDraws(gid);
+  const idx=draws.findIndex(d=>d.date===date);if(idx<0)return;
+  const actual=draws[idx],prior=draws.slice(idx+1);
+  const minNeed=mode==='cbSec'?60:20;
+  const testEl=document.getElementById('nihaiIlkHane_'+testMode);
+  if(prior.length<minNeed){if(testEl)testEl.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
+  const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+  const groups=_homeAnalysisGroupsWithConsensus(game,prior);
+  if(mode==='cbSec'){
+    try{
+      const C=_cbCompute(game,prior);
+      const pool=C.ranked.filter(n=>C.consTally[n]>0).slice(0,game.count*3);
+      groups['🧲 AI Bilet Üretici (Uzlaşı Havuzu)']=new Set(pool);
+    }catch(e){}
+  }
+  _homeRenderNihaiIlkHane(testMode,game,prior,groups,aSet,actual);
 }
 // aynı boyutta TAMAMEN RASTGELE bir havuzun ≥3 net bulma şansı (hipergeometrik) — dürüst kıyas için
 function _mrPoolChanceGE3(poolSize,max,cnt){
@@ -19311,6 +19395,7 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
   const copyLines=[`Nihai Sayı Tablosu (${game.name})${sourceLabel?' — Kaynak: '+sourceLabel:''}`,`Fark toplamı: ${gapSum} → Nihai Sayı: ${nihai}`,''];
   // 1. geçiş: satır verilerini (dedup + eşleşenler) önce hesapla — böylece 🎯 Sonuç hem başlığın
   // hemen altında hem de satır dökümünün altında, aynı veriyle, gösterilebilir.
+  const digitCount={};rows.forEach(r=>{digitCount[r.lastDigit]=(digitCount[r.lastDigit]||0)+1;});
   const firstLabelForDigit={};
   const sonucSet=new Set();
   const rowsData=rows.map(r=>{
@@ -19325,7 +19410,7 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
         if(candSet&&candSet.has(target)){found.push(target);sonucSet.add(target);}
       });
     }
-    return{r,dup,dupOf:dup?firstLabelForDigit[r.lastDigit]:null,found};
+    return{r,dup,dupOf:dup?firstLabelForDigit[r.lastDigit]:null,found,repeatCount:digitCount[r.lastDigit]};
   });
   const sonucArr=[...sonucSet].sort((a,b)=>a-b);
   const netCount=nextSet?sonucArr.filter(n=>nextSet.has(n)).length:null;
@@ -19346,12 +19431,11 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
   // Sonuç kutusunun hemen altında — tüm satırların son haneleri, virgülle ayrılmış tek satırda
   const sonHanelerLine=rowsData.map(({r,dup,dupOf})=>`${r.label}${r.isBonus?' ★':''}: ${r.lastDigit}`+(dup?` (aynı, bkz. ${dupOf})`:'')).join(' , ');
   h+=`<div style="margin-bottom:12px;font-size:.58rem;color:var(--muted);line-height:1.6"><strong style="color:var(--text)">Son haneler:</strong> ${sonHanelerLine}</div>`;
-  rowsData.forEach(({r,dup,dupOf,found})=>{
+  rowsData.forEach(({r,dup,found,repeatCount})=>{
+    if(dup)return; // aynı son haneye düşen tekrar eden satırlar ayrı blok olarak GÖSTERİLMEZ — sayının yanında (N tekrar) olarak belirtilir
     h+=`<div style="margin-bottom:9px">`;
-    h+=`<div style="font-size:.6rem;color:var(--text);font-weight:800;margin-bottom:4px">${r.label}${r.isBonus?' <span style="color:#2563eb">★</span>':''} <span style="color:var(--muted);font-weight:400">(${r.num}+${nihai}=${r.sum})</span> <span style="color:#2563eb">→ son hane ${r.lastDigit}</span></div>`;
-    if(dup){
-      h+=`<div style="font-size:.56rem;color:var(--muted);padding-left:2px">= ${dupOf} satırıyla aynı (yukarıda)</div>`;
-    }else if(!found.length){
+    h+=`<div style="font-size:.6rem;color:var(--text);font-weight:800;margin-bottom:4px">${r.label}${r.isBonus?' <span style="color:#2563eb">★</span>':''} <span style="color:var(--muted);font-weight:400">(${r.num}+${nihai}=${r.sum})</span> <span style="color:#2563eb">→ son hane ${r.lastDigit}</span>${repeatCount>1?` <span style="color:var(--muted);font-weight:600">(${repeatCount} tekrar)</span>`:''}</div>`;
+    if(!found.length){
       h+=`<div style="font-size:.56rem;color:var(--muted);padding-left:2px">Bu hanede eşleşen sayı yok.</div>`;
     }else{
       h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">`;
@@ -19387,6 +19471,7 @@ function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,note
   // adayın SAYILMASI için hem candSet'te olması hem de SON HANESİNİN bu kümede olması gerekir.
   // (ör. üstte "son hane 5" hiç yoksa, İlk Hane'de de 5 ile biten hiçbir sayı — 25, 45... — çıkmaz.)
   const sonHaneDigits=new Set(rows.map(r=>r.lastDigit));
+  const fdCount={};rows.forEach(r=>{const fd=Math.floor(r.sum/10);fdCount[fd]=(fdCount[fd]||0)+1;});
   const firstLabelForDigit={};
   const sonucSet=new Set();
   const rowsData=rows.map(r=>{
@@ -19401,7 +19486,7 @@ function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,note
         if(candSet&&candSet.has(t)&&sonHaneDigits.has(t%10)){found.push(t);sonucSet.add(t);}
       }
     }
-    return{r,fd,dup,dupOf:dup?firstLabelForDigit[fd]:null,found};
+    return{r,fd,dup,dupOf:dup?firstLabelForDigit[fd]:null,found,repeatCount:fdCount[fd]};
   });
   const sonucArr=[...sonucSet].sort((a,b)=>a-b);
   const netCount=nextSet?sonucArr.filter(n=>nextSet.has(n)).length:null;
@@ -19420,12 +19505,11 @@ function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,note
   h+=`</div>`;
   const ilkHanelerLine=rowsData.map(({r,fd,dup,dupOf})=>`${r.label}${r.isBonus?' ★':''}: ${fd}`+(dup?` (aynı, bkz. ${dupOf})`:'')).join(' , ');
   h+=`<div style="margin-bottom:12px;font-size:.58rem;color:var(--muted);line-height:1.6"><strong style="color:var(--text)">İlk haneler:</strong> ${ilkHanelerLine}</div>`;
-  rowsData.forEach(({r,fd,dup,dupOf,found})=>{
+  rowsData.forEach(({r,fd,dup,found,repeatCount})=>{
+    if(dup)return; // aynı ilk haneye düşen tekrar eden satırlar ayrı blok olarak GÖSTERİLMEZ — sayının yanında (N tekrar) olarak belirtilir
     h+=`<div style="margin-bottom:9px">`;
-    h+=`<div style="font-size:.6rem;color:var(--text);font-weight:800;margin-bottom:4px">${r.label}${r.isBonus?' <span style="color:#7c3aed">★</span>':''} <span style="color:var(--muted);font-weight:400">(${r.num}+${nihai}=${r.sum})</span> <span style="color:#7c3aed">→ ilk hane ${fd}</span></div>`;
-    if(dup){
-      h+=`<div style="font-size:.56rem;color:var(--muted);padding-left:2px">= ${dupOf} satırıyla aynı (yukarıda)</div>`;
-    }else if(!found.length){
+    h+=`<div style="font-size:.6rem;color:var(--text);font-weight:800;margin-bottom:4px">${r.label}${r.isBonus?' <span style="color:#7c3aed">★</span>':''} <span style="color:var(--muted);font-weight:400">(${r.num}+${nihai}=${r.sum})</span> <span style="color:#7c3aed">→ ilk hane ${fd}</span>${repeatCount>1?` <span style="color:var(--muted);font-weight:600">(${repeatCount} tekrar)</span>`:''}</div>`;
+    if(!found.length){
       h+=`<div style="font-size:.56rem;color:var(--muted);padding-left:2px">Bu hanede eşleşen sayı yok.</div>`;
     }else{
       h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">`;
