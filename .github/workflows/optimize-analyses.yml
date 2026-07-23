@@ -1,0 +1,63 @@
+name: Analizleri Optimize Et (öğrenen ajan)
+
+# Bu iş, uygulamanın kendi geriye dönük test motorunu başsız bir tarayıcıda çalıştırıp her oyun
+# için en iyi analiz-ağırlık parametrelerini arar ve — yalnızca out-of-sample'da (iç içe TEST/VAL
+# ayrımı) mevcut sistemi belirgin marjla geçenleri — index.html'deki _OPT_PARAMS bloğuna yazar.
+# Overfit adaylar bağımsız TEST penceresinde elenir (zarar-verme kuralı). Elle tetiklenebilir
+# (workflow_dispatch) ve isteğe bağlı olarak ayda bir otomatik çalışır.
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    # Ayın 1'i 22:00 UTC (~01:00 TR) — veri büyüdükçe/sinyal kaydıkça yeniden ayarla
+    - cron: '0 22 1 * *'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: optimize-analyses
+  cancel-in-progress: false
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: claude/lottery-guessing-machine-ODD1U
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Playwright + Chromium kur
+        run: |
+          npm init -y >/dev/null 2>&1 || true
+          npm i --no-save playwright@1
+          npx playwright install --with-deps chromium
+
+      - name: Optimizasyonu çalıştır ve _OPT_PARAMS'ı güncelle
+        run: node scripts/optimize-analyses.mjs
+
+      - name: Değişiklik varsa commit ve push (sadece bu branch'e)
+        run: |
+          if git diff --quiet -- index.html; then
+            echo "Optimizasyon parametreleri değişmedi, commit atlanıyor."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Otomatik analiz optimizasyonu $(date -u +%Y-%m-%d) (öğrenen ajan)"
+          for i in 1 2 3 4; do
+            if git pull --rebase origin claude/lottery-guessing-machine-ODD1U && git push origin HEAD:claude/lottery-guessing-machine-ODD1U; then
+              exit 0
+            fi
+            sleep $((i * 5))
+          done
+          echo "Push 4 denemeden sonra başarısız oldu." >&2
+          exit 1

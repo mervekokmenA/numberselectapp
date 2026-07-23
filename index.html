@@ -6966,10 +6966,10 @@ const _AX_WFN={
 // biçimde GEÇEN oyunlarda enabled:true — aksi halde mevcut sistem aynen korunur (zarar-verme kuralı).
 // Bu blok scripts/optimize-analyses.mjs ajanı tarafından yeniden hesaplanıp otomatik güncellenir.
 const _OPT_PARAMS = {
-  tunedAt: "2026-07-22",
+  tunedAt: "2026-07-23",
   sayisal: { enabled: false },
-  super: { enabled: true, alpha: 0.55, gamma: 2.5, floor: 0.12, sigW: { axrecency:0.001, axpair:0.001, axneighbor:0.001, axhybrid:0.003, axfused:0.001, axzonemom:0.001, axcooc:0.001 } },
-  sans: { enabled: true, alpha: 0.55, gamma: 2.5, floor: 0.12, sigW: { axrecency:0.043, axsharp:0.024, axoverdue:0.007, axmarkov:0.02, axpair:0.033, axneighbor:0.062, axpos:0.02, axdigit:0.015, axhybrid:0.052, axfused:0.115, axtrans:0.015, axgap:0.001, axzonemom:0.02, axcooc:0.04 } },
+  super: { enabled: true, alpha: 0.8, gamma: 1.5, floor: 0.12, sigW: { axpair:0.007, axneighbor:0.005, axhybrid:0.003 } },
+  sans: { enabled: false },
   onnumara: { enabled: false },
 };
 function _optNorm(w,max){let mx=0;for(let n=1;n<=max;n++)if((w[n]||0)>mx)mx=w[n]||0;mx=mx||1;const r={};for(let n=1;n<=max;n++)r[n]=(w[n]||0)/mx;return r;}
@@ -15126,14 +15126,31 @@ function _optEvalCombined(game,draws,valN,minPrior,genFn,runs){
     acc+=0.6*(100*a3/t)+0.4*(100*c3/t)+2*((ab/t)+(cb/t));g10+=100*a3/t;g20+=100*c3/t;}
   return {combined:acc/runs,ge3_10:+(g10/runs).toFixed(1),ge3_20:+(g20/runs).toFixed(1)};
 }
-// Tek oyun için parametre araması + zarar-verme kapısı → {enabled,...params} veya {enabled:false}
+// Verilen [from,to) penceresinde bir üreticinin ortalama best-ticket ≥3 kombine skorunu ölçer.
+function _optEvalWindow(game,draws,from,to,minPrior,genFn,runs){
+  let acc=0;
+  for(let r=0;r<runs;r++){let a3=0,ab=0,c3=0,cb=0,t=0;
+    for(let ti=from;ti<to;ti++){const actual=draws[ti];const prior=draws.slice(ti+1);if(prior.length<minPrior)break;
+      const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);let tk10,tk20;try{tk10=genFn(prior,10);tk20=genFn(prior,20);}catch(e){continue;}
+      const best=tk=>{let bn=0;tk.forEach(t2=>{let net=0;[...t2.main,...(t2.bonus||[])].forEach(x=>{if(aSet.has(x))net++;});if(net>bn)bn=net;});return bn;};
+      const b10=best(tk10),b20=best(tk20);a3+=b10>=3?1:0;c3+=b20>=3?1:0;ab+=b10;cb+=b20;t++;}
+    if(t)acc+=0.6*(100*a3/t)+0.4*(100*c3/t)+2*((ab/t)+(cb/t));}
+  return acc/runs;
+}
+// Tek oyun için parametre araması — İÇ İÇE (nested) TEST/VAL/TRAIN ayrımı + KATI kapı.
+// Bir adayın benimsenmesi için hem VAL (seçim) hem de o ANA KADAR HİÇ GÖRÜLMEMİŞ TEST penceresinde
+// ham (mevcut) sistemi belirgin marjla geçmesi gerekir. Zayıf/gürültülü sinyal overfit olduğunda bu
+// kapı adayı ELER ve oyun mevcut sisteminde (enabled:false) kalır — dürüst, zarar-vermeyen sonuç.
 function _optSearchGame(game,draws){
   const SIGS=Object.keys(_AX_WFN);const minPrior=_NI_MIN_PRIOR;const avail=draws.length-minPrior-1;
-  if(avail<40)return {enabled:false,note:'yetersiz veri'};
-  const valN=Math.min(60,Math.floor(avail*0.4));const trainFrom=valN,trainTo=Math.min(avail,valN+180);
+  if(avail<120)return {enabled:false,note:'yetersiz veri'};
+  const testN=Math.min(50,Math.floor(avail*0.30));            // en yeni: son bağımsız kapı (seçimde kullanılmaz)
+  const valN=Math.min(50,Math.floor(avail*0.30));             // orta: aday seçimi
+  const trainFrom=testN+valN,trainTo=Math.min(avail,testN+valN+180); // en eski: sinyal değeri ölçümü
   const lift=_optMeasureSigLifts(game,draws,trainFrom,trainTo,minPrior);
   const rawGen=(prior,K)=>_niGenBundle(game,prior,K,_niComputeRaw(game,prior));
-  const cur=_optEvalCombined(game,draws,valN,minPrior,rawGen,3);
+  const rawVal=_optEvalWindow(game,draws,testN,testN+valN,minPrior,rawGen,3);
+  const rawTest=_optEvalWindow(game,draws,0,testN,minPrior,rawGen,3);
   let best=null;
   for(const liftPow of [1.0,1.5,2.5]){
     const sigW={};SIGS.forEach(s=>{sigW[s]=Math.pow(Math.max(0,lift[s]-1),liftPow);});
@@ -15141,17 +15158,22 @@ function _optSearchGame(game,draws){
     for(const alpha of [0.3,0.55,0.8])for(const gamma of [1.5,2.5]){
       const params={enabled:true,alpha,gamma,floor:0.12,sigW};
       const gen=(prior,K)=>{const C=_optApply(game,prior,_niComputeRaw(game,prior),params);return _niGenBundle(game,prior,K,C);};
-      const e=_optEvalCombined(game,draws,valN,minPrior,gen,2);
-      if(!best||e.combined>best.eval.combined)best={params,eval:e};
+      const v=_optEvalWindow(game,draws,testN,testN+valN,minPrior,gen,2);
+      if(!best||v>best.val)best={params,val:v,gen};
     }
   }
   const MARGIN=1.5;
-  if(best&&best.eval.combined>cur.combined+MARGIN){
-    const sw={};SIGS.forEach(s=>{const v=+best.params.sigW[s].toFixed(3);if(v>0)sw[s]=v;});
-    return {enabled:true,alpha:best.params.alpha,gamma:best.params.gamma,floor:0.12,sigW:sw,
-      _report:{cur:+cur.combined.toFixed(1),new:+best.eval.combined.toFixed(1),curGe3_10:cur.ge3_10,newGe3_10:best.eval.ge3_10,curGe3_20:cur.ge3_20,newGe3_20:best.eval.ge3_20}};
+  let testGain=null;
+  if(best&&best.val>rawVal+MARGIN){
+    const testOpt=_optEvalWindow(game,draws,0,testN,minPrior,best.gen,3);
+    testGain=testOpt-rawTest;
+    if(testGain>MARGIN){ // hem VAL hem bağımsız TEST'te geçti → benimse
+      const sw={};SIGS.forEach(s=>{const val2=+best.params.sigW[s].toFixed(3);if(val2>0)sw[s]=val2;});
+      return {enabled:true,alpha:best.params.alpha,gamma:best.params.gamma,floor:0.12,sigW:sw,
+        _report:{valGain:+(best.val-rawVal).toFixed(1),testGain:+testGain.toFixed(1),adopted:true}};
+    }
   }
-  return {enabled:false,_report:{cur:+cur.combined.toFixed(1),new:best?+best.eval.combined.toFixed(1):null,adopted:false}};
+  return {enabled:false,_report:{valGain:best?+(best.val-rawVal).toFixed(1):null,testGain:testGain!=null?+testGain.toFixed(1):'—',adopted:false}};
 }
 // Tüm oyunları tara → _OPT_PARAMS nesnesi (agent bunu index.html'e yazar). Ağır — sadece elle/agent ile çalışır.
 function _optSearchAll(dateStr){

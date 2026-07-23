@@ -60,14 +60,14 @@ async function main() {
     if (result.error) throw new Error(result.error);
     if (errs.length) console.warn('[uyarı] sayfa hataları:', errs.slice(0, 5));
 
-    // Rapor
-    console.log('Optimizasyon raporu:');
+    // Rapor — nested TEST/VAL kapısı: bir aday yalnızca hem seçim (VAL) hem bağımsız (TEST)
+    // penceresinde ham sistemi geçtiğinde benimsenir. Geçemezse "mevcut korundu" (overfit'ten korur).
+    console.log('Optimizasyon raporu (nested TEST/VAL kapısı):');
     for (const gid of ['sayisal', 'super', 'sans', 'onnumara']) {
       const g = result[gid] || {};
       const r = g._report || {};
-      console.log(`  ${gid}: ${g.enabled ? 'BENIMSENDI' : 'mevcut korundu'}` +
-        (r.cur != null ? ` (skor mevcut ${r.cur} → aday ${r.new}${g.enabled ? `, ≥3 K10 %${r.curGe3_10}→%${r.newGe3_10}, K20 %${r.curGe3_20}→%${r.newGe3_20}` : ''})` : ''));
-      // _report'u kaydedilecek nesneden çıkar (yalnızca temiz parametreler yazılsın)
+      const gains = r.valGain != null ? ` [VAL +${r.valGain}, TEST +${r.testGain}]` : (g.note ? ` (${g.note})` : '');
+      console.log(`  ${gid}: ${g.enabled ? '✓ BENIMSENDI' : '· mevcut korundu'}${gains}`);
       if (g._report) delete g._report;
       if (g.note) delete g.note;
     }
