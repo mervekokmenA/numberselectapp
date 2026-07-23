@@ -17914,6 +17914,11 @@ function _snRenderSynth(game,systems,row){
 // Excel görünümü: satır = çekiliş (en üstte yeni/bilinmeyen tahmin, altında geçmiş), sütun = oyun
 // sonucu + tarih + (boşluk) + her formül grubunun kendi sütunları yan yana, gruplar arası 1 boş sütun.
 function _snRenderTable(game,systems,rows){
+  // 🔀 Kaydırmalı Toplam (soldan sağa/sağdan sola) çiftini ana satırdan ayırıp HER çekilişin
+  // ALT satırına alıyoruz — satır çifti arasında ve bir sonraki çekilişin çiftinden önce belirgin
+  // bir kalın çizgi/gölge ile net bir ayrım olsun diye.
+  const mainIdx=[],shiftIdx=[];
+  systems.forEach((sys,si)=>{(sys.id==='shiftF'||sys.id==='shiftB'?shiftIdx:mainIdx).push(si);});
   const colCount=systems.map((sys,si)=>rows.reduce((m,r)=>Math.max(m,r.sysOut[si].length),0));
   const colLabels=systems.map((sys,si)=>{
     let labels=[];
@@ -17921,29 +17926,34 @@ function _snRenderTable(game,systems,rows){
     return labels;
   });
   const gapTd='<td style="width:12px;min-width:12px;border:none;background:transparent;padding:0"></td>';
+  const gapTh=gapTd.replace('<td','<th').replace('</td>','</th>');
   const thBase='padding:4px 8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);white-space:nowrap;text-align:center';
   const tdBase='padding:3px 7px;border:1px solid var(--border);white-space:nowrap;text-align:center';
+  const mainTotalCols=2+1+mainIdx.reduce((s,si)=>s+colCount[si]+1,0);
+  const shiftLeadCols=3;
+  const shiftUsedCols=shiftLeadCols+shiftIdx.reduce((s,si)=>s+colCount[si]+1,0);
+  const shiftFillCols=Math.max(0,mainTotalCols-shiftUsedCols);
   let h='<div style="overflow:auto;max-height:70vh;border:1px solid var(--border);border-radius:8px">';
   h+='<table style="border-collapse:collapse;font-family:monospace;font-size:.64rem">';
   h+='<thead><tr>';
-  h+=`<th style="${thBase}" rowspan="2">Oyun Sonucu</th><th style="${thBase}" rowspan="2">Tarih</th>${gapTd.replace('<td','<th').replace('</td>','</th>')}`;
-  systems.forEach((sys,si)=>{
-    if(!colCount[si])return;
+  h+=`<th style="${thBase}" rowspan="2">Oyun Sonucu</th><th style="${thBase}" rowspan="2">Tarih</th>${gapTh}`;
+  mainIdx.forEach(si=>{
+    const sys=systems[si];
     const newOut=rows[0].sysOut[si];
     const ck='_snSys'+sys.id;
     window[ck]=sys.name+' ('+game.name+')\n'+newOut.map(o=>o.pos+': '+o.val).join('\n');
-    h+=`<th colspan="${colCount[si]}" style="${thBase}" title="${sys.desc.replace(/"/g,'&quot;')}">🧮 ${sys.name} <button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.5rem;padding:1px 5px;margin-left:4px">📋</button></th>${gapTd.replace('<td','<th').replace('</td>','</th>')}`;
+    h+=`<th colspan="${colCount[si]}" style="${thBase}" title="${sys.desc.replace(/"/g,'&quot;')}">🧮 ${sys.name} <button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.5rem;padding:1px 5px;margin-left:4px">📋</button></th>${gapTh}`;
   });
   h+='</tr><tr>';
-  systems.forEach((sys,si)=>{
-    if(!colCount[si])return;
+  mainIdx.forEach(si=>{
     for(let c=0;c<colCount[si];c++)h+=`<th style="${thBase};font-weight:600;font-size:.56rem">${colLabels[si][c]||''}</th>`;
-    h+=gapTd.replace('<td','<th').replace('</td>','</th>');
+    h+=gapTh;
   });
   h+='</tr></thead><tbody>';
   rows.forEach(row=>{
     const {idx,actual,targetDateStr,aSet,sysOut}=row;
-    h+=`<tr style="${idx===-1?'background:rgba(99,102,241,.08)':''}">`;
+    const bandBg=idx===-1?'rgba(99,102,241,.08)':(Math.abs(idx)%2===0?'transparent':'rgba(0,0,0,.015)');
+    h+=`<tr style="background:${bandBg}">`;
     if(actual){
       const res=[...(actual.nums||[])].sort((a,b)=>a-b);
       h+=`<td style="${tdBase};font-weight:700;color:var(--text)">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</td>`;
@@ -17952,8 +17962,7 @@ function _snRenderTable(game,systems,rows){
     }
     h+=`<td style="${tdBase};color:var(--muted)">${targetDateStr}</td>`;
     h+=gapTd;
-    systems.forEach((sys,si)=>{
-      if(!colCount[si])return;
+    mainIdx.forEach(si=>{
       const out=sysOut[si];
       for(let c=0;c<colCount[si];c++){
         const o=out[c];
@@ -17964,6 +17973,23 @@ function _snRenderTable(game,systems,rows){
       }
       h+=gapTd;
     });
+    h+='</tr>';
+    // alt satır — 🔀 Kaydırmalı Toplam (Soldan Sağa / Sağdan Sola), belirgin ayraç çizgisiyle
+    const divider='border-bottom:3px solid var(--accent)';
+    h+=`<tr style="background:${bandBg}">`;
+    h+=`<td colspan="${shiftLeadCols}" style="${tdBase};${divider};text-align:right;color:var(--muted);font-size:.58rem">🔀 Kaydırma:</td>`;
+    shiftIdx.forEach(si=>{
+      const sys=systems[si],out=sysOut[si];
+      for(let c=0;c<colCount[si];c++){
+        const o=out[c];
+        if(!o){h+=`<td style="${tdBase};${divider}"></td>`;continue;}
+        const hit=aSet&&aSet.has(o.val),near=aSet&&!hit&&(aSet.has(o.val-1)||aSet.has(o.val+1));
+        const color=hit?'var(--green)':near?'#c2410c':'var(--muted)';
+        h+=`<td style="${tdBase};${divider};color:${color};font-weight:${hit||near?800:400}"><div>${o.val}${hit?'✓':near?'~':''}</div><div style="font-size:.46rem;color:var(--muted);font-weight:400">${o.pos}</div></td>`;
+      }
+      h+=`<td style="${tdBase};${divider};width:12px;min-width:12px;padding:0"></td>`;
+    });
+    if(shiftFillCols>0)h+=`<td colspan="${shiftFillCols}" style="${tdBase};${divider}"></td>`;
     h+='</tr>';
   });
   h+='</tbody></table></div>';
