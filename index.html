@@ -17909,6 +17909,27 @@ const _SN_SYSTEMS={
      compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFG'[k],val:_snWrap(v+33,max)}));}},
     {id:'s2',name:'Sistem 2 — 34−|Toplam|',desc:'Son iki çekilişin aynı pozisyonu toplanır, mutlak değeri 34’ten çıkarılır. (Faktöriyel ve Ondalık Çarpan formülleri 200 çekilişlik testte şansın altında/yapısal olarak 3+e ulaşamadığı için silindi.)',
      compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFG'[k],val:_snWrap(max-Math.abs(v+r2.main[k]),max)}));}},
+    // ── Aşağıdaki 3 formül, 176 farklı "geçmiş çekiliş + tarih aritmetiği" varyasyonunun 150 çekilişlik
+    // geriye dönük taramasında Şans Topu'nda şans seviyesinin (≥2 net için ~%20,5) HAFİF üzerinde çıktı
+    // (≥2 net %24-25, lift ~1,17-1,23x). Dürüst not: bu bir "kanıtlanmış edge" DEĞİL — 176 denemenin en
+    // iyi birkaçı, çoklu-karşılaştırma gürültüsüyle de aynı büyüklükte sapma gösterebilir; diğer oyunlarda
+    // (Sayısal/Süper/On Numara) ve aynı taramadaki diğer ~170 varyasyonda şansın üstünde bir sapma
+    // görülmedi (ortalama lift 0,93-0,98x, tam şans seviyesi).
+    {id:'s3',name:'🎲 Gün×2 Toplamı',desc:'Son çekilişin her pozisyonuna, hedef tarihin günü×2 eklenir, 34’e göre mod alınır. Geriye dönük testte ≥2 net %25,3 (şans %20,5, lift ~1,23x) — sınırda, kanıtlanmış bir edge değil.',
+     compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'CDEFG'[k],val:_snWrap(v+dp.day*2,max)}));}},
+    {id:'s4',name:'🔀 Üçlü Kaydırma + (Gün+Ay)×2',desc:'Kaydırmalı Toplam (soldan sağa, son 3 çekiliş) + hedef tarihin (gün+ay)×2’si eklenir. Geriye dönük testte ≥2 net %25,3 (şans %20,5, lift ~1,23x) — sınırda, kanıtlanmış bir edge değil.',
+     compute(r1,r2,r3,dp,aVal,max,win30,game){
+       if(!r3)return [];
+       const cnt=(game&&game.count)||r1.main.length,out=[];
+       for(let p=0;p<cnt;p++)out.push({pos:(p+1)+'→',val:_snWrap(r1.main[p]+r2.main[(p+1)%cnt]+r3.main[(p+2)%cnt]+(dp.day+dp.month)*2,max)});
+       return out;
+     }},
+    {id:'s5',name:'🔀 İkili Kaydırma (Sağdan Sola) + Gün×Ay',desc:'Kaydırmalı Toplam (sağdan sola, son 2 çekiliş) + hedef tarihin günü×ayı eklenir. Geriye dönük testte ≥2 net %24,7 (şans %20,5, lift ~1,2x) — sınırda, kanıtlanmış bir edge değil.',
+     compute(r1,r2,r3,dp,aVal,max,win30,game){
+       const cnt=(game&&game.count)||r1.main.length,out=[];
+       for(let p=cnt-1;p>=0;p--)out.push({pos:(p+1)+'←',val:_snWrap(r1.main[p]+r2.main[(p-1+cnt)%cnt]+dp.day*dp.month,max)});
+       return out;
+     }},
     _SN_CHAMP_SYSTEM,
     ..._snMrSystemsFor('sans').filter(s=>s.id!=='mrGlayfark'),
     _SN_SHIFT_FWD,_SN_SHIFT_BWD,
