@@ -18001,86 +18001,59 @@ function _snRenderSynth(game,systems,row){
 }
 // Excel görünümü: satır = çekiliş (en üstte yeni/bilinmeyen tahmin, altında geçmiş), sütun = oyun
 // sonucu + tarih + (boşluk) + her formül grubunun kendi sütunları yan yana, gruplar arası 1 boş sütun.
+// Sağa doğru scroll İSTENMİYOR: sabit sütunlu <table> yerine flex-wrap kullanılır — her formülün
+// rozet kümesi kendi içinde bir arada kalır, satıra sığmazsa (sütunlar hizalanmadan) bir alttaki
+// görsel satıra kayar. Bunun bedeli: sayılar artık dikey sütun halinde hizalı değil (excel'deki gibi
+// tam hizalama kalktı) — ama yatay scroll tamamen ortadan kalkıyor.
 function _snRenderTable(game,systems,rows){
-  // 🔀 Kaydırmalı Toplam (soldan sağa/sağdan sola) çiftini ana satırdan ayırıp HER çekilişin
-  // ALT satırına alıyoruz — satır çifti arasında ve bir sonraki çekilişin çiftinden önce belirgin
-  // bir kalın çizgi/gölge ile net bir ayrım olsun diye.
   const mainIdx=[],shiftIdx=[];
   systems.forEach((sys,si)=>{(sys.id==='shiftF'||sys.id==='shiftB'?shiftIdx:mainIdx).push(si);});
-  const colCount=systems.map((sys,si)=>rows.reduce((m,r)=>Math.max(m,r.sysOut[si].length),0));
-  const colLabels=systems.map((sys,si)=>{
-    let labels=[];
-    rows.forEach(r=>{if(r.sysOut[si].length>labels.length)labels=r.sysOut[si].map(o=>o.pos);});
-    return labels;
-  });
-  const gapTd='<td style="width:12px;min-width:12px;border:none;background:transparent;padding:0"></td>';
-  const gapTh=gapTd.replace('<td','<th').replace('</td>','</th>');
-  const thBase='padding:4px 8px;border:1px solid var(--border);background:var(--surface2);color:var(--text);white-space:nowrap;text-align:center';
-  const tdBase='padding:3px 7px;border:1px solid var(--border);white-space:nowrap;text-align:center';
-  const mainTotalCols=2+1+mainIdx.reduce((s,si)=>s+colCount[si]+1,0);
-  const shiftLeadCols=3;
-  const shiftUsedCols=shiftLeadCols+shiftIdx.reduce((s,si)=>s+colCount[si]+1,0);
-  const shiftFillCols=Math.max(0,mainTotalCols-shiftUsedCols);
-  let h='<div style="overflow:auto;max-height:70vh;border:1px solid var(--border);border-radius:8px">';
-  h+='<table style="border-collapse:collapse;font-family:monospace;font-size:.64rem">';
-  h+='<thead><tr>';
-  h+=`<th style="${thBase}" rowspan="2">Oyun Sonucu</th><th style="${thBase}" rowspan="2">Tarih</th>${gapTh}`;
-  mainIdx.forEach(si=>{
-    const sys=systems[si];
+  const clusterHtml=(sys,si,row)=>{
+    const out=row.sysOut[si];if(!out.length)return '';
+    let h=`<div style="display:inline-flex;align-items:center;gap:4px;flex-wrap:nowrap;padding:3px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;max-width:100%" title="${sys.desc.replace(/"/g,'&quot;')}">`;
+    h+=`<span style="font-size:.56rem;font-weight:700;color:var(--muted);white-space:nowrap">${sys.name}:</span>`;
+    h+=`<span style="display:flex;flex-wrap:wrap;gap:3px">`;
+    out.forEach(o=>{
+      const hit=row.aSet&&row.aSet.has(o.val),near=row.aSet&&!hit&&(row.aSet.has(o.val-1)||row.aSet.has(o.val+1));
+      const color=hit?'var(--green)':near?'#c2410c':'var(--muted)';
+      h+=`<span style="font-family:monospace;font-size:.62rem;font-weight:${hit||near?800:400};color:${color};white-space:nowrap">${o.val}${hit?'✓':near?'~':''}</span>`;
+    });
+    h+=`</span>`;
+    if(row.idx===-1)h+=`<button onclick="_caCopy(window._snSys${sys.id})" class="copy-btn" style="font-size:.48rem;padding:1px 4px;flex-shrink:0">📋</button>`;
+    h+=`</div>`;
+    return h;
+  };
+  // Kopyalama için: yeni tahmin satırındaki (rows[0]) her sistemin metnini window'a yaz
+  systems.forEach((sys,si)=>{
     const newOut=rows[0].sysOut[si];
-    const ck='_snSys'+sys.id;
-    window[ck]=sys.name+' ('+game.name+')\n'+newOut.map(o=>o.pos+': '+o.val).join('\n');
-    h+=`<th colspan="${colCount[si]}" style="${thBase}" title="${sys.desc.replace(/"/g,'&quot;')}">🧮 ${sys.name} <button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.5rem;padding:1px 5px;margin-left:4px">📋</button></th>${gapTh}`;
+    window['_snSys'+sys.id]=sys.name+' ('+game.name+')\n'+newOut.map(o=>o.pos+': '+o.val).join('\n');
   });
-  h+='</tr><tr>';
-  mainIdx.forEach(si=>{
-    for(let c=0;c<colCount[si];c++)h+=`<th style="${thBase};font-weight:600;font-size:.56rem">${colLabels[si][c]||''}</th>`;
-    h+=gapTh;
-  });
-  h+='</tr></thead><tbody>';
+  let h='<div style="display:flex;flex-direction:column;gap:8px;max-height:70vh;overflow-y:auto;overflow-x:hidden;padding-right:4px">';
   rows.forEach(row=>{
-    const {idx,actual,targetDateStr,aSet,sysOut}=row;
-    const bandBg=idx===-1?'rgba(99,102,241,.08)':(Math.abs(idx)%2===0?'transparent':'rgba(0,0,0,.015)');
-    h+=`<tr style="background:${bandBg}">`;
+    const {idx,actual,targetDateStr}=row;
+    const bandBg=idx===-1?'rgba(99,102,241,.08)':(Math.abs(idx)%2===0?'transparent':'rgba(0,0,0,.02)');
+    h+=`<div style="background:${bandBg};border:1px solid var(--border);border-radius:8px;padding:8px 9px;min-width:0">`;
+    h+=`<div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:6px;font-family:monospace;font-size:.64rem">`;
     if(actual){
       const res=[...(actual.nums||[])].sort((a,b)=>a-b);
-      h+=`<td style="${tdBase};font-weight:700;color:var(--text)">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</td>`;
+      h+=`<span style="font-weight:700;color:var(--text)">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span>`;
     }else{
-      h+=`<td style="${tdBase};color:var(--muted)">—</td>`;
+      h+=`<span style="color:var(--muted)">—</span>`;
     }
-    h+=`<td style="${tdBase};color:var(--muted)">${targetDateStr}</td>`;
-    h+=gapTd;
-    mainIdx.forEach(si=>{
-      const out=sysOut[si];
-      for(let c=0;c<colCount[si];c++){
-        const o=out[c];
-        if(!o){h+=`<td style="${tdBase}"></td>`;continue;}
-        const hit=aSet&&aSet.has(o.val),near=aSet&&!hit&&(aSet.has(o.val-1)||aSet.has(o.val+1));
-        const color=hit?'var(--green)':near?'#c2410c':'var(--muted)';
-        h+=`<td style="${tdBase};color:${color};font-weight:${hit||near?800:400}">${o.val}${hit?'✓':near?'~':''}</td>`;
-      }
-      h+=gapTd;
-    });
-    h+='</tr>';
-    // alt satır — 🔀 Kaydırmalı Toplam (Soldan Sağa / Sağdan Sola), belirgin ayraç çizgisiyle
-    const divider='border-bottom:3px solid var(--accent)';
-    h+=`<tr style="background:${bandBg}">`;
-    h+=`<td colspan="${shiftLeadCols}" style="${tdBase};${divider};text-align:right;color:var(--muted);font-size:.58rem">🔀 Kaydırma:</td>`;
-    shiftIdx.forEach(si=>{
-      const sys=systems[si],out=sysOut[si];
-      for(let c=0;c<colCount[si];c++){
-        const o=out[c];
-        if(!o){h+=`<td style="${tdBase};${divider}"></td>`;continue;}
-        const hit=aSet&&aSet.has(o.val),near=aSet&&!hit&&(aSet.has(o.val-1)||aSet.has(o.val+1));
-        const color=hit?'var(--green)':near?'#c2410c':'var(--muted)';
-        h+=`<td style="${tdBase};${divider};color:${color};font-weight:${hit||near?800:400}"><div>${o.val}${hit?'✓':near?'~':''}</div><div style="font-size:.46rem;color:var(--muted);font-weight:400">${o.pos}</div></td>`;
-      }
-      h+=`<td style="${tdBase};${divider};width:12px;min-width:12px;padding:0"></td>`;
-    });
-    if(shiftFillCols>0)h+=`<td colspan="${shiftFillCols}" style="${tdBase};${divider}"></td>`;
-    h+='</tr>';
+    h+=`<span style="color:var(--muted)">${targetDateStr}</span>`;
+    h+=`</div>`;
+    h+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`;
+    mainIdx.forEach(si=>{h+=clusterHtml(systems[si],si,row);});
+    h+=`</div>`;
+    if(shiftIdx.length){
+      h+=`<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;padding-top:6px;border-top:2px dashed var(--accent)">`;
+      h+=`<span style="font-size:.56rem;color:var(--muted);white-space:nowrap">🔀 Kaydırma:</span>`;
+      shiftIdx.forEach(si=>{h+=clusterHtml(systems[si],si,row);});
+      h+=`</div>`;
+    }
+    h+=`</div>`;
   });
-  h+='</tbody></table></div>';
+  h+='</div>';
   return h;
 }
 function _qtRenderControls(){
