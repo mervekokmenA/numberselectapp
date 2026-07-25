@@ -18080,7 +18080,7 @@ function _qtStepDate(dir){
   sel.selectedIndex=idx;_qtDateTest();
 }
 function _qtInit(){ _qtRenderControls(); }
-function _qtSetGame(g){_qtGame=g;_qtGameManual=true;_qtRenderControls();_qtLiveHtml='';_qtTestHtml='';if(typeof _qtSyncPairs==='function')_qtSyncPairs();['qtAiBtOut','qtAllBtOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
+function _qtSetGame(g){_qtGame=g;_qtGameManual=true;_qtAllBtToken++;_qtRenderControls();_qtLiveHtml='';_qtTestHtml='';if(typeof _qtSyncPairs==='function')_qtSyncPairs();['qtAiBtOut','qtAllBtOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
 function _qtHash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return h;}
 // ── kaynak yapılar ──
 // Blok bilet sayıları: gerçek geriye dönük testle, her blokta EN İYİ biletin ≥2 net tutma
@@ -18580,40 +18580,61 @@ function _qtDateTest(){
 // Tüm geçmiş için toplu test: her blok, son N çekilişin HER birinde o tarihten önceki verilerle
 // üretilir; grubun EN İYİ biletinin ≥2/≥3 net oranı ölçülür. Kullanıcı "gerçekten 2+ buluyor mu"yu
 // kendi gözüyle geçmişin tamamında doğrulayabilsin diye.
+let _qtAllBtToken=0;
+// Sayfa donmasın diye: (1) çekilişler tek seferde değil küçük gruplar (BATCH) halinde, aralarına
+// setTimeout(...,0) konularak tarayıcıya nefes aldırılarak işlenir — ilerleme yazısı güncellenir.
+// (2) "3+ Hedefli Demet" artık ayrı bir kapsama-demeti hesaplamıyor, zaten hesaplanmış olan
+// "Yakın Dönem" demetini (src.yak) yeniden kullanıyor — aynı üretim, tekrar hesaplama yok.
+// (3) "Birleşik AI" bloğu, seçili "AI bilet" K'sı ne olursa olsun (100'e kadar çıkabiliyor) burada
+// en fazla 20 ile sınırlanır — oranlar zaten K~20'de stabilize olur, K=100 ile 60-100 çekiliş
+// boyunca tekrar tekrar üretmek donmanın asıl kaynağıydı.
 function _qtAllBacktest(){
   const el=document.getElementById('qtAllBtOut');if(!el)return;
+  const myToken=++_qtAllBtToken;
   const game=getGame(_qtGame),draws=_kbGetDraws(_qtGame);
   const N=parseInt(document.getElementById('qtAllBtN')?.value)||60;
   const minPrior=60;
   if(!draws||draws.length<minPrior+5){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
-  el.innerHTML='<div style="padding:14px;font-size:.72rem;color:var(--muted)">⏳ Tüm geçmiş test ediliyor… (her tarih için tüm bloklar yeniden kuruluyor, biraz sürebilir)</div>';
-  setTimeout(()=>{
-   try{
-    const K=parseInt(document.getElementById('qtAiK')?.value)||20;
-    const BLOCKS=[
-      {key:'ai',emoji:'🤖',name:'AI Bilet Üretici',gen:(g,p,src)=>src.aiB},
-      {key:'g0',emoji:'🎯⁰',name:'Gülsis Sıfır',gen:(g,p,src)=>src.g0},
-      {key:'ni',emoji:'🏁',name:'Nihai',gen:(g,p,src)=>src.ni},
-      {key:'yak',emoji:'📈',name:"12'li 3+ (Yakın Dönem)",gen:(g,p,src)=>src.yak},
-      {key:'3p',emoji:'🎯',name:'3+ Hedefli Demet',gen:(g,p,src)=>{try{return _coverageBundle(g,'axrecency',20,buildFreq(p),p);}catch(e){return [];}}},
-      {key:'bai',emoji:'🧠',name:'Birleşik AI',gen:(g,p,src)=>{try{const C=_qtCombineWeights(g,p,src);return _niGenBundle(g,p,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){return [];}}},
-    ];
-    const stat={};BLOCKS.forEach(b=>stat[b.key]={ge2:0,ge3:0,netSum:0,t:0});
-    const n=Math.min(N,draws.length-minPrior-1);
-    for(let i=0;i<n;i++){
+  const rawK=parseInt(document.getElementById('qtAiK')?.value)||20;
+  const K=Math.min(rawK,20);
+  const BLOCKS=[
+    {key:'ai',emoji:'🤖',name:'AI Bilet Üretici',gen:(g,p,src)=>src.aiB},
+    {key:'g0',emoji:'🎯⁰',name:'Gülsis Sıfır',gen:(g,p,src)=>src.g0},
+    {key:'ni',emoji:'🏁',name:'Nihai',gen:(g,p,src)=>src.ni},
+    {key:'yak',emoji:'📈',name:"12'li 3+ (Yakın Dönem)",gen:(g,p,src)=>src.yak},
+    {key:'3p',emoji:'🎯',name:'3+ Hedefli Demet',gen:(g,p,src)=>src.yak},
+    {key:'bai',emoji:'🧠',name:'Birleşik AI',gen:(g,p,src)=>{try{const C=_qtCombineWeights(g,p,src);return _niGenBundle(g,p,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){return [];}}},
+  ];
+  const stat={};BLOCKS.forEach(b=>stat[b.key]={ge2:0,ge3:0,netSum:0,t:0});
+  const n=Math.min(N,draws.length-minPrior-1);
+  const BATCH=4;
+  let i=0;
+  el.innerHTML=`<div style="padding:14px;font-size:.72rem;color:var(--muted)">⏳ Test ediliyor… 0/${n}</div>`;
+  function step(){
+    if(myToken!==_qtAllBtToken)return; // panel kapatıldı ya da yeni bir test başlatıldı — bu döngü dursun
+    const end=Math.min(i+BATCH,n);
+    for(;i<end;i++){
       const actual=draws[i],prior=draws.slice(i+1);if(prior.length<minPrior)break;
       const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
-      const src=_qtBuildSources(game,prior);
+      let src;try{src=_qtBuildSources(game,prior);}catch(e){continue;}
       BLOCKS.forEach(b=>{
-        const tk=b.gen(game,prior,src)||[];if(!tk.length)return;
+        let tk=[];try{tk=b.gen(game,prior,src)||[];}catch(e){}
+        if(!tk.length)return;
         let bn=0;tk.forEach(t=>{let net=0;[...t.main,...(t.bonus||[])].forEach(x=>{if(aSet.has(x))net++;});if(net>bn)bn=net;});
         const s=stat[b.key];s.t++;s.netSum+=bn;if(bn>=2)s.ge2++;if(bn>=3)s.ge3++;
       });
     }
+    if(i<n){
+      el.innerHTML=`<div style="padding:14px;font-size:.72rem;color:var(--muted)">⏳ Test ediliyor… ${i}/${n}</div>`;
+      setTimeout(step,0);
+    }else render();
+  }
+  function render(){
+    if(myToken!==_qtAllBtToken)return;
     const rows=BLOCKS.map(b=>{const s=stat[b.key];return {...b,ge2:s.t?100*s.ge2/s.t:0,ge3:s.t?100*s.ge3/s.t:0,avg:s.t?s.netSum/s.t:0,t:s.t};}).sort((a,b)=>b.ge2-a.ge2);
     const tested=Math.max(...rows.map(r=>r.t));
-    let h=`<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="document.getElementById('qtAllBtOut').innerHTML=''" style="font-size:.64rem;padding:4px 11px;border-radius:8px;border:1px solid rgba(255,82,82,.35);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer;font-weight:700">✕ Kapat</button></div>`;
-    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">${game.emoji} ${game.name} · son ${tested} çekiliş · her blokta grubun en iyi biletinin ≥2 / ≥3 net tutma oranı.</div>`;
+    let h=`<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><button onclick="_qtAllBtToken++;document.getElementById('qtAllBtOut').innerHTML=''" style="font-size:.64rem;padding:4px 11px;border-radius:8px;border:1px solid rgba(255,82,82,.35);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer;font-weight:700">✕ Kapat</button></div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">${game.emoji} ${game.name} · son ${tested} çekiliş · her blokta grubun en iyi biletinin ≥2 / ≥3 net tutma oranı${rawK>K?` (Birleşik AI'de hız için K=${K} kullanıldı, seçili ${rawK} değil)`:''}.</div>`;
     h+=`<div style="display:flex;flex-direction:column;gap:5px">`;
     rows.forEach(r=>{
       const c2=r.ge2>=80?'var(--green)':r.ge2>=60?'#b8860b':'var(--muted)';
@@ -18627,8 +18648,8 @@ function _qtAllBacktest(){
     h+=`</div>`;
     h+=`<div style="font-size:.54rem;color:var(--muted);margin-top:8px;line-height:1.6">Not: bu, çekiliş gerçekleştikten sonra o gruptaki en iyi biletin kaç net tuttuğunun geçmiş ölçümüdür (lookahead yok). Yüksek ≥2 oranı grup büyüklüğünden gelir — tek biletle 2+ hâlâ şans seviyesindedir.</div>`;
     el.innerHTML=h;
-   }catch(e){el.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.72rem">Hata: '+e.message+'</div>';}
-  },30);
+  }
+  setTimeout(step,20);
 }
 function _qtGulayBlock(ga,game,aSet){
   const {nums,gaps,gapSum,topRows,cikRows,chainRows}=ga;
