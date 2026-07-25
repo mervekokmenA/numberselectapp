@@ -18208,7 +18208,6 @@ function _qtRenderAll(mode,game,prior,actual){
   blk('niYakInter',_qtNihaiYakInter(src,game,aSet));
   blk('niYakGulayInter',_qtNihaiYakGulayInter(src,game,aSet));
   if(src.ga)blk('gulay',_qtGulayBlock(src.ga,game,aSet));
-  blk('mrChamp',_qtMrChampBlock(game,prior,src,aSet));
   blk('3plusYak',_qt3PlusYakBlock(game,prior,aSet));
   blk('aiCombined',_qtAiBlock(game,prior,src,aSet));
   blk('nihaiSection',_qtNihaiSection(game,prior,src,aSet,mode,actual));
@@ -18269,52 +18268,6 @@ function _qt3PlusYakBlock(game,prior,aSet){
     if(aSet){const all2=[...t.main,...t.bonus];let net=0,near=0;all2.forEach(x=>{if(aSet.has(x))net++;else if(aSet.has(x-1)||aSet.has(x+1))near++;});lbl=`<div style="font-size:.54rem;margin:${i>0?'6px':'0'} 0 -2px 4px;color:${net>=3?'var(--green)':'var(--muted)'};font-weight:${net>=3?800:400}">${net} net · ${near} yakın</div>`;}
     return lbl+renderTicket(t,game,'',i,null,aSet||null,aSet||null,null,true);
   }).join('');
-  h+=`</div>`;
-  return h;
-}
-// 🔬 Yöntem Araştırma sayfasının şampiyon yöntemi — 2 bağımsız satır:
-// 1. satır = ayarlanmış yöntemin ham en güçlü seçimi (değişmeyen, yüksek güvenli seçim)
-// 2. satır = 🏁 Nihai × 📈 12'li 3+ Kapsamlı uzlaşısıyla desteklenmiş ağırlıktan BAĞIMSIZ ağırlıklı örnekleme
-//   (aynı sayıların tekrarı yerine gerçek çeşitlilik sağlar — ikisi birden ıskalama riskini azaltır)
-function _qtMrChampBlock(game,prior,src,aSet){
-  if(!prior||prior.length<30)return '';
-  try{
-    const champFn=_MR_CHAMP[game.id]||_mrRepeatW;
-    const win=prior.slice(0,30);
-    const wBase=champFn(win,game.max);
-    const rawTop=_mrTopW(wBase,game.max,game.count);
-    const freqForShape=_mrFreqW(win,game.max);
-    let shaped=rawTop;try{shaped=_nearShape(game,rawTop,freqForShape);}catch(e){}
-    const sortedShaped=[...shaped].sort((a,b)=>a-b);
-    const row3=_mrNiYakInterTop(game,prior,wBase);
-    const copy='🔬 Araştırma Şampiyonu ('+game.name+')\n1. satır: '+rawTop.join(' ')+'\n2. satır (3-yakın odaklı): '+sortedShaped.join(' ')+'\n3. satır (Nihai×12li uzlaşısı): '+row3.join(' ');
-    const ck=aSet?'_qtMrChampTxtT':'_qtMrChampTxt';window[ck]=copy;
-    const rowNet=arr=>{let net=0,near=0;if(aSet)arr.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});return{net,near};};
-    const r1=rowNet(rawTop),r2=rowNet(sortedShaped),r3=rowNet(row3);
-    const bestNet=Math.max(r1.net,r2.net,r3.net),bestNear=Math.max(r1.near,r2.near,r3.near);
-    const rowSpan=arr=>arr.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="font-family:monospace;font-size:.7rem;font-weight:800;background:var(--surface2);border:1.5px solid rgba(244,114,63,.35);border-radius:7px;padding:2px 7px;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span>`;}).join('');
-    let h=`<div class="card" style="margin-bottom:12px;border:1.5px solid rgba(244,114,63,.4);background:linear-gradient(135deg,rgba(244,114,63,.05),transparent)">`;
-    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:#f97316">🔬 Araştırma Şampiyonu — 3 satır</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net · ${bestNear} yakın</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></span></div>`;
-    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">1. satır ham seçim · 2. satır 3-yakın odaklı · 3. satır 🏁 Nihai × 📈 12&#39;li 3+ Kapsamlı uzlaşısı · detay: <a href="#" onclick="event.preventDefault();showMainPage('arastirma')" style="color:#f97316">Yöntem Araştırma</a></div>`;
-    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${rowSpan(rawTop)}</div>`;
-    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:6px">${rowSpan(sortedShaped)}</div>`;
-    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${rowSpan(row3)}</div>`;
-    h+=`</div>`;
-    h+=_qtMrPoolBlock(game,rawTop,sortedShaped,row3,aSet);
-    return h;
-  }catch(e){return '';}
-}
-// 3 satırın birleşik BENZERSİZ havuzu — tek bilete sığmaz (havuz büyüklüğü cnt'in üzerinde) ama isabet olasılığı daha yüksek;
-// birden fazla bilet oluştururken öncelik sırası / referans havuzu olarak kullanılır
-function _qtMrPoolBlock(game,rawTop,sortedShaped,row3,aSet){
-  const pool=[...new Set([...rawTop,...sortedShaped,...row3])].sort((a,b)=>a-b);
-  let net=0,near=0;if(aSet)pool.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
-  const copy='🔬 Araştırma Şampiyonu — Birleşik Havuz ('+game.name+', '+pool.length+' sayı)\n'+pool.join(' ');
-  const ck=aSet?'_qtMrPoolTxtT':'_qtMrPoolTxt';window[ck]=copy;
-  let h=`<div class="card" style="margin-bottom:12px;border:1.5px dashed rgba(244,114,63,.4)">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.68rem;font-weight:800;color:#f97316">🧺 3 Satırın Birleşik Havuzu (${pool.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${net>=3?'var(--green)':'var(--muted)'}">🏆 ${net} net · ${near} yakın</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></span></div>`;
-  h+=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:6px">3 satırdaki TÜM benzersiz sayılar — tek bilete sığmaz (${game.count} yerine ${pool.length} sayı), ama isabet olasılığı daha yüksek. Birden fazla bilet oluştururken öncelik sırası / referans havuzu olarak kullan.</div>`;
-  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${pool.map(n=>{const c=aSet?(aSet.has(n)?'var(--green)':(aSet.has(n-1)||aSet.has(n+1))?'#c2410c':'var(--text)'):'var(--text)';return `<span style="font-family:monospace;font-size:.7rem;font-weight:800;background:var(--surface2);border:1.5px dashed rgba(244,114,63,.35);border-radius:7px;padding:2px 7px;color:${c}">${n}${aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):''}</span>`;}).join('')}</div>`;
   h+=`</div>`;
   return h;
 }
@@ -18738,8 +18691,6 @@ function _qtCopyAll(){
   if(window._qtInter)parts.push(window._qtInter);
   if(window._qtInter3)parts.push(window._qtInter3);
   if(window._qtGulayTxt)parts.push(window._qtGulayTxt);
-  if(window._qtMrChampTxt)parts.push(window._qtMrChampTxt);
-  if(window._qtMrPoolTxt)parts.push(window._qtMrPoolTxt);
   if(window._qt3PlusYakTxt)parts.push(window._qt3PlusYakTxt);
   if(window._qtNihaiCopy)parts.push(window._qtNihaiCopy);
   if(window._qtIlkHaneCopy)parts.push(window._qtIlkHaneCopy);
