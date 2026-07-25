@@ -1275,6 +1275,16 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
   <div id="qtAllBtOut" style="margin-top:10px"></div>
  </div>
+ <div class="card" style="margin-top:4px">
+  <div class="card-title">🧾 Tespit — Kopyaladığını ve Sonucu Yapıştır</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Yukarıdaki <strong>"📋 Tümünü Kopyala"</strong> ile kopyaladığın metni ve gerçekleşen çekiliş sonucunu aşağıya yapıştır — her yapının (Birleşik AI, AI Bilet Üretici, Gülsis Sıfır, Nihai, 3+ Hedefli Demet, Nihai Sayı Tablosu vb.) hangi sayıları net/yakın bulduğunu tek tek çıkarır.</div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
+   <textarea id="qtFinalPaste" placeholder="📋 Tümünü Kopyala ile kopyaladığın metni buraya yapıştır…" style="width:100%;min-height:110px;font-size:.68rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 10px;resize:vertical"></textarea>
+   <input id="qtFinalResult" type="text" placeholder="Sonuç — örn. 11 32 33 47 53 59" style="width:100%;font-size:.74rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px">
+   <button onclick="_qtFinalAnalyze()" style="font-size:.78rem;padding:9px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🧾 Tespiti Oluştur</button>
+  </div>
+  <div id="qtFinalOut"></div>
+ </div>
 </div><!-- /page-hizlitahmin -->
 
 <!-- ═══════════ PAGE: YÖNTEM ARAŞTIRMA ═══════════ -->
@@ -18603,6 +18613,106 @@ function _qtAllBacktest(){
     el.innerHTML=h;
   }
   setTimeout(step,20);
+}
+// ═══════════ 🧾 Tespit — yapıştırılan "Tümünü Kopyala" metni + gerçek sonuçtan otomatik net/yakın raporu ═══════════
+// _qtCopyAll()'un ürettiği metin, boş satırla ayrılmış parçaların (part) birleşimidir; her parçanın
+// İLK satırı o yapının başlığıdır (ör. "AI Bilet Üretici (Süper Loto)"). Canlı sayfa durumuna değil,
+// SADECE yapıştırılan metne bakar — böylece kullanıcı daha önce kopyaladığı bir tahmini, sayfa artık
+// başka bir oyun/tarih gösterse bile (hatta başka bir cihazda/notta saklamışsa) sonuçla kıyaslayabilir.
+const _QT_FINAL_BLOCK_DEFS=[
+  {match:/^Hızlı Tahmin — Birleşik AI/,label:'Birleşik ai'},
+  {match:/^AI Bilet Üretici/,label:'Ai bilet'},
+  {match:/^Gülsis Sıfır/,label:'Gülsis'},
+  {match:/^Nihai \(/,label:'Nihai'},
+  {match:/^🎯 3\+ Hedefli Demet — Yakın Dönem/,label:"12'li yakın"},
+  {match:/^Nihai Sayı Tablosu/,label:'Nihai sayı tablosu'},
+  {match:/^İlk Hane Tablosu/,label:'İlk hane tablosu'},
+  {match:/^🔮 Gülay fark-analizi/,label:'Gülay'},
+  {match:/^Nihai 3\+Kapsamlı Kesişim/,label:'Nihai × 3+ kesişim'},
+  {match:/^Nihai — Ardışık Sayılar/,label:'Ardışık çiftler'},
+];
+function _qtFinalParseNums(str){
+  const s=new Set();
+  (str.match(/\d+/g)||[]).forEach(t=>{const n=parseInt(t,10);if(!isNaN(n))s.add(n);});
+  return s;
+}
+// Bir parçanın (paragraf) içindeki GERÇEK aday sayıları çıkarır — biletler (' - ' ayraçlı), saf sayı
+// satırları (Kesişim, Nihai Sayı Tablosu'nun "Sonuç" satırları) ve "etiket: sayılar" satırları (Gülay
+// toplama/çıkarma, "En güçlü N:") kapsanır; "Fark toplamı/Son haneler/İlk haneler" gibi başlık/metadata
+// satırları (yanıltıcı tek haneli sayılar içerebilir) bilerek dışlanır.
+function _qtFinalBlockNums(paragraph){
+  const nums=new Set();
+  paragraph.split('\n').forEach(raw=>{
+    const line=raw.trim();
+    if(!line)return;
+    if(/^(Son haneler|İlk haneler|Fark toplamı)/.test(line)||line.includes('→'))return;
+    if(line.includes(' - ')){line.split(' - ').forEach(tok=>{const n=parseInt(tok.trim(),10);if(!isNaN(n))nums.add(n);});return;}
+    if(/^[\d\s]+$/.test(line)){line.split(/\s+/).forEach(tok=>{const n=parseInt(tok,10);if(!isNaN(n))nums.add(n);});return;}
+    const m=line.match(/:\s*([\d\s]+)$/);
+    if(m)m[1].trim().split(/\s+/).forEach(tok=>{const n=parseInt(tok,10);if(!isNaN(n))nums.add(n);});
+  });
+  return nums;
+}
+function _qtFinalAnalyze(){
+  const el=document.getElementById('qtFinalOut');if(!el)return;
+  const pasted=(document.getElementById('qtFinalPaste')?.value||'').trim();
+  const resultRaw=(document.getElementById('qtFinalResult')?.value||'').trim();
+  if(!pasted||!resultRaw){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Önce kopyaladığın metni ve sonucu yapıştır.</div>';return;}
+  const resultSet=_qtFinalParseNums(resultRaw);
+  if(!resultSet.size){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Sonuçtan sayı okunamadı.</div>';return;}
+  // Boş satıra göre bölmek GÜVENİLMEZ: bazı bloklar (ör. Nihai Sayı Tablosu) kendi İÇİNDE de boş satır
+  // içeriyor. Bunun yerine metni satır satır tarar; tanınan bir başlık satırına rastlayınca YENİ bir
+  // blok başlatır, bir sonraki tanınan başlığa kadar (boş satırlar dahil) o bloğa satır ekler.
+  const segments=[];let current=null;
+  pasted.split('\n').forEach(line=>{
+    const trimmed=line.trim();
+    const def=_QT_FINAL_BLOCK_DEFS.find(d=>d.match.test(trimmed));
+    if(def){current={label:def.label,lines:[]};segments.push(current);return;}
+    if(current)current.lines.push(line);
+  });
+  const found=[];
+  segments.forEach(seg=>{
+    const nums=_qtFinalBlockNums(seg.lines.join('\n'));
+    if(!nums.size)return;
+    const net=[],near=[];
+    [...nums].sort((a,b)=>a-b).forEach(n=>{
+      if(resultSet.has(n))net.push(n);
+      else if(resultSet.has(n-1)||resultSet.has(n+1))near.push(n);
+    });
+    found.push({label:seg.label,net,near});
+  });
+  const resArr=[...resultSet].sort((a,b)=>a-b);
+  const lineFor=(net,near)=>{
+    const parts=[];
+    if(net.length)parts.push(net.join(' ')+' net');
+    if(near.length)parts.push(near.join(' ')+' yakın');
+    return parts.length?parts.join(', '):'net veya yakın yok';
+  };
+  const textLines=['sonuç',resArr.join(' '),''];
+  found.forEach(f=>{textLines.push(f.label,lineFor(f.net,f.near),'');});
+  while(textLines.length&&textLines[textLines.length-1]==='')textLines.pop();
+  const report=textLines.join('\n');
+  window._qtFinalReportTxt=report;
+  if(!found.length){
+    el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Yapıştırılan metinde tanınan bir yapı bulunamadı — "📋 Tümünü Kopyala" ile kopyaladığın metni değiştirmeden yapıştırdığından emin ol.</div>';
+    return;
+  }
+  let h=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.7rem;font-weight:800;color:var(--accent)">🧾 Tespit</span><button onclick="_caCopy(window._qtFinalReportTxt)" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋 Kopyala</button></div>`;
+  h+=`<div style="margin-bottom:10px"><div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:3px">sonuç</div><div style="font-family:monospace;font-size:.78rem;font-weight:700;color:var(--text)">${resArr.join(' ')}</div></div>`;
+  found.forEach(f=>{
+    const hasNet=f.net.length>0;
+    h+=`<div style="margin-bottom:9px">`;
+    h+=`<div style="font-size:.66rem;font-weight:800;color:${hasNet?'var(--green)':'var(--text)'}">${f.label}</div>`;
+    h+=`<div style="font-family:monospace;font-size:.74rem;line-height:1.6">`;
+    if(f.net.length)h+=`<span style="color:var(--green);font-weight:800">${f.net.join(' ')} net</span>`;
+    if(f.net.length&&f.near.length)h+=`<span style="color:var(--muted)">, </span>`;
+    if(f.near.length)h+=`<span style="color:#c2410c;font-weight:700">${f.near.join(' ')} yakın</span>`;
+    if(!f.net.length&&!f.near.length)h+=`<span style="color:var(--muted)">net veya yakın yok</span>`;
+    h+=`</div></div>`;
+  });
+  h+=`</div>`;
+  el.innerHTML=h;
 }
 function _qtGulayBlock(ga,game,aSet){
   const {nums,gaps,gapSum,topRows,cikRows,chainRows}=ga;
