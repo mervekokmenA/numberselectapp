@@ -1341,6 +1341,24 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div id="snSynthOut"></div>
  <div id="snAiOut"></div>
  <div class="card">
+  <div class="card-title">📊 AI Analizi — Geçmiş Test</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Yukarıdaki oyun seçimi geçerlidir. Bir tarih seçin — AI analizi o tarihten <strong>ÖNCEKİ</strong> verilerle yeniden kurulur (lookahead yok) ve gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın). Altta ayrıca son N çekilişin tamamı için toplu başarı ölçümü yapılabilir.</div>
+  <div style="display:flex;gap:6px;align-items:stretch;margin-bottom:8px">
+   <select id="snAiDateSel" onchange="_snAiDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+   <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+    <button onclick="_snAiStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+    <button onclick="_snAiStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+   </div>
+  </div>
+  <div id="snAiTestOut"></div>
+  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
+   <span style="font-size:.66rem;color:var(--muted)">Toplu test — son</span>
+   <select id="snAiBulkN" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"><option value="20">20</option><option value="30" selected>30</option><option value="50">50</option><option value="100">100</option></select>
+   <button onclick="_snAiBulkTest()" style="flex:1;min-width:170px;font-size:.75rem;padding:8px;border-radius:9px;background:linear-gradient(135deg,rgba(16,185,129,.9),rgba(5,150,105,.78));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">📊 Toplu Geçmiş Test</button>
+  </div>
+  <div id="snAiBulkOut"></div>
+ </div>
+ <div class="card">
   <div class="card-title">📋 Excel Görünümü</div>
   <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">İlk satır bilinmeyen SONRAKİ çekiliş için tahmin (oyun sonucu boş); altındaki satırlar geçmiş çekilişlerle, o tarihten ÖNCEKİ verilerle hesaplanmış · ✓ net · ~ ±1 yakın.</div>
   <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
@@ -18056,11 +18074,42 @@ function _snRunAll(){
   synthEl.innerHTML=_snRenderSynth(game,systems,rows[0]);
   const aiEl=document.getElementById('snAiOut');
   if(aiEl){try{aiEl.innerHTML=_snAiRender(game,draws);}catch(e){aiEl.innerHTML='';}}
+  try{_snAiDates();}catch(e){}
+  ['snAiTestOut','snAiBulkOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});
   tblEl.innerHTML=_snRenderTable(game,systems,rows);
 }
 // 🧠 AI Analizi — her formülün SON 20 çekilişteki gerçek isabet oranını ölçer, yeni tahmin
 // oylarını bu güvenilirlik ağırlığıyla toplar. DÜRÜST NOT: bu ağırlıklandırma geçmişi tarif
 // eder; piyango hafızasızdır — "hangi formül son 20'de iyiydi" bilgisi geleceği garanti etmez.
+// GEÇMİŞ TEST: draws dizisi kırpılarak (draws.slice(i+1)) çağrılırsa, tahmin YALNIZCA o tarihten
+// önceki verilerle kurulur (lookahead yok) ve `actual` verilirse gerçek sonuca göre işaretlenir.
+function _snAiCore(game,draws){
+  const P=20;
+  const {systems,rows}=_snComputeRows(game,draws,P);
+  if(!rows.length||rows.length<6)return null;
+  const hist=rows.filter(r=>r.aSet);
+  const perf=systems.map((sys,si)=>{
+    let hit=0,t=0;
+    hist.forEach(r=>{
+      const nums=[...new Set(r.sysOut[si].map(o=>o.val))];
+      if(!nums.length)return;
+      t++;if(nums.some(n=>r.aSet.has(n)))hit++;
+    });
+    return {name:sys.name,rate:t?hit/t:0,t};
+  });
+  const w=perf.map(p=>0.15+p.rate);
+  const next=rows[0];
+  const score={},votes={};
+  systems.forEach((sys,si)=>{
+    [...new Set(next.sysOut[si].map(o=>o.val))].forEach(n=>{
+      score[n]=(score[n]||0)+w[si];votes[n]=(votes[n]||0)+1;
+    });
+  });
+  const ranked=Object.keys(score).map(Number).sort((a,b)=>score[b]-score[a]||votes[b]-votes[a]||a-b);
+  if(!ranked.length)return null;
+  return {systems,perf,votes,ranked,histLen:hist.length,targetDateStr:next.targetDateStr,
+    pick:ranked.slice(0,game.count).sort((a,b)=>a-b),ext:ranked.slice(0,game.count*2)};
+}
 function _snAiRender(game,draws){
   const P=20;
   const {systems,rows}=_snComputeRows(game,draws,P);
@@ -18100,6 +18149,86 @@ function _snAiRender(game,draws){
   h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${perfSorted.map(p=>`<span style="font-size:.6rem;color:${p.rate>=0.6?'var(--green)':'var(--muted)'};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:2px 7px">${p.name}: %${Math.round(p.rate*100)}</span>`).join('')}</div>`;
   h+=`</div>`;
   return h;
+}
+// ── 🧠 AI Analizi — Geçmiş Test (seçili oyun + seçilen tarih) ─────────────────────────────
+function _snAiDates(){
+  const sel=document.getElementById('snAiDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_snGame);const prev=sel.value;
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  draws.forEach((d,i)=>{if(draws.length-i-1<26)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;if(prev)sel.value=prev;
+}
+function _snAiStepDate(dir){
+  const sel=document.getElementById('snAiDateSel');if(!sel||sel.options.length<2)return;
+  let i=sel.selectedIndex;if(i<1)i=1;else i=Math.min(sel.options.length-1,Math.max(1,i+dir));
+  sel.selectedIndex=i;_snAiDateTest();
+}
+function _snAiDateTest(){
+  const el=document.getElementById('snAiTestOut');if(!el)return;
+  const date=document.getElementById('snAiDateSel')?.value||'';
+  if(!date){el.innerHTML='';return;}
+  const game=getGame(_snGame),draws=_kbGetDraws(_snGame);
+  const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
+  const actual=draws[idx];
+  // SADECE bu tarihten önceki veriler → lookahead yok
+  const core=_snAiCore(game,draws.slice(idx+1));
+  if(!core){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
+  const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+  const cnt=(a)=>{let net=0,near=0;a.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});return{net,near};};
+  const p=cnt(core.pick),e=cnt(core.ext);
+  window._snAiTestTxt='🧠 Formül AI Analizi — Geçmiş Test ('+game.name+', '+actual.date+')\nSonuç: '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')+'\nİlk '+game.count+': '+core.pick.join(' ')+' → '+p.net+' net · '+p.near+' yakın\nGenişletilmiş: '+core.ext.join(' ')+' → '+e.net+' net · '+e.near+' yakın';
+  const badge=n=>{const hit=aSet.has(n),nr=!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.76rem;font-weight:${hit||nr?800:600};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'};background:var(--surface2);border:1px solid ${hit?'rgba(0,200,100,.55)':'var(--border)'};border-radius:6px;padding:2px 7px">${n}${hit?'✓':nr?'~':''}</span>`;};
+  let h=`<div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:.64rem;font-weight:800;color:#0a9a6a">🎯 ${actual.date} · gerçek sonuç: <span style="font-family:monospace;color:var(--text)">${[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></span><button onclick="_caCopy(window._snAiTestTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:7px">AI analizi bu tarihten ÖNCEKİ verilerle yeniden kuruldu (lookahead yok) · ✓ net · ~ ±1 yakın.</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:3px">İlk ${game.count} <strong style="color:${p.net>0?'var(--green)':'var(--muted)'}">→ ${p.net} net · ${p.near} yakın</strong></div>`;
+  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${core.pick.map(badge).join('')}</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:3px">Genişletilmiş (${core.ext.length}) <strong style="color:${e.net>0?'var(--green)':'var(--muted)'}">→ ${e.net} net · ${e.near} yakın</strong></div>`;
+  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${core.ext.map(badge).join('')}</div>`;
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+// Toplu: son N çekilişte AI analizinin gerçek başarısı (her tarih kendi öncesiyle kurulur)
+function _snAiBulkTest(){
+  const el=document.getElementById('snAiBulkOut');if(!el)return;
+  const N=parseInt(document.getElementById('snAiBulkN')?.value)||30;
+  const game=getGame(_snGame),draws=_kbGetDraws(_snGame);
+  if(draws.length<N+26){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
+  el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor…</div>';
+  setTimeout(()=>{
+    let pk1=0,pk2=0,pkNet=0,ex1=0,ex2=0,ex3=0,exNet=0,t=0,poolSum=0;
+    const rows=[];
+    for(let i=0;i<N;i++){
+      const actual=draws[i];if(!actual)break;
+      const core=_snAiCore(game,draws.slice(i+1));if(!core)break;
+      const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      let pn=0;core.pick.forEach(n=>{if(aSet.has(n))pn++;});
+      let en=0;core.ext.forEach(n=>{if(aSet.has(n))en++;});
+      pkNet+=pn;exNet+=en;poolSum+=core.ext.length;
+      if(pn>=1)pk1++;if(pn>=2)pk2++;
+      if(en>=1)ex1++;if(en>=2)ex2++;if(en>=3)ex3++;
+      rows.push({date:actual.date,pn,en});t++;
+    }
+    if(!t){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Test yapılamadı.</div>';return;}
+    // dürüst kıyas: aynı boyutta rastgele havuzun şansı
+    const bc=(n,r)=>{if(r<0||r>n)return 0;r=Math.min(r,n-r);let x=1;for(let i=0;i<r;i++)x=x*(n-i)/(i+1);return x;};
+    const drawn=(draws[0].nums.length)+((draws[0].bonus||[]).length);
+    const ch=(pool,thr)=>{let s=0;for(let x=thr;x<=Math.min(pool,drawn);x++)s+=bc(drawn,x)*bc(game.max-drawn,pool-x);return s/bc(game.max,pool);};
+    const cPick1=100*ch(game.count,1),cExt1=100*ch(Math.round(poolSum/t),1),cExt3=100*ch(Math.round(poolSum/t),3);
+    const card=(l,v,c)=>`<div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 12px;text-align:center"><div style="font-size:.95rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.54rem;color:var(--muted)">${l}</div></div>`;
+    window._snAiBulkTxt='🧠 Formül AI Analizi — Toplu Geçmiş Test ('+game.name+', son '+t+' çekiliş)\nİlk '+game.count+': ≥1 net %'+Math.round(100*pk1/t)+' (şans %'+cPick1.toFixed(0)+') · ort '+(pkNet/t).toFixed(2)+' net\nGenişletilmiş: ≥1 net %'+Math.round(100*ex1/t)+' (şans %'+cExt1.toFixed(0)+') · ≥3 net %'+Math.round(100*ex3/t)+' (şans %'+cExt3.toFixed(0)+')';
+    let h=`<div style="margin-top:10px">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:7px"><span style="font-size:.64rem;font-weight:800;color:#0a9a6a">📊 ${game.emoji} ${game.name} · son ${t} çekiliş</span><button onclick="_caCopy(window._snAiBulkTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:5px;font-weight:700">İlk ${game.count} sayı:</div>`;
+    h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px">`+card('≥1 net','%'+Math.round(100*pk1/t),(pk1/t)*100>=cPick1?'var(--green)':'var(--muted)')+card('şans','%'+cPick1.toFixed(0),'var(--muted)')+card('≥2 net','%'+Math.round(100*pk2/t),'var(--muted)')+card('ort. net',(pkNet/t).toFixed(2),'var(--accent)')+`</div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:5px;font-weight:700">Genişletilmiş adaylar (~${Math.round(poolSum/t)} sayı):</div>`;
+    h+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:9px">`+card('≥1 net','%'+Math.round(100*ex1/t),(ex1/t)*100>=cExt1?'var(--green)':'var(--muted)')+card('şans','%'+cExt1.toFixed(0),'var(--muted)')+card('≥3 net','%'+Math.round(100*ex3/t),(ex3/t)*100>=cExt3?'var(--green)':'var(--muted)')+card('≥3 şans','%'+cExt3.toFixed(0),'var(--muted)')+card('ort. net',(exNet/t).toFixed(2),'var(--accent)')+`</div>`;
+    h+=`<div style="font-size:.54rem;color:#8a6200;background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.3);border-radius:7px;padding:6px 9px;line-height:1.6;margin-bottom:8px">⚠️ "şans" sütunu, AYNI büyüklükte tamamen rastgele bir havuzun aynı oranı yakalama olasılığıdır. AI oranı şansa yakınsa üstünlük yok demektir — bu panel bunu gizlemez.</div>`;
+    h+=`<div style="max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:3px">`;
+    rows.forEach(r=>{h+=`<div style="display:flex;align-items:center;gap:8px;padding:3px 8px;background:var(--surface2);border-radius:6px"><span style="font-size:.56rem;color:var(--muted);min-width:78px">${r.date}</span><span style="font-size:.58rem;font-weight:700;color:${r.pn>0?'var(--green)':'var(--muted)'}">ilk ${game.count}: ${r.pn} net</span><span style="font-size:.58rem;color:${r.en>=3?'var(--green)':'var(--muted)'};margin-left:auto">geniş: ${r.en} net</span></div>`;});
+    h+=`</div></div>`;
+    el.innerHTML=h;
+  },20);
 }
 // Kendi Tahmin Yapım — sadece yeni (bilinmeyen) tahmin için: tüm sistemlerin oyladığı sayılar
 function _snRenderSynth(game,systems,row){
@@ -19110,27 +19239,15 @@ function _qtWheelSetM(v){
 // değerlidir. Aşağıdaki tablo her dönüşümün GERÇEK geçmiş oranını ve şansa göre lift'ini gösterir —
 // yüksek lift'i "keşif" diye sunmuyoruz, çoklu-karşılaştırma gürültüsü olarak etiketliyoruz.
 const _TR_WRAP=(v,max)=>{const w=((Math.round(v)%max)+max)%max;return w===0?max:w;};
+// Liste bilerek Formül Sistemi sayfasındaki dönüşüm formülleriyle BİREBİR AYNI tutulur — orada
+// olmayan bir dönüşüm burada da gösterilmez (kullanıcı isteği: iki sayfa aynı yöntem setini kullansın).
 const _TR_DEFS=[
   {id:'p10',name:'+10',f:(n,max)=>_TR_WRAP(n+10,max)},
   {id:'p16',name:'+16 (10+6)',f:(n,max)=>_TR_WRAP(n+16,max)},
   {id:'p19',name:'+19',f:(n,max)=>_TR_WRAP(n+19,max)},
   {id:'p20',name:'+20',f:(n,max)=>_TR_WRAP(n+20,max)},
-  {id:'p6',name:'+6',f:(n,max)=>_TR_WRAP(n+6,max)},
-  {id:'p33',name:'+33',f:(n,max)=>_TR_WRAP(n+33,max)},
-  {id:'m10',name:'−10',f:(n,max)=>_TR_WRAP(n-10,max)},
-  {id:'m19',name:'−19',f:(n,max)=>_TR_WRAP(n-19,max)},
-  {id:'x2',name:'×2',f:(n,max)=>_TR_WRAP(n*2,max)},
-  {id:'x3',name:'×3',f:(n,max)=>_TR_WRAP(n*3,max)},
-  {id:'x15',name:'×1,5',f:(n,max)=>_TR_WRAP(n*1.5,max)},
   {id:'xpi',name:'×π',f:(n,max)=>_TR_WRAP(n*Math.PI,max)},
-  {id:'xpi2',name:'×π/2',f:(n,max)=>_TR_WRAP(n*Math.PI/2,max)},
-  {id:'xphi',name:'×φ (altın oran)',f:(n,max)=>_TR_WRAP(n*1.6180339887,max)},
-  {id:'xe',name:'×e',f:(n,max)=>_TR_WRAP(n*Math.E,max)},
-  {id:'xr2',name:'×√2',f:(n,max)=>_TR_WRAP(n*Math.SQRT2,max)},
-  {id:'d2',name:'÷2',f:(n,max)=>_TR_WRAP(n/2,max)},
   {id:'mir',name:'Ayna (max+1−n)',f:(n,max)=>_TR_WRAP(max+1-n,max)},
-  {id:'drev',name:'Rakam ters çevir',f:(n,max)=>_TR_WRAP(parseInt(String(n).split('').reverse().join(''),10)||n,max)},
-  {id:'dsum',name:'+Rakam toplamı',f:(n,max)=>{let d=0;String(n).split('').forEach(c=>d+=+c);return _TR_WRAP(n+d,max);}},
 ];
 function _trCands(def,srcDraw,max,pm){
   const s=new Set();
