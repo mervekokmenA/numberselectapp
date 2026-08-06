@@ -1258,6 +1258,12 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    </div>
   </div>
  </div>
+ <div class="card" style="margin-bottom:8px">
+  <div class="card-title">🔎 Analiz Filtresi</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Aşağıdaki analiz gruplarından bir veya birkaçını seç — seçtiklerinin <strong>TÜMÜNDE ORTAK</strong> geçen sayılar (kesişim) listelenir. Örn. Nihai + Gülsis Sıfır seçersen ikisinin de ürettiği ortak sayıları görürsün.</div>
+  <div id="qtFilterChips" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+  <div id="qtFilterOut"></div>
+ </div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:8px" id="qtHdrRow">
   <div style="font-size:.82rem;font-weight:800;color:var(--accent);padding-left:2px">🔮 Yeni Tahmin — Tüm Yapılar</div>
   <div style="font-size:.82rem;font-weight:800;color:var(--accent);padding-left:2px">📊 Geçmiş Test Sonucu</div>
@@ -1332,6 +1338,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="display:flex;gap:5px;flex-wrap:wrap" id="snGameRow"></div>
  </div>
  <div id="snSynthOut"></div>
+ <div id="snAiOut"></div>
  <div class="card">
   <div class="card-title">📋 Excel Görünümü</div>
   <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">İlk satır bilinmeyen SONRAKİ çekiliş için tahmin (oyun sonucu boş); altındaki satırlar geçmiş çekilişlerle, o tarihten ÖNCEKİ verilerle hesaplanmış · ✓ net · ~ ±1 yakın.</div>
@@ -18008,7 +18015,52 @@ function _snRunAll(){
   const {systems,rows}=_snComputeRows(game,draws,_snRowN);
   if(!rows.length){synthEl.innerHTML='';tblEl.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli önceki çekiliş yok.</div>';return;}
   synthEl.innerHTML=_snRenderSynth(game,systems,rows[0]);
+  const aiEl=document.getElementById('snAiOut');
+  if(aiEl){try{aiEl.innerHTML=_snAiRender(game,draws);}catch(e){aiEl.innerHTML='';}}
   tblEl.innerHTML=_snRenderTable(game,systems,rows);
+}
+// 🧠 AI Analizi — her formülün SON 20 çekilişteki gerçek isabet oranını ölçer, yeni tahmin
+// oylarını bu güvenilirlik ağırlığıyla toplar. DÜRÜST NOT: bu ağırlıklandırma geçmişi tarif
+// eder; piyango hafızasızdır — "hangi formül son 20'de iyiydi" bilgisi geleceği garanti etmez.
+function _snAiRender(game,draws){
+  const P=20;
+  const {systems,rows}=_snComputeRows(game,draws,P);
+  if(!rows.length||rows.length<6)return '';
+  const hist=rows.filter(r=>r.aSet);
+  const perf=systems.map((sys,si)=>{
+    let hit=0,t=0;
+    hist.forEach(r=>{
+      const nums=[...new Set(r.sysOut[si].map(o=>o.val))];
+      if(!nums.length)return;
+      t++;if(nums.some(n=>r.aSet.has(n)))hit++;
+    });
+    return {name:sys.name,rate:t?hit/t:0,t};
+  });
+  const w=perf.map(p=>0.15+p.rate);
+  const next=rows[0];
+  const score={},votes={};
+  systems.forEach((sys,si)=>{
+    [...new Set(next.sysOut[si].map(o=>o.val))].forEach(n=>{
+      score[n]=(score[n]||0)+w[si];votes[n]=(votes[n]||0)+1;
+    });
+  });
+  const ranked=Object.keys(score).map(Number).sort((a,b)=>score[b]-score[a]||votes[b]-votes[a]||a-b);
+  if(!ranked.length)return '';
+  const pick=ranked.slice(0,game.count).sort((a,b)=>a-b);
+  const ext=ranked.slice(0,game.count*2);
+  window._snAiTxt='🧠 Formül AI Analizi ('+game.name+')\nGüvenilirlik-ağırlıklı ilk '+game.count+': '+pick.join(' ')+'\nGenişletilmiş adaylar: '+ext.join(' ');
+  const perfSorted=[...perf].sort((a,b)=>b.rate-a.rate);
+  let h=`<div class="card" style="margin-bottom:14px;border:1.5px solid rgba(16,185,129,.45);background:linear-gradient(135deg,rgba(16,185,129,.05),transparent)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.78rem;font-weight:800;color:#0a9a6a">🧠 AI Analizi — Güvenilirlik Ağırlıklı Uzlaşı</span><button onclick="_caCopy(window._snAiTxt)" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋</button></div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Her formülün <strong>son ${hist.length} çekilişteki gerçek "en az 1 net" oranı</strong> ölçülür; yeni tahmin oyları bu güvenilirlikle ağırlıklandırılır — yakın dönemde daha isabetli formüllerin sesi daha yüksek çıkar. <strong>Dürüst not:</strong> bu geçmişin tarifi; piyango hafızasızdır, geleceği garanti etmez.</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">🎯 Güvenilirlik-ağırlıklı ilk ${game.count}:</div>`;
+  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px">${pick.map(n=>`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 8px;border-radius:8px;background:var(--surface2);border:1.5px solid rgba(16,185,129,.45)"><span style="font-size:.84rem;font-weight:800;font-family:monospace;color:var(--text)">${n}</span><span style="font-size:.44rem;color:var(--muted)">${votes[n]}/${systems.length}</span></span>`).join('')}</div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:3px">Genişletilmiş adaylar (ağırlık sırası):</div>`;
+  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:9px">${ext.map(n=>`<span style="font-family:monospace;font-size:.72rem;font-weight:600;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 6px">${n}<sup style="font-size:.5rem">${votes[n]}</sup></span>`).join('')}</div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:3px">Formül güvenilirlikleri (son ${hist.length} çekilişte ≥1 net oranı):</div>`;
+  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${perfSorted.map(p=>`<span style="font-size:.6rem;color:${p.rate>=0.6?'var(--green)':'var(--muted)'};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:2px 7px">${p.name}: %${Math.round(p.rate*100)}</span>`).join('')}</div>`;
+  h+=`</div>`;
+  return h;
 }
 // Kendi Tahmin Yapım — sadece yeni (bilinmeyen) tahmin için: tüm sistemlerin oyladığı sayılar
 function _snRenderSynth(game,systems,row){
@@ -18105,7 +18157,7 @@ function _qtStepDate(dir){
   sel.selectedIndex=idx;_qtDateTest();
 }
 function _qtInit(){ _qtRenderControls(); }
-function _qtSetGame(g){_qtGame=g;_qtGameManual=true;_qtAllBtToken++;_qtRenderControls();_qtLiveHtml='';_qtTestHtml='';if(typeof _qtSyncPairs==='function')_qtSyncPairs();['qtAiBtOut','qtAllBtOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
+function _qtSetGame(g){_qtGame=g;_qtGameManual=true;_qtAllBtToken++;_qtFilterSel.clear();window._qtFilterTxt='';_qtRenderControls();_qtLiveHtml='';_qtTestHtml='';if(typeof _qtSyncPairs==='function')_qtSyncPairs();if(typeof _qtFilterRefresh==='function')_qtFilterRefresh();['qtAiBtOut','qtAllBtOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
 function _qtHash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return h;}
 // ── kaynak yapılar ──
 // Blok bilet sayıları: gerçek geriye dönük testle, her blokta EN İYİ biletin ≥2 net tutma
@@ -18235,6 +18287,9 @@ function _qtRenderAll(mode,game,prior,actual){
   if(src.ga)blk('gulay',_qtGulayBlock(src.ga,game,aSet));
   blk('3plusYak',_qt3PlusYakBlock(game,prior,aSet));
   blk('aiCombined',_qtAiBlock(game,prior,src,aSet));
+  blk('best3',_qtBest3Block(game,prior,src,aSet));
+  blk('kbCons',_qtKbConsBlock(game,prior,aSet));
+  blk('formul',_qtFormulBlock(game,prior,aSet,actual));
   blk('nihaiSection',_qtNihaiSection(game,prior,src,aSet,mode,actual));
   blk('ilkHaneSection',_qtIlkHaneSection(game,prior,src,aSet,mode,actual));
   if(mode==='live'){_qtLiveHtml=h;_qtLastRenderState={game,prior,src};}
@@ -18242,6 +18297,7 @@ function _qtRenderAll(mode,game,prior,actual){
   _qtSyncPairs();
   _qtNihaiRerender('live');_qtNihaiRerender('test');
   _qtIlkHaneRerender('live');_qtIlkHaneRerender('test');
+  if(mode==='live')_qtFilterRefresh();
 }
 let _qtLiveHtml='',_qtTestHtml='';
 // Sol (Yeni Tahmin) ve sağ (Geçmiş Test) taraflardaki bloklar bağımsız üretilir ama aynı data-k
@@ -18300,7 +18356,32 @@ function _qt3PlusYakBlock(game,prior,aSet){
 // analiz/bilet gruplarından seçilebilir bir kaynak kullanır (dropdown = filtre).
 // Satır/son-hane hesabı Gülay ile AYNI mantık (_soNihaiRowsFromDraw): en güncel çekilişin
 // fark toplamının dijital kökü. Değişen SADECE hangi kümeye göre hücrelerin dolduğu.
-function _qtBuildAnalysisGroups(game,prior,src){
+// Formül Sistemi sayfasının TÜM formüllerini, Hızlı Tahmin'in prior dizisiyle (en güncel=index 0)
+// hedef tarihe göre çalıştırır — sistem başına sayı listesi + hepsinin birleşimi döner.
+function _qtFormulData(game,prior,targetDateStr){
+  const systems=(typeof _SN_SYSTEMS!=='undefined'&&_SN_SYSTEMS[game.id])||[];
+  const r1=_snR(prior,0),r2=_snR(prior,1),r3=_snR(prior,2);
+  if(!r1||!r2)return {rows:[],union:new Set()};
+  const dp=_snDateParts(targetDateStr||(_predNextDrawDate(game.id)||prior[0].date));
+  const win30=prior.slice(0,30);
+  const rows=[],union=new Set();
+  systems.forEach(sys=>{
+    let out=[];try{out=sys.compute(r1,r2,r3,dp,0,game.max,win30,game)||[];}catch(e){}
+    out=out.filter(o=>o&&o.val>=1&&o.val<=game.max);
+    if(!out.length)return;
+    const nums=[...new Set(out.map(o=>o.val))].sort((a,b)=>a-b);
+    nums.forEach(n=>union.add(n));
+    rows.push({name:sys.name,nums});
+  });
+  return {rows,union};
+}
+// Kapsamlı Bakış sayfasının 9-yöntemli kalibre konsensüsü — en güçlü (count+6) aday
+function _qtKbConsTop(game,prior){
+  const cal=_kbCalibrate(prior,game);
+  const rows=_kbConsensus(prior,game,cal);
+  return rows.slice(0,game.count+6);
+}
+function _qtBuildAnalysisGroups(game,prior,src,targetDate){
   const groups={};
   const flat=arr=>{const s=new Set();(arr||[]).forEach(t=>{[...(t.main||[]),...(t.bonus||[])].forEach(n=>s.add(n));});return s;};
   if(src.aiB&&src.aiB.length)groups['🤖 AI Bilet Üretici']=flat(src.aiB);
@@ -18331,6 +18412,14 @@ function _qtBuildAnalysisGroups(game,prior,src){
     const tickets=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});
     if(tickets&&tickets.length)groups['🧠 Birleşik AI']=flat(tickets);
   }catch(e){}
+  try{
+    const fd=_qtFormulData(game,prior,targetDate);
+    if(fd.union.size)groups['🧮 Formül Sistemi']=fd.union;
+  }catch(e){}
+  try{
+    const top=_qtKbConsTop(game,prior);
+    if(top.length)groups['🧭 Kapsamlı Konsensüs']=new Set(top.map(r=>r.n));
+  }catch(e){}
   // Listeler sayfasının "🔍 Bulunan Sayılar" çıktıları — sadece Listeler'de SEÇİLİ OYUN, Hızlı
   // Tahmin'in seçili oyunuyla aynıysa eklenir (farklı oyunun sayılarını karıştırmamak için).
   if(_listelerGame===game.id){
@@ -18346,7 +18435,7 @@ function _qtNihaiSection(game,prior,src,aSet,mode,actual){
   if(!prior||!prior.length)return '';
   const rowsInfo=_soNihaiRowsFromDraw(prior[0],game);
   if(!rowsInfo)return '';
-  const groups=_qtBuildAnalysisGroups(game,prior,src);
+  const groups=_qtBuildAnalysisGroups(game,prior,src,actual?actual.date:undefined);
   _qtNihaiState[mode]={rowsInfo,game,groups,nextSet:aSet||null,actualDraw:actual||null};
   if(!(mode in _qtNihaiFilter)){
     // varsayılan: hiçbir analiz seçili değil — TÜMÜNÜN birleşimi gösterilir (kullanıcı isterse daraltır)
@@ -18645,6 +18734,10 @@ const _QT_FINAL_BLOCK_DEFS=[
   {match:/^🔮 Gülay fark-analizi/,label:'Gülay'},
   {match:/^Nihai 3\+Kapsamlı Kesişim/,label:'Nihai × 3+ kesişim'},
   {match:/^Nihai — Ardışık Sayılar/,label:'Ardışık çiftler'},
+  {match:/^⭐ En İyi 3 Bilet/,label:'En iyi 3 bilet'},
+  {match:/^🧭 Kapsamlı Konsensüs/,label:'Kapsamlı konsensüs'},
+  {match:/^🧮 Formül Sistemi/,label:'Formül sistemi'},
+  {match:/^🔎 Analiz Filtresi/,label:'Filtre'},
 ];
 function _qtFinalParseNums(str){
   const s=new Set();
@@ -18784,6 +18877,107 @@ function _qtAiBlock(game,prior,src,aSet){
   h+=`</div>`;
   return h;
 }
+// ═══════════ ⭐ EN İYİ 3 BİLET (AI) ═══════════
+// 40 çekilişlik en-iyi-3 geri-testinde denenen tüm varyantlar (Kapsamlı-konsensüs ağırlığı,
+// Birleşik-AI×Kapsamlı harmanı, Formül-desteği) karşılaştırıldı — sade Birleşik AI ağırlıklarıyla
+// K=3 kapsama-optimal üretim en tutarlı kazanan çıktı (Sayısal ≥2 %45 · Süper %33 · Şans ~%60;
+// varyantların hiçbiri bunu her oyunda geçemedi, farklar RNG gürültüsü seviyesindeydi).
+// Formül sinyalinin ağırlıklara katılması da AYRICA test edildi ve Birleşik AI'yi iyileştirmediği
+// görüldü (Sayısal'da belirgin kötüleşme) — bu yüzden bilinçli olarak entegre EDİLMEDİ.
+function _qtBest3Gen(game,prior,src){
+  const C=_qtCombineWeights(game,prior,src);
+  return _niGenBundle(game,prior,3,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});
+}
+function _qtBest3Inner(game,prior,src,aSet){
+  const tickets=_qtBest3Gen(game,prior,src);
+  const ck=aSet?'_qtBest3TxtT':'_qtBest3Txt';
+  window[ck]='⭐ En İyi 3 Bilet ('+game.name+')\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
+  let bestNet=0;if(aSet)tickets.forEach(t=>{const net=[...t.main,...t.bonus].filter(x=>aSet.has(x)).length;if(net>bestNet)bestNet=net;});
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.72rem;font-weight:800;color:#b8860b">⭐ En İyi 3 Bilet (AI)</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net</span>`:`<button onclick="_qtBest3Regen()" style="font-size:.62rem;padding:3px 10px;border-radius:7px;border:1px solid rgba(184,134,11,.45);background:rgba(184,134,11,.1);color:#b8860b;cursor:pointer;font-weight:700">🎲 Yeniden Üret</button>`}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button>${_qtGroupCopyBtn(tickets,'⭐ En İyi 3 Bilet',game.name,'best3'+(aSet?'t':''))}</span></div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Geri-testte (40 çekiliş, en-iyi-3 net) denenen tüm üreticilerin en iyisi: Birleşik AI uzlaşı ağırlıklarıyla kapsama-optimal 3 bilet. ≥2 net oranı: Sayısal ~%45 · Süper ~%33 · Şans ~%60. Her "Yeniden Üret" yeni bir 3'lü verir — dürüst not: tek gerçek kaldıraç bilet sayısıdır, 3 bilet küçük bir gruptur.</div>`;
+  h+=tickets.map((t,i)=>{let lbl='';if(aSet){const all2=[...t.main,...t.bonus];let net=0,near=0;all2.forEach(x=>{if(aSet.has(x))net++;else if(aSet.has(x-1)||aSet.has(x+1))near++;});lbl=`<div style="font-size:.54rem;margin:${i>0?'6px':'0'} 0 -2px 4px;color:${net>=3?'var(--green)':'var(--muted)'};font-weight:${net>=3?800:400}">${net} net · ${near} yakın</div>`;}return lbl+renderTicket(t,game,'',i,null,aSet||null,aSet||null,null,true);}).join('');
+  return h;
+}
+function _qtBest3Block(game,prior,src,aSet){
+  try{
+    const inner=_qtBest3Inner(game,prior,src,aSet);
+    return `<div class="card" style="margin-bottom:12px;border:1.5px solid rgba(184,134,11,.45);background:linear-gradient(135deg,rgba(184,134,11,.05),transparent)"><div id="qtBest3Wrap_${aSet?'test':'live'}">${inner}</div></div>`;
+  }catch(e){return '';}
+}
+function _qtBest3Regen(){
+  const st=_qtLastRenderState;if(!st)return;
+  const wrap=document.getElementById('qtBest3Wrap_live');if(!wrap)return;
+  wrap.innerHTML=_qtBest3Inner(st.game,st.prior,st.src,null);
+}
+// ═══════════ 🧭 KAPSAMLI KONSENSÜS (Kapsamlı Bakış sayfasının banko motoru) ═══════════
+function _qtKbConsBlock(game,prior,aSet){
+  try{
+    const top=_qtKbConsTop(game,prior);
+    if(!top.length)return '';
+    const ck=aSet?'_qtKbConsTxtT':'_qtKbConsTxt';
+    window[ck]='🧭 Kapsamlı Konsensüs ('+game.name+', '+top.length+' aday)\n'+top.map(r=>r.n).join(' ');
+    let net=0,near=0;if(aSet)top.forEach(r=>{if(aSet.has(r.n))net++;else if(aSet.has(r.n-1)||aSet.has(r.n+1))near++;});
+    let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(14,165,233,.4)">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:#0284c7">🧭 Kapsamlı Konsensüs (${top.length})</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${net>=3?'var(--green)':'var(--muted)'}">🏆 ${net} net · ${near} yakın</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
+    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Kapsamlı Bakış sayfasının 9-yöntemli kalibre konsensüs motorunun bu oyun için en güçlü ${top.length} adayı — alt rakam kaç yöntemin desteklediği.</div>`;
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${top.map(r=>{const hit=aSet&&aSet.has(r.n),nr=aSet&&!hit&&(aSet.has(r.n-1)||aSet.has(r.n+1));const c=hit?'var(--green)':nr?'#c2410c':(r.support>=5?'var(--green)':'var(--text)');return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 7px;border-radius:8px;background:${hit?'rgba(0,230,118,.14)':'var(--surface2)'};border:1.5px solid ${hit?'rgba(0,200,100,.55)':'var(--border)'}"><span style="font-size:.76rem;font-weight:800;font-family:monospace;color:${c}">${r.n}${hit?'✓':nr?'~':''}</span><span style="font-size:.44rem;color:var(--muted)">${r.support}/${_KB_METHODS.length}</span></span>`;}).join('')}</div>`;
+    h+=`</div>`;
+    return h;
+  }catch(e){return '';}
+}
+// ═══════════ 🧮 FORMÜL SİSTEMİ (Formül sayfasının tüm formülleri, bu oyunun sıradaki çekilişi için) ═══════════
+function _qtFormulBlock(game,prior,aSet,actual){
+  try{
+    const fd=_qtFormulData(game,prior,actual?actual.date:undefined);
+    if(!fd.rows.length)return '';
+    const ck=aSet?'_qtFormulTxtT':'_qtFormulTxt';
+    window[ck]='🧮 Formül Sistemi ('+game.name+')\n'+fd.rows.map(r=>r.name+': '+r.nums.join(' ')).join('\n');
+    let net=0,near=0;if(aSet)fd.union.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+    let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(99,102,241,.4)">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:var(--accent)">🧮 Formül Sistemi (${fd.rows.length} formül · ${fd.union.size} sayı)</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${net>=3?'var(--green)':'var(--muted)'}">🏆 ${net} net · ${near} yakın</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
+    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Formül Sistemi sayfasındaki TÜM formüllerin bu oyunun ${actual?actual.date+' çekilişi':'sıradaki çekilişi'} için ürettiği sayılar.</div>`;
+    fd.rows.forEach(r=>{
+      h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:7px;margin-bottom:4px;flex-wrap:wrap">`;
+      h+=`<span style="font-size:.6rem;color:var(--text);font-weight:700;min-width:150px;flex-shrink:0">${r.name}</span>`;
+      h+=`<span style="display:flex;gap:5px;flex-wrap:wrap;flex:1">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.72rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
+      h+=`<button onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.56rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;flex-shrink:0">📋</button>`;
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+    return h;
+  }catch(e){return '';}
+}
+// ═══════════ 🔎 ANALİZ FİLTRESİ — sayfadaki tüm analiz gruplarından çoklu seçim → ORTAK sayılar ═══════════
+let _qtFilterSel=new Set();
+function _qtFilterRefresh(){
+  const chipsEl=document.getElementById('qtFilterChips');if(!chipsEl)return;
+  const st=_qtNihaiState['live'];
+  if(!st||!st.groups||!Object.keys(st.groups).length){chipsEl.innerHTML='<span style="font-size:.62rem;color:var(--muted)">Önce "🚀 Tümünü Üret" çalıştır.</span>';const o=document.getElementById('qtFilterOut');if(o)o.innerHTML='';return;}
+  const groups=st.groups;
+  [..._qtFilterSel].forEach(n=>{if(!groups[n])_qtFilterSel.delete(n);});
+  let h='';
+  Object.keys(groups).forEach(name=>{
+    const active=_qtFilterSel.has(name);
+    const esc=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    h+=`<button onclick="_qtFilterToggle('${esc}')" style="font-size:.62rem;padding:4px 10px;border-radius:7px;border:1px solid ${active?'#b8860b':'var(--border)'};background:${active?'rgba(184,134,11,.15)':'var(--surface2)'};color:${active?'#b8860b':'var(--muted)'};cursor:pointer;font-weight:${active?700:400}">${name} (${groups[name].size})</button>`;
+  });
+  if(_qtFilterSel.size)h+=`<button onclick="_qtFilterSel.clear();_qtFilterRefresh()" style="font-size:.62rem;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">✕ Temizle</button>`;
+  chipsEl.innerHTML=h;
+  const out=document.getElementById('qtFilterOut');if(!out)return;
+  const names=[..._qtFilterSel];
+  if(!names.length){out.innerHTML='<div style="font-size:.6rem;color:var(--muted);padding:4px 2px">Bir veya daha fazla analiz seç — seçtiklerinin TÜMÜNDE ortak geçen sayılar burada listelenir.</div>';window._qtFilterTxt='';return;}
+  let inter=[...groups[names[0]]];
+  names.slice(1).forEach(nm=>{inter=inter.filter(n=>groups[nm].has(n));});
+  inter.sort((a,b)=>a-b);
+  window._qtFilterTxt='🔎 Analiz Filtresi — '+names.join(' × ')+' ('+st.game.name+', '+inter.length+' ortak sayı)\n'+(inter.join(' ')||'(ortak sayı yok)');
+  let oh=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0 6px"><span style="font-size:.64rem;font-weight:800;color:#b8860b">${names.length===1?names[0]+' sayıları':'ORTAK sayılar ('+names.join(' × ')+')'} — ${inter.length} sayı</span><button onclick="_caCopy(window._qtFilterTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
+  oh+=inter.length?`<div style="display:flex;gap:5px;flex-wrap:wrap">${inter.map(n=>`<span style="font-family:monospace;font-size:.78rem;font-weight:800;background:var(--surface2);border:1.5px solid rgba(184,134,11,.45);border-radius:7px;padding:2px 8px;color:var(--text)">${n}</span>`).join('')}</div>`:`<div style="font-size:.62rem;color:var(--muted)">Seçilen analizlerin tümünde ortak geçen sayı yok.</div>`;
+  out.innerHTML=oh;
+}
+function _qtFilterToggle(name){
+  if(_qtFilterSel.has(name))_qtFilterSel.delete(name);else _qtFilterSel.add(name);
+  _qtFilterRefresh();
+}
 function _qtAiBacktest(){
   const el=document.getElementById('qtAiBtOut');if(!el)return;
   const game=getGame(_qtGame),draws=_kbGetDraws(_qtGame);
@@ -18817,6 +19011,10 @@ function _qtCopyAll(){
   if(window._qtInter3)parts.push(window._qtInter3);
   if(window._qtGulayTxt)parts.push(window._qtGulayTxt);
   if(window._qt3PlusYakTxt)parts.push(window._qt3PlusYakTxt);
+  if(window._qtBest3Txt)parts.push(window._qtBest3Txt);
+  if(window._qtKbConsTxt)parts.push(window._qtKbConsTxt);
+  if(window._qtFormulTxt)parts.push(window._qtFormulTxt);
+  if(window._qtFilterTxt)parts.push(window._qtFilterTxt);
   if(window._qtNihaiCopy)parts.push(window._qtNihaiCopy);
   if(window._qtIlkHaneCopy)parts.push(window._qtIlkHaneCopy);
   if(!parts.length){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
@@ -18847,6 +19045,8 @@ function _qtCopyAllGrouped(){
     ['🔗 Nihai × 3+ Kapsamlı Kesişim','🔗','Nihai × 3+ Kapsamlı Kesişim'],
     ['🔬 Araştırma Şampiyonu','🔬','Araştırma Şampiyonu (3 satır + birleşik havuz)'],
     ['🧠 Birleşik AI','🧠','Birleşik AI'],
+    ['🧮 Formül Sistemi','🧮','Formül Sistemi (tüm formüllerin birleşimi)'],
+    ['🧭 Kapsamlı Konsensüs','🧭','Kapsamlı Konsensüs'],
     ['🔴 Listeler — Kırmızı Hücreler','🔴','Listeler — Kırmızı Hücreler'],
     ['🔗 Listeler — Ortak Sayılar (B10×Dönüşüm)','🔗','Listeler — Ortak Sayılar (B10×Dönüşüm)'],
     ['🔎 Listeler — AI Biletler','🔎','Listeler — AI Biletler'],
