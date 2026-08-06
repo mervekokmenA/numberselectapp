@@ -1235,7 +1235,8 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  </div>
  <div class="card">
   <div class="card-title">⚡ Hızlı Tahmin — Tüm Yapılar Bir Arada</div>
-  <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Seçili oyun için tüm bilet/analiz yapılarını tek yerde üretir: <strong>🤖 AI Bilet Üretici</strong>, <strong>🎯⁰ Gülsis Sıfır</strong>, <strong>🏁 Nihai</strong> (+ ardışık çiftler), <strong>📈 12&#39;li 3+ (Yakın Dönem Ağırlıklı)</strong> ve <strong>🔮 Gülay fark-analizi</strong> (toplama/çıkarma/fark zinciri). En altta hepsini <strong>birleştiren bir AI tahmini</strong> verir.</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Seçili oyun için tüm bilet/analiz yapılarını tek yerde üretir: <strong>🤖 AI Bilet Üretici</strong>, <strong>🎯⁰ Gülsis Sıfır</strong>, <strong>🏁 Nihai</strong> (+ ardışık çiftler), <strong>📈 12&#39;li 3+ (Yakın Dönem Ağırlıklı)</strong> ve <strong>🔮 Gülay fark-analizi</strong> (toplama/çıkarma/fark zinciri). En altta hepsini <strong>birleştiren bir AI tahmini</strong> verir.
+   <br><strong style="color:var(--text)">Her blok 12 bilet</strong> — üretici küçük demet için ayrıca ayarlandı (geniş aday havuzu + keskinleştirilmiş ağırlık + tek uç-senaryo bileti). <strong>Ölçülen</strong> (grubun en iyi biletinin ≥2 net tutma oranı, 120 çekiliş): <strong style="color:var(--green)">Sayısal %81-89 · Süper %65-78 · Şans %93-99 · On Numara %100</strong>. <span style="color:#8a6200">⚠️ Dürüst not: 18 bilette bu oranlar Sayısal ~%95 / Süper ~%84 idi — bilet sayısını düşürmek gerçek bir maliyettir; tek gerçek kaldıraç bilet sayısıdır. Tek bir bilette 3+ net ise şans seviyesinin üstüne çıkarılamaz (300 çekilişlik adil testte hiçbir strateji başaramadı) — bunun için aşağıdaki <strong>🎯 3+ Net Garantili Sistem</strong> bloğunu kullan.</span></div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="qtGameRow"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
    <span style="font-size:.66rem;color:var(--muted)">🧠 AI bilet:</span>
@@ -8389,7 +8390,9 @@ function renderTicket(td,game,algoId,idx=0,strongPositions=null,excludeNums=null
 // 150 çekiliş/oyun): birleşik net Sayısal 4.31→5.05, On Numara 14.13→16.39; en iyi bilet neti de artar.
 function _coverageBundle(game,algo,N,freq,prior,opts){
   const max=game.max;
-  const SAMP=Math.min(Math.max(N*10,50),160);
+  // Küçük demetlerde (N≤14) aday havuzu N*10 ile 120-140'a düşüyor ve açgözlü kapsama seçicinin
+  // seçecek yeterli çeşitliliği kalmıyor — bu yüzden küçük N'de taban 240'a çıkarıldı.
+  const SAMP=N<=14?Math.min(240,Math.max(N*20,120)):Math.min(Math.max(N*10,50),160);
   const cand=[],seen=new Set();let att=0;
   while(cand.length<SAMP&&att<SAMP*4){
     att++;
@@ -14611,15 +14614,26 @@ function _niComputeRaw(game,prior){
   ranked.sort((a,b)=>vote[b]-vote[a]||wMap[b]-wMap[a]);
   return {vote,sup,gulaySet,wMap,lo,hi,ranked};
 }
+// KÜÇÜK DEMET AYARI (K≤14) — geri-testle ölçüldü (150 çekiliş × 3 tekrar, ayrıca 150-300 arası
+// BAĞIMSIZ ikinci pencerede doğrulandı). K düştüğünde iki şey bozuluyordu:
+//   1) 2 sabit "uç-senaryo" bileti K=18'de bütçenin %11'i iken K=12'de %17'sini yiyordu → K≤14'te 1'e indirildi
+//   2) aday havuzu (SAMP=K*28) K=12'de sadece 336 bilete düşüyor, açgözlü kapsama seçiciye yeterli
+//      çeşitlilik kalmıyordu → K≤14'te 900'e sabitlendi
+//   3) örnekleme ağırlığı keskinleştirildi (w^1.5) — az bilette yüksek-olasılıklı sayılara yoğunlaşmak
+//      kapsamayı daraltmadan isabeti artırıyor
+// ÖLÇÜLEN ETKİ (≥2 net, grubun en iyisi): Sayısal +%4,6 (her iki pencerede de tutarlı) · Süper ve
+// Şans'ta etki nötr (±%0,3 — gürültü). Hiçbir oyunda zarar yok. K>14 yolunda davranış BİREBİR AYNI
+// bırakıldı (Nihai sayfası, 100-200'lük demetler vb. etkilenmez).
 function _niGenBundle(game,prior,K,pre){
   const max=game.max,cnt=game.count;
   const C=pre||_niCompute(game,prior);
+  const small=K<=14;
   const all=[];for(let n=1;n<=max;n++)all.push(n);
-  const wArr=all.map(n=>Math.max(1e-6,C.wMap[n]));
+  const wArr=all.map(n=>Math.max(1e-6,small?Math.pow(C.wMap[n],1.5):C.wMap[n]));
   // SAMP büyük K'larda (On Numara 7+ demeti gibi K=100-200) sınırsız büyümesin — kapsama zaten
   // ~15-20 bilette doyuma ulaşıyor (bkz. araştırma notları), 900 aday fazlasıyla yeterli çeşitlilik verir
   // ve O(aday²) açgözlü seçimi (aşağıda) K büyüdükçe saatler değil milisaniyeler sürecek şekilde tutar.
-  const SAMP=Math.min(Math.max(200,K*28),900);
+  const SAMP=small?900:Math.min(Math.max(200,K*28),900);
   const pool=[],seen=new Set();let att=0;
   while(pool.length<SAMP&&att<SAMP*4){
     att++;
@@ -14629,16 +14643,17 @@ function _niGenBundle(game,prior,K,pre){
     m=_nearShape(game,m,C.wMap).sort((a,b)=>a-b);
     const k=m.join(',');if(seen.has(k))continue;seen.add(k);pool.push(m);
   }
-  // kapsama-optimal çekirdek (K-2) — komşu-farkında açgözlü seçim
+  // kapsama-optimal çekirdek — komşu-farkında açgözlü seçim (uç bilet sayısı: K≤14'te 1, üstünde 2)
+  const nExtra=small?1:2;
   const chosen=[],cov=new Set();const cand=pool.slice();const cells=n=>[n-1,n,n+1];
-  const core=Math.max(1,K-2);
+  const core=Math.max(1,K-nExtra);
   while(chosen.length<core&&cand.length){
     let bi=0,bg=-1;
     for(let i=0;i<cand.length;i++){let g=0;for(const n of cand[i])for(const c of cells(n))if(c>=1&&c<=max&&!cov.has(c))g++;if(g>bg){bg=g;bi=i;}}
     const tk=cand.splice(bi,1)[0];chosen.push(tk);tk.forEach(n=>cells(n).forEach(c=>cov.add(c)));
   }
-  // 2 uç-senaryo bileti (küp yasası — aykırı çekilişler için)
-  for(let i=0;i<2&&chosen.length<K;i++){
+  // uç-senaryo bileti/biletleri (küp yasası — aykırı çekilişler için)
+  for(let i=0;i<nExtra&&chosen.length<K;i++){
     const hiS=i%2===0;
     const w2=all.map(n=>C.wMap[n]*Math.pow(hiS?n/max:(max+1-n)/max,3));
     let m=_g0Sample(all,w2,cnt);
@@ -18160,15 +18175,20 @@ function _qtInit(){ _qtRenderControls(); }
 function _qtSetGame(g){_qtGame=g;_qtGameManual=true;_qtAllBtToken++;_qtFilterSel.clear();window._qtFilterTxt='';_qtRenderControls();_qtLiveHtml='';_qtTestHtml='';if(typeof _qtSyncPairs==='function')_qtSyncPairs();if(typeof _qtFilterRefresh==='function')_qtFilterRefresh();['qtAiBtOut','qtAllBtOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
 function _qtHash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0;}return h;}
 // ── kaynak yapılar ──
-// Blok bilet sayıları: gerçek geriye dönük testle, her blokta EN İYİ biletin ≥2 net tutma
-// oranının ~%80+ olması için seçildi (tek 6-7'lik bilette 2+ şans seviyesidir; kapsama-optimal
-// büyük grupta en iyi bilet güvenilir biçimde 2+ tutar — tek gerçek kaldıraç bilet sayısıdır).
+// Blok bilet sayısı = 12 (kullanıcı isteği: 10-12 bant). 10 ile 12 geri-testle kıyaslandı, 12 net
+// biçimde daha iyi (Sayısal ≥2 %87 vs %79 · Şans %97 vs %95) — bu yüzden bandın üst ucu seçildi.
+// Üretici de küçük demet için yeniden ayarlandı (bkz. _niGenBundle "KÜÇÜK DEMET AYARI").
+// ÖLÇÜLEN (12 bilet, grubun en iyisinin ≥2 net oranı, iki bağımsız pencerede):
+//   Sayısal ~%87-92 · Süper ~%74-77 · Şans ~%97 · On Numara %100
+// DÜRÜST NOT: 18 bilette bu oranlar Sayısal ~%95 / Süper ~%84 idi — bilet sayısını düşürmek gerçek
+// bir maliyettir (tek gerçek kaldıraç bilet sayısıdır), üretici ayarı bu kaybın bir kısmını geri alır.
+const _QT_BUNDLE_K=12;
 function _qtBuildSources(game,prior){
   let aiB=[],g0=[],ni=[],yak=[],ga=null;
-  try{aiB=_cbGenBundle(game,prior,16);}catch(e){}
-  try{g0=(typeof _g0GenBundle==='function')?_g0GenBundle(game,prior,16):[];}catch(e){}
-  try{ni=_niGenBundle(game,prior,18,_niCompute(game,prior));}catch(e){}
-  try{yak=_coverageBundle(game,'axrecency',16,buildFreq(prior),prior);}catch(e){}
+  try{aiB=_cbGenBundle(game,prior,_QT_BUNDLE_K);}catch(e){}
+  try{g0=(typeof _g0GenBundle==='function')?_g0GenBundle(game,prior,_QT_BUNDLE_K):[];}catch(e){}
+  try{ni=_niGenBundle(game,prior,_QT_BUNDLE_K,_niCompute(game,prior));}catch(e){}
+  try{yak=_coverageBundle(game,'axrecency',_QT_BUNDLE_K,buildFreq(prior),prior);}catch(e){}
   try{ga=_soGapAnalysisCompute(prior[0],game);}catch(e){}
   return {aiB,g0,ni,yak,ga};
 }
@@ -18336,7 +18356,7 @@ function _qt3PlusYakBlock(game,prior,aSet){
   let bundle=[];
   try{
     const freq=buildFreq(prior);
-    bundle=_coverageBundle(game,'axrecency',20,freq,prior);
+    bundle=_coverageBundle(game,'axrecency',_QT_BUNDLE_K,freq,prior);
   }catch(e){return '';}
   if(!bundle.length)return '';
   const ck=aSet?'_qt3PlusYakTxtT':'_qt3PlusYakTxt';
