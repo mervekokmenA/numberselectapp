@@ -15245,8 +15245,18 @@ function _caBacktest(){
 // DÜRÜSTLÜK: aynı sayıda TAMAMEN RASTGELE bilet de %74-99 yapar; kapsama yapısının katkısı ~%3-9
 // (en çok az bilette belirgin). Bu, arayüzde de açıkça yazılır.
 let _nnGame='sayisal',_nnGameManual=false,_nnLast=null;
-const _NN_RATES={sayisal:{5:83,8:88,10:94,12:97,16:98},super:{5:76,8:83,10:95,12:95,16:97},
-  sans:{5:97,8:100,10:99,12:100,16:100},onnumara:{5:100,8:100,10:100,12:100,16:100}};
+// OYUNA GÖRE VARSAYILAN BİLET SAYISI — "daha az bilette aynı sonuç alınabiliyorsa azalt" isteği
+// üzerine iki BAĞIMSIZ pencerede (her biri ~130 çekiliş) ölçüldü:
+//   On Numara: K=1'de bile ≥3 net/yakın %100; K=2'den itibaren ≥4 de %100. 10 bilet tamamen
+//              gereksizdi → 3'e indirildi (ölçülen minimumun üstünde küçük bir güven payı).
+//   Şans Topu: K=8 → %100/%98 · K=10 → %99/%99 (fark yok, ≥4'te de eşit) → 8'e indirildi.
+//   Sayısal:   K=8 → %97/%88 · K=10 → %97/%94 → AZALTMA KAYBETTİRİYOR, 10'da bırakıldı.
+//   Süper:     K=8 → %86/%90 · K=10 → %89/%90 → belirgin kazanç yok, 10'da bırakıldı.
+// Ağırlıklı-hücre (wcov) varyantı da denendi: ilk pencerede 8 bilette 10'u yakaladı ama bağımsız
+// pencerede Sayısal'da %88'e düştü — yani gürültüydü, alınmadı.
+const _NN_DEFAULT_K={sayisal:10,super:10,sans:8,onnumara:3};
+const _NN_RATES={sayisal:{3:70,5:82,8:91,10:95,12:97,16:98},super:{3:68,5:77,8:88,10:90,12:95,16:96},
+  sans:{3:89,5:95,8:99,10:99,12:100,16:100},onnumara:{3:100,5:100,8:100,10:100,12:100,16:100}};
 // ±1 hücre kapsamasını maksimize eden açgözlü demet — bu sistemin çekirdeği
 function _nnBundle(game,prior,K,C){
   const max=game.max,cnt=game.count;
@@ -15271,6 +15281,12 @@ function _nnInit(){
   const row=document.getElementById('nnGameRow');if(!row)return;
   if(!_nnGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_nnGame=state.selectedGame;
   row.innerHTML=GAMES.map(g=>{const a=g.id===_nnGame;return `<button onclick="_nnSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(16,185,129,.7)':'var(--border)'};background:${a?'rgba(16,185,129,.15)':'var(--surface2)'};color:${a?'#0a9a6a':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
+  // bilet sayısı seçicisini o oyunun ÖLÇÜLEN yeterli değerine ayarla
+  const sel=document.getElementById('nnK');
+  if(sel){
+    const def=_NN_DEFAULT_K[_nnGame]||10;
+    sel.innerHTML=[3,5,8,10,12,16].map(v=>`<option value="${v}"${v===def?' selected':''}>${v} bilet${v===def?' (yeterli)':''}</option>`).join('');
+  }
   _nnDates();
 }
 function _nnSetGame(g){_nnGame=g;_nnGameManual=true;_nnInit();['nnOut','nnTestOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});_nnLast=null;}
@@ -18596,6 +18612,7 @@ function _qtRenderAll(mode,game,prior,actual){
   let h='';
   const blk=(key,html)=>{if(html)h+=`<div class="qt-blk" data-k="${key}">${html}</div>`;};
   if(actual){const res=[...(actual.nums||[])].sort((a,b)=>a-b);blk('actual',`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Tüm yapılar bu tarihten ÖNCEKİ verilerle üretildi · ✓ net · ~ ±1 yakın.</div></div>`);}
+  blk('nnSys',_qtNnBlock(game,prior,aSet,src));
   blk('aiBlk',_qtTicketsBlock('🤖','AI Bilet Üretici',src.aiB,game,'#0a9a6a',aSet));
   blk('g0',_qtTicketsBlock('🎯⁰','Gülsis Sıfır',src.g0,game,'#0a9a6a',aSet));
   if(src.ni.length){
@@ -18759,6 +18776,12 @@ function _qtBuildAnalysisGroups(game,prior,src,targetDate){
     const M=_QT_WHEEL_M[game.id]||14;
     const pool=_qtWheelPool(game,prior,M,src);
     if(pool&&pool.length)groups['🎯 Garantili Sistem Havuzu']=new Set(pool);
+  }catch(e){}
+  try{
+    const K=_NN_DEFAULT_K[game.id]||10;
+    const C=(()=>{try{return _qtCombineWeights(game,prior,src);}catch(e){return _niCompute(game,prior);}})();
+    const u=new Set();_nnBundle(game,prior,K,C).forEach(t=>t.main.forEach(n=>u.add(n)));
+    if(u.size)groups['🎯 Nihai 3+ Net/Yakın Sistemi']=u;
   }catch(e){}
   // Dönüşüm sayıları — hem tüm dönüşümlerin birleşimi hem HER dönüşüm ayrı bir filtre grubu
   // (kullanıcı "+20 ile Nihai'nin kesişimi" gibi hedefli kesişimler kurabilsin diye).
@@ -19091,6 +19114,7 @@ const _QT_FINAL_BLOCK_DEFS=[
   {match:/^Nihai — Ardışık Sayılar/,label:'Ardışık çiftler'},
   {match:/^⭐ En İyi 3 Bilet/,label:'En iyi 3 bilet'},
   {match:/^🎯 3\+ Net Garantili Sistem/,label:'Garantili sistem'},
+  {match:/^🎯 Nihai 3\+ Net\/Yakın Sistemi/,label:'Nihai 3+ sistemi'},
   {match:/^🎰 Aday Sayılar/,label:'Aday sayılar'},
   {match:/^🔄 Dönüşüm Sayıları/,label:'Dönüşümler'},
   {match:/^🧭 Kapsamlı Konsensüs/,label:'Kapsamlı konsensüs'},
@@ -19383,6 +19407,30 @@ function _qtWheelSetM(v){
   if(w){w.innerHTML='<div style="padding:12px;font-size:.68rem;color:var(--muted)">⏳ Sistem kuruluyor…</div>';
     setTimeout(()=>{w.innerHTML=_qtWheelInner(st.game,st.prior,null,M,st.src);},20);}
 }
+// ═══════════ 🎯 NİHAİ 3+ NET/YAKIN SİSTEMİ — Hızlı Tahmin sürümü (sayfanın EN ÜSTÜNDE) ═══════════
+// Anasayfadaki sistemle AYNI motor (_nnBundle + _nnCore); burada da geçmiş testte ✓/~ işaretlenir.
+function _qtNnBlock(game,prior,aSet,src){
+  try{
+    const K=_NN_DEFAULT_K[game.id]||10;
+    const C=(()=>{try{return _qtCombineWeights(game,prior,src);}catch(e){return _niCompute(game,prior);}})();
+    const tickets=_nnBundle(game,prior,K,C);
+    const uni=new Set();tickets.forEach(t=>t.main.forEach(n=>uni.add(n)));
+    const uniArr=[...uni].sort((a,b)=>a-b);
+    const rate=(_NN_RATES[game.id]||{})[K]||'—';
+    const ck=aSet?'_qtNnTxtT':'_qtNnTxt';
+    window[ck]='🎯 Nihai 3+ Net/Yakın Sistemi ('+game.name+', '+K+' bilet)\nKapsanan sayılar ('+uniArr.length+'): '+uniArr.join(' ')+'\n'+tickets.map((t,i)=>'#'+(i+1)+': '+[...t.main,...(t.bonus||[])].join(' - ')).join('\n');
+    let best=0,bestNet=0;
+    if(aSet)tickets.forEach(t=>{let net=0,near=0;t.main.forEach(n=>{const m=_nnMark(n,aSet);if(m==='net')net++;else if(m==='near')near++;});if(net+near>best)best=net+near;if(net>bestNet)bestNet=net;});
+    let h=`<div class="card" style="margin-bottom:12px;border:2px solid rgba(16,185,129,.55);background:linear-gradient(135deg,rgba(16,185,129,.08),transparent)">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:.76rem;font-weight:800;color:#0a9a6a">🎯 Nihai 3+ Net/Yakın Sistemi (${K} bilet)</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${best>=3?'var(--green)':'var(--muted)'}">${best>=3?'✅':'❌'} en iyi bilet: ${best} net/yakın${bestNet?` (${bestNet} net)`:''}</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
+    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Biletler, her sayının <strong>±1 komşuluk penceresini</strong> en geniş kapsayacak şekilde seçilir. Ölçülen: <strong style="color:#0a9a6a">%${rate}</strong> ihtimalle en az bir bilette <strong>3+ net/yakın</strong> (2 bağımsız pencere). Bilet sayısı bu oyun için ölçümle belirlendi — daha fazlası anlamlı kazanç vermiyor.</div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:3px">🧲 Kapsanan sayılar (${uniArr.length}):</div>`;
+    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">${uniArr.map(n=>{const m=_nnMark(n,aSet);return `<span style="font-family:monospace;font-size:.72rem;font-weight:${m?800:500};color:${m==='net'?'var(--green)':m==='near'?'#c2410c':'var(--muted)'}">${n}${m==='net'?'✓':m==='near'?'~':''}</span>`;}).join('')}</div>`;
+    h+=_nnRenderTickets(game,tickets,aSet||null);
+    h+=`</div>`;
+    return h;
+  }catch(e){return '';}
+}
 // ═══════════ 🔄 DÖNÜŞÜM SAYILARI (önceki çekilişlerden türetme) ═══════════
 // Önceki çekilişin sayılarına sabit ofset (+10, +16, +19, +20…), çarpan (×2, ×π, ×φ…), ayna,
 // rakam-toplamı gibi dönüşümler uygulanır; isteğe bağlı ±1 komşularıyla genişletilir.
@@ -19603,6 +19651,7 @@ function _qtCopyAll(){
   if(window._qtGulayTxt)parts.push(window._qtGulayTxt);
   if(window._qt3PlusYakTxt)parts.push(window._qt3PlusYakTxt);
   if(window._qtBest3Txt)parts.push(window._qtBest3Txt);
+  if(window._qtNnTxt)parts.push(window._qtNnTxt);
   if(window._qtWheelTxt)parts.push(window._qtWheelTxt);
   if(window._qtTrTxt)parts.push(window._qtTrTxt);
   if(window._qtAdayTxt)parts.push(window._qtAdayTxt);
@@ -19643,6 +19692,7 @@ function _qtCopyAllGrouped(){
     ['🧭 Kapsamlı Konsensüs','🧭','Kapsamlı Konsensüs'],
     ['🎰 Aday Sayılar (Uzlaşı)','🎰','Aday Sayılar — Uzlaşı'],
     ['🎯 Garantili Sistem Havuzu','🎯','3+ Net Garantili Sistem Havuzu'],
+    ['🎯 Nihai 3+ Net/Yakın Sistemi','🎯','Nihai 3+ Net/Yakın Sistemi'],
     ['🔄 Dönüşümler (Tümü)','🔄','Dönüşüm Sayıları (tümünün birleşimi)'],
     ['🔴 Listeler — Kırmızı Hücreler','🔴','Listeler — Kırmızı Hücreler'],
     ['🔗 Listeler — Ortak Sayılar (B10×Dönüşüm)','🔗','Listeler — Ortak Sayılar (B10×Dönüşüm)'],
