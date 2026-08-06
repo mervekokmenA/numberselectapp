@@ -18297,7 +18297,21 @@ function _qtBuildSources(game,prior){
   try{ga=_soGapAnalysisCompute(prior[0],game);}catch(e){}
   return {aiB,g0,ni,yak,ga};
 }
-function _qtCombineWeights(game,prior,src){
+// Sayfanın SONRADAN eklenen bölümlerinin aday kümeleri (Kapsamlı Konsensüs, Aday Sayılar, Formül
+// Sistemi, Dönüşümler). Pahalı hesaplar (KB kalibrasyonu, 18 analizlik aday üretimi) olduğu için
+// sonuç src nesnesine bir kez yazılır — aynı render'da tekrar hesaplanmaz.
+function _qtExtraSets(game,prior,src){
+  if(src&&src._extra)return src._extra;
+  const sets=[];
+  try{const t=_qtKbConsTop(game,prior);if(t.length)sets.push({name:'🧭 Kapsamlı Konsensüs',set:new Set(t.map(r=>r.n))});}catch(e){}
+  try{const d=_qtAdayData(game,prior);if(d.consArr.length)sets.push({name:'🎰 Aday Sayılar',set:new Set(d.consArr.slice(0,game.count*3).map(c=>c.n))});}catch(e){}
+  try{const f=_qtFormulData(game,prior);if(f.union.size)sets.push({name:'🧮 Formül Sistemi',set:f.union});}catch(e){}
+  try{const sd=prior[0];const s=new Set();_TR_DEFS.forEach(def=>_trCands(def,sd,game.max,false).forEach(n=>s.add(n)));if(s.size)sets.push({name:'🔄 Dönüşümler',set:s});}catch(e){}
+  if(src)src._extra=sets;
+  return sets;
+}
+// noExtra=true → sadece 5 çekirdek yapı (ağır bölümler atlanır; toplu geriye dönük testte kullanılır)
+function _qtCombineWeights(game,prior,src,noExtra){
   const max=game.max,cnt=game.count;
   const tally={};for(let n=1;n<=max;n++)tally[n]=0;
   const addT=arr=>arr.forEach(t=>t.main.forEach(n=>{if(n>=1&&n<=max)tally[n]++;}));
@@ -18305,12 +18319,24 @@ function _qtCombineWeights(game,prior,src){
   const srcCount={};const mk=arr=>{const s=new Set();arr.forEach(t=>t.main.forEach(n=>s.add(n)));s.forEach(n=>srcCount[n]=(srcCount[n]||0)+1);};
   mk(src.aiB);mk(src.g0);mk(src.ni);mk(src.yak);
   if(src.ga){const gs=new Set();(src.ga.gulayCands||[]).slice(0,25).forEach(c=>{if(c.n>=1&&c.n<=max){tally[c.n]=(tally[c.n]||0)+Math.min(3,c.cnt);gs.add(c.n);}});gs.forEach(n=>srcCount[n]=(srcCount[n]||0)+1);}
+  // ── Sonradan eklenen bölümler: SADECE uzlaşı sayacına (srcCount) katılır, ham sayıma (tally) DEĞİL.
+  // Geri-testle ölçüldü (100 çekiliş × 2 tekrar, 3 oyun): bu "yumuşak" katılım zarar vermiyor, Süper'de
+  // belirgin fayda veriyor. Aynı kümeleri tally'ye de eklemek (agresif katılım) Kapsamlı Konsensüs ve
+  // Aday Sayılar'da TUTARLI BİÇİMDE KÖTÜLEŞTİRDİ (geniş havuzlar keskin uzlaşı sinyalini sulandırıyor)
+  // — bu yüzden bilinçli olarak sadece yumuşak katılım seçildi.
+  const extraNames=[];
+  if(!noExtra){
+    _qtExtraSets(game,prior,src).forEach(e=>{
+      extraNames.push(e.name);
+      e.set.forEach(n=>{if(n>=1&&n<=max)srcCount[n]=(srcCount[n]||0)+1;});
+    });
+  }
   const ranked=[];for(let n=1;n<=max;n++)ranked.push(n);ranked.sort((a,b)=>tally[b]-tally[a]||(srcCount[b]||0)-(srcCount[a]||0)||a-b);
   // ağırlık: ham sayım + BİRDEN ÇOK yapının uzlaşısı (srcCount) vurgulu — yüksek-uzlaşı bölgesine yoğunlaş
   const wMap={};for(let n=1;n<=max;n++)wMap[n]=Math.pow(tally[n]+1.6*(srcCount[n]||0)+0.15,1.6)+0.02;
   const sums=prior.map(x=>_estTicketSum(x.nums,cnt)).filter(x=>x>0).sort((a,b)=>a-b);
   const lo=sums[Math.floor(sums.length*0.15)]||0,hi=sums[Math.floor(sums.length*0.85)]||max*cnt;
-  return {wMap,lo,hi,ranked,tally,srcCount};
+  return {wMap,lo,hi,ranked,tally,srcCount,nSrc:5+extraNames.length,extraNames};
 }
 function _qtCombinedBundle(game,prior,K){const src=_qtBuildSources(game,prior);const C=_qtCombineWeights(game,prior,src);let tk=[];try{tk=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){}return tk;}
 // bilet demeti bloğu (aSet verilirse geçmiş test: isabetler işaretli + net)
@@ -18413,7 +18439,7 @@ function _qtRenderAll(mode,game,prior,actual){
   blk('3plusYak',_qt3PlusYakBlock(game,prior,aSet));
   blk('aiCombined',_qtAiBlock(game,prior,src,aSet));
   blk('best3',_qtBest3Block(game,prior,src,aSet));
-  blk('wheel',_qtWheelBlock(game,prior,aSet));
+  blk('wheel',_qtWheelBlock(game,prior,aSet,src));
   blk('transform',_qtTransformBlock(game,prior,aSet));
   blk('aday',_qtAdayBlock(game,prior,aSet));
   blk('kbCons',_qtKbConsBlock(game,prior,aSet));
@@ -18557,7 +18583,7 @@ function _qtBuildAnalysisGroups(game,prior,src,targetDate){
   }catch(e){}
   try{
     const M=_QT_WHEEL_M[game.id]||14;
-    const pool=_qtWheelPool(game,prior,M);
+    const pool=_qtWheelPool(game,prior,M,src);
     if(pool&&pool.length)groups['🎯 Garantili Sistem Havuzu']=new Set(pool);
   }catch(e){}
   // Dönüşüm sayıları — hem tüm dönüşümlerin birleşimi hem HER dönüşüm ayrı bir filtre grubu
@@ -18823,7 +18849,9 @@ function _qtAllBacktest(){
     {key:'ni',emoji:'🏁',name:'Nihai',gen:(g,p,src)=>src.ni},
     {key:'yak',emoji:'📈',name:"12'li 3+ (Yakın Dönem)",gen:(g,p,src)=>src.yak},
     {key:'3p',emoji:'🎯',name:'3+ Hedefli Demet',gen:(g,p,src)=>src.yak},
-    {key:'bai',emoji:'🧠',name:'Birleşik AI',gen:(g,p,src)=>{try{const C=_qtCombineWeights(g,p,src);return _niGenBundle(g,p,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){return [];}}},
+    // noExtra=true: toplu testte 60-100 kez KB kalibrasyonu + 18 analizlik aday üretimi yapmamak için
+    // ek bölümler atlanır (sayfa donmasın). Canlı blokta ek bölümler dahildir.
+    {key:'bai',emoji:'🧠',name:'Birleşik AI',gen:(g,p,src)=>{try{const C=_qtCombineWeights(g,p,src,true);return _niGenBundle(g,p,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){return [];}}},
   ];
   const stat={};BLOCKS.forEach(b=>stat[b.key]={ge2:0,ge3:0,netSum:0,t:0});
   const n=Math.min(N,draws.length-minPrior-1);
@@ -19014,7 +19042,7 @@ function _qtGulayBlock(ga,game,aSet){
   return h;
 }
 function _qtAiBlock(game,prior,src,aSet){
-  const max=game.max,cnt=game.count,nSrc=5;
+  const max=game.max,cnt=game.count;
   const K=parseInt(document.getElementById('qtAiK')?.value)||30;
   const C=_qtCombineWeights(game,prior,src);
   let tickets=[];try{tickets=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){}
@@ -19025,7 +19053,8 @@ function _qtAiBlock(game,prior,src,aSet){
   let bestNet=0;if(aSet)tickets.forEach(t=>{const net=[...t.main,...t.bonus].filter(x=>aSet.has(x)).length;if(net>bestNet)bestNet=net;});
   let h=`<div class="card" style="margin-bottom:12px;border:2px solid rgba(129,140,248,.5);background:linear-gradient(135deg,rgba(129,140,248,.06),rgba(0,230,118,.05))">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.78rem;font-weight:800;color:var(--accent)">🧠 BİRLEŞİK AI</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.64rem;font-weight:800;color:${bestNet>=3?'var(--green)':'var(--muted)'}">🏆 ${bestNet} net</span>`:`<button onclick="_caCopy(window._qtAiTk)" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋</button>${grpBtn}`}</span></div>`;
-  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.6">5 yapının ürettiği tüm sayıları birleştirir; alt rakam = kaç farklı yapı önerdi (0–${nSrc}).</div>`;
+  const nSrc=C.nSrc||5;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Sayfadaki <strong>${nSrc} yapının</strong> ürettiği tüm sayıları birleştirir; alt rakam = kaç farklı yapı önerdi (0–${nSrc}).${C.extraNames&&C.extraNames.length?` Çekirdek 5 yapıya ek olarak <strong>${C.extraNames.join(', ')}</strong> bölümleri de uzlaşıya katılır.`:''}</div>`;
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">🎯 En çok uzlaşılan:</div>`;
   h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${topNums.map(n=>{const strong=(C.srcCount[n]||0)>=3;const hit=aSet&&aSet.has(n),near=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));const cc=hit?'var(--green)':near?'#c2410c':strong?'var(--green)':'var(--text)';const bg=hit?'rgba(0,230,118,.18)':strong?'rgba(0,230,118,.1)':'var(--surface2)';return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 7px;border-radius:8px;background:${bg};border:1.5px solid ${hit?'rgba(0,200,100,.6)':strong?'rgba(0,200,100,.4)':'var(--border)'}"><span style="font-size:.76rem;font-weight:800;font-family:monospace;color:${cc}">${n}${hit?'✓':near?'~':''}</span><span style="font-size:.44rem;color:var(--muted)">${C.srcCount[n]||0}/${nSrc}</span></span>`;}).join('')}</div>`;
   h+=`<div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:6px">🎫 AI Biletleri (${tickets.length})</div>`;
@@ -19141,14 +19170,15 @@ function _wheelPoolGE3(max,drawn,M){
   return s/bc(max,M);
 }
 const _QT_WHEEL_M={sayisal:16,super:16,sans:14,onnumara:14};
-function _qtWheelPool(game,prior,M){
+function _qtWheelPool(game,prior,M,src){
   // Havuz seçimi = analizlerin KATKISI. Tek bilette şansı geçemiyoruz ama havuzu geniş
   // tutarak "havuza ≥3 düşme" olasılığını yükseltiyoruz; sıralama uzlaşıdan gelir.
-  try{const C=_qtCombineWeights(game,prior,_qtBuildSources(game,prior));return C.ranked.slice(0,M);}
+  // src verilirse yeniden kaynak kurulmaz (aynı render'da tekrar tekrar hesaplamayı önler).
+  try{const C=_qtCombineWeights(game,prior,src||_qtBuildSources(game,prior));return C.ranked.slice(0,M);}
   catch(e){try{return _niCompute(game,prior).ranked.slice(0,M);}catch(e2){const r=[];for(let n=1;n<=M;n++)r.push(n);return r;}}
 }
-function _qtWheelInner(game,prior,aSet,M){
-  const pool=_qtWheelPool(game,prior,M).sort((a,b)=>a-b);
+function _qtWheelInner(game,prior,aSet,M,src){
+  const pool=_qtWheelPool(game,prior,M,src).sort((a,b)=>a-b);
   const wheel=_wheelCover(M,game.count,7);
   const tickets=wheel.map(idx=>({main:idx.map(j=>pool[j]).sort((a,b)=>a-b),bonus:[]}));
   const drawn=game.id==='onnumara'?22:(game.count+(game.bonusCount||0));
@@ -19166,18 +19196,18 @@ function _qtWheelInner(game,prior,aSet,M){
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:2px">🎫 <strong style="color:var(--text)">${tickets.length} sistem bileti</strong> hazır — listelemek yerine sayfayı sade tutmak için gizlendi; 📋 ile hepsini kopyalayabilirsin.</div>`;
   return h;
 }
-function _qtWheelBlock(game,prior,aSet){
+function _qtWheelBlock(game,prior,aSet,src){
   try{
     const M=_QT_WHEEL_M[game.id]||14;
-    return `<div class="card" style="margin-bottom:12px;border:1.5px solid rgba(16,185,129,.5);background:linear-gradient(135deg,rgba(16,185,129,.06),transparent)"><div id="qtWheelWrap_${aSet?'test':'live'}">${_qtWheelInner(game,prior,aSet,M)}</div></div>`;
+    return `<div class="card" style="margin-bottom:12px;border:1.5px solid rgba(16,185,129,.5);background:linear-gradient(135deg,rgba(16,185,129,.06),transparent)"><div id="qtWheelWrap_${aSet?'test':'live'}">${_qtWheelInner(game,prior,aSet,M,src)}</div></div>`;
   }catch(e){return '';}
 }
 function _qtWheelSetM(v){
   const M=parseInt(v)||14;const st=_qtLastRenderState;if(!st)return;
   _QT_WHEEL_M[st.game.id]=M;
   const w=document.getElementById('qtWheelWrap_live');
-  if(w){w.innerHTML='<div style="padding:12px;font-size:.68rem;color:var(--muted)">⏳ Sistem kuruluyor…</div>;';
-    setTimeout(()=>{w.innerHTML=_qtWheelInner(st.game,st.prior,null,M);},20);}
+  if(w){w.innerHTML='<div style="padding:12px;font-size:.68rem;color:var(--muted)">⏳ Sistem kuruluyor…</div>';
+    setTimeout(()=>{w.innerHTML=_qtWheelInner(st.game,st.prior,null,M,st.src);},20);}
 }
 // ═══════════ 🔄 DÖNÜŞÜM SAYILARI (önceki çekilişlerden türetme) ═══════════
 // Önceki çekilişin sayılarına sabit ofset (+10, +16, +19, +20…), çarpan (×2, ×π, ×φ…), ayna,
