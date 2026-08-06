@@ -17915,6 +17915,26 @@ const _SN_SHIFT_BWD={id:'shiftB',name:'🔀 Kaydırmalı Toplam (Sağdan Sola)',
     for(let p=cnt-1;p>=0;p--)out.push({pos:(p+1)+'←',val:_snWrap(r1.main[p]+r2.main[(p-1+cnt)%cnt]+r3.main[(p-2+cnt)%cnt],max)});
     return out;
   }};
+// 🔄 Dönüşüm formülleri — önceki çekilişin sayılarına sabit ofset/çarpan/ayna uygulanır.
+// DÜRÜST NOT: bu aile 468 varyantlık, 3 bağımsız pencereli bir taramayla test edildi; hiçbiri
+// şansı kalıcı olarak geçmedi (seçilen kazananların lift'i 1,05→0,98→0,86). Aday kaynağı olarak
+// eklendi (Hızlı Tahmin'deki 🔄 Dönüşüm Sayıları bloğunda tam liste + canlı lift ölçümü var).
+const _SN_TRANSFORMS=[
+  {id:'tr10',name:'🔄 +10',off:10},{id:'tr16',name:'🔄 +16 (10+6)',off:16},
+  {id:'tr19',name:'🔄 +19',off:19},{id:'tr20',name:'🔄 +20',off:20},
+];
+function _snTransformSystems(){
+  const out=_SN_TRANSFORMS.map(t=>({id:t.id,name:t.name,
+    desc:'Son çekilişin her sayısına '+t.off+' eklenir, oyunun üst sınırına göre mod alınır. (Dönüşüm ailesi 3 bağımsız pencerede test edildi — şansı kalıcı geçmiyor, aday kaynağı olarak sunulur.)',
+    compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'D'+(k+1),val:_snWrap(v+t.off,max)}));}}));
+  out.push({id:'trpi',name:'🔄 ×π',
+    desc:'Son çekilişin her sayısı π ile çarpılır, yuvarlanır ve mod alınır. (Aynı dürüst not geçerli.)',
+    compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'π'+(k+1),val:_snWrap(Math.round(v*Math.PI),max)}));}});
+  out.push({id:'trmir',name:'🔄 Ayna',
+    desc:'Son çekilişin her sayısı max+1−n ile aynalanır. (Aynı dürüst not geçerli.)',
+    compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'A'+(k+1),val:_snWrap(max+1-v,max)}));}});
+  return out;
+}
 const _SN_SYSTEMS={
   sayisal:[
     {id:'s2',name:'Sistem 2 — (+6)',desc:'Son iki çekiliş önceki (R+2) çekilişin her pozisyonuna +6 eklenir, 90’a göre mod alınır (Süperstar dahil).',
@@ -17945,12 +17965,14 @@ const _SN_SYSTEMS={
     _SN_CHAMP_SYSTEM,
     ..._snMrSystemsFor('sayisal').filter(s=>s.id==='mrEWFstel'),
     _SN_SHIFT_FWD,_SN_SHIFT_BWD,
+    ..._snTransformSystems(),
   ],
   super:[
     {id:'s1',name:'Sistem 1 — (+6)',desc:'İki önceki çekilişin her pozisyonuna +6 eklenir, 60’a göre mod alınır. (200 çekilişlik testte tek hayatta kalan — diğer 4 tarih-bağımlı formül şansın da altında çıktığı için silindi.)',
      compute(r1,r2,r3,dp,aVal,max){return r2.main.map((v,k)=>({pos:'CDEFGH'[k],val:_snWrap(v+6,max)}));}},
     ..._snMrSystemsFor('super').filter(s=>!['mrPairMarkov','mrGlayfark'].includes(s.id)),
     _SN_SHIFT_FWD,_SN_SHIFT_BWD,
+    ..._snTransformSystems(),
   ],
   sans:[
     {id:'s1',name:'Sistem 1 — (+33)',desc:'Son çekilişin ana 5 sayısına +33 eklenir, 34’e göre mod alınır.',
@@ -17981,6 +18003,7 @@ const _SN_SYSTEMS={
     _SN_CHAMP_SYSTEM,
     ..._snMrSystemsFor('sans').filter(s=>s.id!=='mrGlayfark'),
     _SN_SHIFT_FWD,_SN_SHIFT_BWD,
+    ..._snTransformSystems(),
   ],
   onnumara:[
     {id:'s1',name:'Sistem 1 — Kendisiyle Toplam (×2)',desc:'Son çekilişin her pozisyonu kendisiyle toplanır (×2), 80’e göre mod alınır.',
@@ -17988,6 +18011,7 @@ const _SN_SYSTEMS={
     _SN_CHAMP_SYSTEM,
     ..._snMrSystemsFor('onnumara'),
     _SN_SHIFT_FWD,_SN_SHIFT_BWD,
+    ..._snTransformSystems(),
   ],
 };
 function _snR(draws,i){const d=draws[i];if(!d)return null;return {main:[...(d.nums||[])].sort((a,b)=>a-b),bonus:[...(d.bonus||[])]};}
@@ -18309,6 +18333,7 @@ function _qtRenderAll(mode,game,prior,actual){
   blk('aiCombined',_qtAiBlock(game,prior,src,aSet));
   blk('best3',_qtBest3Block(game,prior,src,aSet));
   blk('wheel',_qtWheelBlock(game,prior,aSet));
+  blk('transform',_qtTransformBlock(game,prior,aSet));
   blk('aday',_qtAdayBlock(game,prior,aSet));
   blk('kbCons',_qtKbConsBlock(game,prior,aSet));
   blk('formul',_qtFormulBlock(game,prior,aSet,actual));
@@ -18453,6 +18478,19 @@ function _qtBuildAnalysisGroups(game,prior,src,targetDate){
     const M=_QT_WHEEL_M[game.id]||14;
     const pool=_qtWheelPool(game,prior,M);
     if(pool&&pool.length)groups['🎯 Garantili Sistem Havuzu']=new Set(pool);
+  }catch(e){}
+  // Dönüşüm sayıları — hem tüm dönüşümlerin birleşimi hem HER dönüşüm ayrı bir filtre grubu
+  // (kullanıcı "+20 ile Nihai'nin kesişimi" gibi hedefli kesişimler kurabilsin diye).
+  try{
+    const srcD=prior[_qtTrSrc-1];
+    if(srcD){
+      const uni=new Set();
+      _TR_DEFS.forEach(def=>{
+        const s=_trCands(def,srcD,game.max,_qtTrPM);
+        if(s.size){s.forEach(n=>uni.add(n));groups['🔄 '+def.name]=s;}
+      });
+      if(uni.size)groups['🔄 Dönüşümler (Tümü)']=uni;
+    }
   }catch(e){}
   // Listeler sayfasının "🔍 Bulunan Sayılar" çıktıları — sadece Listeler'de SEÇİLİ OYUN, Hızlı
   // Tahmin'in seçili oyunuyla aynıysa eklenir (farklı oyunun sayılarını karıştırmamak için).
@@ -18771,6 +18809,7 @@ const _QT_FINAL_BLOCK_DEFS=[
   {match:/^⭐ En İyi 3 Bilet/,label:'En iyi 3 bilet'},
   {match:/^🎯 3\+ Net Garantili Sistem/,label:'Garantili sistem'},
   {match:/^🎰 Aday Sayılar/,label:'Aday sayılar'},
+  {match:/^🔄 Dönüşüm Sayıları/,label:'Dönüşümler'},
   {match:/^🧭 Kapsamlı Konsensüs/,label:'Kapsamlı konsensüs'},
   {match:/^🧮 Formül Sistemi/,label:'Formül sistemi'},
   {match:/^🔎 Analiz Filtresi/,label:'Filtre'},
@@ -19060,6 +19099,112 @@ function _qtWheelSetM(v){
   if(w){w.innerHTML='<div style="padding:12px;font-size:.68rem;color:var(--muted)">⏳ Sistem kuruluyor…</div>;';
     setTimeout(()=>{w.innerHTML=_qtWheelInner(st.game,st.prior,null,M);},20);}
 }
+// ═══════════ 🔄 DÖNÜŞÜM SAYILARI (önceki çekilişlerden türetme) ═══════════
+// Önceki çekilişin sayılarına sabit ofset (+10, +16, +19, +20…), çarpan (×2, ×π, ×φ…), ayna,
+// rakam-toplamı gibi dönüşümler uygulanır; isteğe bağlı ±1 komşularıyla genişletilir.
+// DÜRÜST ÖLÇÜM (468 dönüşüm-oyun kombinasyonu, 3 BAĞIMSIZ pencere): hiçbiri şansı kalıcı olarak
+// geçmedi. Pencere-1'de "kazanan" çıkanların ortalama lift'i 1,051 idi; AYNI dönüşümler bağımsız
+// pencere-2'de 0,984'e (tam şans), pencere-3'te 0,86'ya düştü. Yani bu dönüşümler bir ÜSTÜNLÜK
+// sağlamaz — ama ürettikleri havuz zaten kendi boyutunun şans oranı kadar (≥1 net için Sayısal/Süper
+// ~%50, Şans ~%65) tutar; bu yüzden meşru bir ADAY KAYNAĞI'dır ve filtrede kesiştirmek için
+// değerlidir. Aşağıdaki tablo her dönüşümün GERÇEK geçmiş oranını ve şansa göre lift'ini gösterir —
+// yüksek lift'i "keşif" diye sunmuyoruz, çoklu-karşılaştırma gürültüsü olarak etiketliyoruz.
+const _TR_WRAP=(v,max)=>{const w=((Math.round(v)%max)+max)%max;return w===0?max:w;};
+const _TR_DEFS=[
+  {id:'p10',name:'+10',f:(n,max)=>_TR_WRAP(n+10,max)},
+  {id:'p16',name:'+16 (10+6)',f:(n,max)=>_TR_WRAP(n+16,max)},
+  {id:'p19',name:'+19',f:(n,max)=>_TR_WRAP(n+19,max)},
+  {id:'p20',name:'+20',f:(n,max)=>_TR_WRAP(n+20,max)},
+  {id:'p6',name:'+6',f:(n,max)=>_TR_WRAP(n+6,max)},
+  {id:'p33',name:'+33',f:(n,max)=>_TR_WRAP(n+33,max)},
+  {id:'m10',name:'−10',f:(n,max)=>_TR_WRAP(n-10,max)},
+  {id:'m19',name:'−19',f:(n,max)=>_TR_WRAP(n-19,max)},
+  {id:'x2',name:'×2',f:(n,max)=>_TR_WRAP(n*2,max)},
+  {id:'x3',name:'×3',f:(n,max)=>_TR_WRAP(n*3,max)},
+  {id:'x15',name:'×1,5',f:(n,max)=>_TR_WRAP(n*1.5,max)},
+  {id:'xpi',name:'×π',f:(n,max)=>_TR_WRAP(n*Math.PI,max)},
+  {id:'xpi2',name:'×π/2',f:(n,max)=>_TR_WRAP(n*Math.PI/2,max)},
+  {id:'xphi',name:'×φ (altın oran)',f:(n,max)=>_TR_WRAP(n*1.6180339887,max)},
+  {id:'xe',name:'×e',f:(n,max)=>_TR_WRAP(n*Math.E,max)},
+  {id:'xr2',name:'×√2',f:(n,max)=>_TR_WRAP(n*Math.SQRT2,max)},
+  {id:'d2',name:'÷2',f:(n,max)=>_TR_WRAP(n/2,max)},
+  {id:'mir',name:'Ayna (max+1−n)',f:(n,max)=>_TR_WRAP(max+1-n,max)},
+  {id:'drev',name:'Rakam ters çevir',f:(n,max)=>_TR_WRAP(parseInt(String(n).split('').reverse().join(''),10)||n,max)},
+  {id:'dsum',name:'+Rakam toplamı',f:(n,max)=>{let d=0;String(n).split('').forEach(c=>d+=+c);return _TR_WRAP(n+d,max);}},
+];
+function _trCands(def,srcDraw,max,pm){
+  const s=new Set();
+  (srcDraw&&srcDraw.nums||[]).forEach(n=>{
+    const v=def.f(n,max);
+    if(v>=1&&v<=max)s.add(v);
+    if(pm){if(v-1>=1)s.add(v-1);if(v+1<=max)s.add(v+1);}
+  });
+  return s;
+}
+const _trStatCache={};
+function _trStats(game,draws,def,srcIdx,pm,N){
+  const key=game.id+'|'+def.id+'|'+srcIdx+'|'+(pm?1:0)+'|'+N+'|'+(draws[0]&&draws[0].date);
+  if(_trStatCache[key])return _trStatCache[key];
+  const max=game.max;
+  const drawn=(draws[0].nums.length)+((draws[0].bonus||[]).length);
+  const bc=(n,r)=>{if(r<0||r>n)return 0;r=Math.min(r,n-r);let x=1;for(let i=0;i<r;i++)x=x*(n-i)/(i+1);return x;};
+  const chance=(pool,t)=>{if(pool<=0||pool>max)return 0;let s=0;for(let x=t;x<=Math.min(pool,drawn);x++)s+=bc(drawn,x)*bc(max-drawn,pool-x);return s/bc(max,pool);};
+  let g1=0,g2=0,g3=0,ps=0,t=0;
+  for(let i=0;i<N;i++){
+    const a=draws[i],pv=draws[i+srcIdx];if(!a||!pv)break;
+    const aS=new Set([...(a.nums||[]),...(a.bonus||[])]);
+    const cd=_trCands(def,pv,max,pm);if(!cd.size)continue;
+    ps+=cd.size;let net=0;cd.forEach(v=>{if(aS.has(v))net++;});
+    if(net>=1)g1++;if(net>=2)g2++;if(net>=3)g3++;t++;
+  }
+  if(!t)return null;
+  const ap=Math.round(ps/t),c1=chance(ap,1),c3=chance(ap,3);
+  const r={t,pool:+(ps/t).toFixed(1),h1:100*g1/t,h2:100*g2/t,h3:100*g3/t,c1:100*c1,c3:100*c3,
+    lift1:c1?(g1/t)/c1:0,lift3:c3?(g3/t)/c3:0};
+  _trStatCache[key]=r;return r;
+}
+let _qtTrSrc=1,_qtTrPM=false;
+function _qtTrSetSrc(v){_qtTrSrc=parseInt(v)||1;_qtTrRerender();}
+function _qtTrSetPM(v){_qtTrPM=!!v;_qtTrRerender();}
+function _qtTrRerender(){
+  const st=_qtLastRenderState;if(!st)return;
+  const w=document.getElementById('qtTrWrap_live');
+  if(w)w.innerHTML=_qtTrInner(st.game,st.prior,null);
+  _qtFilterRefresh();
+}
+function _qtTrInner(game,prior,aSet){
+  const max=game.max,src=prior[_qtTrSrc-1];
+  if(!src)return '<div style="font-size:.66rem;color:var(--muted)">Kaynak çekiliş yok.</div>';
+  const draws=_kbGetDraws(game.id);
+  const N=Math.min(200,draws.length-3);
+  const rows=_TR_DEFS.map(def=>{
+    const nums=[...(_trCands(def,src,max,_qtTrPM))].sort((a,b)=>a-b);
+    const st=_trStats(game,draws,def,_qtTrSrc,_qtTrPM,N);
+    return {def,nums,st};
+  }).filter(r=>r.nums.length).sort((a,b)=>(b.st?b.st.lift1:0)-(a.st?a.st.lift1:0));
+  const union=new Set();rows.forEach(r=>r.nums.forEach(n=>union.add(n)));
+  const ck=aSet?'_qtTrTxtT':'_qtTrTxt';
+  window[ck]='🔄 Dönüşüm Sayıları ('+game.name+', kaynak: '+_qtTrSrc+'. önceki çekiliş'+(_qtTrPM?' , ±1 dahil':'')+')\n'+rows.map(r=>r.def.name+': '+r.nums.join(' ')).join('\n');
+  let net=0,near=0;if(aSet)union.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:.72rem;font-weight:800;color:#7c3aed">🔄 Dönüşüm Sayıları (${rows.length})</span><span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${net>=3?'var(--green)':'var(--muted)'}">🏆 ${net} net · ${near} yakın</span>`:`<select onchange="_qtTrSetSrc(this.value)" style="font-size:.6rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 6px">${[1,2,3].map(v=>`<option value="${v}"${v===_qtTrSrc?' selected':''}>${v}. önceki</option>`).join('')}</select><label style="font-size:.6rem;color:var(--muted);display:inline-flex;align-items:center;gap:3px;cursor:pointer"><input type="checkbox" ${_qtTrPM?'checked':''} onchange="_qtTrSetPM(this.checked)" style="cursor:pointer">±1</label>`}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">${_qtTrSrc}. önceki çekilişin (<strong style="font-family:monospace;color:var(--text)">${src.nums.join(' ')}</strong>) sayılarına uygulanan dönüşümler. <strong>Lift</strong> = o dönüşümün geçmiş ≥1 net oranının, AYNI büyüklükte rastgele bir havuzun şans oranına bölümü (son ${N} çekiliş). <span style="color:#8a6200">⚠️ Dürüst: 468 dönüşüm 3 bağımsız pencerede test edildi — <strong>hiçbiri şansı kalıcı geçmedi</strong> (seçilen "kazananların" lift'i 1,05→0,98→0,86'ya düştü). Yüksek lift'ler çoklu-karşılaştırma gürültüsüdür, tahmin gücü değil. Bunlar meşru bir <strong>aday kaynağı</strong>dır — asıl değeri yukarıdaki 🔎 filtrede diğer analizlerle KESİŞTİRMEKTİR.</span></div>`;
+  rows.forEach(r=>{
+    const L=r.st?r.st.lift1:0;
+    const lc=L>=1.1?'#0a9a6a':L<=0.9?'#c2410c':'var(--muted)';
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:7px;margin-bottom:4px;flex-wrap:wrap">`;
+    h+=`<span style="font-size:.6rem;color:var(--text);font-weight:700;min-width:118px;flex-shrink:0">${r.def.name}</span>`;
+    h+=`<span style="font-size:.54rem;color:${lc};min-width:112px;flex-shrink:0" title="geçmiş ≥1 net oranı / aynı boyutta rastgele havuzun şansı">≥1 %${r.st?r.st.h1.toFixed(0):'—'} (şans %${r.st?r.st.c1.toFixed(0):'—'}) ×${L.toFixed(2)}</span>`;
+    h+=`<span style="display:flex;gap:5px;flex-wrap:wrap;flex:1">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
+    h+=`<button onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;flex-shrink:0">📋</button>`;
+    h+=`</div>`;
+  });
+  return h;
+}
+function _qtTransformBlock(game,prior,aSet){
+  try{
+    return `<div class="card" style="margin-bottom:12px;border-color:rgba(124,58,237,.4)"><div id="qtTrWrap_${aSet?'test':'live'}">${_qtTrInner(game,prior,aSet)}</div></div>`;
+  }catch(e){return '';}
+}
 // ═══════════ 🎰 ADAY SAYILAR — ANALİZ BAZLI (anasayfadaki bölümün Hızlı Tahmin sürümü) ═══════════
 function _qtAdayData(game,prior){
   const rows=[],cons={};
@@ -19187,6 +19332,7 @@ function _qtCopyAll(){
   if(window._qt3PlusYakTxt)parts.push(window._qt3PlusYakTxt);
   if(window._qtBest3Txt)parts.push(window._qtBest3Txt);
   if(window._qtWheelTxt)parts.push(window._qtWheelTxt);
+  if(window._qtTrTxt)parts.push(window._qtTrTxt);
   if(window._qtAdayTxt)parts.push(window._qtAdayTxt);
   if(window._qtKbConsTxt)parts.push(window._qtKbConsTxt);
   if(window._qtFormulTxt)parts.push(window._qtFormulTxt);
@@ -19225,6 +19371,7 @@ function _qtCopyAllGrouped(){
     ['🧭 Kapsamlı Konsensüs','🧭','Kapsamlı Konsensüs'],
     ['🎰 Aday Sayılar (Uzlaşı)','🎰','Aday Sayılar — Uzlaşı'],
     ['🎯 Garantili Sistem Havuzu','🎯','3+ Net Garantili Sistem Havuzu'],
+    ['🔄 Dönüşümler (Tümü)','🔄','Dönüşüm Sayıları (tümünün birleşimi)'],
     ['🔴 Listeler — Kırmızı Hücreler','🔴','Listeler — Kırmızı Hücreler'],
     ['🔗 Listeler — Ortak Sayılar (B10×Dönüşüm)','🔗','Listeler — Ortak Sayılar (B10×Dönüşüm)'],
     ['🔎 Listeler — AI Biletler','🔎','Listeler — AI Biletler'],
