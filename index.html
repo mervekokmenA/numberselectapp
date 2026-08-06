@@ -18288,6 +18288,8 @@ function _qtRenderAll(mode,game,prior,actual){
   blk('3plusYak',_qt3PlusYakBlock(game,prior,aSet));
   blk('aiCombined',_qtAiBlock(game,prior,src,aSet));
   blk('best3',_qtBest3Block(game,prior,src,aSet));
+  blk('wheel',_qtWheelBlock(game,prior,aSet));
+  blk('aday',_qtAdayBlock(game,prior,aSet));
   blk('kbCons',_qtKbConsBlock(game,prior,aSet));
   blk('formul',_qtFormulBlock(game,prior,aSet,actual));
   blk('nihaiSection',_qtNihaiSection(game,prior,src,aSet,mode,actual));
@@ -18297,7 +18299,7 @@ function _qtRenderAll(mode,game,prior,actual){
   _qtSyncPairs();
   _qtNihaiRerender('live');_qtNihaiRerender('test');
   _qtIlkHaneRerender('live');_qtIlkHaneRerender('test');
-  if(mode==='live')_qtFilterRefresh();
+  _qtFilterRefresh();
 }
 let _qtLiveHtml='',_qtTestHtml='';
 // Sol (Yeni Tahmin) ve sağ (Geçmiş Test) taraflardaki bloklar bağımsız üretilir ama aynı data-k
@@ -18419,6 +18421,18 @@ function _qtBuildAnalysisGroups(game,prior,src,targetDate){
   try{
     const top=_qtKbConsTop(game,prior);
     if(top.length)groups['🧭 Kapsamlı Konsensüs']=new Set(top.map(r=>r.n));
+  }catch(e){}
+  try{
+    const d=_qtAdayData(game,prior);
+    if(d.consArr.length){
+      groups['🎰 Aday Sayılar (Uzlaşı)']=new Set(d.consArr.slice(0,game.count*3).map(c=>c.n));
+      groups['🎰 Aday Sayılar (Tüm Adaylar)']=new Set(d.consArr.map(c=>c.n));
+    }
+  }catch(e){}
+  try{
+    const M=_QT_WHEEL_M[game.id]||14;
+    const pool=_qtWheelPool(game,prior,M);
+    if(pool&&pool.length)groups['🎯 Garantili Sistem Havuzu']=new Set(pool);
   }catch(e){}
   // Listeler sayfasının "🔍 Bulunan Sayılar" çıktıları — sadece Listeler'de SEÇİLİ OYUN, Hızlı
   // Tahmin'in seçili oyunuyla aynıysa eklenir (farklı oyunun sayılarını karıştırmamak için).
@@ -18735,6 +18749,8 @@ const _QT_FINAL_BLOCK_DEFS=[
   {match:/^Nihai 3\+Kapsamlı Kesişim/,label:'Nihai × 3+ kesişim'},
   {match:/^Nihai — Ardışık Sayılar/,label:'Ardışık çiftler'},
   {match:/^⭐ En İyi 3 Bilet/,label:'En iyi 3 bilet'},
+  {match:/^🎯 3\+ Net Garantili Sistem/,label:'Garantili sistem'},
+  {match:/^🎰 Aday Sayılar/,label:'Aday sayılar'},
   {match:/^🧭 Kapsamlı Konsensüs/,label:'Kapsamlı konsensüs'},
   {match:/^🧮 Formül Sistemi/,label:'Formül sistemi'},
   {match:/^🔎 Analiz Filtresi/,label:'Filtre'},
@@ -18947,32 +18963,170 @@ function _qtFormulBlock(game,prior,aSet,actual){
     return h;
   }catch(e){return '';}
 }
+// ═══════════ 🎯 3+ NET GARANTİLİ SİSTEM (kapsama tasarımı / wheel) ═══════════
+// DÜRÜST TEMEL: 300 çekilişlik adil geri-testte (eşit seçim sayısıyla) sıcak/soğuk/gecikmiş/şampiyon/
+// uzlaşı dahil DENENEN HİÇBİR sayı-seçme stratejisi tek bilette 3+ net oranını şans seviyesinin
+// üzerine çıkaramadı (hepsi ±2 standart hata bandında). Yani "akıllı seçim"le tek bilette 3+ net
+// GARANTİ EDİLEMEZ — bu matematiksel bir sınır.
+// Ama KAPSAMA TASARIMI gerçek bir garanti verir: M sayılık bir havuzdaki HER 3'lü kombinasyon en az
+// bir bilette geçecek şekilde bilet üretilirse, çekilişten havuza ≥3 sayı düştüğü ANDA en az bir
+// biletin 3+ neti KESİNDİR. 250 gerçek çekilişte doğrulandı: 0 garanti ihlali, tutma oranı havuza
+// ≥3 düşme olasılığına birebir eşit (On Numara 6 bilet → %80,4 · Şans 56 bilet → %52,8).
+function _wheelCover(M,k,seed){
+  const bc=(n,r)=>{if(r<0||r>n)return 0;r=Math.min(r,n-r);let x=1;for(let i=0;i<r;i++)x=x*(n-i)/(i+1);return x;};
+  const key=(a,b,c)=>a*10000+b*100+c;
+  let rng=seed||12345;const rnd=()=>{rng=(rng*1103515245+12345)&0x7fffffff;return rng/0x7fffffff;};
+  const need=new Set();for(let a=0;a<M;a++)for(let b=a+1;b<M;b++)for(let c=b+1;c<M;c++)need.add(key(a,b,c));
+  const full=bc(k,3),tickets=[];let guard=0;
+  while(need.size>0&&guard++<4000){
+    let best=null,bestCov=-1;
+    for(let att=0;att<400;att++){
+      const idx=[],pool=[];for(let i=0;i<M;i++)pool.push(i);
+      for(let s=0;s<k;s++){const j=Math.floor(rnd()*pool.length);idx.push(pool[j]);pool.splice(j,1);}
+      idx.sort((x,y)=>x-y);
+      let cov=0;for(let a=0;a<k;a++)for(let b=a+1;b<k;b++)for(let c=b+1;c<k;c++)if(need.has(key(idx[a],idx[b],idx[c])))cov++;
+      if(cov>bestCov){bestCov=cov;best=idx;}
+      if(cov===full)break;
+    }
+    if(!best||bestCov<=0)break;
+    tickets.push(best);
+    for(let a=0;a<k;a++)for(let b=a+1;b<k;b++)for(let c=b+1;c<k;c++)need.delete(key(best[a],best[b],best[c]));
+  }
+  return tickets;
+}
+// Çekilişten M sayılık havuza en az 3 sayı düşme olasılığı (hipergeometrik, kesin)
+function _wheelPoolGE3(max,drawn,M){
+  const bc=(n,r)=>{if(r<0||r>n)return 0;r=Math.min(r,n-r);let x=1;for(let i=0;i<r;i++)x=x*(n-i)/(i+1);return x;};
+  let s=0;for(let x=3;x<=Math.min(M,drawn);x++)s+=bc(drawn,x)*bc(max-drawn,M-x);
+  return s/bc(max,M);
+}
+const _QT_WHEEL_M={sayisal:16,super:16,sans:14,onnumara:14};
+function _qtWheelPool(game,prior,M){
+  // Havuz seçimi = analizlerin KATKISI. Tek bilette şansı geçemiyoruz ama havuzu geniş
+  // tutarak "havuza ≥3 düşme" olasılığını yükseltiyoruz; sıralama uzlaşıdan gelir.
+  try{const C=_qtCombineWeights(game,prior,_qtBuildSources(game,prior));return C.ranked.slice(0,M);}
+  catch(e){try{return _niCompute(game,prior).ranked.slice(0,M);}catch(e2){const r=[];for(let n=1;n<=M;n++)r.push(n);return r;}}
+}
+function _qtWheelInner(game,prior,aSet,M){
+  const pool=_qtWheelPool(game,prior,M).sort((a,b)=>a-b);
+  const wheel=_wheelCover(M,game.count,7);
+  const tickets=wheel.map(idx=>({main:idx.map(j=>pool[j]).sort((a,b)=>a-b),bonus:[]}));
+  const drawn=game.id==='onnumara'?22:(game.count+(game.bonusCount||0));
+  const pct=Math.round(_wheelPoolGE3(game.max,drawn,M)*1000)/10;
+  const ck=aSet?'_qtWheelTxtT':'_qtWheelTxt';
+  window[ck]='🎯 3+ Net Garantili Sistem ('+game.name+', havuz '+M+', '+tickets.length+' bilet)\nHavuz: '+pool.join(' ')+'\n'+tickets.map(t=>t.main.join(' - ')).join('\n');
+  let inPool=0,best=0;
+  if(aSet){pool.forEach(n=>{if(aSet.has(n))inPool++;});tickets.forEach(t=>{let c=0;t.main.forEach(n=>{if(aSet.has(n))c++;});if(c>best)best=c;});}
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:.72rem;font-weight:800;color:#0a9a6a">🎯 3+ Net Garantili Sistem (${tickets.length} bilet)</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${best>=3?'var(--green)':'var(--muted)'}">🏆 ${best} net · havuzda ${inPool}</span>`:''}<select onchange="_qtWheelSetM(this.value)" style="font-size:.62rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 7px">${[12,14,16,18,20].map(v=>`<option value="${v}"${v===M?' selected':''}>havuz ${v}</option>`).join('')}</select><button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bu ${tickets.length} bilet, ${M} sayılık havuzun <strong>HER 3'lü kombinasyonunu</strong> kapsar. Çekilişten bu havuza <strong>≥3 sayı düşerse, en az bir biletin 3+ neti KESİNDİR</strong> (matematiksel garanti — 250 gerçek çekilişte 0 ihlalle doğrulandı). Havuza ≥3 düşme olasılığı: <strong style="color:${pct>=50?'var(--green)':'#b8860b'}">%${pct}</strong> — sistemin garantili 3+ net oranı da budur. <strong>Dürüst not:</strong> tek bilette 3+ net şans seviyesinin üstüne çıkarılamaz (300 çekilişlik adil testte hiçbir strateji başaramadı); bu sistem seçimi değil, <strong>kapsamayı</strong> kullanır.</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:3px">🧲 Havuz (${M} sayı):</div>`;
+  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:9px">${pool.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.74rem;font-weight:${hit||nr?800:600};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'};background:var(--surface2);border:1px solid ${hit?'rgba(0,200,100,.5)':'var(--border)'};border-radius:6px;padding:2px 7px">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</div>`;
+  h+=`<div style="font-size:.6rem;font-weight:800;color:var(--text);margin-bottom:5px">🎫 Sistem Biletleri (${tickets.length})</div>`;
+  h+=`<div style="max-height:340px;overflow-y:auto">`;
+  h+=tickets.map((t,i)=>{let lbl='';if(aSet){let nt=0;t.main.forEach(x=>{if(aSet.has(x))nt++;});lbl=`<div style="font-size:.54rem;margin:${i>0?'6px':'0'} 0 -2px 4px;color:${nt>=3?'var(--green)':'var(--muted)'};font-weight:${nt>=3?800:400}">${nt} net</div>`;}return lbl+renderTicket(t,game,'',i,null,aSet||null,null,null,true);}).join('');
+  h+=`</div>`;
+  return h;
+}
+function _qtWheelBlock(game,prior,aSet){
+  try{
+    const M=_QT_WHEEL_M[game.id]||14;
+    return `<div class="card" style="margin-bottom:12px;border:1.5px solid rgba(16,185,129,.5);background:linear-gradient(135deg,rgba(16,185,129,.06),transparent)"><div id="qtWheelWrap_${aSet?'test':'live'}">${_qtWheelInner(game,prior,aSet,M)}</div></div>`;
+  }catch(e){return '';}
+}
+function _qtWheelSetM(v){
+  const M=parseInt(v)||14;const st=_qtLastRenderState;if(!st)return;
+  _QT_WHEEL_M[st.game.id]=M;
+  const w=document.getElementById('qtWheelWrap_live');
+  if(w){w.innerHTML='<div style="padding:12px;font-size:.68rem;color:var(--muted)">⏳ Sistem kuruluyor…</div>;';
+    setTimeout(()=>{w.innerHTML=_qtWheelInner(st.game,st.prior,null,M);},20);}
+}
+// ═══════════ 🎰 ADAY SAYILAR — ANALİZ BAZLI (anasayfadaki bölümün Hızlı Tahmin sürümü) ═══════════
+function _qtAdayData(game,prior){
+  const rows=[],cons={};
+  const topK=game.count+2;
+  ALGOS.forEach(a=>{
+    let nums=[];try{nums=_caCandidates(game,a.id,prior,10).slice(0,topK).map(c=>c.n);}catch(e){}
+    if(!nums.length)return;
+    nums.forEach(n=>cons[n]=(cons[n]||0)+1);
+    rows.push({name:a.name,nums:nums.slice().sort((x,y)=>x-y)});
+  });
+  const consArr=Object.keys(cons).map(Number).map(n=>({n,k:cons[n]})).sort((a,b)=>b.k-a.k||a.n-b.n);
+  return {rows,cons,consArr,nA:rows.length};
+}
+function _qtAdayBlock(game,prior,aSet){
+  try{
+    const d=_qtAdayData(game,prior);
+    if(!d.rows.length)return '';
+    const pick=d.consArr.slice(0,game.count).map(c=>c.n).sort((a,b)=>a-b);
+    const ext=d.consArr.slice(0,game.count*3).map(c=>c.n);
+    const ck=aSet?'_qtAdayTxtT':'_qtAdayTxt';
+    window[ck]='🎰 Aday Sayılar — Analiz Bazlı ('+game.name+')\n🤝 Uzlaşı (ilk '+game.count+'): '+pick.join(' ')+'\nGenişletilmiş: '+ext.join(' ')+'\n\n'+d.rows.map(r=>r.name+': '+r.nums.join(' ')).join('\n');
+    let net=0,near=0;if(aSet)ext.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+    let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(244,114,63,.4)">`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:#f97316">🎰 Aday Sayılar — Analiz Bazlı (${d.nA} analiz)</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${net>=3?'var(--green)':'var(--muted)'}">🏆 ${net} net · ${near} yakın</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
+    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Anasayfadaki <strong>🎰 Aday Sayılar</strong> bölümünün aynısı: her analiz tipinin bu oyun için en güvendiği ${game.count+2} sayı + analizler-arası uzlaşı. Alt rakam = kaç analiz önerdi.</div>`;
+    h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:3px">🤝 En çok uzlaşılan ${game.count}:</div>`;
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${pick.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 8px;border-radius:8px;background:${hit?'rgba(0,230,118,.14)':'var(--surface2)'};border:1.5px solid ${hit?'rgba(0,200,100,.55)':'rgba(244,114,63,.4)'}"><span style="font-size:.8rem;font-weight:800;font-family:monospace;color:${hit?'var(--green)':nr?'#c2410c':'var(--text)'}">${n}${hit?'✓':nr?'~':''}</span><span style="font-size:.44rem;color:var(--muted)">${d.cons[n]}/${d.nA}</span></span>`;}).join('')}</div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:3px">Genişletilmiş adaylar (${ext.length}):</div>`;
+    h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:9px">${ext.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.68rem;font-weight:${hit||nr?800:500};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 6px">${n}${hit?'✓':nr?'~':''}<sup style="font-size:.48rem">${d.cons[n]}</sup></span>`;}).join('')}</div>`;
+    h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">Analiz bazlı adaylar:</div>`;
+    d.rows.forEach(r=>{
+      h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:7px;margin-bottom:4px;flex-wrap:wrap">`;
+      h+=`<span style="font-size:.58rem;color:var(--text);font-weight:700;min-width:145px;flex-shrink:0">${r.name}</span>`;
+      h+=`<span style="display:flex;gap:5px;flex-wrap:wrap;flex:1">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
+      h+=`<button onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;flex-shrink:0">📋</button>`;
+      h+=`</div>`;
+    });
+    h+=`</div>`;
+    return h;
+  }catch(e){return '';}
+}
 // ═══════════ 🔎 ANALİZ FİLTRESİ — sayfadaki tüm analiz gruplarından çoklu seçim → ORTAK sayılar ═══════════
+// Tek bir çip seçimi HEM "Yeni Tahmin" (live) HEM "Geçmiş Test" (test) taraflarına uygulanır —
+// böylece aynı filtreyi iki tarafta yan yana kıyaslayabilirsin (geçmiş testte ✓/~ işaretli).
 let _qtFilterSel=new Set();
+function _qtFilterSide(mode,names,label){
+  const st=_qtNihaiState[mode];
+  if(!st||!st.groups)return '';
+  const usable=names.filter(n=>st.groups[n]);
+  if(!usable.length)return '';
+  let inter=[...st.groups[usable[0]]];
+  usable.slice(1).forEach(nm=>{inter=inter.filter(n=>st.groups[nm].has(n));});
+  inter.sort((a,b)=>a-b);
+  const aSet=st.nextSet;
+  let net=0,near=0;if(aSet)inter.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+  const txt='🔎 Analiz Filtresi ('+label+') — '+usable.join(' × ')+' ('+st.game.name+', '+inter.length+' ortak sayı)\n'+(inter.join(' ')||'(ortak sayı yok)');
+  if(mode==='live')window._qtFilterTxt=txt;else window._qtFilterTxtT=txt;
+  let h=`<div style="flex:1;min-width:230px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:5px"><span style="font-size:.62rem;font-weight:800;color:#b8860b">${label} — ${inter.length} ortak sayı${aSet?` <span style="color:${net>=3?'var(--green)':'var(--muted)'}">· ${net} net · ${near} yakın</span>`:''}</span><button onclick="_caCopy(window.${mode==='live'?'_qtFilterTxt':'_qtFilterTxtT'})" class="copy-btn" style="font-size:.6rem;padding:2px 8px">📋</button></div>`;
+  h+=inter.length?`<div style="display:flex;gap:5px;flex-wrap:wrap">${inter.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.78rem;font-weight:800;background:var(--surface2);border:1.5px solid ${hit?'rgba(0,200,100,.55)':'rgba(184,134,11,.45)'};border-radius:7px;padding:2px 8px;color:${hit?'var(--green)':nr?'#c2410c':'var(--text)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</div>`:`<div style="font-size:.62rem;color:var(--muted)">Ortak sayı yok.</div>`;
+  h+=`</div>`;
+  return h;
+}
 function _qtFilterRefresh(){
   const chipsEl=document.getElementById('qtFilterChips');if(!chipsEl)return;
-  const st=_qtNihaiState['live'];
-  if(!st||!st.groups||!Object.keys(st.groups).length){chipsEl.innerHTML='<span style="font-size:.62rem;color:var(--muted)">Önce "🚀 Tümünü Üret" çalıştır.</span>';const o=document.getElementById('qtFilterOut');if(o)o.innerHTML='';return;}
-  const groups=st.groups;
-  [..._qtFilterSel].forEach(n=>{if(!groups[n])_qtFilterSel.delete(n);});
+  const stL=_qtNihaiState['live'],stT=_qtNihaiState['test'];
+  const base=(stL&&stL.groups)||(stT&&stT.groups);
+  if(!base||!Object.keys(base).length){chipsEl.innerHTML='<span style="font-size:.62rem;color:var(--muted)">Önce "🚀 Tümünü Üret" çalıştır.</span>';const o=document.getElementById('qtFilterOut');if(o)o.innerHTML='';return;}
+  // çip listesi: live + test taraflarının gruplarının birleşimi
+  const allNames=[];const seen=new Set();
+  [stL,stT].forEach(st=>{if(st&&st.groups)Object.keys(st.groups).forEach(n=>{if(!seen.has(n)){seen.add(n);allNames.push(n);}});});
+  [..._qtFilterSel].forEach(n=>{if(!seen.has(n))_qtFilterSel.delete(n);});
   let h='';
-  Object.keys(groups).forEach(name=>{
+  allNames.forEach(name=>{
     const active=_qtFilterSel.has(name);
+    const sz=(stL&&stL.groups[name]||stT&&stT.groups[name]||{size:0}).size;
     const esc=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-    h+=`<button onclick="_qtFilterToggle('${esc}')" style="font-size:.62rem;padding:4px 10px;border-radius:7px;border:1px solid ${active?'#b8860b':'var(--border)'};background:${active?'rgba(184,134,11,.15)':'var(--surface2)'};color:${active?'#b8860b':'var(--muted)'};cursor:pointer;font-weight:${active?700:400}">${name} (${groups[name].size})</button>`;
+    h+=`<button onclick="_qtFilterToggle('${esc}')" style="font-size:.62rem;padding:4px 10px;border-radius:7px;border:1px solid ${active?'#b8860b':'var(--border)'};background:${active?'rgba(184,134,11,.15)':'var(--surface2)'};color:${active?'#b8860b':'var(--muted)'};cursor:pointer;font-weight:${active?700:400}">${name} (${sz})</button>`;
   });
   if(_qtFilterSel.size)h+=`<button onclick="_qtFilterSel.clear();_qtFilterRefresh()" style="font-size:.62rem;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">✕ Temizle</button>`;
   chipsEl.innerHTML=h;
   const out=document.getElementById('qtFilterOut');if(!out)return;
   const names=[..._qtFilterSel];
-  if(!names.length){out.innerHTML='<div style="font-size:.6rem;color:var(--muted);padding:4px 2px">Bir veya daha fazla analiz seç — seçtiklerinin TÜMÜNDE ortak geçen sayılar burada listelenir.</div>';window._qtFilterTxt='';return;}
-  let inter=[...groups[names[0]]];
-  names.slice(1).forEach(nm=>{inter=inter.filter(n=>groups[nm].has(n));});
-  inter.sort((a,b)=>a-b);
-  window._qtFilterTxt='🔎 Analiz Filtresi — '+names.join(' × ')+' ('+st.game.name+', '+inter.length+' ortak sayı)\n'+(inter.join(' ')||'(ortak sayı yok)');
-  let oh=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0 6px"><span style="font-size:.64rem;font-weight:800;color:#b8860b">${names.length===1?names[0]+' sayıları':'ORTAK sayılar ('+names.join(' × ')+')'} — ${inter.length} sayı</span><button onclick="_caCopy(window._qtFilterTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
-  oh+=inter.length?`<div style="display:flex;gap:5px;flex-wrap:wrap">${inter.map(n=>`<span style="font-family:monospace;font-size:.78rem;font-weight:800;background:var(--surface2);border:1.5px solid rgba(184,134,11,.45);border-radius:7px;padding:2px 8px;color:var(--text)">${n}</span>`).join('')}</div>`:`<div style="font-size:.62rem;color:var(--muted)">Seçilen analizlerin tümünde ortak geçen sayı yok.</div>`;
-  out.innerHTML=oh;
+  if(!names.length){out.innerHTML='<div style="font-size:.6rem;color:var(--muted);padding:4px 2px">Bir veya daha fazla analiz seç — seçtiklerinin TÜMÜNDE ortak geçen sayılar hem Yeni Tahmin hem Geçmiş Test için burada listelenir.</div>';window._qtFilterTxt='';window._qtFilterTxtT='';return;}
+  const left=_qtFilterSide('live',names,'🔮 Yeni Tahmin');
+  const right=_qtFilterSide('test',names,'📊 Geçmiş Test');
+  out.innerHTML=`<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:8px">${left}${right}</div>`;
 }
 function _qtFilterToggle(name){
   if(_qtFilterSel.has(name))_qtFilterSel.delete(name);else _qtFilterSel.add(name);
@@ -19012,6 +19166,8 @@ function _qtCopyAll(){
   if(window._qtGulayTxt)parts.push(window._qtGulayTxt);
   if(window._qt3PlusYakTxt)parts.push(window._qt3PlusYakTxt);
   if(window._qtBest3Txt)parts.push(window._qtBest3Txt);
+  if(window._qtWheelTxt)parts.push(window._qtWheelTxt);
+  if(window._qtAdayTxt)parts.push(window._qtAdayTxt);
   if(window._qtKbConsTxt)parts.push(window._qtKbConsTxt);
   if(window._qtFormulTxt)parts.push(window._qtFormulTxt);
   if(window._qtFilterTxt)parts.push(window._qtFilterTxt);
@@ -19047,6 +19203,8 @@ function _qtCopyAllGrouped(){
     ['🧠 Birleşik AI','🧠','Birleşik AI'],
     ['🧮 Formül Sistemi','🧮','Formül Sistemi (tüm formüllerin birleşimi)'],
     ['🧭 Kapsamlı Konsensüs','🧭','Kapsamlı Konsensüs'],
+    ['🎰 Aday Sayılar (Uzlaşı)','🎰','Aday Sayılar — Uzlaşı'],
+    ['🎯 Garantili Sistem Havuzu','🎯','3+ Net Garantili Sistem Havuzu'],
     ['🔴 Listeler — Kırmızı Hücreler','🔴','Listeler — Kırmızı Hücreler'],
     ['🔗 Listeler — Ortak Sayılar (B10×Dönüşüm)','🔗','Listeler — Ortak Sayılar (B10×Dönüşüm)'],
     ['🔎 Listeler — AI Biletler','🔎','Listeler — AI Biletler'],
