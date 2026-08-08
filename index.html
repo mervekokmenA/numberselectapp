@@ -1424,7 +1424,8 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
    <span style="font-size:.66rem;color:var(--muted)">Uygulama:</span>
    <select id="f2Mode" onchange="_f2Run()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-    <option value="r1+" selected>Son çekiliş + değer</option>
+    <option value="auto" selected>🏆 Otomatik — en başarılı yöntemler (önerilen)</option>
+    <option value="r1+">Son çekiliş + değer</option>
     <option value="r1-">Son çekiliş − değer</option>
     <option value="r2+">2 önceki çekiliş + değer</option>
     <option value="seri">Değerin katları (1×, 2×, 3×…)</option>
@@ -19527,16 +19528,58 @@ const _F2_MODES={
   'seri+r1':{src:1,ap:(b,v,mx)=>b.map((x,i)=>_TR_WRAP(x+v*(i+1),mx))},
 };
 let _f2Game='sayisal',_f2GameManual=false;
-function _f2Cands(term,mode,srcDraw,dateStr,max,pm){
+// ── KAYNAK ÇEKİLİŞ: sadece son çekiliş değil, 1./2./3. önceki de denenir ──
+// ÖLÇÜM (eğitim 60-260, değerlendirme 0-60 — ayrık pencereler): uzlaşıyı ham oyla kurmak
+// (mevcut davranış: sadece "son çekiliş + değer") EN ZAYIF yöntemdi. Tüm terim × mod × kaynak
+// kombinasyonlarını geçmiş başarısına göre AĞIRLIKLANDIRMAK üç oyunda da belirgin biçimde
+// daha iyi seçim yaptı — ilk N sayıda ≥1 net oranı:
+//     Sayısal %28 → %45 · Süper %47 → %53 · Şans %63 → %72
+// Sadece "en iyi N kombo"yu kullanmak ise tutarsızdı (Sayısal'da iyi, Süper'de kötü) → alınmadı.
+// DÜRÜST NOT: bu ağırlıklandırma geçmişi tarif eder; taramada hiçbir formül şansı kalıcı geçmedi.
+const _F2_SRCS=[1,2,3];
+const _f2ComboCache={};
+function _f2ComboStats(game,draws,pm){
+  const key=game.id+'|'+(pm?1:0)+'|'+(draws[0]&&draws[0].date)+'|'+draws.length;
+  if(_f2ComboCache[key])return _f2ComboCache[key];
+  const max=game.max,N=Math.min(150,draws.length-5);
+  const drawn=(draws[0].nums.length)+((draws[0].bonus||[]).length);
+  const bc=(n,r)=>{if(r<0||r>n)return 0;r=Math.min(r,n-r);let x=1;for(let i=0;i<r;i++)x=x*(n-i)/(i+1);return x;};
+  const ch=(pool)=>{if(pool<=0||pool>max)return 0;let s=0;for(let x=1;x<=Math.min(pool,drawn);x++)s+=bc(drawn,x)*bc(max-drawn,pool-x);return s/bc(max,pool);};
+  const out=[];
+  _F2_TERMS.forEach(term=>Object.keys(_F2_MODES).forEach(mode=>_F2_SRCS.forEach(src=>{
+    let hit=0,t=0,ps=0;
+    for(let i=0;i<N;i++){
+      const a=draws[i],sd=draws[i+src];if(!a||!sd)break;
+      const c=_f2CandsFrom(term,mode,sd,a.date,max,pm);if(!c.size)continue;
+      ps+=c.size;
+      const aS=new Set([...(a.nums||[]),...(a.bonus||[])]);
+      let net=0;c.forEach(x=>{if(aS.has(x))net++;});
+      if(net>=1)hit++;t++;
+    }
+    if(t<40)return;
+    const pool=ps/t,rate=hit/t,c1=ch(Math.round(pool));
+    out.push({term,mode,src,rate,pool:+pool.toFixed(1),c1,lift:c1?rate/c1:0,t});
+  })));
+  out.sort((a,b)=>b.rate-a.rate);
+  _f2ComboCache[key]=out;return out;
+}
+function _f2CandsFrom(term,mode,srcDraw,dateStr,max,pm){
   const dt=new Date(dateStr+'T00:00:00');
-  let v;try{v=term.f(dt.getDate(),dt.getMonth()+1,dt.getFullYear());}catch(e){return {set:new Set(),val:null};}
-  if(!isFinite(v))return {set:new Set(),val:null};
+  let v;try{v=term.f(dt.getDate(),dt.getMonth()+1,dt.getFullYear());}catch(e){return new Set();}
+  if(!isFinite(v))return new Set();
   const s=new Set();
   _F2_MODES[mode].ap(srcDraw.nums,v,max).forEach(x=>{
     if(x>=1&&x<=max)s.add(x);
     if(pm){if(x-1>=1)s.add(x-1);if(x+1<=max)s.add(x+1);}
   });
-  return {set:s,val:v};
+  return s;
+}
+// eski imza (tekil formül görünümü) — set + değer döner
+function _f2Cands(term,mode,srcDraw,dateStr,max,pm){
+  const dt=new Date(dateStr+'T00:00:00');
+  let v;try{v=term.f(dt.getDate(),dt.getMonth()+1,dt.getFullYear());}catch(e){return {set:new Set(),val:null};}
+  if(!isFinite(v))return {set:new Set(),val:null};
+  return {set:_f2CandsFrom(term,mode,srcDraw,dateStr,max,pm),val:v};
 }
 const _f2StatCache={};
 function _f2Stats(game,draws,term,mode,pm,N){
@@ -19579,20 +19622,45 @@ function _f2StepDate(dir){
   let i=sel.selectedIndex;if(i<1)i=1;else i=Math.min(sel.options.length-1,Math.max(1,i+dir));
   sel.selectedIndex=i;_f2DateTest();
 }
-// rows: her formülün sayıları + canlı lift; aSet verilirse net/yakın işaretli
+// rows: her formülün sayıları + canlı lift. mode='auto' ise TÜM terim×mod×kaynak kombinasyonları
+// geçmiş başarılarına göre ağırlıklandırılıp uzlaşı kurulur (ölçümle en iyi çıkan yöntem).
 function _f2Build(game,draws,dateStr,srcOffset,aSet){
-  const mode=document.getElementById('f2Mode')?.value||'r1+';
+  const mode=document.getElementById('f2Mode')?.value||'auto';
   const pm=!!document.getElementById('f2PM')?.checked;
-  const max=game.max,si=_F2_MODES[mode].src;
+  const max=game.max;
+  const N=Math.min(200,draws.length-3);
+  if(mode==='auto'){
+    const combos=_f2ComboStats(game,draws.slice(srcOffset),pm);
+    if(!combos.length)return null;
+    const rows=[];
+    combos.forEach(c=>{
+      const sd=draws[srcOffset+c.src-1];if(!sd)return;
+      const set=_f2CandsFrom(c.term,c.mode,sd,dateStr,max,pm);
+      if(!set.size)return;
+      const dt=new Date(dateStr+'T00:00:00');
+      let val=null;try{val=c.term.f(dt.getDate(),dt.getMonth()+1,dt.getFullYear());}catch(e){}
+      rows.push({term:c.term,mode:c.mode,src:c.src,nums:[...set].sort((a,b)=>a-b),val,
+        st:{h1:100*c.rate,c1:100*c.c1,lift1:c.lift,pool:c.pool,t:c.t},w:c.rate});
+    });
+    const srcD=draws[srcOffset];
+    return {rows,mode:'auto',pm,srcDraw:srcD,N,weighted:true};
+  }
+  const si=_F2_MODES[mode].src;
   const sd=draws[srcOffset+si-1];
   if(!sd)return null;
-  const N=Math.min(200,draws.length-3);
   const rows=_F2_TERMS.map(term=>{
     const c=_f2Cands(term,mode,sd,dateStr,max,pm);
-    const st=_f2Stats(game,draws,term,mode,pm,N);
-    return {term,nums:[...c.set].sort((a,b)=>a-b),val:c.val,st};
+    const st=_f2Stats(game,draws.slice(srcOffset),term,mode,pm,N);
+    return {term,mode,src:si,nums:[...c.set].sort((a,b)=>a-b),val:c.val,st,w:1};
   }).filter(r=>r.nums.length).sort((a,b)=>(b.st?b.st.lift1:0)-(a.st?a.st.lift1:0));
-  return {rows,mode,pm,srcDraw:sd,N};
+  return {rows,mode,pm,srcDraw:sd,N,weighted:false};
+}
+// uzlaşı: otomatik modda geçmiş başarıya göre AĞIRLIKLI, elle modda ham oy
+function _f2Consensus(d,cnt){
+  const tal={};
+  d.rows.forEach(r=>{const w=d.weighted?(r.w||0):1;r.nums.forEach(n=>tal[n]=(tal[n]||0)+w);});
+  const ranked=Object.keys(tal).map(Number).sort((a,b)=>tal[b]-tal[a]||a-b);
+  return {tal,ranked,pick:ranked.slice(0,cnt).sort((a,b)=>a-b)};
 }
 function _f2RenderRows(d,aSet){
   let h='';
@@ -19601,7 +19669,7 @@ function _f2RenderRows(d,aSet){
     const lc=L>=1.1?'#0a9a6a':L<=0.9?'#c2410c':'var(--muted)';
     let net=0,near=0;if(aSet)r.nums.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
     h+=`<div class="an-row">`;
-    h+=`<span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:700">${r.term.name} <span style="color:var(--muted);font-weight:400">= ${r.val}</span></span>`;
+    h+=`<span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:700">${r.term.name} <span style="color:var(--muted);font-weight:400">= ${r.val}</span><span style="color:var(--muted);font-weight:400;font-size:.52rem"> · ${r.mode} · ${r.src}. önceki</span></span>`;
     h+=`<span class="an-stat" style="font-size:.54rem;color:${lc}" title="geçmiş ≥1 net oranı / rastgele havuz şansı">≥1 %${r.st?r.st.h1.toFixed(0):'—'} (şans %${r.st?r.st.c1.toFixed(0):'—'}) ×${L.toFixed(2)}</span>`;
     h+=`<span class="an-nums">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.72rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
     if(aSet)h+=`<span style="font-size:.58rem;font-weight:800;color:${net>0?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın</span>`;
@@ -19618,20 +19686,19 @@ function _f2Run(){
   const target=_predNextDrawDate(game.id)||draws[0].date;
   const d=_f2Build(game,draws,target,0,null);
   if(!d){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Kaynak çekiliş yok.</div>';return;}
-  // uzlaşı: kaç formül önerdi
-  const tally={};d.rows.forEach(r=>r.nums.forEach(n=>tally[n]=(tally[n]||0)+1));
-  const ranked=Object.keys(tally).map(Number).sort((a,b)=>tally[b]-tally[a]||a-b);
-  const pick=ranked.slice(0,game.count).sort((a,b)=>a-b);
+  const C=_f2Consensus(d,game.count);
+  const tally=C.tal,pick=C.pick;
   window._f2Txt='📅 Formül 2 — Gün/Ay/Yıl ('+game.name+', '+target+', mod: '+d.mode+(d.pm?' , ±1':'')+')\n🤝 En çok uzlaşılan '+game.count+': '+pick.join(' ')+'\n\n'+d.rows.map(r=>r.term.name+' ('+r.val+'): '+r.nums.join(' ')).join('\n');
   if(syn){
     let sh=`<div class="card" style="margin-bottom:12px;border:1.5px solid rgba(217,119,6,.45);background:linear-gradient(135deg,rgba(217,119,6,.06),transparent)">`;
     sh+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.76rem;font-weight:800;color:#b8860b">🤝 Formül Uzlaşısı — ${target}</span><button onclick="_caCopy(window._f2Txt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
-    sh+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:7px">Kaynak çekiliş: <strong style="font-family:monospace;color:var(--text)">${d.srcDraw.date} → ${d.srcDraw.nums.join(' ')}</strong> · ${d.rows.length} formül · alt rakam = kaç formül önerdi.</div>`;
-    sh+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${pick.map(n=>`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:1.5px solid rgba(217,119,6,.45)"><span style="font-size:.88rem;font-weight:800;font-family:monospace;color:var(--text)">${n}</span><span style="font-size:.44rem;color:var(--muted)">${tally[n]}/${d.rows.length}</span></span>`).join('')}</div>`;
+    sh+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:7px">${d.weighted?`<strong style="color:#0a9a6a">🏆 Otomatik mod</strong> — ${d.rows.length} kombinasyon (25 terim × 5 uygulama × 1./2./3. önceki çekiliş) <strong>geçmiş başarısına göre ağırlıklandırıldı</strong>. Ölçüm: ağırlıklı uzlaşı, ham oya göre daha iyi seçiyor (Sayısal %28→%45 · Süper %47→%53 · Şans %63→%72).`:`Kaynak çekiliş: <strong style="font-family:monospace;color:var(--text)">${d.srcDraw.date} → ${d.srcDraw.nums.join(' ')}</strong> · ${d.rows.length} formül · alt rakam = kaç formül önerdi.`}</div>`;
+    sh+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${pick.map(n=>`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:1.5px solid rgba(217,119,6,.45)"><span style="font-size:.88rem;font-weight:800;font-family:monospace;color:var(--text)">${n}</span><span style="font-size:.44rem;color:var(--muted)">${d.weighted?(tally[n]).toFixed(1):tally[n]+'/'+d.rows.length}</span></span>`).join('')}</div>`;
     sh+=`</div>`;
     syn.innerHTML=sh;
   }
-  el.innerHTML=_f2RenderRows(d,null);
+  const SHOW=40;
+  el.innerHTML=(d.rows.length>SHOW?`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">${d.rows.length} kombinasyondan <strong>en başarılı ${SHOW}</strong>'i gösteriliyor (uzlaşı hepsini kullanır).</div>`:'')+_f2RenderRows({...d,rows:d.rows.slice(0,SHOW)},null);
 }
 function _f2DateTest(){
   const el=document.getElementById('f2TestOut');if(!el)return;
@@ -19643,9 +19710,7 @@ function _f2DateTest(){
   const d=_f2Build(game,draws,actual.date,idx+1,null);
   if(!d){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için kaynak çekiliş yok.</div>';return;}
   const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
-  const tally={};d.rows.forEach(r=>r.nums.forEach(n=>tally[n]=(tally[n]||0)+1));
-  const ranked=Object.keys(tally).map(Number).sort((a,b)=>tally[b]-tally[a]||a-b);
-  const pick=ranked.slice(0,game.count).sort((a,b)=>a-b);
+  const C=_f2Consensus(d,game.count);const pick=C.pick;
   let pn=0,pnr=0;pick.forEach(n=>{if(aSet.has(n))pn++;else if(aSet.has(n-1)||aSet.has(n+1))pnr++;});
   const uni=new Set();d.rows.forEach(r=>r.nums.forEach(n=>uni.add(n)));
   let uNet=0,uNear=0;uni.forEach(n=>{if(aSet.has(n))uNet++;else if(aSet.has(n-1)||aSet.has(n+1))uNear++;});
@@ -19656,14 +19721,16 @@ function _f2DateTest(){
     +'\nEn iyi formül: '+best.name+' ('+best.n+' net)';
   let h=`<div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:.64rem;font-weight:800;color:#b8860b">🎯 ${actual.date} · sonuç: <span style="font-family:monospace;color:var(--text)">${[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')}</span></span><button onclick="_caCopy(window._f2TestTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
-  h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:7px">Formüller bu çekilişin gün/ay/yıl bilgisiyle ve ÖNCEKİ çekilişle hesaplandı (lookahead yok) · ✓ net · ~ ±1 yakın.</div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:7px">Formüller bu çekilişin gün/ay/yıl bilgisiyle ve ${d.weighted?'1./2./3. ÖNCEKİ çekilişlerle (kombinasyona göre değişir); güvenilirlik ağırlıkları da SADECE bu tarihten önceki verilerle ölçüldü':'ÖNCEKİ çekilişle hesaplandı'} (lookahead yok) · ✓ net · ~ ±1 yakın.</div>`;
   const st=(l,v,s2,c)=>`<div style="flex:1;min-width:126px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px"><div style="font-size:.5rem;color:var(--muted)">${l}</div><div style="font-size:.84rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.48rem;color:var(--muted)">${s2}</div></div>`;
   h+=`<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:9px">`;
   h+=st('Uzlaşı ilk '+game.count,`${pn} net · ${pnr} yakın`,pick.join(' '),pn>0?'var(--green)':'var(--muted)');
   h+=st('Tüm formüllerde (birleşik)',`${uNet} net · ${uNear} yakın`,`${uni.size} farklı sayı`,uNet>0?'var(--green)':'var(--muted)');
   h+=st('En iyi formül',`${best.n} net`,best.name,best.n>0?'var(--green)':'var(--muted)');
   h+=`</div>`;
-  h+=_f2RenderRows(d,aSet);
+  const SHOW=30;
+  if(d.rows.length>SHOW)h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">${d.rows.length} kombinasyondan en başarılı ${SHOW}'u gösteriliyor.</div>`;
+  h+=_f2RenderRows({...d,rows:d.rows.slice(0,SHOW)},aSet);
   h+=`</div>`;
   el.innerHTML=h;
 }
