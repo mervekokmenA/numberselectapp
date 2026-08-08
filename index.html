@@ -334,6 +334,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-nsa" onclick="showMainPage('nsa')">🔐 NSA</button>
       <button class="nav-link" id="navBtn-arastirma" onclick="showMainPage('arastirma')" style="border-color:rgba(244,114,63,.4);color:#f97316">🔬 Yöntem Araştırma</button>
       <button class="nav-link" id="navBtn-formul" onclick="showMainPage('formul')" style="border-color:rgba(99,102,241,.4);color:var(--accent)">🧮 Formül Sistemi</button>
+      <button class="nav-link" id="navBtn-formul2" onclick="showMainPage('formul2')" style="border-color:rgba(217,119,6,.45);color:#b8860b">📅 Formül 2</button>
       <button class="nav-link" id="navBtn-scan" onclick="showMainPage('scan')">🔍 Tarama</button>
       <button class="nav-link" id="navBtn-listeler" onclick="showMainPage('listeler')">📋 Listeler</button>
       <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Kazanan/Kronoloji</button>
@@ -1399,6 +1400,49 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="snTableOut"></div>
  </div>
 </div><!-- /page-formul -->
+
+<!-- ═══════════ PAGE: FORMÜL 2 — GÜN/AY/YIL FORMÜLLERİ ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-formul2">
+ <div class="card" style="border-color:rgba(217,119,6,.45)">
+  <div class="card-title">📅 Formül 2 — Gün / Ay / Yıl Formülleri</div>
+  <div style="font-size:.64rem;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:rgba(217,119,6,.07);border-radius:8px;line-height:1.7">
+   Çekilişin <strong>gün, ay ve yıl</strong> bilgisinden üretilen bir "tarih değeri" hesaplanır (gün+ay, gün×ay, yıl rakam toplamı, dijital kök, haftanın günü, yılın kaçıncı günü…), sonra bu değer seçtiğin <strong>uygulama biçimiyle</strong> sayılara dönüştürülür. Her formülün <strong>gerçek geçmiş isabet oranı</strong> ve aynı büyüklükte rastgele bir havuzun şansına göre <strong>lift</strong>'i canlı ölçülür.
+   <br><span style="color:#8a6200">⚠️ <strong>Dürüst ön bulgu:</strong> 405 gün/ay/yıl formülü 2 bağımsız pencerede test edildi — ortalama lift <strong>0,975</strong> (tam şans). Pencere-1'in "kazananları" (ortalama 1,114) bağımsız pencere-2'de <strong>1,008</strong>'e düştü. Yani <strong>hiçbiri şansı kalıcı olarak geçmiyor</strong>. Bu sayfa bir "kazanan formül" vaadi değil, kendi denemelerini <em>dürüst ölçümle</em> yapabilmen için bir laboratuvardır — yüksek lift gördüğünde bunun çoklu-karşılaştırma gürültüsü olabileceğini unutma.</span>
+  </div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="f2GameRow"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+   <span style="font-size:.66rem;color:var(--muted)">Uygulama:</span>
+   <select id="f2Mode" onchange="_f2Run()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="r1+" selected>Son çekiliş + değer</option>
+    <option value="r1-">Son çekiliş − değer</option>
+    <option value="r2+">2 önceki çekiliş + değer</option>
+    <option value="seri">Değerin katları (1×, 2×, 3×…)</option>
+    <option value="seri+r1">Son çekiliş + değerin katları</option>
+   </select>
+   <label style="font-size:.66rem;color:var(--muted);display:inline-flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="f2PM" onchange="_f2Run()" style="cursor:pointer">±1 komşular</label>
+   <button onclick="_f2Run()" style="flex:1;min-width:180px;font-size:.78rem;padding:9px;border-radius:9px;background:linear-gradient(135deg,rgba(217,119,6,.9),rgba(180,83,9,.8));border:1px solid rgba(217,119,6,.6);color:#fff;cursor:pointer;font-weight:800">📅 Formülleri Çalıştır</button>
+   <button onclick="_caCopy(window._f2Txt)" class="copy-btn" style="font-size:.72rem;padding:8px 14px;font-weight:700">📋 Kopyala</button>
+  </div>
+ </div>
+ <div id="f2SynthOut"></div>
+ <div class="card">
+  <div class="card-title">📅 Formüller — Yeni Tahmin</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Sıradaki çekilişin tarihiyle hesaplandı. <strong>Lift</strong> = o formülün geçmiş ≥1 net oranı ÷ aynı büyüklükte rastgele havuzun şansı (son 200 çekiliş). Lift'e göre sıralı.</div>
+  <div id="f2Out"></div>
+ </div>
+ <div class="card">
+  <div class="card-title">📊 Geçmiş Test — tek tek tarih seçerek</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; tüm formüller <strong>o çekilişin gün/ay/yıl bilgisiyle</strong> ve o tarihten ÖNCEKİ çekilişle yeniden hesaplanıp gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
+  <div style="display:flex;gap:6px;align-items:stretch">
+   <select id="f2DateSel" onchange="_f2DateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+   <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+    <button onclick="_f2StepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+    <button onclick="_f2StepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+   </div>
+  </div>
+  <div id="f2TestOut"></div>
+ </div>
+</div><!-- /page-formul2 -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-kapsamli">
@@ -12836,11 +12880,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-arastirma','page-formul','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-arastirma','page-formul','page-formul2','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-arastirma','navBtn-formul','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   if(id==='scan')_initScanPage();
@@ -12854,6 +12898,7 @@ function showMainPage(id){
   if(id==='hizlitahmin')_htInit();
   if(id==='arastirma')_mrInit();
   if(id==='formul')_snInit();
+  if(id==='formul2')_f2Init();
   if(id==='astro')_astroInit();
 }
 
@@ -18160,6 +18205,9 @@ function _snTransformSystems(){
   out.push({id:'trpi',name:'🔄 ×π',
     desc:'Son çekilişin her sayısı π ile çarpılır, yuvarlanır ve mod alınır. (Aynı dürüst not geçerli.)',
     compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'π'+(k+1),val:_snWrap(Math.round(v*Math.PI),max)}));}});
+  out.push({id:'trr2',name:'🔄 ×√2 (kök 2)',
+    desc:'Son çekilişin her sayısı √2 ile çarpılır, yuvarlanır ve mod alınır. (Aynı dürüst not geçerli.)',
+    compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'√'+(k+1),val:_snWrap(Math.round(v*Math.SQRT2),max)}));}});
   out.push({id:'trmir',name:'🔄 Ayna',
     desc:'Son çekilişin her sayısı max+1−n ile aynalanır. (Aynı dürüst not geçerli.)',
     compute(r1,r2,r3,dp,aVal,max){return r1.main.map((v,k)=>({pos:'A'+(k+1),val:_snWrap(max+1-v,max)}));}});
@@ -18655,10 +18703,8 @@ function _qtRenderAll(mode,game,prior,actual){
   blk('niYakInter',_qtNihaiYakInter(src,game,aSet));
   blk('niYakGulayInter',_qtNihaiYakGulayInter(src,game,aSet));
   if(src.ga)blk('gulay',_qtGulayBlock(src.ga,game,aSet));
-  blk('3plusYak',_qt3PlusYakBlock(game,prior,aSet));
   blk('aiCombined',_qtAiBlock(game,prior,src,aSet));
   blk('best3',_qtBest3Block(game,prior,src,aSet));
-  blk('wheel',_qtWheelBlock(game,prior,aSet,src));
   blk('transform',_qtTransformBlock(game,prior,aSet));
   blk('aday',_qtAdayBlock(game,prior,aSet));
   blk('kbCons',_qtKbConsBlock(game,prior,aSet));
@@ -18799,11 +18845,6 @@ function _qtBuildAnalysisGroups(game,prior,src,targetDate){
       groups['🎰 Aday Sayılar (Uzlaşı)']=new Set(d.consArr.slice(0,game.count*3).map(c=>c.n));
       groups['🎰 Aday Sayılar (Tüm Adaylar)']=new Set(d.consArr.map(c=>c.n));
     }
-  }catch(e){}
-  try{
-    const M=_QT_WHEEL_M[game.id]||14;
-    const pool=_qtWheelPool(game,prior,M,src);
-    if(pool&&pool.length)groups['🎯 Garantili Sistem Havuzu']=new Set(pool);
   }catch(e){}
   try{
     const K=_NN_DEFAULT_K[game.id]||10;
@@ -19435,6 +19476,186 @@ function _qtWheelSetM(v){
   if(w){w.innerHTML='<div style="padding:12px;font-size:.68rem;color:var(--muted)">⏳ Sistem kuruluyor…</div>';
     setTimeout(()=>{w.innerHTML=_qtWheelInner(st.game,st.prior,null,M,st.src);},20);}
 }
+// ═══════════ 📅 FORMÜL 2 — GÜN/AY/YIL FORMÜLLERİ ═══════════
+// DÜRÜST ÖN BULGU (405 formül × 2 bağımsız pencere): ortalama lift 0,975 — tam şans. Pencere-1'in
+// "kazananları" (ort. 1,114) bağımsız pencere-2'de 1,008'e düştü. Hiçbiri şansı kalıcı geçmiyor.
+// Bu sayfa bir keşif/ölçüm laboratuvarıdır: her formülün gerçek geçmiş oranı ve şansa göre lift'i
+// canlı hesaplanır, kullanıcı kendi denemesini dürüstçe görebilsin diye.
+const _F2_TERMS=[
+  {id:'g',name:'Gün',f:(d,m,y)=>d},
+  {id:'a',name:'Ay',f:(d,m,y)=>m},
+  {id:'y2',name:'Yıl (son 2 hane)',f:(d,m,y)=>y%100},
+  {id:'g+a',name:'Gün + Ay',f:(d,m,y)=>d+m},
+  {id:'g+y',name:'Gün + Yıl',f:(d,m,y)=>d+y%100},
+  {id:'a+y',name:'Ay + Yıl',f:(d,m,y)=>m+y%100},
+  {id:'g+a+y',name:'Gün + Ay + Yıl',f:(d,m,y)=>d+m+y%100},
+  {id:'gxa',name:'Gün × Ay',f:(d,m,y)=>d*m},
+  {id:'gxy',name:'Gün × Yıl',f:(d,m,y)=>d*(y%100)},
+  {id:'axy',name:'Ay × Yıl',f:(d,m,y)=>m*(y%100)},
+  {id:'gxa+y',name:'Gün × Ay + Yıl',f:(d,m,y)=>d*m+y%100},
+  {id:'gxa-y',name:'Gün × Ay − Yıl',f:(d,m,y)=>d*m-y%100},
+  {id:'g+a*2',name:'Gün + Ay×2',f:(d,m,y)=>d+m*2},
+  {id:'g*2+a',name:'Gün×2 + Ay',f:(d,m,y)=>d*2+m},
+  {id:'(g+a)*2',name:'(Gün + Ay) × 2',f:(d,m,y)=>(d+m)*2},
+  {id:'(g+a+y)*2',name:'(Gün+Ay+Yıl) × 2',f:(d,m,y)=>(d+m+y%100)*2},
+  {id:'g-a',name:'Gün − Ay',f:(d,m,y)=>d-m},
+  {id:'a-g',name:'Ay − Gün',f:(d,m,y)=>m-d},
+  {id:'g+a+y4',name:'Gün + Ay + Tam Yıl',f:(d,m,y)=>d+m+y},
+  {id:'dijkok',name:'Dijital kök (G+A+Y)',f:(d,m,y)=>{let v=d+m+y;while(v>9)v=String(v).split('').reduce((a,c)=>a+ +c,0);return v;}},
+  {id:'yhane',name:'Yıl rakam toplamı',f:(d,m,y)=>String(y).split('').reduce((a,c)=>a+ +c,0)},
+  {id:'ghane+ahane',name:'Gün+Ay rakam toplamı',f:(d,m,y)=>String(d).split('').reduce((a,c)=>a+ +c,0)+String(m).split('').reduce((a,c)=>a+ +c,0)},
+  {id:'haftagun',name:'Haftanın günü',f:(d,m,y)=>new Date(y,m-1,d).getDay()+1},
+  {id:'yilgunu',name:'Yılın kaçıncı günü',f:(d,m,y)=>{const s=new Date(y,0,0);return Math.floor((new Date(y,m-1,d)-s)/86400000);}},
+  {id:'haftano',name:'Yılın kaçıncı haftası',f:(d,m,y)=>{const s=new Date(y,0,1);return Math.ceil(((new Date(y,m-1,d)-s)/86400000+s.getDay()+1)/7);}},
+];
+const _F2_MODES={
+  'r1+':{src:1,ap:(b,v,mx)=>b.map(x=>_TR_WRAP(x+v,mx))},
+  'r1-':{src:1,ap:(b,v,mx)=>b.map(x=>_TR_WRAP(x-v,mx))},
+  'r2+':{src:2,ap:(b,v,mx)=>b.map(x=>_TR_WRAP(x+v,mx))},
+  'seri':{src:1,ap:(b,v,mx)=>b.map((x,i)=>_TR_WRAP(v*(i+1),mx))},
+  'seri+r1':{src:1,ap:(b,v,mx)=>b.map((x,i)=>_TR_WRAP(x+v*(i+1),mx))},
+};
+let _f2Game='sayisal',_f2GameManual=false;
+function _f2Cands(term,mode,srcDraw,dateStr,max,pm){
+  const dt=new Date(dateStr+'T00:00:00');
+  let v;try{v=term.f(dt.getDate(),dt.getMonth()+1,dt.getFullYear());}catch(e){return {set:new Set(),val:null};}
+  if(!isFinite(v))return {set:new Set(),val:null};
+  const s=new Set();
+  _F2_MODES[mode].ap(srcDraw.nums,v,max).forEach(x=>{
+    if(x>=1&&x<=max)s.add(x);
+    if(pm){if(x-1>=1)s.add(x-1);if(x+1<=max)s.add(x+1);}
+  });
+  return {set:s,val:v};
+}
+const _f2StatCache={};
+function _f2Stats(game,draws,term,mode,pm,N){
+  const key=game.id+'|'+term.id+'|'+mode+'|'+(pm?1:0)+'|'+N+'|'+(draws[0]&&draws[0].date);
+  if(_f2StatCache[key])return _f2StatCache[key];
+  const max=game.max,si=_F2_MODES[mode].src;
+  const drawn=(draws[0].nums.length)+((draws[0].bonus||[]).length);
+  const bc=(n,r)=>{if(r<0||r>n)return 0;r=Math.min(r,n-r);let x=1;for(let i=0;i<r;i++)x=x*(n-i)/(i+1);return x;};
+  const ch=(pool,t)=>{if(pool<=0||pool>max)return 0;let s=0;for(let x=t;x<=Math.min(pool,drawn);x++)s+=bc(drawn,x)*bc(max-drawn,pool-x);return s/bc(max,pool);};
+  let g1=0,g2=0,g3=0,ps=0,t=0;
+  for(let i=0;i<N;i++){
+    const a=draws[i],sd=draws[i+si];if(!a||!sd)break;
+    const c=_f2Cands(term,mode,sd,a.date,max,pm);if(!c.set.size)continue;
+    ps+=c.set.size;
+    const aS=new Set([...(a.nums||[]),...(a.bonus||[])]);
+    let net=0;c.set.forEach(x=>{if(aS.has(x))net++;});
+    if(net>=1)g1++;if(net>=2)g2++;if(net>=3)g3++;t++;
+  }
+  if(!t)return null;
+  const ap=Math.round(ps/t),c1=ch(ap,1);
+  const r={t,pool:+(ps/t).toFixed(1),h1:100*g1/t,h2:100*g2/t,h3:100*g3/t,c1:100*c1,lift1:c1?(g1/t)/c1:0};
+  _f2StatCache[key]=r;return r;
+}
+function _f2Init(){
+  const row=document.getElementById('f2GameRow');if(!row)return;
+  if(!_f2GameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_f2Game=state.selectedGame;
+  row.innerHTML=GAMES.map(g=>{const a=g.id===_f2Game;return `<button onclick="_f2SetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(217,119,6,.7)':'var(--border)'};background:${a?'rgba(217,119,6,.15)':'var(--surface2)'};color:${a?'#b8860b':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
+  _f2Dates();_f2Run();
+}
+function _f2SetGame(g){_f2Game=g;_f2GameManual=true;_f2Init();const e=document.getElementById('f2TestOut');if(e)e.innerHTML='';}
+function _f2Dates(){
+  const sel=document.getElementById('f2DateSel');if(!sel)return;
+  const draws=_kbGetDraws(_f2Game);const prev=sel.value;
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  draws.forEach((d,i)=>{if(draws.length-i-1<5)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;if(prev)sel.value=prev;
+}
+function _f2StepDate(dir){
+  const sel=document.getElementById('f2DateSel');if(!sel||sel.options.length<2)return;
+  let i=sel.selectedIndex;if(i<1)i=1;else i=Math.min(sel.options.length-1,Math.max(1,i+dir));
+  sel.selectedIndex=i;_f2DateTest();
+}
+// rows: her formülün sayıları + canlı lift; aSet verilirse net/yakın işaretli
+function _f2Build(game,draws,dateStr,srcOffset,aSet){
+  const mode=document.getElementById('f2Mode')?.value||'r1+';
+  const pm=!!document.getElementById('f2PM')?.checked;
+  const max=game.max,si=_F2_MODES[mode].src;
+  const sd=draws[srcOffset+si-1];
+  if(!sd)return null;
+  const N=Math.min(200,draws.length-3);
+  const rows=_F2_TERMS.map(term=>{
+    const c=_f2Cands(term,mode,sd,dateStr,max,pm);
+    const st=_f2Stats(game,draws,term,mode,pm,N);
+    return {term,nums:[...c.set].sort((a,b)=>a-b),val:c.val,st};
+  }).filter(r=>r.nums.length).sort((a,b)=>(b.st?b.st.lift1:0)-(a.st?a.st.lift1:0));
+  return {rows,mode,pm,srcDraw:sd,N};
+}
+function _f2RenderRows(d,aSet){
+  let h='';
+  d.rows.forEach(r=>{
+    const L=r.st?r.st.lift1:0;
+    const lc=L>=1.1?'#0a9a6a':L<=0.9?'#c2410c':'var(--muted)';
+    let net=0,near=0;if(aSet)r.nums.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+    h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:7px;margin-bottom:4px;flex-wrap:wrap">`;
+    h+=`<span style="font-size:.6rem;color:var(--text);font-weight:700;min-width:132px;flex-shrink:0">${r.term.name} <span style="color:var(--muted);font-weight:400">= ${r.val}</span></span>`;
+    h+=`<span style="font-size:.54rem;color:${lc};min-width:108px;flex-shrink:0" title="geçmiş ≥1 net oranı / rastgele havuz şansı">≥1 %${r.st?r.st.h1.toFixed(0):'—'} (şans %${r.st?r.st.c1.toFixed(0):'—'}) ×${L.toFixed(2)}</span>`;
+    h+=`<span style="display:flex;gap:5px;flex-wrap:wrap;flex:1">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.72rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
+    if(aSet)h+=`<span style="font-size:.58rem;font-weight:800;color:${net>0?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın</span>`;
+    h+=`<button onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;flex-shrink:0">📋</button>`;
+    h+=`</div>`;
+  });
+  return h;
+}
+function _f2Run(){
+  const el=document.getElementById('f2Out'),syn=document.getElementById('f2SynthOut');
+  if(!el)return;
+  const game=getGame(_f2Game),draws=_kbGetDraws(_f2Game);
+  if(draws.length<10){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
+  const target=_predNextDrawDate(game.id)||draws[0].date;
+  const d=_f2Build(game,draws,target,0,null);
+  if(!d){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Kaynak çekiliş yok.</div>';return;}
+  // uzlaşı: kaç formül önerdi
+  const tally={};d.rows.forEach(r=>r.nums.forEach(n=>tally[n]=(tally[n]||0)+1));
+  const ranked=Object.keys(tally).map(Number).sort((a,b)=>tally[b]-tally[a]||a-b);
+  const pick=ranked.slice(0,game.count).sort((a,b)=>a-b);
+  window._f2Txt='📅 Formül 2 — Gün/Ay/Yıl ('+game.name+', '+target+', mod: '+d.mode+(d.pm?' , ±1':'')+')\n🤝 En çok uzlaşılan '+game.count+': '+pick.join(' ')+'\n\n'+d.rows.map(r=>r.term.name+' ('+r.val+'): '+r.nums.join(' ')).join('\n');
+  if(syn){
+    let sh=`<div class="card" style="margin-bottom:12px;border:1.5px solid rgba(217,119,6,.45);background:linear-gradient(135deg,rgba(217,119,6,.06),transparent)">`;
+    sh+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.76rem;font-weight:800;color:#b8860b">🤝 Formül Uzlaşısı — ${target}</span><button onclick="_caCopy(window._f2Txt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
+    sh+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:7px">Kaynak çekiliş: <strong style="font-family:monospace;color:var(--text)">${d.srcDraw.date} → ${d.srcDraw.nums.join(' ')}</strong> · ${d.rows.length} formül · alt rakam = kaç formül önerdi.</div>`;
+    sh+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${pick.map(n=>`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:1.5px solid rgba(217,119,6,.45)"><span style="font-size:.88rem;font-weight:800;font-family:monospace;color:var(--text)">${n}</span><span style="font-size:.44rem;color:var(--muted)">${tally[n]}/${d.rows.length}</span></span>`).join('')}</div>`;
+    sh+=`</div>`;
+    syn.innerHTML=sh;
+  }
+  el.innerHTML=_f2RenderRows(d,null);
+}
+function _f2DateTest(){
+  const el=document.getElementById('f2TestOut');if(!el)return;
+  const date=document.getElementById('f2DateSel')?.value||'';
+  if(!date){el.innerHTML='';return;}
+  const game=getGame(_f2Game),draws=_kbGetDraws(_f2Game);
+  const idx=draws.findIndex(x=>x.date===date);if(idx<0)return;
+  const actual=draws[idx];
+  const d=_f2Build(game,draws,actual.date,idx+1,null);
+  if(!d){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için kaynak çekiliş yok.</div>';return;}
+  const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+  const tally={};d.rows.forEach(r=>r.nums.forEach(n=>tally[n]=(tally[n]||0)+1));
+  const ranked=Object.keys(tally).map(Number).sort((a,b)=>tally[b]-tally[a]||a-b);
+  const pick=ranked.slice(0,game.count).sort((a,b)=>a-b);
+  let pn=0,pnr=0;pick.forEach(n=>{if(aSet.has(n))pn++;else if(aSet.has(n-1)||aSet.has(n+1))pnr++;});
+  const uni=new Set();d.rows.forEach(r=>r.nums.forEach(n=>uni.add(n)));
+  let uNet=0,uNear=0;uni.forEach(n=>{if(aSet.has(n))uNet++;else if(aSet.has(n-1)||aSet.has(n+1))uNear++;});
+  const best=d.rows.reduce((b,r)=>{let x=0;r.nums.forEach(n=>{if(aSet.has(n))x++;});return x>b.n?{n:x,name:r.term.name}:b;},{n:0,name:'—'});
+  window._f2TestTxt='📅 Formül 2 — Geçmiş Test ('+game.name+', '+actual.date+', mod: '+d.mode+')\nSonuç: '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')
+    +'\nUzlaşı ilk '+game.count+': '+pick.join(' ')+' → '+pn+' net · '+pnr+' yakın'
+    +'\nTüm formüllerde (birleşik '+uni.size+' sayı): '+uNet+' net · '+uNear+' yakın'
+    +'\nEn iyi formül: '+best.name+' ('+best.n+' net)';
+  let h=`<div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:.64rem;font-weight:800;color:#b8860b">🎯 ${actual.date} · sonuç: <span style="font-family:monospace;color:var(--text)">${[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')}</span></span><button onclick="_caCopy(window._f2TestTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:7px">Formüller bu çekilişin gün/ay/yıl bilgisiyle ve ÖNCEKİ çekilişle hesaplandı (lookahead yok) · ✓ net · ~ ±1 yakın.</div>`;
+  const st=(l,v,s2,c)=>`<div style="flex:1;min-width:126px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px"><div style="font-size:.5rem;color:var(--muted)">${l}</div><div style="font-size:.84rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.48rem;color:var(--muted)">${s2}</div></div>`;
+  h+=`<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:9px">`;
+  h+=st('Uzlaşı ilk '+game.count,`${pn} net · ${pnr} yakın`,pick.join(' '),pn>0?'var(--green)':'var(--muted)');
+  h+=st('Tüm formüllerde (birleşik)',`${uNet} net · ${uNear} yakın`,`${uni.size} farklı sayı`,uNet>0?'var(--green)':'var(--muted)');
+  h+=st('En iyi formül',`${best.n} net`,best.name,best.n>0?'var(--green)':'var(--muted)');
+  h+=`</div>`;
+  h+=_f2RenderRows(d,aSet);
+  h+=`</div>`;
+  el.innerHTML=h;
+}
 // ═══════════ 🎯 NİHAİ 3+ NET/YAKIN SİSTEMİ — Hızlı Tahmin sürümü (sayfanın EN ÜSTÜNDE) ═══════════
 // Anasayfadaki sistemle AYNI motor (_nnBundle + _nnCore); burada da geçmiş testte ✓/~ işaretlenir.
 function _qtNnBlock(game,prior,aSet,src){
@@ -19478,6 +19699,7 @@ const _TR_DEFS=[
   {id:'p19',name:'+19',f:(n,max)=>_TR_WRAP(n+19,max)},
   {id:'p20',name:'+20',f:(n,max)=>_TR_WRAP(n+20,max)},
   {id:'xpi',name:'×π',f:(n,max)=>_TR_WRAP(n*Math.PI,max)},
+  {id:'xr2',name:'×√2 (kök 2)',f:(n,max)=>_TR_WRAP(n*Math.SQRT2,max)},
   {id:'mir',name:'Ayna (max+1−n)',f:(n,max)=>_TR_WRAP(max+1-n,max)},
 ];
 function _trCands(def,srcDraw,max,pm){
@@ -19719,7 +19941,6 @@ function _qtCopyAllGrouped(){
     ['🧮 Formül Sistemi','🧮','Formül Sistemi (tüm formüllerin birleşimi)'],
     ['🧭 Kapsamlı Konsensüs','🧭','Kapsamlı Konsensüs'],
     ['🎰 Aday Sayılar (Uzlaşı)','🎰','Aday Sayılar — Uzlaşı'],
-    ['🎯 Garantili Sistem Havuzu','🎯','3+ Net Garantili Sistem Havuzu'],
     ['🎯 Nihai 3+ Net/Yakın Sistemi','🎯','Nihai 3+ Net/Yakın Sistemi'],
     ['🔄 Dönüşümler (Tümü)','🔄','Dönüşüm Sayıları (tümünün birleşimi)'],
     ['🔴 Listeler — Kırmızı Hücreler','🔴','Listeler — Kırmızı Hücreler'],
