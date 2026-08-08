@@ -668,9 +668,16 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
           <select id="scanBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
             <option value="10">Son 10 çekiliş</option>
             <option value="20">Son 20 çekiliş</option>
-            <option value="30" selected>Son 30 çekiliş</option>
+            <option value="30">Son 30 çekiliş</option>
             <option value="50">Son 50 çekiliş</option>
+            <option value="100" selected>Son 100 çekiliş</option>
+            <option value="250">Son 250 çekiliş</option>
+            <option value="999">Tüm geçmiş</option>
           </select>
+        </div>
+        <div style="font-size:.6rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
+          ⚠️ 30 çekiliş bir algoritmayı değerlendirmek için çok azdır — o aralıkta şans dalgalanması
+          gerçek farktan büyüktür. Sonuçlar artık <strong>şans beklentisi</strong> ile birlikte gösteriliyor.
         </div>
         <button onclick="runScanBacktest()" style="width:100%;padding:10px;background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.08));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:700;margin-bottom:12px">📊 Geçmişi Test Et</button>
         <div id="scanBtResult"><div class="empty-state"><span class="empty-icon">📊</span>Geçmişi Test Et'e basın.</div></div>
@@ -1556,13 +1563,13 @@ const GAMES = [
 // gösterdi (piyango hafızasızdır). Bu tipler farklı istatistiksel bakışlar üretir (yakınlık, gecikme,
 // eş-görünüm, komşuluk...) — çeşitlilik ve grup/kapsama oyunu için değerlidir, "kesin bilme" iddiası taşımaz.
 const ALGOS = [
-  { id:'axfused',    name:'🔮 Frekans-Gecikme Füzyonu', desc:'Normalize frekans × üstel frekans × gecikme çarpımsal füzyonu — sık, güncel ve sırası gelmiş sayıları aynı anda dengeler; toplam+bölge dengeli seçim (50M+ biletle test)', expert:true },
-  { id:'axhybrid',   name:'🧬 Üçlü Harman',            desc:'Üstel frekans × eş-görünüm ağı × komşu ısısı — birlikte çıkan ve komşuluk kümelenen güncel sayıları öne çıkarır (Sayısal geri-testinde en yüksek 3+ oranı)', expert:true },
+  { id:'axfused',    name:'🔮 Frekans-Gecikme Füzyonu', desc:'Normalize frekans × üstel frekans × gecikme çarpımsal füzyonu — sık, güncel ve sırası gelmiş sayıları aynı anda dengeler; toplam+bölge dengeli seçim', expert:true },
+  { id:'axhybrid',   name:'🧬 Üçlü Harman',            desc:'Üstel frekans × eş-görünüm ağı × komşu ısısı — birlikte çıkan ve komşuluk kümelenen güncel sayıları öne çıkarır', expert:true },
   { id:'axrecency',  name:'📈 Yakın Dönem Ağırlıklı',  desc:'Üstel ağırlıklı frekans (λ=0.82) — son çekilişlere kademeli olarak daha çok ağırlık verir', expert:true },
-  { id:'axsharp',    name:'⚡ Keskin Momentum',        desc:'Keskin üstel frekans (λ=0.60) — çok yakın dönemdeki sıcak sayılara odaklanır (Şans Topu geri-testinde en yüksek 3+ oranı)', expert:true },
+  { id:'axsharp',    name:'⚡ Keskin Momentum',        desc:'Keskin üstel frekans (λ=0.60) — çok yakın dönemdeki sıcak sayılara odaklanır', expert:true },
   { id:'axoverdue',  name:'⏳ Sırası Gelmiş',          desc:'Gecikme ağırlıklı seçim — uzun süredir çıkmayan, istatistiksel olarak "sırası gelmiş" sayıları önceler', expert:true },
   { id:'axmarkov',   name:'🔗 Zincir Geçiş',           desc:'Markov geçiş analizi — son çekilişteki sayılarla tarihsel olarak birlikte/ardışık gelen sayıları puanlar', expert:true },
-  { id:'axpair',     name:'🕸️ Eş-Görünüm Ağı',        desc:'Sıcak sayılarla birlikte çıkma (co-occurrence) ağı — merkezi/bağlantılı sayıları öne çıkarır (On Numara geri-testinde en yüksek 7+ oranı)', expert:true },
+  { id:'axpair',     name:'🕸️ Eş-Görünüm Ağı',        desc:'Sıcak sayılarla birlikte çıkma (co-occurrence) ağı — merkezi/bağlantılı sayıları öne çıkarır', expert:true },
   { id:'axneighbor', name:'🎯 Komşu Isısı',            desc:'Son çekilişlerin ±1/±2 komşularını ağırlıklandırır — kümelenme eğilimini yakalar', expert:true },
   { id:'axpos',      name:'📐 Konum Frekansı',         desc:'Sıralı konum (1., 2., ...) bazlı tarihsel frekans harmanı — her konumun tipik değer aralığını yansıtır', expert:true },
   { id:'axdigit',    name:'🔢 Son Hane Rezonansı',     desc:'Son-hane (birler basamağı) rezonansı — son çekilişlerin hane örüntüsüne uyumlu sayıları puanlar', expert:true },
@@ -14189,35 +14196,78 @@ function runScan(noRecord){
   res.innerHTML=html;
 }
 
+// ── Şans (rastgele seçim) referansı ────────────────────────────────────────
+// Bir algoritmanın "iyi çalışıp çalışmadığı" ancak bu referansa göre söylenebilir.
+// Ana sayı eşleşmesi hipergeometrik dağılır (N=max, K=çekilen adet, n=tahmin adedi);
+// varsa bonus eşleşmesi bağımsız Bernoulli(p=bonusAdet/bonusMax) olarak konvolüe edilir.
+function _scanChanceRef(game,rows){
+  if(!rows.length)return null;
+  const max=game.max;
+  const nPick=(rows[0].pred||[]).length||game.count;
+  // en sık görülen gerçek çekiliş uzunluğu (On Numara'da 22, diğerlerinde count)
+  const cnt={};rows.forEach(r=>{const L=(r.actual||[]).length;cnt[L]=(cnt[L]||0)+1;});
+  const K=+Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];
+  if(!(K>0)||!(nPick>0)||K>max)return null;
+  const bPick=(rows[0].predBonus||[]).length,bDraw=(rows[0].actualBonus||[]).length;
+  const pB=(bPick&&bDraw&&game.bonusMax)?Math.min(1,bPick*bDraw/game.bonusMax):0;
+  const LG=[0,0];for(let i=2;i<=max+2;i++)LG[i]=LG[i-1]+Math.log(i);
+  const logC=(n,k)=>(n<0||k<0||k>n)?-Infinity:LG[n]-LG[k]-LG[n-k];
+  let dist=[];
+  for(let i=0;i<=Math.min(nPick,K);i++){
+    const l=logC(K,i)+logC(max-K,nPick-i)-logC(max,nPick);
+    dist[i]=isFinite(l)?Math.exp(l):0;
+  }
+  if(pB>0){const nd=[];dist.forEach((p,i)=>{nd[i]=(nd[i]||0)+p*(1-pB);nd[i+1]=(nd[i+1]||0)+p*pB;});dist=nd;}
+  let mean=0,p2=0,p3=0;
+  dist.forEach((p,i)=>{p=p||0;mean+=p*i;if(i>=2)p2+=p;if(i>=3)p3+=p;});
+  return {mean,p2:p2*100,p3:p3*100,K,nPick};
+}
+let _scanBtToken=0;
 function runScanBacktest(){
   const gameId=_scanGame||state.selectedGame;
   const game=getGame(gameId);
   if(!game){showToast('Oyun seçin');return;}
   const algoId=document.getElementById('scanAlgo')?.value;
   const winVal=document.getElementById('scanWindow')?.value;
-  const btCount=parseInt(document.getElementById('scanBtCount')?.value)||20;
+  const btRaw=document.getElementById('scanBtCount')?.value||'20';
   const draws=_scanGetDraws(gameId);
   const res=document.getElementById('scanBtResult');
   if(draws.length<5){res.innerHTML='<div class="empty-state"><span class="empty-icon">⚠️</span>Bu oyun için yeterli veri yok.</div>';return;}
-  res.innerHTML='<div style="font-size:.75rem;color:var(--muted);padding:20px;text-align:center">⏳ Hesaplanıyor...</div>';
-  setTimeout(()=>{
-    window._scanBtMode=true;
-    // Megavote için BT başlamadan önce sinyal kalibrasyonu (test öncesi veriyle)
-    if(algoId==='megavote'){
-      const calibDraws=draws.slice(Math.min(btCount,draws.length-1));
-      if(calibDraws.length>=12)window._mvBtCalibWeights=_mvCalibrate(calibDraws,game);
-    }
-    const tests=draws.slice(0,Math.min(btCount,draws.length-5));
-    const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
-    const rows=[];
-    let totalMatch=0;let hitCount=0;
-    tests.forEach((d,ti)=>{
+  const btCount=btRaw==='999'?Math.max(1,draws.length-5):(parseInt(btRaw)||20);
+  const myTok=++_scanBtToken;   // yeni test başlarsa eskisi kendini iptal eder
+  res.innerHTML='<div style="font-size:.75rem;color:var(--muted);padding:20px;text-align:center">⏳ Hesaplanıyor… <span id="scanBtProg" style="font-weight:800;color:var(--accent)">0%</span></div>';
+  window._scanBtMode=true;
+  // Megavote için BT başlamadan önce sinyal kalibrasyonu (test öncesi veriyle)
+  if(algoId==='megavote'){
+    const calibDraws=draws.slice(Math.min(btCount,draws.length-1));
+    if(calibDraws.length>=12)window._mvBtCalibWeights=_mvCalibrate(calibDraws,game);
+  }
+  const tests=draws.slice(0,Math.min(btCount,draws.length-5));
+  const algoName=ALGOS.find(a=>a.id===algoId)?.name||algoId;
+  const rows=[];
+  let totalMatch=0,hitCount=0,ti=0;
+  // 250+/tüm geçmiş seçildiğinde tek senkron döngü sayfayı dondurur → parçalı çalıştır.
+  // Parça boyutu ölçülen süreye göre uyarlanır → her tur ~50-110ms, sayfa yanıt verir kalır.
+  // Yield için MessageChannel tercih edildi: setTimeout iç içe çağrılarda ≥4ms'e, arka plandaki
+  // sekmelerde çok daha fazlasına sabitlenir; MessageChannel bu kısıtlamalara tabi değildir.
+  // (Ölçüm: 250 test = ~1.3sn CPU — profilde _axSignalsRaw + _axGen; parça başına yield ~10ms.)
+  const CHUNKED=tests.length>40;
+  let BATCH=CHUNKED?4:tests.length,_mc=null;
+  if(CHUNKED){try{_mc=new MessageChannel();_mc.port1.onmessage=()=>step();}catch(e){_mc=null;}}
+  const closeMc=()=>{if(_mc){try{_mc.port1.close();_mc.port2.close();}catch(e){}_mc=null;}};
+  const schedule=()=>{if(_mc)_mc.port2.postMessage(0);else setTimeout(step,0);};
+  function step(){
+    if(myTok!==_scanBtToken){closeMc();return;}
+    const t0=performance.now();
+    const end=Math.min(ti+BATCH,tests.length);
+    for(;ti<end;ti++){
+      const d=tests[ti];
       let prior=draws.slice(ti+1);
       if(winVal&&winVal!=='999')prior=prior.slice(-parseInt(winVal));
-      if(!prior.length)return;
+      if(!prior.length)continue;
       const freq=buildFreq(prior);
       let pred;
-      try{pred=generateNumbers(game,algoId,freq,prior);}catch(e){return;}
+      try{pred=generateNumbers(game,algoId,freq,prior);}catch(e){continue;}
       // Top-12 adayları kaydet (megavote: _mvLastVotes; diğerleri: tahmin listesi)
       let top12=null;
       if(window._mvLastVotes&&window._mvLastVotes.game===game.id){
@@ -14225,7 +14275,6 @@ function runScanBacktest(){
         top12=[...Array(game.max+1).keys()].slice(1).map(n=>({n,v:v[n]||0})).sort((a,b)=>b.v-a.v).slice(0,12).map(x=>x.n);
       }
       const mainSet=new Set(pred.main||[]);
-      const bSet=new Set(pred.bonus||[]);
       const matchMain=(d.nums||[]).filter(n=>mainSet.has(n)).length;
       const matchBonus=(pred.bonus||[]).filter(n=>(d.bonus||[]).includes(n)).length;
       const match=matchMain+matchBonus;
@@ -14234,18 +14283,61 @@ function runScanBacktest(){
       // Top-12 isabeti
       const top12Hits=top12?(d.nums||[]).filter(n=>top12.includes(n)).length:null;
       rows.push({date:d.date,pred:pred.main||[],predBonus:pred.bonus||[],actual:d.nums||[],actualBonus:d.bonus||[],match,matchMain,matchBonus,top12,top12Hits});
-    });
-    if(!rows.length){res.innerHTML='<div class="empty-state">Yeterli test satırı oluşturulamadı.</div>';return;}
-    const avg=(totalMatch/rows.length).toFixed(2);
+    }
+    if(ti<tests.length){
+      const el=performance.now()-t0;
+      if(CHUNKED){
+        if(el>110&&BATCH>1)BATCH=Math.max(1,BATCH>>1);
+        else if(el<50)BATCH=Math.min(64,BATCH*2);
+      }
+      const pr=document.getElementById('scanBtProg');
+      if(pr)pr.textContent=Math.round(ti*100/tests.length)+'%';
+      schedule();
+      return;
+    }
+    closeMc();
+    _scanBtRender();
+  }
+  function _scanBtRender(){
+    if(!rows.length){res.innerHTML='<div class="empty-state">Yeterli test satırı oluşturulamadı.</div>';window._scanBtMode=false;return;}
+    const n=rows.length;
+    const avgNum=totalMatch/n;
+    const avg=avgNum.toFixed(2);
     const hit2Count=rows.filter(r=>r.match>=2).length;
-    const pct=Math.round(hitCount/rows.length*100);
-    const pct2=Math.round(hit2Count/rows.length*100);
+    const pct=Math.round(hitCount/n*100);
+    const pct2=Math.round(hit2Count/n*100);
+    // ── Şans referansı + anlamlılık (z) ──
+    const ref=_scanChanceRef(game,rows);
+    let z=null;
+    if(ref&&n>1){
+      const vr=rows.reduce((a,r)=>a+(r.match-avgNum)*(r.match-avgNum),0)/(n-1);
+      const se=Math.sqrt(vr/n);
+      z=se>0?(avgNum-ref.mean)/se:0;
+    }
+    const pf=v=>'%'+(v<10?v.toFixed(1):Math.round(v));
+    const tile=(val,lbl,clr,sub)=>`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center;min-width:92px"><div style="font-size:1.2rem;font-weight:800;color:${clr}">${val}</div><div style="font-size:.62rem;color:var(--muted)">${lbl}</div>${sub?`<div style="font-size:.55rem;color:var(--muted);opacity:.8;margin-top:3px">${sub}</div>`:''}</div>`;
     let html=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">`;
-    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--accent)">${avg}</div><div style="font-size:.62rem;color:var(--muted)">ort. eşleşme</div></div>`;
-    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--gold)">${pct2}%</div><div style="font-size:.62rem;color:var(--muted)">2+ eşleşme</div></div>`;
-    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--green)">${pct}%</div><div style="font-size:.62rem;color:var(--muted)">3+ eşleşme</div></div>`;
-    html+=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;text-align:center"><div style="font-size:1.2rem;font-weight:800;color:var(--text)">${rows.length}</div><div style="font-size:.62rem;color:var(--muted)">test sayısı</div></div>`;
+    html+=tile(avg,'ort. eşleşme','var(--accent)',ref?`şans: ${ref.mean.toFixed(2)}`:'');
+    html+=tile(pct2+'%','2+ eşleşme','var(--gold)',ref?`şans: ${pf(ref.p2)}`:'');
+    html+=tile(pct+'%','3+ eşleşme','var(--green)',ref?`şans: ${pf(ref.p3)}`:'');
+    html+=tile(n,'test sayısı','var(--text)','');
     html+=`</div>`;
+    if(z!==null){
+      const az=Math.abs(z),zs=(z>=0?'+':'')+z.toFixed(2);
+      let bg,bc,tc,msg;
+      if(az<2){
+        bg='rgba(148,163,184,.10)';bc='rgba(148,163,184,.32)';tc='var(--muted)';
+        msg=`<strong>Şans aralığında.</strong> Ortalama ${avg}, rastgele seçim beklentisi ${ref.mean.toFixed(3)} — fark z=${zs} (|z|&lt;2). Bu büyüklükte bir fark rastlantıyla açıklanabilir.`;
+      }else if(z>0){
+        bg='rgba(0,230,118,.08)';bc='rgba(0,230,118,.35)';tc='var(--green)';
+        msg=`<strong>Şansın üzerinde (z=${zs}).</strong> Tek başına kanıt değildir: ${ALGOS.length} algoritma × ${GAMES.length} oyun denendiğinde, en iyisinin yalnızca rastlantıyla z≈2.5–3 çıkması beklenir. Farklı bir dönemde de tekrarlanmalı.`;
+      }else{
+        bg='rgba(239,83,80,.08)';bc='rgba(239,83,80,.35)';tc='#ef5350';
+        msg=`<strong>Şansın altında (z=${zs}).</strong> Bu algoritma bu oyunda rastgele seçimden daha kötü sonuç verdi.`;
+      }
+      html+=`<div style="font-size:.63rem;line-height:1.6;padding:8px 12px;border-radius:8px;background:${bg};border:1px solid ${bc};color:${tc};margin-bottom:10px">${msg}</div>`;
+      if(n<50)html+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.5">ℹ️ ${n} test bir algoritmayı ayırt etmek için azdır. "Son 250" veya "Tüm geçmiş" ile tekrarlayın.</div>`;
+    }
     // Megavote kalibrasyon bilgisi göster
     if(algoId==='megavote'&&window._mvBtCalibWeights&&window._mvBtCalibWeights.game===gameId){
       const cw=window._mvBtCalibWeights;
@@ -14259,11 +14351,16 @@ function runScanBacktest(){
       </div>`;
     }
     html+=`<div style="font-size:.67rem;color:var(--muted);margin-bottom:8px">${game.emoji} ${game.name} · ${algoName}</div>`;
-    const hasTop12=rows.some(r=>r.top12);
+    // Tüm geçmiş seçildiğinde 900+ satır DOM'u boğar → tabloyu sınırla (istatistikler TÜM satırlardan).
+    const MAXROWS=150;
+    const shown=rows.slice(0,MAXROWS);
+    if(rows.length>MAXROWS)html+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:6px">📋 Yukarıdaki istatistikler ${rows.length} testin tamamından hesaplandı; aşağıdaki tabloda en yeni ${MAXROWS} çekiliş listeleniyor.</div>`;
+    const hasTop12=shown.some(r=>r.top12);
+    const predLen=(shown[0].pred||[]).length+(shown[0].predBonus||[]).length;
     html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.67rem">`;
-    html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tahmin (6)</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Eş.</th>${hasTop12?`<th style="text-align:left;padding:4px 6px;color:var(--accent)">Top-12 Aday</th><th style="text-align:center;padding:4px 6px;color:var(--accent)">T12</th>`:''}`;
+    html+=`<thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tarih</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Tahmin (${predLen})</th><th style="text-align:left;padding:4px 6px;color:var(--muted)">Gerçek</th><th style="text-align:center;padding:4px 6px;color:var(--muted)">Eş.</th>${hasTop12?`<th style="text-align:left;padding:4px 6px;color:var(--accent)">Top-12 Aday</th><th style="text-align:center;padding:4px 6px;color:var(--accent)">T12</th>`:''}`;
     html+=`</tr></thead><tbody>`;
-    rows.forEach(r=>{
+    shown.forEach(r=>{
       const clr=r.match>=4?'var(--green)':r.match>=3?'var(--accent)':r.match>=2?'var(--gold)':'var(--muted)';
       const mainSet=new Set(r.pred);
       const bSet=new Set(r.predBonus);
@@ -14289,7 +14386,8 @@ function runScanBacktest(){
     window._scanBtMode=false;
     window._mvBtCalibWeights=null;
     res.innerHTML=html;
-  },20);
+  }
+  setTimeout(step,20);
 }
 
 // ═══════════ ANASAYFA — BİLET TESTİ & ANOMALİ ANALİZİ ═══════════
