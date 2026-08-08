@@ -315,6 +315,17 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   .b10-tahmin-grid{grid-template-columns:1fr}
 }
 @media(max-width:720px){#page-nsa #gizliPageKolon>div[style*="grid-template-columns"]{grid-template-columns:1fr !important;}}
+/* Analiz satırı: etiket + istatistik + sayılar. Dar ekranda sayıları ince bir sütuna sıkıştırmak
+   yerine, sayı bloğu kendi satırına inip TÜM genişliği kullanır (flex-basis + wrap). */
+.an-row{display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:7px;margin-bottom:4px;flex-wrap:wrap}
+.an-row .an-lbl{flex:0 1 auto;min-width:0}
+.an-row .an-stat{flex:0 1 auto;min-width:0;white-space:nowrap}
+.an-row .an-nums{display:flex;gap:5px;flex-wrap:wrap;flex:1 1 260px;min-width:0}
+.an-row .an-btn{flex-shrink:0;margin-left:auto}
+@media(max-width:700px){
+  .an-row .an-lbl,.an-row .an-stat{flex:0 0 auto}
+  .an-row .an-nums{flex:1 1 100%}
+}
 @media(max-width:820px){.qt-pair-row,#qtHdrRow{grid-template-columns:1fr !important;}}
 @media(max-width:820px){#caNihaiGrid,#cbNihaiGrid{grid-template-columns:1fr !important;}}
 @media(max-width:820px){#mrGrid{grid-template-columns:1fr !important;}}
@@ -15187,7 +15198,7 @@ function _caRenderAll(){
     h+=`<div style="font-size:.6rem;font-weight:700;color:var(--text);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px">Analiz bazlı adaylar (${game.emoji} ${game.name})</div>`;
     h+=`<div style="display:flex;flex-direction:column;gap:4px">`;
     rows.forEach(r=>{
-      h+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--surface2);border-radius:7px"><span style="font-size:.6rem;color:var(--text);font-weight:600;min-width:120px;flex-shrink:0">${r.name}</span><div style="display:flex;gap:4px;flex-wrap:wrap;flex:1">${r.top.map(n=>{const bl=gulay.has(n),strong=consensus[n]>=nA*0.5;return `<span style="font-family:monospace;font-size:.64rem;font-weight:${bl||strong?800:600};color:${bl?'#2f6fed':strong?'var(--green)':'var(--text)'}">${n}</span>`;}).join(' ')}</div><button onclick="_caCopy('${r.top.join(' ')}')" title="Kopyala" style="font-size:.58rem;padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;flex-shrink:0">📋</button></div>`;
+      h+=`<div class="an-row"><span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:600">${r.name}</span><div class="an-nums">${r.top.map(n=>{const bl=gulay.has(n),strong=consensus[n]>=nA*0.5;return `<span style="font-family:monospace;font-size:.64rem;font-weight:${bl||strong?800:600};color:${bl?'#2f6fed':strong?'var(--green)':'var(--text)'}">${n}</span>`;}).join(' ')}</div><button class="an-btn" onclick="_caCopy('${r.top.join(' ')}')" title="Kopyala" style="font-size:.58rem;padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button></div>`;
     });
     h+=`</div></div>`;
     el.innerHTML=h;
@@ -19389,9 +19400,9 @@ function _qtFormulBlock(game,prior,aSet,actual){
     h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:.7rem;font-weight:800;color:var(--accent)">🧮 Formül Sistemi (${fd.rows.length} formül · ${fd.union.size} sayı)</span><span style="display:flex;align-items:center;gap:8px">${aSet?`<span style="font-size:.62rem;font-weight:800;color:${net>=3?'var(--green)':'var(--muted)'}">🏆 ${net} net · ${near} yakın</span>`:''}<button onclick="_caCopy(window.${ck})" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></span></div>`;
     h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Formül Sistemi sayfasındaki TÜM formüllerin bu oyunun ${actual?actual.date+' çekilişi':'sıradaki çekilişi'} için ürettiği sayılar.</div>`;
     fd.rows.forEach(r=>{
-      h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:7px;margin-bottom:4px;flex-wrap:wrap">`;
-      h+=`<span style="font-size:.6rem;color:var(--text);font-weight:700;min-width:150px;flex-shrink:0">${r.name}</span>`;
-      h+=`<span style="display:flex;gap:5px;flex-wrap:wrap;flex:1">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.72rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
+      h+=`<div class="an-row">`;
+      h+=`<span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:700">${r.name}</span>`;
+      h+=`<span class="an-nums">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.72rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
       h+=`<button onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.56rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;flex-shrink:0">📋</button>`;
       h+=`</div>`;
     });
@@ -19589,12 +19600,12 @@ function _f2RenderRows(d,aSet){
     const L=r.st?r.st.lift1:0;
     const lc=L>=1.1?'#0a9a6a':L<=0.9?'#c2410c':'var(--muted)';
     let net=0,near=0;if(aSet)r.nums.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
-    h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:7px;margin-bottom:4px;flex-wrap:wrap">`;
-    h+=`<span style="font-size:.6rem;color:var(--text);font-weight:700;min-width:132px;flex-shrink:0">${r.term.name} <span style="color:var(--muted);font-weight:400">= ${r.val}</span></span>`;
-    h+=`<span style="font-size:.54rem;color:${lc};min-width:108px;flex-shrink:0" title="geçmiş ≥1 net oranı / rastgele havuz şansı">≥1 %${r.st?r.st.h1.toFixed(0):'—'} (şans %${r.st?r.st.c1.toFixed(0):'—'}) ×${L.toFixed(2)}</span>`;
-    h+=`<span style="display:flex;gap:5px;flex-wrap:wrap;flex:1">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.72rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
+    h+=`<div class="an-row">`;
+    h+=`<span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:700">${r.term.name} <span style="color:var(--muted);font-weight:400">= ${r.val}</span></span>`;
+    h+=`<span class="an-stat" style="font-size:.54rem;color:${lc}" title="geçmiş ≥1 net oranı / rastgele havuz şansı">≥1 %${r.st?r.st.h1.toFixed(0):'—'} (şans %${r.st?r.st.c1.toFixed(0):'—'}) ×${L.toFixed(2)}</span>`;
+    h+=`<span class="an-nums">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.72rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
     if(aSet)h+=`<span style="font-size:.58rem;font-weight:800;color:${net>0?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın</span>`;
-    h+=`<button onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;flex-shrink:0">📋</button>`;
+    h+=`<button class="an-btn" onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button>`;
     h+=`</div>`;
   });
   return h;
@@ -19761,11 +19772,11 @@ function _qtTrInner(game,prior,aSet){
   rows.forEach(r=>{
     const L=r.st?r.st.lift1:0;
     const lc=L>=1.1?'#0a9a6a':L<=0.9?'#c2410c':'var(--muted)';
-    h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:7px;margin-bottom:4px;flex-wrap:wrap">`;
-    h+=`<span style="font-size:.6rem;color:var(--text);font-weight:700;min-width:118px;flex-shrink:0">${r.def.name}</span>`;
-    h+=`<span style="font-size:.54rem;color:${lc};min-width:112px;flex-shrink:0" title="geçmiş ≥1 net oranı / aynı boyutta rastgele havuzun şansı">≥1 %${r.st?r.st.h1.toFixed(0):'—'} (şans %${r.st?r.st.c1.toFixed(0):'—'}) ×${L.toFixed(2)}</span>`;
-    h+=`<span style="display:flex;gap:5px;flex-wrap:wrap;flex:1">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
-    h+=`<button onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;flex-shrink:0">📋</button>`;
+    h+=`<div class="an-row">`;
+    h+=`<span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:700">${r.def.name}</span>`;
+    h+=`<span class="an-stat" style="font-size:.54rem;color:${lc}" title="geçmiş ≥1 net oranı / aynı boyutta rastgele havuzun şansı">≥1 %${r.st?r.st.h1.toFixed(0):'—'} (şans %${r.st?r.st.c1.toFixed(0):'—'}) ×${L.toFixed(2)}</span>`;
+    h+=`<span class="an-nums">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
+    h+=`<button class="an-btn" onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button>`;
     h+=`</div>`;
   });
   return h;
@@ -19806,10 +19817,10 @@ function _qtAdayBlock(game,prior,aSet){
     h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:9px">${ext.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.68rem;font-weight:${hit||nr?800:500};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 6px">${n}${hit?'✓':nr?'~':''}<sup style="font-size:.48rem">${d.cons[n]}</sup></span>`;}).join('')}</div>`;
     h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">Analiz bazlı adaylar:</div>`;
     d.rows.forEach(r=>{
-      h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:7px;margin-bottom:4px;flex-wrap:wrap">`;
-      h+=`<span style="font-size:.58rem;color:var(--text);font-weight:700;min-width:145px;flex-shrink:0">${r.name}</span>`;
-      h+=`<span style="display:flex;gap:5px;flex-wrap:wrap;flex:1">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
-      h+=`<button onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;flex-shrink:0">📋</button>`;
+      h+=`<div class="an-row">`;
+      h+=`<span class="an-lbl" style="font-size:.58rem;color:var(--text);font-weight:700">${r.name}</span>`;
+      h+=`<span class="an-nums">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
+      h+=`<button class="an-btn" onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button>`;
       h+=`</div>`;
     });
     h+=`</div>`;
