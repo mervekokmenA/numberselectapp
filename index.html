@@ -15372,13 +15372,39 @@ function _nnDateTest(){
       let best=0,bestNet=0;
       r.tickets.forEach(t=>{let net=0,near=0;t.main.forEach(n=>{const m=_nnMark(n,aSet);if(m==='net')net++;else if(m==='near')near++;});if(net+near>best)best=net+near;if(net>bestNet)bestNet=net;});
       let tn=0,tnr=0;r.top.forEach(n=>{const m=_nnMark(n,aSet);if(m==='net')tn++;else if(m==='near')tnr++;});
-      window._nnTestTxt='🎯 Nihai Tahmin — Geçmiş Test ('+game.name+', '+actual.date+', '+K+' bilet)\nSonuç: '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')+'\nEn olası '+game.count+': '+r.top.join(' ')+' → '+tn+' net · '+tnr+' yakın\nGrubun en iyi bileti: '+best+' net/yakın ('+bestNet+' saf net)';
+      // ── EK GÖSTERGE: tüm biletlerin TÜMÜNDE ne bulunmuş ──
+      // 1) Birleşik (benzersiz): biletlerde geçen farklı sayılardan kaçı net / kaçı yakın
+      const uniSet=new Set();r.tickets.forEach(t=>t.main.forEach(n=>uniSet.add(n)));
+      let uNet=0,uNear=0;uniSet.forEach(n=>{const m=_nnMark(n,aSet);if(m==='net')uNet++;else if(m==='near')uNear++;});
+      // 2) Bilet toplamı (tekrarlı): her bilette ayrı ayrı sayılıp toplanır
+      let sNet=0,sNear=0;r.tickets.forEach(t=>t.main.forEach(n=>{const m=_nnMark(n,aSet);if(m==='net')sNet++;else if(m==='near')sNear++;}));
+      // 3) Çekiliş tarafı: çekilen sayıların kaçı sistemde net yakalandı / kaçı ±1 komşulukta
+      const drawnArr=[...aSet].sort((a,b)=>a-b);
+      const dNet=drawnArr.filter(d=>uniSet.has(d));
+      const dNear=drawnArr.filter(d=>!uniSet.has(d)&&(uniSet.has(d-1)||uniSet.has(d+1)));
+      window._nnTestTxt='🎯 Nihai Tahmin — Geçmiş Test ('+game.name+', '+actual.date+', '+K+' bilet)\nSonuç: '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')
+        +'\nGrubun en iyi bileti: '+best+' net/yakın ('+bestNet+' saf net)'
+        +'\nTÜM BİLETLERDE (birleşik, '+uniSet.size+' farklı sayı): '+uNet+' net · '+uNear+' yakın'
+        +'\nBilet toplamı (tekrarlı): '+sNet+' net · '+sNear+' yakın'
+        +'\nÇekilen '+drawnArr.length+' sayıdan yakalanan: '+dNet.length+' net ('+(dNet.join(' ')||'-')+') · '+dNear.length+' yakın ('+(dNear.join(' ')||'-')+')'
+        +'\nEn olası '+game.count+': '+r.top.join(' ')+' → '+tn+' net · '+tnr+' yakın';
       let h=`<div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px">`;
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:.64rem;font-weight:800;color:#0a9a6a">🎯 ${actual.date} · sonuç: <span style="font-family:monospace;color:var(--text)">${[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')}</span></span><button onclick="_caCopy(window._nnTestTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
       h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:7px">Sistem bu tarihten ÖNCEKİ verilerle kuruldu (lookahead yok) · ✓ net · ~ ±1 yakın.</div>`;
       h+=`<div style="padding:7px 10px;border-radius:8px;background:${best>=3?'rgba(0,230,118,.12)':'rgba(0,0,0,.03)'};border:1px solid ${best>=3?'rgba(0,200,100,.45)':'var(--border)'};margin-bottom:8px">`;
       h+=`<span style="font-size:.7rem;font-weight:800;color:${best>=3?'var(--green)':'var(--muted)'}">${best>=3?'✅ HEDEF TUTTU':'❌ hedef tutmadı'} — grubun en iyi bileti: ${best} net/yakın${bestNet?` (${bestNet} saf net)`:''}</span>`;
       h+=`</div>`;
+      // ── EK GÖSTERGE kartları ──
+      const st=(lbl,val,sub,col)=>`<div style="flex:1;min-width:132px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px"><div style="font-size:.5rem;color:var(--muted);margin-bottom:2px">${lbl}</div><div style="font-size:.86rem;font-weight:800;color:${col}">${val}</div><div style="font-size:.48rem;color:var(--muted)">${sub}</div></div>`;
+      h+=`<div style="font-size:.6rem;font-weight:800;color:var(--text);margin-bottom:4px">📋 Tüm biletlerin tümünde</div>`;
+      h+=`<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">`;
+      h+=st('Birleşik (benzersiz)',`${uNet} net · ${uNear} yakın`,`${uniSet.size} farklı sayı içinde`,uNet>0?'var(--green)':'var(--muted)');
+      h+=st('Bilet toplamı (tekrarlı)',`${sNet} net · ${sNear} yakın`,`${K} biletin toplamı`,sNet>0?'var(--green)':'var(--muted)');
+      h+=st('Çekilişten yakalanan',`${dNet.length}/${drawnArr.length} net · ${dNear.length} yakın`,dNet.length?`net: ${dNet.join(' ')}`:'net yakalanmadı',dNet.length>0?'var(--green)':'var(--muted)');
+      h+=`</div>`;
+      if(dNet.length||dNear.length){
+        h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Çekilen sayılar: ${drawnArr.map(d=>{const isNet=uniSet.has(d),isNear=!isNet&&(uniSet.has(d-1)||uniSet.has(d+1));return `<span style="font-family:monospace;font-size:.7rem;font-weight:${isNet||isNear?800:400};color:${isNet?'var(--green)':isNear?'#c2410c':'var(--muted)'}">${d}${isNet?'✓':isNear?'~':''}</span>`;}).join(' ')} <span style="opacity:.8">(✓ = sistemde tam olarak vardı · ~ = ±1 komşusu vardı)</span></div>`;
+      }
       h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">🏆 En olası ${game.count} <strong style="color:${tn+tnr>=3?'var(--green)':'var(--muted)'}">→ ${tn} net · ${tnr} yakın</strong></div>`;
       h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${r.top.map(n=>{const m=_nnMark(n,aSet);return `<span style="font-family:monospace;font-size:.86rem;font-weight:800;color:${m==='net'?'var(--green)':m==='near'?'#c2410c':'var(--muted)'};background:var(--surface);border:1.5px solid ${m==='net'?'rgba(0,200,100,.55)':'var(--border)'};border-radius:8px;padding:2px 9px">${n}${m==='net'?'✓':m==='near'?'~':''}</span>`;}).join('')}</div>`;
       h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:4px">🎫 Biletler:</div>`;
