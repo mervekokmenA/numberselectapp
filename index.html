@@ -326,9 +326,18 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   .an-row .an-lbl,.an-row .an-stat{flex:0 0 auto}
   .an-row .an-nums{flex:1 1 100%}
 }
-@media(max-width:820px){.qt-pair-row,#qtHdrRow{grid-template-columns:1fr !important;}}
-@media(max-width:820px){#caNihaiGrid,#cbNihaiGrid{grid-template-columns:1fr !important;}}
-@media(max-width:820px){#mrGrid{grid-template-columns:1fr !important;}}
+/* Yan yana (2 sütun) görünüm tablette de açık kalsın — yalnızca gerçek telefon genişliğinde
+   (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
+   .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
+@media(max-width:600px){.qt-pair-row,#qtHdrRow{grid-template-columns:1fr !important;}}
+@media(max-width:600px){#caNihaiGrid,#cbNihaiGrid{grid-template-columns:1fr !important;}}
+/* Telefonda tek sütuna inince, hangi sütunun ne olduğu kaybolmasın diye etiket eklenir */
+@media(max-width:600px){
+  .qt-pair-row>div:first-child:not(:empty)::before{content:'🔮 Yeni Tahmin';display:block;font-size:.6rem;font-weight:800;color:var(--accent);margin-bottom:4px}
+  .qt-pair-row>div:last-child:not(:empty)::before{content:'📊 Geçmiş Test';display:block;font-size:.6rem;font-weight:800;color:var(--accent);margin-bottom:4px}
+  #qtHdrRow{display:none !important}
+}
+@media(max-width:600px){#mrGrid{grid-template-columns:1fr !important;}}
 </style>
 </head>
 <body>
@@ -820,6 +829,38 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     </div>
    </div>
    <div id="nnTestOut"></div>
+  </div>
+ </div>
+</div>
+
+<!-- ═══════════ NEW: 🎯 Net Odaklı Aday Havuzu ═══════════ -->
+<div id="npSection" style="grid-column:1/-1;margin-top:0;min-width:0">
+ <div class="card" style="border:2px solid rgba(37,99,235,.5);background:linear-gradient(135deg,rgba(37,99,235,.06),transparent)">
+  <div class="card-title">🎯 Net Odaklı Aday Havuzu</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:rgba(37,99,235,.06);border-radius:8px;line-height:1.7">
+   Tarama sayfasındaki <strong>Top-N aday</strong> mantığının, <strong>doğru istatistikle</strong> kurulmuş hâli — hedef <em>yakın değil, saf NET</em>. Havuz, her sayının <strong>gerçek tarihsel çıkma olasılığına</strong> göre sıralanır.
+   <br><span style="color:#8a6200">⚠️ <strong>Dürüst çerçeve:</strong> Saf net oranını şansın üstüne çıkaran bir sıralama <strong>bulunamadı</strong> (uzlaşı, Nihai, AI Üretici, Kapsamlı, sıcak, Tarama Top-N — hepsi 120 çekilişte şans bandında). Şans Topu'nda "sıcak" sıralama önce z≈4,6 ile şansı geçmiş göründü; incelenince sebebi bulundu: <strong>Şans Topu'nun bonusu 1-14'ten çekiliyor</strong>, yani o sayılar sonuç kümesinde iki şansa sahip (P=0,209 vs 0,146). Doğru taban kullanılınca avantaj kayboluyor. Bu bölüm "şansı yenmek" iddiasında değil — <strong>şansı doğru kullanarak beklenen net'i maksimize eder</strong> ve gerçekleşen ile beklenen farkını sana açıkça gösterir.</span>
+  </div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="npGameRow"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <span style="font-size:.66rem;color:var(--muted)">Havuz:</span>
+   <select id="npN" onchange="_npRun()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="10">10 sayı</option><option value="12">12 sayı</option><option value="16" selected>16 sayı</option><option value="20">20 sayı</option><option value="25">25 sayı</option>
+   </select>
+   <button onclick="_npRun()" style="flex:1;min-width:180px;font-size:.78rem;padding:9px;border-radius:9px;background:linear-gradient(135deg,rgba(37,99,235,.9),rgba(29,78,216,.8));border:1px solid rgba(37,99,235,.6);color:#fff;cursor:pointer;font-weight:800">🎯 Havuzu Üret + Geçmişte Ölç</button>
+   <button onclick="_caCopy(window._npTxt)" class="copy-btn" style="font-size:.72rem;padding:8px 14px;font-weight:700">📋 Kopyala</button>
+  </div>
+  <div id="npOut"></div>
+  <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
+   <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:6px">📊 Geçmiş Test — tek tek tarih seçerek</div>
+   <div style="display:flex;gap:6px;align-items:stretch">
+    <select id="npDateSel" onchange="_npDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+     <button onclick="_npStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+     <button onclick="_npStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+    </div>
+   </div>
+   <div id="npTestOut"></div>
   </div>
  </div>
 </div>
@@ -6425,6 +6466,7 @@ function _syncOtherGameGrids(id){
   try{if(!_caGameManual&&typeof _caInit==='function'){_caGame=id;_caInit();}}catch(e){}
   try{if(!_cbGameManual&&typeof _cbInit==='function'){_cbGame=id;_cbInit();}}catch(e){}
   try{if(!_nnGameManual&&typeof _nnInit==='function'){_nnGame=id;_nnInit();['nnOut','nnTestOut'].forEach(x=>{const e=document.getElementById(x);if(e)e.innerHTML='';});}}catch(e){}
+  try{if(!_npGameManual&&typeof _npInit==='function'){_npGame=id;_npInit();const e=document.getElementById('npTestOut');if(e)e.innerHTML='';}}catch(e){}
   setTimeout(_nextDrawPredict,0);
 }
 function selectAlgo(id){
@@ -12883,7 +12925,7 @@ function _kbRenderKazanan(){
 }
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
-const _HOME_IDS=['page-generator','page-backtest','homeBiletSection','nnSection','candSection','cbSection','onaSection'];
+const _HOME_IDS=['page-generator','page-backtest','homeBiletSection','nnSection','npSection','candSection','cbSection','onaSection'];
 let _scanGame=null;
 
 function showMainPage(id){
@@ -15291,6 +15333,132 @@ function _caBacktest(){
   },20);
 }
 
+// ═══════════ 🎯 NET ODAKLI ADAY HAVUZU (Tarama sayfasının Top-N mantığı, doğru istatistikle) ═══════════
+// Kullanıcı "yakın değil, GERÇEK NET" istedi. Ölçümle bulunanlar:
+//  · Tek bilette ya da havuzda saf net oranını şansın üstüne çıkaran bir sıralama YOK (uzlaşı,
+//    Nihai, AI Üretici, Kapsamlı, sıcak, Tarama Top-N — hepsi 120 çekilişte şans bandında).
+//  · Şans Topu'nda "sıcak" sıralama ilk bakışta z≈4,6 ile şansı geçmiş GÖRÜNDÜ; incelenince
+//    bunun sebebi bulundu: Şans Topu'nun bonusu 1-14'ten çekiliyor, yani 1-14 sayıları sonuç
+//    kümesinde İKİ şansa sahip (P=0,2085 vs 0,1462). Sıcak sıralama bu yapısal gerçeği bulmuş,
+//    öngörü yapmamış. Doğru taban (3,25) kullanılınca z≈0 — avantaj yok.
+// ASIL DEĞER: beklenen net'i maksimize etmek için havuzu her sayının GERÇEK tarihsel çıkma
+// olasılığına göre kurmak. Bu, "şansı yenmek" değil; şansın kendisini doğru kullanmaktır.
+function _npProb(game,prior){
+  // Her sayının bir çekilişin sonuç kümesinde (ana + bonus) görünme oranı — bonusu farklı
+  // aralıktan çekilen oyunlarda (Şans Topu 1-14) bu oran sayıya göre gerçekten değişir.
+  const max=game.max,p={};for(let n=1;n<=max;n++)p[n]=0;
+  const N=prior.length;
+  prior.forEach(d=>{new Set([...(d.nums||[]),...(d.bonus||[])]).forEach(n=>{if(n>=1&&n<=max)p[n]++;});});
+  for(let n=1;n<=max;n++)p[n]/=(N||1);
+  return p;
+}
+function _npPool(game,prior,N){
+  const p=_npProb(game,prior);
+  // sıralama: gerçek olasılık × uzlaşı ağırlığı (uzlaşı şansı geçmiyor ama eşitlik bozucu olarak
+  // sayıları makul dağıtıyor); ağırlık alınamazsa saf olasılık
+  let w=null;try{w=_qtCombineWeights(game,prior,_qtBuildSources(game,prior),true).wMap;}catch(e){}
+  let wmax=0;if(w)for(let n=1;n<=game.max;n++)if(w[n]>wmax)wmax=w[n];
+  const rank=[];for(let n=1;n<=game.max;n++)rank.push(n);
+  rank.sort((a,b)=>{
+    const sa=p[a]*(w?(0.6+0.4*(w[a]/(wmax||1))):1);
+    const sb=p[b]*(w?(0.6+0.4*(w[b]/(wmax||1))):1);
+    return sb-sa||a-b;
+  });
+  const pool=rank.slice(0,N).sort((a,b)=>a-b);
+  const expNet=pool.reduce((s,n)=>s+p[n],0);           // DOĞRU beklenen net (bu havuz için)
+  const uni=N*(prior[0]?[...new Set([...(prior[0].nums||[]),...(prior[0].bonus||[])])].length:game.count)/game.max;
+  return {pool,p,expNet,uniformExp:uni};
+}
+let _npGame='sayisal',_npGameManual=false;
+function _npInit(){
+  const row=document.getElementById('npGameRow');if(!row)return;
+  if(!_npGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_npGame=state.selectedGame;
+  row.innerHTML=GAMES.map(g=>{const a=g.id===_npGame;return `<button onclick="_npSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(37,99,235,.7)':'var(--border)'};background:${a?'rgba(37,99,235,.15)':'var(--surface2)'};color:${a?'#2563eb':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
+  _npDates();_npRun();
+}
+function _npSetGame(g){_npGame=g;_npGameManual=true;_npInit();const e=document.getElementById('npTestOut');if(e)e.innerHTML='';}
+function _npDates(){
+  const sel=document.getElementById('npDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_npGame);const prev=sel.value;
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  draws.forEach((d,i)=>{if(draws.length-i-1<80)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;if(prev)sel.value=prev;
+}
+function _npStepDate(dir){
+  const sel=document.getElementById('npDateSel');if(!sel||sel.options.length<2)return;
+  let i=sel.selectedIndex;if(i<1)i=1;else i=Math.min(sel.options.length-1,Math.max(1,i+dir));
+  sel.selectedIndex=i;_npDateTest();
+}
+// son M çekilişte bu havuz kurgusunun GERÇEK net performansı (her tarih kendi öncesiyle)
+function _npBacktest(game,draws,N,M){
+  let net=0,g2=0,g3=0,g4=0,t=0,expSum=0;
+  for(let i=0;i<M;i++){
+    const a=draws[i],pr=draws.slice(i+1);if(!a||pr.length<80)break;
+    const {pool,expNet}=_npPool(game,pr,N);
+    const aS=new Set([...(a.nums||[]),...(a.bonus||[])]);
+    let x=0;pool.forEach(n=>{if(aS.has(n))x++;});
+    net+=x;expSum+=expNet;if(x>=2)g2++;if(x>=3)g3++;if(x>=4)g4++;t++;
+  }
+  if(!t)return null;
+  return {t,avg:net/t,exp:expSum/t,g2:100*g2/t,g3:100*g3/t,g4:100*g4/t};
+}
+function _npRun(){
+  const el=document.getElementById('npOut');if(!el)return;
+  const game=getGame(_npGame),prior=_kbGetDraws(_npGame);
+  const N=parseInt(document.getElementById('npN')?.value)||16;
+  if(!prior||prior.length<80){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
+  el.innerHTML='<div style="padding:14px;font-size:.72rem;color:var(--muted)">⏳ Havuz kuruluyor ve geçmişte ölçülüyor…</div>';
+  setTimeout(()=>{
+    try{
+      const {pool,p,expNet}=_npPool(game,prior,N);
+      const bt=_npBacktest(game,prior,N,60);
+      window._npTxt='🎯 Net Odaklı Aday Havuzu ('+game.name+', '+N+' sayı)\n'+pool.join(' ')+'\nBeklenen net: '+expNet.toFixed(2)+(bt?'\nSon '+bt.t+' çekilişte gerçekleşen ortalama net: '+bt.avg.toFixed(2)+' · ≥2 %'+bt.g2.toFixed(0)+' · ≥3 %'+bt.g3.toFixed(0):'');
+      let h=`<div style="padding:11px 13px;background:rgba(37,99,235,.07);border:2px solid rgba(37,99,235,.4);border-radius:10px;margin-bottom:10px">`;
+      h+=`<div style="font-size:.68rem;font-weight:800;color:#2563eb;margin-bottom:5px">🎯 ${N} sayılık net-odaklı havuz</div>`;
+      h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${pool.map(n=>`<span style="font-family:monospace;font-size:.9rem;font-weight:800;color:var(--text);background:var(--surface);border:1.5px solid rgba(37,99,235,.4);border-radius:8px;padding:3px 9px">${n}</span>`).join('')}</div>`;
+      if(bt){
+        const card=(l,v,s2,c)=>`<div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px"><div style="font-size:.5rem;color:var(--muted)">${l}</div><div style="font-size:.9rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.48rem;color:var(--muted)">${s2}</div></div>`;
+        h+=`<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">`;
+        h+=card('Gerçekleşen ort. NET',bt.avg.toFixed(2),`son ${bt.t} çekiliş`,'var(--green)');
+        h+=card('Beklenen (matematiksel)',bt.exp.toFixed(2),'bu havuz için doğru taban','var(--muted)');
+        h+=card('≥2 net',`%${bt.g2.toFixed(0)}`,'','var(--text)');
+        h+=card('≥3 net',`%${bt.g3.toFixed(0)}`,`≥4: %${bt.g4.toFixed(0)}`,'var(--text)');
+        h+=`</div>`;
+        const diff=bt.avg-bt.exp;
+        h+=`<div style="font-size:.55rem;color:#8a6200;background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.3);border-radius:7px;padding:6px 9px;line-height:1.6">⚠️ Gerçekleşen (${bt.avg.toFixed(2)}) ile matematiksel beklenti (${bt.exp.toFixed(2)}) arasındaki fark <strong>${diff>=0?'+':''}${diff.toFixed(2)}</strong> — yani bu havuz şansı ${Math.abs(diff)<0.15?'<strong>geçmiyor</strong>, tam beklenti düzeyinde çalışıyor':(diff>0?'hafif geçiyor (küçük örneklem, kalıcı olmayabilir)':'hafif altında')}. Havuz, sayıları <strong>gerçek çıkma olasılıklarına</strong> göre sıralar — "şansı yenmek" değil, şansı doğru kullanmak.</div>`;
+      }
+      h+=`</div>`;
+      el.innerHTML=h;
+    }catch(e){el.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.72rem">Hata: '+e.message+'</div>';}
+  },20);
+}
+function _npDateTest(){
+  const el=document.getElementById('npTestOut');if(!el)return;
+  const date=document.getElementById('npDateSel')?.value||'';
+  if(!date){el.innerHTML='';return;}
+  const game=getGame(_npGame),draws=_kbGetDraws(_npGame);
+  const idx=draws.findIndex(d=>d.date===date);if(idx<0)return;
+  const actual=draws[idx],prior=draws.slice(idx+1);
+  const N=parseInt(document.getElementById('npN')?.value)||16;
+  if(prior.length<80){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Yeterli önceki veri yok.</div>';return;}
+  const {pool,expNet}=_npPool(game,prior,N);
+  const aS=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+  const hits=pool.filter(n=>aS.has(n));
+  const drawnArr=[...aS].sort((a,b)=>a-b);
+  const missed=drawnArr.filter(d=>!pool.includes(d));
+  window._npTestTxt='🎯 Net Odaklı Havuz — Geçmiş Test ('+game.name+', '+actual.date+', '+N+' sayı)\nSonuç: '+drawnArr.join(' ')+'\nHavuz: '+pool.join(' ')+'\nYAKALANAN NET: '+hits.length+' ('+(hits.join(' ')||'-')+')\nKaçan: '+(missed.join(' ')||'-');
+  let h=`<div style="margin-top:10px;padding:10px 12px;background:var(--surface2);border:1px solid var(--border);border-radius:9px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap"><span style="font-size:.64rem;font-weight:800;color:#2563eb">🎯 ${actual.date} · sonuç: <span style="font-family:monospace;color:var(--text)">${drawnArr.join(' ')}</span></span><button onclick="_caCopy(window._npTestTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋</button></div>`;
+  h+=`<div style="padding:8px 10px;border-radius:8px;background:${hits.length>=3?'rgba(0,230,118,.12)':'rgba(0,0,0,.03)'};border:1px solid ${hits.length>=3?'rgba(0,200,100,.45)':'var(--border)'};margin-bottom:8px">`;
+  h+=`<span style="font-size:.78rem;font-weight:800;color:${hits.length>=3?'var(--green)':hits.length>0?'var(--text)':'var(--muted)'}">${hits.length} NET yakalandı</span><span style="font-size:.58rem;color:var(--muted)"> · beklenen ${expNet.toFixed(2)}</span>`;
+  if(hits.length)h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:6px">${hits.map(n=>`<span style="font-family:monospace;font-size:.88rem;font-weight:800;color:var(--green);background:rgba(0,230,118,.15);border:1.5px solid rgba(0,200,100,.5);border-radius:8px;padding:2px 9px">${n}✓</span>`).join('')}</div>`;
+  h+=`</div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">Havuz (${N}) — ✓ yakalananlar:</div>`;
+  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px">${pool.map(n=>{const hit=aS.has(n);return `<span style="font-family:monospace;font-size:.76rem;font-weight:${hit?800:500};color:${hit?'var(--green)':'var(--muted)'}">${n}${hit?'✓':''}</span>`;}).join('')}</div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted)">Kaçan çekiliş sayıları: ${missed.length?`<span style="font-family:monospace;color:#c2410c">${missed.join(' ')}</span>`:'<span style="color:var(--green)">yok — hepsi havuzdaydı</span>'}</div>`;
+  h+=`</div>`;
+  el.innerHTML=h;
+}
 // ═══════════ 🎯 NİHAİ TAHMİN — 3+ NET/YAKIN SİSTEMİ ═══════════
 // Kullanıcının doğrudan isteği: "en az 3 sayı NET ya da ±1 YAKIN tutsun".
 // TASARIM KARARI ÖLÇÜMLE ALINDI (150 çekilişlik tarama + 140 çekilişlik BAĞIMSIZ doğrulama penceresi):
@@ -15843,7 +16011,7 @@ function _onaInit(){_onaBacktest('');}
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();_hbInit();_caInit();_cbInit();_nnInit();_onaInit();_alphaRefRender();
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();_hbInit();_caInit();_cbInit();_nnInit();_npInit();_onaInit();_alphaRefRender();
 setTimeout(()=>{_autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);},800);
 
 // ══════════════════════════════════════════════════════════════
