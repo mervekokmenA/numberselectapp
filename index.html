@@ -12336,9 +12336,10 @@ const _KB_HITSTYLE={
 };
 function _kbBadge(n,strong,sub,hitState,hitMark){
   const st=_KB_HITSTYLE[hitState];
-  const bg=st?st.bg:(strong?'rgba(0,230,118,.12)':'rgba(0,0,0,.05)');
-  const bd=st?st.bd:(strong?'rgba(0,230,118,.4)':'rgba(0,0,0,.1)');
-  const cl=st?st.cl:(strong?'var(--green)':'var(--text)');
+  // Test yokken vurgu MOR (accent) ile yapılır — yeşil ve ✓ yalnızca "tuttu" demektir.
+  const bg=st?st.bg:(strong?'rgba(129,140,248,.14)':'rgba(0,0,0,.05)');
+  const bd=st?st.bd:(strong?'rgba(129,140,248,.35)':'rgba(0,0,0,.1)');
+  const cl=st?st.cl:(strong?'var(--accent)':'var(--text)');
   return `<span style="display:inline-flex;flex-direction:column;align-items:center;justify-content:center;min-width:34px;padding:3px 5px;border-radius:8px;background:${bg};border:1px solid ${bd};color:${cl};font-family:monospace"><span style="font-size:.82rem;font-weight:800">${n}${hitMark||''}</span>${sub?`<span style="font-size:.5rem;color:var(--muted);font-weight:600">${sub}</span>`:''}</span>`;
 }
 function _kbColRepeats(cols){const c={};cols.forEach(col=>[...new Set(col)].forEach(n=>c[n]=(c[n]||0)+1));return Object.entries(c).filter(([n,x])=>x>=2).map(([n,x])=>({n:+n,c:x})).sort((a,b)=>b.c-a.c||a.n-b.n);}
@@ -12473,12 +12474,13 @@ function _kbGulsisPanel(game,draws,cnt,bankoSet,aSet){
       const s=_KB_HITSTYLE[st],mk=st==='hit'?' ✓':st==='near'?' ~':'';
       return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:25px;padding:0 6px;border-radius:7px;font-family:monospace;font-weight:${st==='miss'?600:800};font-size:.72rem;background:${s.bg};border:1px solid ${s.bd};color:${s.cl}">${n}${mk}${on?'<span style="opacity:.5;font-size:.6rem">&nbsp;●</span>':''}</span>`;
     }
-    return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:25px;padding:0 6px;border-radius:7px;font-family:monospace;font-weight:${on?800:600};font-size:.72rem;background:${on?'rgba(0,230,118,.18)':'var(--surface2)'};border:1px solid ${on?'rgba(0,230,118,.5)':'var(--border)'};color:${on?'var(--green)':'var(--text)'}">${n}${on?' ✓':''}</span>`;
+    // Test yokken: yeşil/✓ kullanılmaz (tutmuş gibi okunuyor) — KB banko üyeliği ● ile.
+    return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:25px;padding:0 6px;border-radius:7px;font-family:monospace;font-weight:${on?800:600};font-size:.72rem;background:${on?'rgba(129,140,248,.14)':'var(--surface2)'};border:1px solid ${on?'rgba(129,140,248,.35)':'var(--border)'};color:${on?'var(--accent)':'var(--text)'}">${n}${on?'<span style="opacity:.55;font-size:.6rem">&nbsp;●</span>':''}</span>`;
   };
   const gCopy=gTop.slice(0,cnt).sort((a,b)=>a-b).join(' '),sCopy=sTop.slice(0,cnt).sort((a,b)=>a-b).join(' ');
   let h=`<div style="background:rgba(255,196,0,.05);border:1px solid rgba(255,196,0,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
   h+=`<div style="font-size:.75rem;font-weight:800;color:#b8860b;margin-bottom:3px">🔮🎲 Sisal-LCG & Gülsis Sıfır Bakışı</div>`;
-  h+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:9px;line-height:1.6">Gülsis ve Sisal-Gülay motorlarının çekirdek analizleri. <strong>Konsensüs oyuna katılmaz</strong> — 3.6M biletlik geri-testte oy hakkı verildiğinde konsensüsü zayıflattıkları için yalnızca tamamlayıcı bakış olarak gösterilir. ${aSet?'<span style="color:var(--green)">✓</span> = net · <span style="color:#c2410c">~</span> = ±1 yakın · <span style="opacity:.6">●</span> = yukarıdaki KB bankosunda da var.':'<span style="color:var(--green)">✓</span> = sayı yukarıdaki KB konsensüs bankosunda da var (ekstra uyum).'}</div>`;
+  h+=`<div style="font-size:.57rem;color:var(--muted);margin-bottom:9px;line-height:1.6">Gülsis ve Sisal-Gülay motorlarının çekirdek analizleri. <strong>Konsensüs oyuna katılmaz</strong> — 3.6M biletlik geri-testte oy hakkı verildiğinde konsensüsü zayıflattıkları için yalnızca tamamlayıcı bakış olarak gösterilir. ${aSet?'<span style="color:var(--green)">✓</span> = net · <span style="color:#c2410c">~</span> = ±1 yakın · <span style="opacity:.6">●</span> = yukarıdaki KB bankosunda da var.':'<span style="opacity:.6">●</span> = sayı yukarıdaki KB konsensüs bankosunda da var (ekstra uyum).'}</div>`;
   if(gTop.length){
     h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:.6rem;color:var(--muted)">🔮 Gülay fark-analizi adayları</span><button onclick="_kbCopy('Kapsamlı\\n🔮 Gülay Fark-Analizi Adayları\\n${gCopy}')" style="background:rgba(184,134,11,.1);border:1px solid rgba(184,134,11,.3);color:#b8860b;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.6rem">📋 Top ${cnt}</button></div>`;
     h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${gTop.map(badge).join('')}</div>`;
@@ -12506,12 +12508,12 @@ function _kbRenderBanko(prior,actual){
     h+=`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div><span style="font-size:.64rem;font-weight:800;color:${bNet>=3?'var(--green)':'var(--muted)'}">🔒 banko: ${bNet} net</span></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Konsensüs bu tarihten ÖNCEKİ verilerle hesaplandı · ✓ net · ~ ±1 yakın.</div></div>`;
   }
   h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:11px 14px;margin-bottom:12px"><div style="font-size:.8rem;font-weight:800;color:var(--accent)">🎯 ${game.emoji} ${game.name} — Banko Konsensüsü</div><div style="font-size:.62rem;color:var(--muted);margin-top:3px">${draws.length} çekiliş · ${_KB_METHODS.length} yöntem · walk-forward kalibrasyon (${cal.valid} tur)</div></div>`;
-  h+=`<div style="background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.3);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px"><div style="font-size:.78rem;font-weight:800;color:var(--green)">🔒 En Güçlü Banko Adayları</div><button onclick="_kbCopy('Kapsamlı\\n🔒 En Güçlü Banko Adayları\\n${bankoList.slice(0,cnt).map(r=>r.n).sort((a,b)=>a-b).join(' ')}')" style="background:rgba(0,150,58,.1);border:1px solid rgba(0,150,58,.3);color:var(--green);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.65rem;font-weight:700">📋 Kopyala</button></div><div style="font-size:.6rem;color:var(--muted);margin-bottom:9px">Birden çok bağımsız yöntemin aynı anda öne çıkardığı sayılar. Alt rakam = kaç yöntemin desteklediği (0–6).</div><div style="display:flex;gap:6px;flex-wrap:wrap">${bankoList.map(r=>_kbBadge(r.n,r.support>=3,r.support+'/6',hitSt(r.n),hitMk(r.n))).join('')}</div></div>`;
+  h+=`<div style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.28);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px"><div style="font-size:.78rem;font-weight:800;color:var(--accent)">🔒 En Güçlü Banko Adayları</div><button onclick="_kbCopy('Kapsamlı\\n🔒 En Güçlü Banko Adayları\\n${bankoList.slice(0,cnt).map(r=>r.n).sort((a,b)=>a-b).join(' ')}')" style="background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.65rem;font-weight:700">📋 Kopyala</button></div><div style="font-size:.6rem;color:var(--muted);margin-bottom:9px">Birden çok bağımsız yöntemin aynı anda öne çıkardığı sayılar. Alt rakam = kaç yöntemin desteklediği (0–6).</div><div style="display:flex;gap:6px;flex-wrap:wrap">${bankoList.map(r=>_kbBadge(r.n,r.support>=3,r.support+'/6',hitSt(r.n),hitMk(r.n))).join('')}</div></div>`;
   h+=_kbGulsisPanel(game,draws,cnt,new Set(bankoList.map(r=>r.n)),aSet);
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:9px">📊 Konsensüs Sıralaması</div>`;
   rows.slice(0,18).forEach((r,i)=>{
     const icons=r.supBy.map(id=>_KB_MICON[id]).join('');
-    const col=hitCol(r.n)||(r.support>=3?'var(--green)':'var(--text)');
+    const col=hitCol(r.n)||(r.support>=3?'var(--accent)':'var(--text)');
     h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.04)"><span style="font-size:.6rem;color:var(--muted);min-width:18px">${i+1}</span><span style="font-size:.85rem;font-weight:800;font-family:monospace;color:${col};min-width:32px">${r.n}${hitMk(r.n)}</span><span style="flex:1;font-size:.62rem;font-weight:700;color:var(--accent)">%${Math.round(r.consN*100)}</span><span style="font-size:.6rem;min-width:78px;text-align:right;letter-spacing:1px">${icons||'—'}</span><span style="font-size:.58rem;color:var(--muted);min-width:24px;text-align:right">${r.support}/6</span></div>`;
   });
   h+=`</div>`;
@@ -12538,9 +12540,9 @@ function _kbRenderBanko(prior,actual){
         const hot=x.kb.support>=3,top=xi<cnt;
         // Geçmiş testinde renk gerçek sonuca göre; test yokken KB desteğine göre.
         const st=hitSt(x.n),sty=st?_KB_HITSTYLE[st]:null;
-        const bg=sty?sty.bg:(hot?'rgba(0,230,118,.15)':top?'rgba(129,140,248,.12)':'rgba(0,0,0,.04)');
-        const bd=sty?sty.bd:(hot?'rgba(0,230,118,.4)':top?'rgba(129,140,248,.3)':'rgba(0,0,0,.08)');
-        const fg=sty?sty.cl:(hot?'var(--green)':top?'var(--accent)':'var(--text)');
+        const bg=sty?sty.bg:(hot?'rgba(129,140,248,.18)':top?'rgba(129,140,248,.09)':'rgba(0,0,0,.04)');
+        const bd=sty?sty.bd:(hot?'rgba(129,140,248,.45)':top?'rgba(129,140,248,.22)':'rgba(0,0,0,.08)');
+        const fg=sty?sty.cl:(hot?'var(--accent)':top?'var(--accent)':'var(--text)');
         h+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 5px;border-radius:7px;background:${bg};border:1px solid ${bd};font-family:monospace">`;
         h+=`<span style="font-size:.78rem;font-weight:${(sty?st!=='miss':hot)?'800':'600'};color:${fg}">${x.n}${hitMk(x.n)}</span>`;
         h+=`<span style="font-size:.46rem;color:var(--muted)">${nsLabels[x.nsi]}${x.k>=0?'+':''}${x.k}·#${x.kb.rank}</span>`;
