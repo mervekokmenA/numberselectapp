@@ -330,7 +330,13 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
 @media(max-width:600px){.qt-pair-row,#qtHdrRow{grid-template-columns:1fr !important;}}
-@media(max-width:600px){#caNihaiGrid,#cbNihaiGrid,#f2Grid{grid-template-columns:1fr !important;}}
+@media(max-width:600px){#caNihaiGrid,#cbNihaiGrid,#f2Grid,#kbGrid,#scanGrid{grid-template-columns:1fr !important;}}
+/* Telefonda yan yana iki sütun sayıları dar bir şeride sıkıştırıyordu; ≥600px'te (tablet ve
+   üstü) iki pencere gibi yan yana, altında tek sütun. */
+@media(max-width:600px){
+  #kbGrid>div:first-child:not(:empty)::before{content:'🔮 Yeni Tahmin';display:block;font-size:.6rem;font-weight:800;color:var(--accent);margin-bottom:4px}
+  #kbGrid>div:last-child:not(:empty)::before{content:'📊 Geçmiş Test';display:block;font-size:.6rem;font-weight:800;color:var(--accent);margin-bottom:4px}
+}
 /* Telefonda tek sütuna inince, hangi sütunun ne olduğu kaybolmasın diye etiket eklenir */
 @media(max-width:600px){
   .qt-pair-row>div:first-child:not(:empty)::before{content:'🔮 Yeni Tahmin';display:block;font-size:.6rem;font-weight:800;color:var(--accent);margin-bottom:4px}
@@ -619,7 +625,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <!-- ═══════════ PAGE: TARAMA ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-scan">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start" id="scanGrid">
 
     <!-- Left: Tahmin -->
     <div>
@@ -7026,8 +7032,8 @@ function _renderBtHistoryFromLocalData(id,stale){
     const run=(fn)=>{try{fn();}catch(e){console.warn(fn.name,e);}};
     run(updateBtDateOptions);
     run(updateBtDateOptions2);
-    run(updateAlgoScores);
-    run(updateAlgoScores2);
+    _homeLazy('algoScores',()=>run(updateAlgoScores));
+    _homeLazy('algoScores2',()=>run(updateAlgoScores2));
     run(initNaSection);
     run(initAlgoGrid);
     run(updateStats);
@@ -9324,6 +9330,38 @@ function _algoBestNet(game,algoId,freq,prior,aSet,aBSet,G){
   }catch(e){}
   return best;
 }
+// 20 algoritmanın geri-test skorunu tek görevde hesaplamak ~1.7sn sürüyor ve oyun
+// değişiminde sayfayı kilitliyordu (iki panel arka arkaya = ~3.4sn donma). Burada parça
+// parça (her tur ≤90ms) hesaplanır, panel dolarken sayfa yanıt verir; hızlı oyun
+// değişiminde eski tur iptal edilir. Hesap ve çıktı birebir aynı.
+const _asTokens={};
+function _algoScoresChunked(panel,algoList,game,freq,prior,aSet,aBSet,G,total,cache,cKey,itemHtml){
+  const pid=panel.id;
+  const myTok=(_asTokens[pid]=(_asTokens[pid]||0)+1);
+  const results=[];let i=0,mc=null;
+  panel.innerHTML=`<div style="font-size:.62rem;color:var(--muted);padding:8px 4px">⏳ algoritmalar değerlendiriliyor… <span class="asProg" style="font-weight:800;color:var(--accent)">0%</span></div>`;
+  try{mc=new MessageChannel();mc.port1.onmessage=()=>step();}catch(e){mc=null;}
+  const close=()=>{if(mc){try{mc.port1.close();mc.port2.close();}catch(e){}mc=null;}};
+  const sched=()=>{if(mc)mc.port2.postMessage(0);else setTimeout(step,0);};
+  function step(){
+    if(myTok!==_asTokens[pid]){close();return;}
+    const t0=performance.now();
+    do{
+      const a=algoList[i++];
+      results.push({id:a.id,match:_algoBestNet(game,a.id,freq,prior,aSet,aBSet,G)});
+    }while(i<algoList.length&&performance.now()-t0<90);
+    if(i<algoList.length){
+      const pe=panel.querySelector('.asProg');
+      if(pe)pe.textContent=Math.round(i*100/algoList.length)+'%';
+      sched();return;
+    }
+    close();
+    const maxMatch=Math.max(...results.map(r=>r.match));
+    panel.innerHTML=`<div class="algo-score-panel">${results.map(r=>itemHtml(r,maxMatch,total)).join('')}</div>`;
+    if(cache&&cKey)cache[cKey]=panel.innerHTML;
+  }
+  sched();
+}
 function updateAlgoScores(){
   const gameId=state.selectedGame;
   const testDate=document.getElementById('btDate').value;
@@ -9348,16 +9386,10 @@ function updateAlgoScores(){
   const aSet=new Set(actual.nums);
   const aBSet=new Set(actual.bonus);
   const total=game.count+(game.bonusCount||0);
-  const results=ALGOS.map(a=>({id:a.id,match:_algoBestNet(game,a.id,freq,prior,aSet,aBSet,G)}));
-  const maxMatch=Math.max(...results.map(r=>r.match));
-  const posScores=state.algoPositionScores[gameId];
-  const numScores=state.algoNumberScores[gameId];
-  panel.innerHTML=`<div class="algo-score-panel">${results.map(r=>{
-    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer" onclick="selectAlgo('${r.id}');document.querySelectorAll('.algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
+  _algoScoresChunked(panel,ALGOS,game,freq,prior,aSet,aBSet,G,total,state._algoScoreCache,cKey,
+    (r,maxMatch,total)=>`<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer" onclick="selectAlgo('${r.id}');document.querySelectorAll('.algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
       <div style="display:flex;align-items:center;gap:4px;min-width:0"><span class="as-name" title="${ALGOS.find(a=>a.id===r.id)?.name||r.id}" style="min-width:0;width:100%">${ALGOS.find(a=>a.id===r.id)?.name||r.id}</span><span class="as-val" style="flex-shrink:0">${r.match}/${total}</span></div>
-    </div>`;
-  }).join('')}</div>`;
-  state._algoScoreCache[cKey]=panel.innerHTML;
+    </div>`);
 }
 
 function updateBtDateOptions2(){
@@ -9393,14 +9425,10 @@ function updateAlgoScores2(){
   const aSet=new Set(actual.nums);
   const aBSet=new Set(actual.bonus);
   const total=game.count+(game.bonusCount||0);
-  const results=ALGOS.filter(a=>a.id!=='proensemble').map(a=>({id:a.id,match:_algoBestNet(game,a.id,freq,prior,aSet,aBSet,G)}));
-  const maxMatch=Math.max(...results.map(r=>r.match));
-  panel.innerHTML=`<div class="algo-score-panel">${results.map(r=>{
-    return `<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer" onclick="document.getElementById('btAlgo2').value='${r.id}';state.btAlgo2='${r.id}';document.querySelectorAll('#algoScorePanel2 .algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
+  _algoScoresChunked(panel,ALGOS.filter(a=>a.id!=='proensemble'),game,freq,prior,aSet,aBSet,G,total,state._algoScoreCache2,cKey,
+    (r,maxMatch,total)=>`<div class="algo-score-item${r.match===maxMatch&&maxMatch>0?' best':''}" style="cursor:pointer" onclick="document.getElementById('btAlgo2').value='${r.id}';state.btAlgo2='${r.id}';document.querySelectorAll('#algoScorePanel2 .algo-score-item').forEach(el=>el.classList.remove('selected'));this.classList.add('selected')">
       <div style="display:flex;align-items:center;gap:4px;min-width:0"><span class="as-name" title="${ALGOS.find(a=>a.id===r.id)?.name||r.id}" style="min-width:0;width:100%">${ALGOS.find(a=>a.id===r.id)?.name||r.id}</span><span class="as-val" style="flex-shrink:0">${r.match}/${total}</span></div>
-    </div>`;
-  }).join('')}</div>`;
-  state._algoScoreCache2[cKey]=panel.innerHTML;
+    </div>`);
 }
 
 function runBacktest2(){
@@ -12967,8 +12995,20 @@ function _kbRenderKazanan(){
 const _HOME_IDS=['page-generator','page-backtest','homeBiletSection','nnSection','npSection','candSection','cbSection','onaSection'];
 let _scanGame=null;
 
+// Anasayfaya özel ağır hesaplar, o sayfa AÇIK DEĞİLKEN yapılmasın: oyun değiştirmek
+// görünmeyen bölümler için saniyelerce hesap tetikliyordu. İş, anasayfa açıldığında yapılır.
+let _curPage='home';
+const _homePending={};
+function _homeLazy(key,fn){
+  if(_curPage==='home'){fn();return;}
+  _homePending[key]=fn;
+}
+function _homeFlush(){
+  Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
+}
 function showMainPage(id){
   const home=id==='home';
+  _curPage=id;
   _HOME_IDS.forEach(sid=>{
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
@@ -12993,6 +13033,7 @@ function showMainPage(id){
   if(id==='formul')_snInit();
   if(id==='formul2')_f2Init();
   if(id==='astro')_astroInit();
+  if(home)_homeFlush();
 }
 
 // Nav: always fixed, single row; scroll buttons on large screens, touch scroll on mobile
@@ -15504,7 +15545,7 @@ function _npInit(){
   const row=document.getElementById('npGameRow');if(!row)return;
   if(!_npGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_npGame=state.selectedGame;
   row.innerHTML=GAMES.map(g=>{const a=g.id===_npGame;return `<button onclick="_npSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(37,99,235,.7)':'var(--border)'};background:${a?'rgba(37,99,235,.15)':'var(--surface2)'};color:${a?'#2563eb':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
-  _npDates();_npRun();
+  _npDates();_homeLazy('npRun',_npRun);
 }
 function _npSetGame(g){_npGame=g;_npGameManual=true;_npInit();const e=document.getElementById('npTestOut');if(e)e.innerHTML='';}
 function _npDates(){
@@ -15532,35 +15573,91 @@ function _npBacktest(game,draws,N,M){
   if(!t)return null;
   return {t,avg:net/t,exp:expSum/t,g2:100*g2/t,g3:100*g3/t,g4:100*g4/t};
 }
+// Yukarıdakinin parçalı/iptal edilebilir/önbellekli hali. Senkron sürüm oyun değişiminde
+// ~16sn boyunca sayfayı kilitliyordu (her tur _npPool → _qtBuildSources → _cbCompute).
+// Sonuç yalnızca (oyun, N, M) ve sabit çekiliş verisine bağlı olduğundan önbelleğe alınır;
+// oyunlar arasında gidip gelmek artık anında. Hesap adımları birebir aynı.
+const _npBtCache={};
+let _npBtToken=0;
+function _npCancelBacktest(){_npBtToken++;}
+function _npBacktestAsync(game,draws,N,M,onProgress,onDone){
+  const key=game.id+'|'+N+'|'+M+'|'+draws.length;
+  if(_npBtCache[key]!==undefined){onDone(_npBtCache[key]);return;}
+  const myTok=++_npBtToken;
+  let net=0,g2=0,g3=0,g4=0,t=0,expSum=0,i=0,BATCH=1,mc=null;
+  try{mc=new MessageChannel();mc.port1.onmessage=()=>step();}catch(e){mc=null;}
+  const closeMc=()=>{if(mc){try{mc.port1.close();mc.port2.close();}catch(e){}mc=null;}};
+  const schedule=()=>{if(mc)mc.port2.postMessage(0);else setTimeout(step,0);};
+  function step(){
+    if(myTok!==_npBtToken){closeMc();return;}
+    const t0=performance.now();
+    const end=Math.min(i+BATCH,M);
+    for(;i<end;i++){
+      const a=draws[i],pr=draws.slice(i+1);if(!a||pr.length<80){i=M;break;}
+      const {pool,expNet}=_npPool(game,pr,N);
+      const aS=new Set([...(a.nums||[]),...(a.bonus||[])]);
+      let x=0;pool.forEach(n=>{if(aS.has(n))x++;});
+      net+=x;expSum+=expNet;if(x>=2)g2++;if(x>=3)g3++;if(x>=4)g4++;t++;
+    }
+    if(i<M){
+      const el=performance.now()-t0;
+      if(el>140&&BATCH>1)BATCH=Math.max(1,BATCH>>1);else if(el<60)BATCH=Math.min(8,BATCH+1);
+      if(onProgress)onProgress(Math.round(i*100/M));
+      schedule();return;
+    }
+    closeMc();
+    const res=t?{t,avg:net/t,exp:expSum/t,g2:100*g2/t,g3:100*g3/t,g4:100*g4/t}:null;
+    _npBtCache[key]=res;onDone(res);
+  }
+  schedule();
+}
 function _npRun(){
   const el=document.getElementById('npOut');if(!el)return;
   const game=getGame(_npGame),prior=_kbGetDraws(_npGame);
   const N=parseInt(document.getElementById('npN')?.value)||16;
   if(!prior||prior.length<80){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
-  el.innerHTML='<div style="padding:14px;font-size:.72rem;color:var(--muted)">⏳ Havuz kuruluyor ve geçmişte ölçülüyor…</div>';
+  _npCancelBacktest();  // önceki oyunun ölçümü sürüyorsa bırak (hızlı oyun değişimi birikmesin)
+  el.innerHTML='<div style="padding:14px;font-size:.72rem;color:var(--muted)">⏳ Havuz kuruluyor…</div>';
   setTimeout(()=>{
     try{
       const {pool,p,expNet}=_npPool(game,prior,N);
-      const bt=_npBacktest(game,prior,N,60);
-      window._npTxt='🎯 Net Odaklı Aday Havuzu ('+game.name+', '+N+' sayı)\n'+pool.join(' ')+'\nBeklenen net: '+expNet.toFixed(2)+(bt?'\nSon '+bt.t+' çekilişte gerçekleşen ortalama net: '+bt.avg.toFixed(2)+' · ≥2 %'+bt.g2.toFixed(0)+' · ≥3 %'+bt.g3.toFixed(0):'');
+      const baseTxt='🎯 Net Odaklı Aday Havuzu ('+game.name+', '+N+' sayı)\n'+pool.join(' ')+'\nBeklenen net: '+expNet.toFixed(2);
+      window._npTxt=baseTxt;
       let h=`<div style="padding:11px 13px;background:rgba(37,99,235,.07);border:2px solid rgba(37,99,235,.4);border-radius:10px;margin-bottom:10px">`;
           const REC={sayisal:35,super:25,sans:16,onnumara:12};
       const rec=REC[game.id]||20;
       h+=`<div style="font-size:.68rem;font-weight:800;color:#2563eb;margin-bottom:5px">🎯 ${N} sayılık net-odaklı havuz${N<rec?` <span style="font-size:.54rem;font-weight:600;color:#8a6200">· bu oyunda ≥3 net için ${rec} sayı önerilir</span>`:''}</div>`;
       h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${pool.map(n=>`<span style="font-family:monospace;font-size:.9rem;font-weight:800;color:var(--text);background:var(--surface);border:1.5px solid rgba(37,99,235,.4);border-radius:8px;padding:3px 9px">${n}</span>`).join('')}</div>`;
-      if(bt){
-        const card=(l,v,s2,c)=>`<div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px"><div style="font-size:.5rem;color:var(--muted)">${l}</div><div style="font-size:.9rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.48rem;color:var(--muted)">${s2}</div></div>`;
-        h+=`<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">`;
-        h+=card('Gerçekleşen ort. NET',bt.avg.toFixed(2),`son ${bt.t} çekiliş`,'var(--green)');
-        h+=card('Beklenen (matematiksel)',bt.exp.toFixed(2),'bu havuz için doğru taban','var(--muted)');
-        h+=card('≥2 net',`%${bt.g2.toFixed(0)}`,'','var(--text)');
-        h+=card('≥3 net',`%${bt.g3.toFixed(0)}`,`≥4: %${bt.g4.toFixed(0)}`,'var(--text)');
-        h+=`</div>`;
-        const diff=bt.avg-bt.exp;
-        h+=`<div style="font-size:.55rem;color:#8a6200;background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.3);border-radius:7px;padding:6px 9px;line-height:1.6">⚠️ Gerçekleşen (${bt.avg.toFixed(2)}) ile matematiksel beklenti (${bt.exp.toFixed(2)}) arasındaki fark <strong>${diff>=0?'+':''}${diff.toFixed(2)}</strong> — yani bu havuz şansı ${Math.abs(diff)<0.15?'<strong>geçmiyor</strong>, tam beklenti düzeyinde çalışıyor':(diff>0?'hafif geçiyor (küçük örneklem, kalıcı olmayabilir)':'hafif altında')}. Havuz, sayıları <strong>gerçek çıkma olasılıklarına</strong> göre sıralar — "şansı yenmek" değil, şansı doğru kullanmak.</div>`;
-      }
+      // 60 turluk geçmiş ölçümü ~18sn sürüyor (her tur _npPool → _qtBuildSources → _cbCompute).
+      // Her oyun değişiminde otomatik çalıştırmak uygulamayı kilitliyordu → talebe bağlı.
+      // Daha önce ölçülmüşse (aynı oyun+N) önbellekten anında gösterilir.
+      const btKey=game.id+'|'+N+'|60|'+prior.length;
+      h+=`<div id="npBtStats" style="font-size:.6rem;color:var(--muted);padding:4px 0">${_npBtCache[btKey]!==undefined?'':`<button onclick="_npMeasure()" style="font-size:.62rem;padding:5px 11px;border-radius:7px;border:1px solid rgba(37,99,235,.4);background:rgba(37,99,235,.08);color:#2563eb;cursor:pointer;font-weight:700">📊 Son 60 çekilişte ölç</button> <span style="opacity:.8">— bu ölçüm birkaç saniye sürer, bir kez yapılır.</span>`}</div>`;
       h+=`</div>`;
       el.innerHTML=h;
+      window._npMeasure=()=>{
+        const box=document.getElementById('npBtStats');
+        if(box)box.innerHTML='⏳ geçmişte ölçülüyor… <span id="npBtProg" style="font-weight:800;color:#2563eb">0%</span>';
+        runBt();
+      };
+      const runBt=()=>_npBacktestAsync(game,prior,N,60,
+        pct=>{const e=document.getElementById('npBtProg');if(e)e.textContent=pct+'%';},
+        bt=>{
+          const box=document.getElementById('npBtStats');if(!box)return;
+          if(!bt){box.innerHTML='';return;}
+          window._npTxt=baseTxt+'\nSon '+bt.t+' çekilişte gerçekleşen ortalama net: '+bt.avg.toFixed(2)+' · ≥2 %'+bt.g2.toFixed(0)+' · ≥3 %'+bt.g3.toFixed(0);
+          const card=(l,v,s2,c)=>`<div style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px"><div style="font-size:.5rem;color:var(--muted)">${l}</div><div style="font-size:.9rem;font-weight:800;color:${c}">${v}</div><div style="font-size:.48rem;color:var(--muted)">${s2}</div></div>`;
+          let s=`<div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:8px">`;
+          s+=card('Gerçekleşen ort. NET',bt.avg.toFixed(2),`son ${bt.t} çekiliş`,'var(--green)');
+          s+=card('Beklenen (matematiksel)',bt.exp.toFixed(2),'bu havuz için doğru taban','var(--muted)');
+          s+=card('≥2 net',`%${bt.g2.toFixed(0)}`,'','var(--text)');
+          s+=card('≥3 net',`%${bt.g3.toFixed(0)}`,`≥4: %${bt.g4.toFixed(0)}`,'var(--text)');
+          s+=`</div>`;
+          const diff=bt.avg-bt.exp;
+          s+=`<div style="font-size:.55rem;color:#8a6200;background:rgba(255,193,7,.08);border:1px solid rgba(255,193,7,.3);border-radius:7px;padding:6px 9px;line-height:1.6">⚠️ Gerçekleşen (${bt.avg.toFixed(2)}) ile matematiksel beklenti (${bt.exp.toFixed(2)}) arasındaki fark <strong>${diff>=0?'+':''}${diff.toFixed(2)}</strong> — yani bu havuz şansı ${Math.abs(diff)<0.15?'<strong>geçmiyor</strong>, tam beklenti düzeyinde çalışıyor':(diff>0?'hafif geçiyor (küçük örneklem, kalıcı olmayabilir)':'hafif altında')}. Havuz, sayıları <strong>gerçek çıkma olasılıklarına</strong> göre sıralar — "şansı yenmek" değil, şansı doğru kullanmak.</div>`;
+          box.outerHTML=s;
+        });
+      if(_npBtCache[btKey]!==undefined)runBt();   // önbellekte varsa anında doldur
     }catch(e){el.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.72rem">Hata: '+e.message+'</div>';}
   },20);
 }
