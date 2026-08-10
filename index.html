@@ -44,6 +44,14 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 #btResultSection,#btResultSection2{align-self:stretch}
 #btResultSection .card,#btResultSection2 .card{height:100%;box-sizing:border-box}
 .col-left,.col-right{min-width:0;grid-column:1;grid-row:1}
+/* Anasayfa bölümleri tek kapta — app grid'inin aynısı, böylece görünüm değişmez. */
+#homeWrap{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;min-width:0}
+/* Bölünmüş ekran: iki farklı sayfa yan yana, her biri kendi içinde kaydırılır. */
+#splitWrap{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;min-width:0}
+.split-pane{min-width:0;border:1px solid var(--border);border-radius:12px;padding:10px;background:var(--surface2);max-height:calc(100vh - 130px);overflow-y:auto;overflow-x:hidden}
+.split-pane #homeWrap{grid-template-columns:1fr}
+#splitBar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+@media(max-width:900px){#splitBar{display:none}}
 
 /* Header */
 .header{margin-bottom:16px}
@@ -294,6 +302,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 /* Responsive */
 @media(max-width:1100px){
   .app{grid-template-columns:1fr;padding:16px 40px 40px}
+  #homeWrap{grid-template-columns:1fr}
   .col-left,.col-right,.col-bt-right{grid-column:auto;grid-row:auto}
   }
 @media(max-width:700px){
@@ -374,6 +383,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 </nav>
 
 <div class="app">
+<div style="grid-column:1/-1;margin-bottom:4px" id="splitBar"></div>
 
 <!-- ═══════════ PAGE: GENERATOR ═══════════ -->
 <div class="col-left" id="page-generator">
@@ -13039,20 +13049,11 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-function showMainPage(id){
-  const home=id==='home';
-  _curPage=id;
-  _HOME_IDS.forEach(sid=>{
-    const el=document.getElementById(sid);
-    if(el)el.style.display=home?'':'none';
-  });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-basit','page-arastirma','page-formul','page-formul2','page-astro'].forEach(pid=>{
-    const suffix=pid.replace('page-','');
-    document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
-  });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-basit','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-astro'].forEach(bid=>{
-    document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
-  });
+const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','soz','gulsis0','nsa','hizlitahmin','basit','arastirma','formul','formul2','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',hizlitahmin:'⚡ Hızlı Tahmin',basit:'✨ Basit Tahmin',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',astro:'🪐 Astro Tahmin'};
+// Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
+function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
+function _pageInit(id){
   if(id==='scan')_initScanPage();
   if(id==='listeler')_initListelerPage();
   if(id==='kazanan')_initKazananPage();
@@ -13067,8 +13068,103 @@ function showMainPage(id){
   if(id==='formul')_snInit();
   if(id==='formul2')_f2Init();
   if(id==='astro')_astroInit();
-  if(home)_homeFlush();
+  if(id==='home')_homeFlush();
 }
+function showMainPage(id){
+  if(_splitOn){_splitSet('L',id);return;}   // bölünmüş ekranda nav sol pencereyi değiştirir
+  const home=id==='home';
+  _curPage=id;
+  _HOME_IDS.forEach(sid=>{
+    const el=document.getElementById(sid);
+    if(el)el.style.display=home?'':'none';
+  });
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-basit','page-arastirma','page-formul','page-formul2','page-astro'].forEach(pid=>{
+    const suffix=pid.replace('page-','');
+    document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
+  });
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-basit','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-astro'].forEach(bid=>{
+    document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
+  });
+  _pageInit(id);
+}
+
+// ═══════════ BÖLÜNMÜŞ EKRAN — iki farklı sayfa yan yana ═══════════
+// Sayfa kapları DOM'da taşınır (kopyalanmaz) → durum, olay bağları ve id'ler korunur,
+// hiçbir id çiftlenmez. Kapatınca kaplar özgün sıralarına geri konur.
+let _splitOn=false,_splitL='hizlitahmin',_splitR='formul',_splitOrder=null;
+const _SPLIT_MINW=900;
+// Hızlı Tahmin ve Basit Tahmin AYNI render hedefini paylaşır (bkz. _qtSyncPairs) → ikisi
+// aynı anda açılırsa yalnızca biri dolar. Bu yüzden birlikte seçilmelerine izin verilmez.
+const _splitClash=(a,b)=>(a==='hizlitahmin'&&b==='basit')||(a==='basit'&&b==='hizlitahmin');
+function _splitEls(){return _PAGE_IDS.map(_pageEl).filter(Boolean);}
+function _splitSet(side,id){
+  if(side==='L')_splitL=id;else _splitR=id;
+  const other=side==='L'?_splitR:_splitL;
+  if(id===other||_splitClash(id,other)){
+    const alt=_PAGE_IDS.find(p=>p!==id&&!_splitClash(p,id));
+    if(side==='L')_splitR=alt;else _splitL=alt;
+  }
+  _splitApply();
+}
+function _splitApply(){
+  const app=document.querySelector('.app');if(!app)return;
+  if(!_splitOrder)_splitOrder=[...app.children];
+  let wrap=document.getElementById('splitWrap');
+  if(!wrap){
+    wrap=document.createElement('div');wrap.id='splitWrap';
+    wrap.innerHTML='<div class="split-pane" id="splitPaneL"></div><div class="split-pane" id="splitPaneR"></div>';
+    app.appendChild(wrap);
+  }
+  const pl=document.getElementById('splitPaneL'),pr=document.getElementById('splitPaneR');
+  // Pencerelerde kalan önceki sayfaları .app'e geri gönder (gizli kalırlar) — yoksa
+  // paneller birikir ve yeni seçim eskisinin arkasında kalır.
+  [pl,pr].forEach(pane=>{while(pane.firstElementChild)app.appendChild(pane.firstElementChild);});
+  _splitEls().forEach(el=>{el.style.display='none';});
+  const L=_pageEl(_splitL),R=_pageEl(_splitR);
+  if(L){pl.appendChild(L);L.style.display='block';}
+  if(R){pr.appendChild(R);R.style.display='block';}
+  _splitBarRender();
+  _PAGE_IDS.forEach(p=>document.getElementById('navBtn-'+p)?.classList.toggle('active',p===_splitL||p===_splitR));
+  [[_splitL],[_splitR]].forEach(([id])=>{_curPage=id;try{_pageInit(id);}catch(e){}});
+  _curPage=_splitL;
+}
+function _splitToggle(on){
+  const app=document.querySelector('.app');if(!app)return;
+  if(on&&window.innerWidth<_SPLIT_MINW){showToast('Bölünmüş ekran için en az '+_SPLIT_MINW+'px genişlik gerekir');return;}
+  _splitOn=on;
+  if(on){_splitApply();}
+  else{
+    const wrap=document.getElementById('splitWrap');
+    if(wrap)wrap.remove();
+    if(_splitOrder)_splitOrder.forEach(el=>app.appendChild(el));   // özgün sıra geri
+    _splitBarRender();
+    showMainPage(_splitL);
+  }
+  try{localStorage.setItem('splitOn',on?'1':'0');}catch(e){}
+}
+function _splitBarRender(){
+  const bar=document.getElementById('splitBar');if(!bar)return;
+  const opts=(sel,side)=>_PAGE_IDS.map(p=>`<option value="${p}"${p===sel?' selected':''}${(p===(side==='L'?_splitR:_splitL)||_splitClash(p,side==='L'?_splitR:_splitL))?' disabled':''}>${_PAGE_LABELS[p]}</option>`).join('');
+  bar.innerHTML=`<button onclick="_splitToggle(${!_splitOn})" style="font-size:.7rem;padding:5px 11px;border-radius:8px;border:1px solid ${_splitOn?'rgba(129,140,248,.7)':'var(--border)'};background:${_splitOn?'rgba(129,140,248,.15)':'var(--surface2)'};color:${_splitOn?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:700">⬒ Bölünmüş Ekran${_splitOn?' ✓':''}</button>`
+   +(_splitOn?`<select onchange="_splitSet('L',this.value)" style="font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 8px;max-width:170px">${opts(_splitL,'L')}</select>
+      <span style="color:var(--muted);font-size:.7rem">|</span>
+      <select onchange="_splitSet('R',this.value)" style="font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 8px;max-width:170px">${opts(_splitR,'R')}</select>`:'');
+}
+// Anasayfa bölümlerini tek bir kaba sar (bölünmüş ekranda tek parça taşınabilsin diye).
+function _splitInit(){
+  const app=document.querySelector('.app');if(!app||document.getElementById('homeWrap'))return;
+  const first=document.getElementById(_HOME_IDS[0]);if(!first)return;
+  const wrap=document.createElement('div');wrap.id='homeWrap';
+  app.insertBefore(wrap,first);
+  _HOME_IDS.forEach(sid=>{const el=document.getElementById(sid);if(el)wrap.appendChild(el);});
+  _splitOrder=[...app.children];
+  _splitBarRender();
+  try{if(localStorage.getItem('splitOn')==='1'&&window.innerWidth>=_SPLIT_MINW)_splitToggle(true);}catch(e){}
+}
+window.addEventListener('resize',()=>{
+  if(_splitOn&&window.innerWidth<_SPLIT_MINW)_splitToggle(false);
+  else _splitBarRender();
+});
 
 // Nav: always fixed, single row; scroll buttons on large screens, touch scroll on mobile
 (function(){
@@ -16275,6 +16371,7 @@ function _onaInit(){_onaBacktest('');}
 })();
 loadDrawCaches();
 initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();_hbInit();_caInit();_cbInit();_nnInit();_npInit();_onaInit();_alphaRefRender();
+try{_splitInit();}catch(e){console.warn('splitInit',e);}
 setTimeout(()=>{_autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);},800);
 
 // ══════════════════════════════════════════════════════════════
