@@ -1360,6 +1360,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
    <button onclick="_qtRunAll(true)" style="flex:1;min-width:180px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🔮 Üret</button>
    <button onclick="_btsCopyAll()" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Tümünü Kopyala</button>
+   <button onclick="_btsCopyGrouped()" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700" title="Her alanın biletleri tek tek değil, o alandaki tüm benzersiz sayıların birleşimi olarak — alan başına bir satır">📋 Gruplu Kopyala</button>
   </div>
  </div>
  <div class="card" style="margin-bottom:12px">
@@ -19314,16 +19315,22 @@ function _btsDateTest(){
   if(src&&dst)src.value=dst.value;
   try{_qtDateTest();}catch(e){}
 }
+// Kopyalama, Hızlı Tahmin ile AYNI mekanizmayı kullanır (blokların kendi ürettiği kopya
+// metinleri) — yalnızca Basit'teki 9 analizle sınırlanır. Önceden DOM metni kazınıyordu,
+// o yüzden biçim Hızlı Tahmin'inkinden farklı çıkıyordu.
 function _btsCopyAll(){
-  const grid=document.getElementById('btsPairGrid');if(!grid)return;
+  const tk=t=>window['_qtCopy_qtc'+Math.abs(_qtHash(t))];
   const parts=[];
-  [...grid.children].forEach(row=>{
-    const blk=row.children[0]&&row.children[0].querySelector('.qt-blk');
-    if(blk)parts.push(blk.innerText.replace(/\n{2,}/g,'\n').trim());
-  });
-  if(!parts.length){showToast('Önce Üret\'e basın');return;}
-  _caCopy('✨ Basit Tahmin — '+((getGame(_qtGame)||{}).name||'')+'\n\n'+parts.join('\n\n'));
+  [window._qtAiTk,tk('AI Bilet Üretici'),tk('Gülsis Sıfır'),tk('Nihai'),
+   window._qtInter,window._qtGulayTxt,window._qtAdayTxt,
+   window._qtNihaiCopy,window._qtIlkHaneCopy].forEach(x=>{if(x)parts.push(x);});
+  if(!parts.length){if(typeof showToast==='function')showToast('Önce Üret\'e basın');return;}
+  _caCopy(parts.join('\n\n'));
+  if(typeof showToast==='function')showToast('📋 Basit Tahmin kopyalandı');
 }
+const _BASIT_GROUPS=new Set(['🧠 Birleşik AI','🤖 AI Bilet Üretici','🎯⁰ Gülsis Sıfır','🏁 Nihai',
+  '🔗 Nihai × 3+ Kapsamlı Kesişim','🔮 Gülay Fark-Analizi','🎰 Aday Sayılar (Uzlaşı)','nihaiTablo','ilkHane']);
+function _btsCopyGrouped(){_qtCopyAllGrouped(_BASIT_GROUPS);}
 // Sol (Yeni Tahmin) ve sağ (Geçmiş Test) taraflardaki bloklar bağımsız üretilir ama aynı data-k
 // anahtarıyla etiketlenir; burada anahtar bazında eşleştirilip TEK bir grid satırına yerleştirilir —
 // böylece biletlerin/analizlerin yüksekliği farklı olsa bile aynı bölüm her zaman tam yan yana durur.
@@ -20602,7 +20609,7 @@ function _qtCopyAll(){
 // Hedefli Demet, Birleşik AI) TEK TEK bilet olarak değil, o alandaki TÜM biletlerin BENZERSİZ
 // sayılarının tek satırlık birleşimi olarak yazar — her alan için bir satır.
 let _qtLastRenderState=null;
-function _qtCopyAllGrouped(){
+function _qtCopyAllGrouped(only){
   const st=_qtLastRenderState;
   if(!st){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
   const{game,prior,src}=st;
@@ -20610,7 +20617,7 @@ function _qtCopyAllGrouped(){
     const arr=[...(set||[])].sort((a,b)=>a-b);
     return arr.length?`${emoji} ${name} (${arr.length}): ${arr.join(' ')}`:null;
   };
-  const header=`${game.emoji||''} ${game.name||''} — Hızlı Tahmin (tekil sayı grupları)`;
+  const header=`${game.emoji||''} ${game.name||''} — ${only?'Basit Tahmin':'Hızlı Tahmin'} (tekil sayı grupları)`;
   const lines=[];
   const groups=_qtBuildAnalysisGroups(game,prior,src);
   const GROUP_LABELS=[
@@ -20632,15 +20639,16 @@ function _qtCopyAllGrouped(){
     ['🔎 Listeler — AI Biletler','🔎','Listeler — AI Biletler'],
   ];
   GROUP_LABELS.forEach(([key,emoji,name])=>{
+    if(only&&!only.has(key))return;
     if(!groups[key])return;
     const l=line(emoji,name,groups[key]);
     if(l)lines.push(l);
   });
-  if(src.ni&&src.ni.length){
+  if((!only||only.has('niPairs'))&&src.ni&&src.ni.length){
     const niPairs=_niConsecPairs(src.ni);
     if(niPairs.length){const l=line('🔗','Ardışık Çiftler',new Set(niPairs.flat()));if(l)lines.push(l);}
   }
-  if(src.ga){
+  if((!only||only.has('inter3'))&&src.ga){
     const inter3=_qtNihaiYakGulaySet(src.ni,src.yak,src.ga);
     if(inter3.length){const l=line('🔗','Nihai × 3+ Kapsamlı × Gülay Kesişimi',new Set(inter3));if(l)lines.push(l);}
   }
@@ -20661,7 +20669,7 @@ function _qtCopyAllGrouped(){
         decades.forEach(d=>{const t=d+r.lastDigit;if(t>=1&&t<=rowsInfo.max&&candSet.has(t))sonucSet.add(t);});
       });
       const l=line('🧮','Nihai Sayı Tablosu — Sonuç',sonucSet);
-      if(l)lines.push(l);
+      if(l&&(!only||only.has('nihaiTablo')))lines.push(l);
       // İlk Hane Tablosu — AYNI candSet'i (Nihai'nin seçimi) kullanır, sadece hedef ilk hane (onlar basamağı)
       const ilkSonucSet=new Set(),seenFirst={};
       rowsInfo.rows.forEach(r=>{
@@ -20671,7 +20679,7 @@ function _qtCopyAllGrouped(){
         for(let t=lo;t<=hi;t++)if(candSet.has(t))ilkSonucSet.add(t);
       });
       const l2=line('🔢','İlk Hane Tablosu — Sonuç',ilkSonucSet);
-      if(l2)lines.push(l2);
+      if(l2&&(!only||only.has('ilkHane')))lines.push(l2);
     }
   }
   if(!lines.length){if(typeof showToast==='function')showToast('Önce üretim çalışsın');return;}
