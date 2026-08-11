@@ -51,7 +51,13 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .split-pane{min-width:0;border:1px solid var(--border);border-radius:12px;padding:10px;background:var(--surface2);max-height:calc(100vh - 130px);overflow-y:auto;overflow-x:hidden}
 .split-pane #homeWrap{grid-template-columns:1fr}
 #splitBar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
-@media(max-width:900px){#splitBar{display:none}}
+/* Dar ekranda yan yana iki sayfa okunmaz → Android'in dikey bölünmüş ekranı gibi
+   alt alta iki pencere; her biri kendi içinde kayar. */
+@media(max-width:900px){
+  #splitWrap{grid-template-columns:1fr;gap:10px}
+  .split-pane{max-height:46vh;padding:8px}
+  #splitBar select{max-width:44vw}
+}
 
 /* Header */
 .header{margin-bottom:16px}
@@ -13097,7 +13103,8 @@ function showMainPage(id){
 // Sayfa kapları DOM'da taşınır (kopyalanmaz) → durum, olay bağları ve id'ler korunur,
 // hiçbir id çiftlenmez. Kapatınca kaplar özgün sıralarına geri konur.
 let _splitOn=false,_splitL='hizlitahmin',_splitR='formul',_splitOrder=null;
-const _SPLIT_MINW=900;
+// Mobilde de kullanılabilir: geniş ekranda yan yana, dar ekranda alt alta (bkz. CSS).
+const _SPLIT_MINW=0;
 // Hızlı Tahmin ve Basit Tahmin AYNI render hedefini paylaşır (bkz. _qtSyncPairs) → ikisi
 // aynı anda açılırsa yalnızca biri dolar. Bu yüzden birlikte seçilmelerine izin verilmez.
 const _splitClash=(a,b)=>(a==='hizlitahmin'&&b==='basit')||(a==='basit'&&b==='hizlitahmin');
@@ -13164,12 +13171,9 @@ function _splitInit(){
   _HOME_IDS.forEach(sid=>{const el=document.getElementById(sid);if(el)wrap.appendChild(el);});
   _splitOrder=[...app.children];
   _splitBarRender();
-  try{if(localStorage.getItem('splitOn')==='1'&&window.innerWidth>=_SPLIT_MINW)_splitToggle(true);}catch(e){}
+  try{if(localStorage.getItem('splitOn')==='1')_splitToggle(true);}catch(e){}
 }
-window.addEventListener('resize',()=>{
-  if(_splitOn&&window.innerWidth<_SPLIT_MINW)_splitToggle(false);
-  else _splitBarRender();
-});
+window.addEventListener('resize',()=>{_splitBarRender();});
 
 // Nav: always fixed, single row; scroll buttons on large screens, touch scroll on mobile
 (function(){
@@ -19264,6 +19268,36 @@ function _qtRenderAll(mode,game,prior,actual){
   _qtFilterRefresh();
 }
 let _qtLiveHtml='',_qtTestHtml='';
+// ── Her analizin sağ üstüne "toplam net · yakın" rozeti ──────────────────────
+// Blok başlıklarındaki "🏆 N net" TEK BİLETİN en iyisidir; buradaki rozet ise o analizin
+// ÜRETTİĞİ TÜM sayılar içinde kaç FARKLI sayının tuttuğunu (✓) ve kaçının ±1 yakın (~)
+// olduğunu gösterir. Bloklar çok farklı biçimlerde render edildiği için işaretler tek
+// yerden, DOM metninden okunur — her blok tipi için ayrı kod gerekmez.
+function _qtBlockTotals(blk){
+  const net=new Set(),near=new Set();
+  const txt=blk.innerText||'';
+  const re=/(?:^|[^\d])(\d{1,2})\s*([✓~])/g;let m;
+  while((m=re.exec(txt))){const n=+m[1];if(n>=1&&n<=90)(m[2]==='✓'?net:near).add(n);}
+  return {net:net.size,near:near.size};
+}
+function _qtAnnotateAll(){
+  const grid=document.getElementById(_curPage==='basit'?'btsPairGrid':'qtPairGrid');
+  if(!grid)return;
+  grid.querySelectorAll('.qt-blk').forEach(blk=>{
+    if(blk.dataset.k==='actual'||blk.querySelector('.qt-tot'))return;
+    const {net,near}=_qtBlockTotals(blk);
+    if(!net&&!near)return;
+    const badge=document.createElement('span');
+    badge.className='qt-tot';
+    badge.style.cssText='font-size:.56rem;font-weight:800;white-space:nowrap;padding:2px 7px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);flex-shrink:0';
+    badge.innerHTML=`Σ <span style="color:var(--green)">${net} net</span> · <span style="color:#c2410c">${near} yakın</span>`;
+    badge.title='Bu analizin ürettiği TÜM sayılar içinde kaç farklı sayı tuttu (net) / ±1 yakın oldu';
+    const hdr=blk.querySelector('div[style*="justify-content:space-between"]');
+    if(hdr&&hdr.lastElementChild&&hdr.children.length>1)hdr.lastElementChild.insertBefore(badge,hdr.lastElementChild.firstChild);
+    else if(hdr)hdr.appendChild(badge);
+    else{const card=blk.querySelector('.card')||blk;card.insertBefore(badge,card.firstChild);}
+  });
+}
 // ── Basit Tahmin sayfası: Hızlı Tahmin'in motorunu aynen kullanır, sadece 9 analizi gösterir ──
 function _btsInit(){
   // Hızlı Tahmin hiç açılmamışsa oyun listesi/tarih seçenekleri henüz kurulmamış olur.
@@ -19325,6 +19359,9 @@ function _qtSyncPairs(){
     row.appendChild(lCell);row.appendChild(rCell);
     grid.appendChild(row);
   });
+  // Nihai/İlk Hane bölümleri _qtRenderAll içinde bundan SONRA yeniden çizildiği için
+  // rozetleri bir sonraki tur'a bırak.
+  setTimeout(_qtAnnotateAll,0);
 }
 // Ana sayfadaki "📈 Yakın Dönem Ağırlıklı" analizi + "🎯 Kapsama modu" + "3+ Hedefli Demet Üret"
 // akışının BİREBİR aynısı (generate3PlusBundle → _coverageBundle(game,'axrecency',12)) — burada
