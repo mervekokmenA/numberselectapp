@@ -345,6 +345,8 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
 @media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow{grid-template-columns:1fr !important;}}
+/* 2 geçmiş test açıkken 3 sütun; tablette 2'ye, telefonda 1'e iner. */
+@media(max-width:1100px) and (min-width:601px){.qt-pair-row,#qtHdrRow,#btsHdrRow{grid-template-columns:1fr 1fr !important;}}
 @media(max-width:600px){#caNihaiGrid,#cbNihaiGrid,#f2Grid,#kbGrid,#scanGrid{grid-template-columns:1fr !important;}}
 /* Telefonda yan yana iki sütun sayıları dar bir şeride sıkıştırıyordu; ≥600px'te (tablet ve
    üstü) iki pencere gibi yan yana, altında tek sütun. */
@@ -1368,6 +1370,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; yapılar o tarihten ÖNCEKİ verilerle üretilip gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
    <select id="btsDateSel" onchange="_btsDateTest()" style="flex:1;min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   <select id="btsDateSel2" onchange="_btsDateTest('2')" title="2. geçmiş test" style="flex:1;min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
   </div>
  </div>
  <div id="btsHdrRow" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:6px">
@@ -1402,6 +1405,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; tüm yapılar o tarihten ÖNCEKİ verilerle üretilip gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın). Aşağıdaki tabloda her yapı, soldaki güncel tahminiyle YAN YANA gösterilir.</div>
   <div style="display:flex;gap:6px;align-items:stretch">
    <select id="qtDateSel" onchange="_qtDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+   <select id="qtDateSel2" onchange="_qtDateTest2()" title="2. geçmiş test — aynı anda ikinci bir tarihi karşılaştır" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
     <button onclick="_qtStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
     <button onclick="_qtStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
@@ -19088,10 +19092,10 @@ function _qtRenderControls(){
 }
 function _qtDates(){
   const sel=document.getElementById('qtDateSel');if(!sel)return;
-  const draws=_kbGetDraws(_qtGame);const prev=sel.value;
+  const draws=_kbGetDraws(_qtGame);
   let h=`<option value="">— Geçmiş test için tarih seçin —</option>`;
   draws.forEach((d,i)=>{if(draws.length-i-1<60)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
-  sel.innerHTML=h;if(prev)sel.value=prev;
+  ['','2'].forEach(sl=>{const e=document.getElementById('qtDateSel'+sl);if(!e)return;const prev=e.value;e.innerHTML=h;if(prev)e.value=prev;});
 }
 function _qtStepDate(dir){
   const sel=document.getElementById('qtDateSel');if(!sel||sel.options.length<2)return;
@@ -19269,13 +19273,14 @@ function _qtRenderAll(mode,game,prior,actual){
   blk('nihaiSection',_qtNihaiSection(game,prior,src,aSet,mode,actual));
   blk('ilkHaneSection',_qtIlkHaneSection(game,prior,src,aSet,mode,actual));
   if(mode==='live'){_qtLiveHtml=h;_qtLastRenderState={game,prior,src};}
+  else if(mode==='test2')_qtTest2Html=h;
   else _qtTestHtml=h;
   _qtSyncPairs();
-  _qtNihaiRerender('live');_qtNihaiRerender('test');
-  _qtIlkHaneRerender('live');_qtIlkHaneRerender('test');
+  _qtNihaiRerender('live');_qtNihaiRerender('test');_qtNihaiRerender('test2');
+  _qtIlkHaneRerender('live');_qtIlkHaneRerender('test');_qtIlkHaneRerender('test2');
   _qtFilterRefresh();
 }
-let _qtLiveHtml='',_qtTestHtml='';
+let _qtLiveHtml='',_qtTestHtml='',_qtTest2Html='';
 // ── Her analizin sağ üstüne "toplam net · yakın" rozeti ──────────────────────
 // Blok başlıklarındaki "🏆 N net" TEK BİLETİN en iyisidir; buradaki rozet ise o analizin
 // ÜRETTİĞİ TÜM sayılar içinde kaç FARKLI sayının tuttuğunu (✓) ve kaçının ±1 yakın (~)
@@ -19313,14 +19318,17 @@ function _btsInit(){
   const row=document.getElementById('btsGameRow');
   if(row)row.innerHTML=GAMES.map(g=>{const a=g.id===_qtGame;
     return `<button onclick="_qtSetGame('${g.id}');_btsInit()" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
-  const src=document.getElementById('qtDateSel'),dst=document.getElementById('btsDateSel');
-  if(src&&dst){dst.innerHTML=src.innerHTML;dst.value=src.value;}
+  ['','2'].forEach(sl=>{
+    const src=document.getElementById('qtDateSel'+sl),dst=document.getElementById('btsDateSel'+sl);
+    if(src&&dst){dst.innerHTML=src.innerHTML;dst.value=src.value;}
+  });
   _qtSyncPairs();
 }
-function _btsDateTest(){
-  const src=document.getElementById('qtDateSel'),dst=document.getElementById('btsDateSel');
+function _btsDateTest(slot){
+  slot=slot||'';
+  const src=document.getElementById('qtDateSel'+slot),dst=document.getElementById('btsDateSel'+slot);
   if(src&&dst)src.value=dst.value;
-  try{_qtDateTest();}catch(e){}
+  try{_qtDateTest(slot);}catch(e){}
 }
 // Kopyalama, Hızlı Tahmin ile AYNI mekanizmayı kullanır (blokların kendi ürettiği kopya
 // metinleri) — yalnızca Basit'teki 9 analizle sınırlanır. Önceden DOM metni kazınıyordu,
@@ -19354,25 +19362,41 @@ function _qtSyncPairs(){
   if(!grid)return;
   const tmpL=document.createElement('div');tmpL.innerHTML=_qtLiveHtml||'';
   const tmpT=document.createElement('div');tmpT.innerHTML=_qtTestHtml||'';
-  const liveBlocks=[...tmpL.children],testBlocks=[...tmpT.children];
+  const tmpT2=document.createElement('div');tmpT2.innerHTML=_qtTest2Html||'';
+  const liveBlocks=[...tmpL.children],testBlocks=[...tmpT.children],test2Blocks=[...tmpT2.children];
   const liveMap={};liveBlocks.forEach(c=>{liveMap[c.dataset.k]=c;});
   const testMap={};testBlocks.forEach(c=>{testMap[c.dataset.k]=c;});
+  const test2Map={};test2Blocks.forEach(c=>{test2Map[c.dataset.k]=c;});
+  const has2=!!test2Blocks.length;
   let order=[];const seen=new Set();
   if(testMap['actual']){seen.add('actual');order.push('actual');}
   liveBlocks.forEach(c=>{if(!seen.has(c.dataset.k)){seen.add(c.dataset.k);order.push(c.dataset.k);}});
   testBlocks.forEach(c=>{if(!seen.has(c.dataset.k)){seen.add(c.dataset.k);order.push(c.dataset.k);}});
-  if(basit)order=_BASIT_KEYS.filter(k=>liveMap[k]||testMap[k]);
+  test2Blocks.forEach(c=>{if(!seen.has(c.dataset.k)){seen.add(c.dataset.k);order.push(c.dataset.k);}});
+  if(basit)order=_BASIT_KEYS.filter(k=>liveMap[k]||testMap[k]||test2Map[k]);
   grid.innerHTML='';
   order.forEach(k=>{
     const row=document.createElement('div');
     row.className='qt-pair-row';
-    row.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start;margin-bottom:12px';
+    row.style.cssText='display:grid;grid-template-columns:'+(has2?'1fr 1fr 1fr':'1fr 1fr')+';gap:20px;align-items:start;margin-bottom:12px';
     const lCell=document.createElement('div'),rCell=document.createElement('div');
     if(liveMap[k])lCell.appendChild(liveMap[k]);
     if(testMap[k])rCell.appendChild(testMap[k]);
     row.appendChild(lCell);row.appendChild(rCell);
+    if(has2){const r2=document.createElement('div');if(test2Map[k])r2.appendChild(test2Map[k]);row.appendChild(r2);}
     grid.appendChild(row);
   });
+  // Başlık satırı da sütun sayısını takip etsin
+  const hdr=document.getElementById(basit?'btsHdrRow':'qtHdrRow');
+  if(hdr){
+    hdr.style.gridTemplateColumns=has2?'1fr 1fr 1fr':'1fr 1fr';
+    let third=hdr.querySelector('.qt-hdr3');
+    if(has2&&!third){
+      third=document.createElement('div');third.className='qt-hdr3';
+      third.style.cssText=(hdr.children[1]?hdr.children[1].getAttribute('style')||'':'');
+      third.textContent='📊 2. Geçmiş Test';hdr.appendChild(third);
+    }else if(!has2&&third)third.remove();
+  }
   // Nihai/İlk Hane bölümleri _qtRenderAll içinde bundan SONRA yeniden çizildiği için
   // rozetleri bir sonraki tur'a bırak.
   setTimeout(_qtAnnotateAll,0);
@@ -19710,17 +19734,22 @@ function _qtRunAll(force){
     else _qtRenderAll('live',game,draws,null);
   },30);
 }
-function _qtDateTest(){
+// Aynı anda İKİ geçmiş test: slot '' (1.) ve '2' (2.). İkisi de kendi tarihiyle bağımsız
+// üretilir; _qtSyncPairs her ikisini de aynı satırda üçüncü/dördüncü sütuna yerleştirir.
+function _qtDateTest(slot){
+  slot=slot||'';
   if(!document.getElementById('qtPairGrid'))return;
-  const date=document.getElementById('qtDateSel')?.value||'';
-  if(!date){_qtTestHtml='';_qtSyncPairs();return;}
+  const set=h=>{if(slot==='2')_qtTest2Html=h;else _qtTestHtml=h;};
+  const date=document.getElementById('qtDateSel'+slot)?.value||'';
+  if(!date){set('');_qtSyncPairs();return;}
   const game=getGame(_qtGame),draws=_kbGetDraws(_qtGame);
-  const idx=draws.findIndex(d=>d.date===date);if(idx<0){_qtTestHtml='';_qtSyncPairs();return;}
+  const idx=draws.findIndex(d=>d.date===date);if(idx<0){set('');_qtSyncPairs();return;}
   const actual=draws[idx],prior=draws.slice(idx+1);
-  if(prior.length<60){_qtTestHtml=_qtMsg('Bu tarih için yeterli önceki veri yok.');_qtSyncPairs();return;}
-  _qtTestHtml=_qtMsg('⏳ Geçmiş test kuruluyor…');_qtSyncPairs();
-  setTimeout(()=>{_qtRenderAll('test',game,prior,actual);},30);
+  if(prior.length<60){set(_qtMsg('Bu tarih için yeterli önceki veri yok.'));_qtSyncPairs();return;}
+  set(_qtMsg('⏳ Geçmiş test kuruluyor…'));_qtSyncPairs();
+  setTimeout(()=>{_qtRenderAll(slot==='2'?'test2':'test',game,prior,actual);},30);
 }
+function _qtDateTest2(){_qtDateTest('2');}
 // Tüm geçmiş için toplu test: her blok, son N çekilişin HER birinde o tarihten önceki verilerle
 // üretilir; grubun EN İYİ biletinin ≥2/≥3 net oranı ölçülür. Kullanıcı "gerçekten 2+ buluyor mu"yu
 // kendi gözüyle geçmişin tamamında doğrulayabilsin diye.
