@@ -855,12 +855,14 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:6px">📊 Geçmiş Test — tek tek tarih seçerek</div>
    <div style="display:flex;gap:6px;align-items:stretch">
     <select id="nnDateSel" onchange="_nnDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+    <select id="nnDateSel2" onchange="_nnDateTest('2')" title="2. geçmiş test" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
      <button onclick="_nnStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
      <button onclick="_nnStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
     </div>
    </div>
    <div id="nnTestOut"></div>
+   <div id="nnTestOut2" style="margin-top:8px"></div>
   </div>
  </div>
 </div>
@@ -887,12 +889,14 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:6px">📊 Geçmiş Test — tek tek tarih seçerek</div>
    <div style="display:flex;gap:6px;align-items:stretch">
     <select id="npDateSel" onchange="_npDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+    <select id="npDateSel2" onchange="_npDateTest('2')" title="2. geçmiş test" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
      <button onclick="_npStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
      <button onclick="_npStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
     </div>
    </div>
    <div id="npTestOut"></div>
+   <div id="npTestOut2" style="margin-top:8px"></div>
   </div>
  </div>
 </div>
@@ -1600,12 +1604,14 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; konsensüs o tarihten ÖNCEKİ verilerle yeniden hesaplanır ve gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın).</div>
     <div style="display:flex;gap:6px;align-items:stretch">
      <select id="kbDateSel" onchange="_kbDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+     <select id="kbDateSel2" onchange="_kbDateTest('2')" title="2. geçmiş test" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
      <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
       <button onclick="_kbStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
       <button onclick="_kbStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
      </div>
     </div>
     <div id="kbDateOut" style="margin-top:10px"></div>
+    <div id="kbDateOut2" style="margin-top:10px"></div>
    </div>
   </div>
  </div>
@@ -12471,16 +12477,17 @@ function _kbDates(){
   const draws=_kbGetDraws(_kbGame);const prev=sel.value;
   let h=`<option value="">— Geçmiş test için tarih seçin —</option>`;
   draws.forEach((d,i)=>{if(draws.length-i-1<20)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
-  sel.innerHTML=h;if(prev)sel.value=prev;
+  ['','2'].forEach(sl=>{const e=document.getElementById('kbDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});//if(prev)sel.value=prev;
 }
 function _kbStepDate(dir){
   const sel=document.getElementById('kbDateSel');if(!sel||sel.options.length<2)return;
   let idx=sel.selectedIndex;if(idx<1)idx=1;else idx=Math.min(sel.options.length-1,Math.max(1,idx+dir));
   sel.selectedIndex=idx;_kbDateTest();
 }
-function _kbDateTest(){
-  const el=document.getElementById('kbDateOut');if(!el)return;
-  const date=document.getElementById('kbDateSel')?.value||'';
+function _kbDateTest(slot){
+  slot=slot||'';
+  const el=document.getElementById('kbDateOut'+(slot==='2'?'2':''));if(!el)return;
+  const date=document.getElementById('kbDateSel'+slot)?.value||'';
   if(!date){el.innerHTML='';return;}
   const draws=_kbGetDraws(_kbGame);const idx=draws.findIndex(d=>d.date===date);
   if(idx<0){el.innerHTML='';return;}
@@ -15708,7 +15715,7 @@ function _npDates(){
   const draws=_kbGetDraws(_npGame);const prev=sel.value;
   let h='<option value="">— Geçmiş test için tarih seçin —</option>';
   draws.forEach((d,i)=>{if(draws.length-i-1<80)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
-  sel.innerHTML=h;if(prev)sel.value=prev;
+  ['','2'].forEach(sl=>{const e=document.getElementById('npDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
 }
 function _npStepDate(dir){
   const sel=document.getElementById('npDateSel');if(!sel||sel.options.length<2)return;
@@ -15816,9 +15823,10 @@ function _npRun(){
     }catch(e){el.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.72rem">Hata: '+e.message+'</div>';}
   },20);
 }
-function _npDateTest(){
-  const el=document.getElementById('npTestOut');if(!el)return;
-  const date=document.getElementById('npDateSel')?.value||'';
+function _npDateTest(slot){
+  slot=slot||'';
+  const el=document.getElementById('npTestOut'+(slot==='2'?'2':''));if(!el)return;
+  const date=document.getElementById('npDateSel'+slot)?.value||'';
   if(!date){el.innerHTML='';return;}
   const game=getGame(_npGame),draws=_kbGetDraws(_npGame);
   const idx=draws.findIndex(d=>d.date===date);if(idx<0)return;
@@ -15906,7 +15914,7 @@ function _nnDates(){
   const draws=_kbGetDraws(_nnGame);const prev=sel.value;
   let h='<option value="">— Geçmiş test için tarih seçin —</option>';
   draws.forEach((d,i)=>{if(draws.length-i-1<100)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
-  sel.innerHTML=h;if(prev)sel.value=prev;
+  ['','2'].forEach(sl=>{const e=document.getElementById('nnDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
 }
 function _nnStepDate(dir){
   const sel=document.getElementById('nnDateSel');if(!sel||sel.options.length<2)return;
@@ -15964,9 +15972,10 @@ function _nnRun(){
     }catch(e){el.innerHTML='<div style="padding:12px;color:#cc2222;font-size:.72rem">Hata: '+e.message+'</div>';}
   },20);
 }
-function _nnDateTest(){
-  const el=document.getElementById('nnTestOut');if(!el)return;
-  const date=document.getElementById('nnDateSel')?.value||'';
+function _nnDateTest(slot){
+  slot=slot||'';
+  const el=document.getElementById('nnTestOut'+(slot==='2'?'2':''));if(!el)return;
+  const date=document.getElementById('nnDateSel'+slot)?.value||'';
   if(!date){el.innerHTML='';return;}
   const game=getGame(_nnGame),draws=_kbGetDraws(_nnGame);
   const idx=draws.findIndex(d=>d.date===date);if(idx<0)return;
