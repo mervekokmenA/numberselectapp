@@ -344,7 +344,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 /* Yan yana (2 sütun) görünüm tablette de açık kalsın — yalnızca gerçek telefon genişliğinde
    (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
-@media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow{grid-template-columns:1fr !important;}}
+@media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow{grid-template-columns:1fr !important;}}
 @media(max-width:600px){#caNihaiGrid,#cbNihaiGrid,#f2Grid,#kbGrid,#scanGrid{grid-template-columns:1fr !important;}}
 /* Telefonda yan yana iki sütun sayıları dar bir şeride sıkıştırıyordu; ≥600px'te (tablet ve
    üstü) iki pencere gibi yan yana, altında tek sütun. */
@@ -1562,6 +1562,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    </div>
   </div>
  </div>
+ <div id="f2HdrRow" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:10px 0 4px">
+  <div style="font-size:.68rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
+  <div style="font-size:.68rem;font-weight:800;color:var(--accent)">📊 Geçmiş Test</div>
+ </div>
+ <div id="f2PairGrid"></div>
 </div><!-- /page-formul2 -->
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
@@ -20267,8 +20272,8 @@ function _f2Build(game,draws,dateStr,srcOffset,aSet){
     const c=_f2Cands(term,mode,sd,dateStr,max,pm);
     const st=_f2Stats(game,draws.slice(srcOffset),term,mode,pm,N);
     return {term,mode,src:si,nums:[...c.set].sort((a,b)=>a-b),val:c.val,st,w:1};
-  }).filter(r=>r.nums.length).sort((a,b)=>(b.st?b.st.lift1:0)-(a.st?a.st.lift1:0));
-  return {rows,mode,pm,srcDraw:sd,N,weighted:false};
+  }).filter(r=>r.nums.length);
+  return {rows:_f2SortCanonical(rows),mode,pm,srcDraw:sd,N,weighted:false};
 }
 // uzlaşı: otomatik modda geçmiş başarıya göre AĞIRLIKLI, elle modda ham oy
 function _f2Consensus(d,cnt){
@@ -20276,6 +20281,36 @@ function _f2Consensus(d,cnt){
   d.rows.forEach(r=>{const w=d.weighted?(r.w||0):1;r.nums.forEach(n=>tal[n]=(tal[n]||0)+w);});
   const ranked=Object.keys(tal).map(Number).sort((a,b)=>tal[b]-tal[a]||a-b);
   return {tal,ranked,pick:ranked.slice(0,cnt).sort((a,b)=>a-b)};
+}
+// Satir kimligi: terim + uygulama modu + kaynak cekilis. Iki sutun bu anahtarla eslesir.
+function _f2RowKey(r){return r.term.name+'|'+r.mode+'|'+r.src;}
+// SABIT SIRA: terim listesi sirasi -> mod -> kaynak. Onceden satirlar basariya (lift)
+// gore siralaniyordu, bu yuzden her uretimde sira degisiyordu.
+function _f2SortCanonical(rows){
+  const ti={};_F2_TERMS.forEach((t,i)=>{ti[t.name]=i;});
+  const mk=Object.keys(_F2_MODES);const mi={};mk.forEach((m,i)=>{mi[m]=i;});
+  return rows.slice().sort((a,b)=>
+    ((ti[a.term.name]??99)-(ti[b.term.name]??99))||
+    ((mi[a.mode]??99)-(mi[b.mode]??99))||
+    ((a.src||0)-(b.src||0)));
+}
+let _f2LiveRows=null,_f2TestRows=null;
+// Yeni tahmin ve gecmis test satirlarini AYNI anahtarla eslestirip tek grid satirina koyar
+// -> iki sutun daima yan yana hizali ve ayni sirada.
+function _f2SyncPairs(){
+  const grid=document.getElementById('f2PairGrid');if(!grid)return;
+  const L={},T={},byKey={};
+  (_f2LiveRows||[]).forEach(x=>{L[_f2RowKey(x.r)]=x.html;byKey[_f2RowKey(x.r)]=x.r;});
+  (_f2TestRows||[]).forEach(x=>{T[_f2RowKey(x.r)]=x.html;byKey[_f2RowKey(x.r)]=byKey[_f2RowKey(x.r)]||x.r;});
+  const keys=_f2SortCanonical(Object.keys(byKey).map(k=>byKey[k])).map(_f2RowKey);
+  grid.innerHTML='';
+  keys.forEach(k=>{
+    const row=document.createElement('div');
+    row.className='f2-pair-row';
+    row.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start';
+    row.innerHTML='<div>'+(L[k]||'')+'</div><div>'+(T[k]||'')+'</div>';
+    grid.appendChild(row);
+  });
 }
 function _f2RenderRows(d,aSet){
   let h='';
@@ -20292,6 +20327,10 @@ function _f2RenderRows(d,aSet){
     h+=`</div>`;
   });
   return h;
+}
+// Tek satirlik HTML (esli grid icin) — _f2RenderRows ile ayni bicim.
+function _f2RowsAsList(d,aSet){
+  return d.rows.map(r=>({r,html:_f2RenderRows({...d,rows:[r]},aSet)}));
 }
 function _f2Run(){
   const el=document.getElementById('f2Out'),syn=document.getElementById('f2SynthOut');
@@ -20313,7 +20352,9 @@ function _f2Run(){
     syn.innerHTML=sh;
   }
   const SHOW=40;
-  el.innerHTML=(d.rows.length>SHOW?`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">${d.rows.length} kombinasyondan <strong>en başarılı ${SHOW}</strong>'i gösteriliyor (uzlaşı hepsini kullanır).</div>`:'')+_f2RenderRows({...d,rows:d.rows.slice(0,SHOW)},null);
+  el.innerHTML=(d.rows.length>SHOW?`<div style="font-size:.56rem;color:var(--muted)">${d.rows.length} kombinasyondan <strong>en başarılı ${SHOW}</strong>'i gösteriliyor (uzlaşı hepsini kullanır).</div>`:'');
+  _f2LiveRows=_f2RowsAsList({...d,rows:d.rows.slice(0,SHOW)},null);
+  _f2SyncPairs();
 }
 function _f2DateTest(){
   const el=document.getElementById('f2TestOut');if(!el)return;
@@ -20343,11 +20384,12 @@ function _f2DateTest(){
   h+=st('Tüm formüllerde (birleşik)',`${uNet} net · ${uNear} yakın`,`${uni.size} farklı sayı`,uNet>0?'var(--green)':'var(--muted)');
   h+=st('En iyi formül',`${best.n} net`,best.name,best.n>0?'var(--green)':'var(--muted)');
   h+=`</div>`;
-  const SHOW=30;
-  if(d.rows.length>SHOW)h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">${d.rows.length} kombinasyondan en başarılı ${SHOW}'u gösteriliyor.</div>`;
-  h+=_f2RenderRows({...d,rows:d.rows.slice(0,SHOW)},aSet);
+  const SHOW=40;
+  if(d.rows.length>SHOW)h+=`<div style="font-size:.56rem;color:var(--muted)">${d.rows.length} kombinasyondan en başarılı ${SHOW}'u gösteriliyor.</div>`;
   h+=`</div>`;
   el.innerHTML=h;
+  _f2TestRows=_f2RowsAsList({...d,rows:d.rows.slice(0,SHOW)},aSet);
+  _f2SyncPairs();
 }
 // ═══════════ 🎯 NİHAİ 3+ NET/YAKIN SİSTEMİ — Hızlı Tahmin sürümü (sayfanın EN ÜSTÜNDE) ═══════════
 // Anasayfadaki sistemle AYNI motor (_nnBundle + _nnCore); burada da geçmiş testte ✓/~ işaretlenir.
