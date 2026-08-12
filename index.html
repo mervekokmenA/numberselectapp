@@ -1563,6 +1563,10 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
      </div>
     </div>
     <div id="f2TestOut"></div>
+    <div style="display:flex;gap:6px;align-items:stretch;margin-top:8px">
+     <select id="f2DateSel2" onchange="_f2DateTest('2')" title="2. geçmiş test — aynı anda ikinci bir tarihi karşılaştır" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+    </div>
+    <div id="f2TestOut2"></div>
    </div>
   </div>
  </div>
@@ -20264,7 +20268,7 @@ function _f2Dates(){
   const draws=_kbGetDraws(_f2Game);const prev=sel.value;
   let h='<option value="">— Geçmiş test için tarih seçin —</option>';
   draws.forEach((d,i)=>{if(draws.length-i-1<5)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
-  sel.innerHTML=h;if(prev)sel.value=prev;
+  ['','2'].forEach(sl=>{const e=document.getElementById('f2DateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
 }
 function _f2StepDate(dir){
   const sel=document.getElementById('f2DateSel');if(!sel||sel.options.length<2)return;
@@ -20323,21 +20327,32 @@ function _f2SortCanonical(rows){
     ((mi[a.mode]??99)-(mi[b.mode]??99))||
     ((a.src||0)-(b.src||0)));
 }
-let _f2LiveRows=null,_f2TestRows=null;
+let _f2LiveRows=null,_f2TestRows=null,_f2Test2Rows=null;
 // Yeni tahmin ve gecmis test satirlarini AYNI anahtarla eslestirip tek grid satirina koyar
 // -> iki sutun daima yan yana hizali ve ayni sirada.
 function _f2SyncPairs(){
   const grid=document.getElementById('f2PairGrid');if(!grid)return;
-  const L={},T={},byKey={};
+  const L={},T={},T2={},byKey={};
   (_f2LiveRows||[]).forEach(x=>{L[_f2RowKey(x.r)]=x.html;byKey[_f2RowKey(x.r)]=x.r;});
   (_f2TestRows||[]).forEach(x=>{T[_f2RowKey(x.r)]=x.html;byKey[_f2RowKey(x.r)]=byKey[_f2RowKey(x.r)]||x.r;});
+  (_f2Test2Rows||[]).forEach(x=>{T2[_f2RowKey(x.r)]=x.html;byKey[_f2RowKey(x.r)]=byKey[_f2RowKey(x.r)]||x.r;});
+  const has2=!!(_f2Test2Rows&&_f2Test2Rows.length);
   const keys=_f2SortCanonical(Object.keys(byKey).map(k=>byKey[k])).map(_f2RowKey);
+  const hdr=document.getElementById('f2HdrRow');
+  if(hdr){
+    hdr.style.gridTemplateColumns=has2?'1fr 1fr 1fr':'1fr 1fr';
+    let th=hdr.querySelector('.f2-hdr3');
+    if(has2&&!th){th=document.createElement('div');th.className='f2-hdr3';
+      th.style.cssText='font-size:.68rem;font-weight:800;color:var(--accent)';
+      th.textContent='📊 2. Geçmiş Test';hdr.appendChild(th);}
+    else if(!has2&&th)th.remove();
+  }
   grid.innerHTML='';
   keys.forEach(k=>{
     const row=document.createElement('div');
     row.className='f2-pair-row';
-    row.style.cssText='display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start';
-    row.innerHTML='<div>'+(L[k]||'')+'</div><div>'+(T[k]||'')+'</div>';
+    row.style.cssText='display:grid;grid-template-columns:'+(has2?'1fr 1fr 1fr':'1fr 1fr')+';gap:20px;align-items:start';
+    row.innerHTML='<div>'+(L[k]||'')+'</div><div>'+(T[k]||'')+'</div>'+(has2?'<div>'+(T2[k]||'')+'</div>':'');
     grid.appendChild(row);
   });
 }
@@ -20385,10 +20400,12 @@ function _f2Run(){
   _f2LiveRows=_f2RowsAsList({...d,rows:d.rows.slice(0,SHOW)},null);
   _f2SyncPairs();
 }
-function _f2DateTest(){
-  const el=document.getElementById('f2TestOut');if(!el)return;
-  const date=document.getElementById('f2DateSel')?.value||'';
-  if(!date){el.innerHTML='';return;}
+function _f2DateTest(slot){
+  slot=slot||'';
+  const el=document.getElementById('f2TestOut'+(slot==='2'?'2':''));if(!el)return;
+  const setRows=v=>{if(slot==='2')_f2Test2Rows=v;else _f2TestRows=v;};
+  const date=document.getElementById('f2DateSel'+slot)?.value||'';
+  if(!date){el.innerHTML='';setRows(null);_f2SyncPairs();return;}
   const game=getGame(_f2Game),draws=_kbGetDraws(_f2Game);
   const idx=draws.findIndex(x=>x.date===date);if(idx<0)return;
   const actual=draws[idx];
@@ -20417,7 +20434,7 @@ function _f2DateTest(){
   if(d.rows.length>SHOW)h+=`<div style="font-size:.56rem;color:var(--muted)">${d.rows.length} kombinasyondan en başarılı ${SHOW}'u gösteriliyor.</div>`;
   h+=`</div>`;
   el.innerHTML=h;
-  _f2TestRows=_f2RowsAsList({...d,rows:d.rows.slice(0,SHOW)},aSet);
+  setRows(_f2RowsAsList({...d,rows:d.rows.slice(0,SHOW)},aSet));
   _f2SyncPairs();
 }
 // ═══════════ 🎯 NİHAİ 3+ NET/YAKIN SİSTEMİ — Hızlı Tahmin sürümü (sayfanın EN ÜSTÜNDE) ═══════════
