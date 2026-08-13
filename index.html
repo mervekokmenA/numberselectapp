@@ -344,7 +344,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 /* Yan yana (2 sütun) görünüm tablette de açık kalsın — yalnızca gerçek telefon genişliğinde
    (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
-@media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow{grid-template-columns:1fr !important;}}
+@media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,#agGrid,#agHdrRow{grid-template-columns:1fr !important;}}
 /* 2 geçmiş test açıkken 3 sütun; tablette 2'ye, telefonda 1'e iner. */
 @media(max-width:1100px) and (min-width:601px){.qt-pair-row,#qtHdrRow,#btsHdrRow{grid-template-columns:1fr 1fr !important;}}
 @media(max-width:600px){#caNihaiGrid,#cbNihaiGrid,#f2Grid,#kbGrid,#scanGrid{grid-template-columns:1fr !important;}}
@@ -1356,27 +1356,37 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <!-- ═══════════ PAGE: AGRESİF TAHMİN ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-agresif">
  <div class="card">
-  <div class="card-title">🔥 Agresif Tahmin — 4 Bilet</div>
+  <div class="card-title">🔥 Agresif Tahmin</div>
   <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:8px 11px;background:rgba(239,83,80,.06);border:1px solid rgba(239,83,80,.25);border-radius:8px;line-height:1.7">
-   Hedef: <strong style="color:var(--text)">tek bilette 4+ / 5+ net</strong>, olmuyorsa <strong style="color:var(--text)">4-5 sayının net ya da ±1 yakın</strong> olması. Her üretimde <strong>4 bilet</strong>.
+   Hedef: <strong style="color:var(--text)">tek bilette 4+ / 5+ net</strong>, olmuyorsa <strong style="color:var(--text)">4-5 sayının net ya da ±1 yakın</strong> olması. Üretim başına <strong>4 veya 6 bilet</strong> (6 ölçülen oranlarda belirgin biçimde daha iyi).
    <div style="margin-top:6px" id="agRates"></div>
   </div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="agGameRow"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-   <button onclick="_agRun()" style="flex:1;min-width:180px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(239,83,80,.9),rgba(198,40,40,.8));border:1px solid rgba(239,83,80,.6);color:#fff;cursor:pointer;font-weight:700">🔥 4 Bilet Üret</button>
+   <span style="font-size:.68rem;color:var(--muted)">Bilet:</span>
+   <select id="agK" onchange="_agSetK(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px">
+    <option value="4">4 bilet</option><option value="6" selected>6 bilet (daha iyi)</option>
+   </select>
+   <button onclick="_agRun()" style="flex:1;min-width:170px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(239,83,80,.9),rgba(198,40,40,.8));border:1px solid rgba(239,83,80,.6);color:#fff;cursor:pointer;font-weight:700">🔥 Bilet Üret</button>
    <button onclick="_caCopy(window._agTxt||'')" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Kopyala</button>
   </div>
-  <div id="agOut" style="margin-top:10px"></div>
  </div>
  <div class="card" style="margin-bottom:12px">
   <div class="card-title">📊 Geçmiş Test</div>
-  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Tarih seçin; 4 bilet o tarihten ÖNCEKİ verilerle üretilip gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın). Aynı anda iki tarih karşılaştırabilirsiniz.</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Tarih seçin; biletler o tarihten ÖNCEKİ verilerle üretilip gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın). Aynı anda iki tarih karşılaştırabilirsiniz.</div>
   <div style="display:flex;gap:6px;align-items:stretch;flex-wrap:wrap">
    <select id="agDateSel" onchange="_agDateTest('')" style="flex:1;min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
    <select id="agDateSel2" onchange="_agDateTest('2')" title="2. geçmiş test" style="flex:1;min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
   </div>
+ </div>
+ <div id="agHdrRow" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:6px">
+  <div style="font-size:.68rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
+  <div style="font-size:.68rem;font-weight:800;color:var(--accent)">📊 Geçmiş Test</div>
+ </div>
+ <div id="agGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
+  <div id="agOut"></div>
   <div id="agTestOut"></div>
-  <div id="agTestOut2" style="margin-top:8px"></div>
+  <div id="agTestOut2" style="display:none"></div>
  </div>
 </div>
 
@@ -19364,35 +19374,40 @@ function _qtAnnotateAll(){
 //   (net|yakın)≥4 → Şans %49.3 · Süper %40.0 · Sayısal %27.3   (saf rastgele: %32.7 / %10.7 / %19.3)
 // DÜRÜST NOT: 4+ TAM NET oranı her yöntemde %0-1.3, yani şans düzeyinde. Bu sayfanın
 // gerçek katkısı "net VEYA ±1 yakın" hedefinde; tam net için kimse şansı yenmiyor.
+// Ölçüm (150 çekiliş walk-forward, en iyi biletin skoru) — 4 ve 6 bilet için ayrı.
+// 6 bilet belirgin biçimde daha iyi: Sayısal %36→%61, Şans %49→%75, Süper %39→%52.
 const _AG_RATES={
-  sans:    {c4:49.3,c5:11.3,n4:1.3,rc4:32.7},
-  super:   {c4:40.0,c5: 6.7,n4:0.0,rc4:10.7},
-  sayisal: {c4:27.3,c5: 7.3,n4:0.7,rc4:19.3},
-  onnumara:{c4:100,c5:100,n4:78.7,rc4:100},
+  sans:    {4:{c4:49.3,c5:12.7,n4:0.0,rc4:35.3}, 6:{c4:75.3,c5:23.3,n4:1.3,rc4:45.3}},
+  super:   {4:{c4:39.3,c5: 8.0,n4:0.0,rc4:16.7}, 6:{c4:52.0,c5:16.0,n4:0.0,rc4:20.0}},
+  sayisal: {4:{c4:36.0,c5:12.7,n4:0.0,rc4:20.7}, 6:{c4:60.7,c5:20.7,n4:0.0,rc4:22.0}},
+  onnumara:{4:{c4:100,c5:100,n4:72.7,rc4:100},   6:{c4:100,c5:100,n4:86.7,rc4:100}},
 };
-const _AG_K=4;
+let _agK=6;
+function _agSetK(k){_agK=+k||6;_agRates();
+  ['agOut','agTestOut','agTestOut2'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
 let _agGame='sayisal',_agGameManual=false;
 function _agGenerate(game,prior){
   const C=_niCompute(game,prior);
-  let tk=[];try{tk=_niGenBundle(game,prior,_AG_K,C);}catch(e){}
-  return (tk||[]).slice(0,_AG_K);
+  let tk=[];try{tk=_niGenBundle(game,prior,_agK,C);}catch(e){}
+  return (tk||[]).slice(0,_agK);
 }
 function _agInit(){
   const row=document.getElementById('agGameRow');if(!row)return;
   if(!_agGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_agGame=state.selectedGame;
   row.innerHTML=GAMES.map(g=>{const a=g.id===_agGame;
     return `<button onclick="_agSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(239,83,80,.7)':'var(--border)'};background:${a?'rgba(239,83,80,.14)':'var(--surface2)'};color:${a?'#e53935':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
-  _agRates();_agDates();
+  _agRates();_agDates();_agLayout();
 }
 function _agSetGame(g){_agGame=g;_agGameManual=true;_agInit();
-  ['agOut','agTestOut','agTestOut2'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
+  ['agOut','agTestOut','agTestOut2'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});_agLayout();}
 function _agRates(){
   const el=document.getElementById('agRates');if(!el)return;
-  const r=_AG_RATES[_agGame];if(!r){el.innerHTML='';return;}
-  const g=getGame(_agGame);
-  el.innerHTML=`<span style="font-size:.58rem;color:var(--muted)">${g.emoji} ${g.name} · son 150 çekilişte ölçülen (en iyi bilet): `
+  const t=_AG_RATES[_agGame];if(!t){el.innerHTML='';return;}
+  const r=t[_agK]||t[6];const g=getGame(_agGame);
+  el.innerHTML=`<span style="font-size:.58rem;color:var(--muted)">${g.emoji} ${g.name} · <strong>${_agK} bilet</strong> · son 150 çekilişte ölçülen (en iyi bilet): `
     +`<strong style="color:var(--green)">4+ net/yakın %${r.c4}</strong> · <strong style="color:var(--green)">5+ %${r.c5}</strong> · `
-    +`<span style="color:#c2410c">4+ TAM net %${r.n4}</span> · rastgele 4 bilet: %${r.rc4}</span>`;
+    +`<span style="color:#c2410c">4+ TAM net %${r.n4}</span> · rastgele ${_agK} bilet: %${r.rc4}`
+    +`<br>4 bilet: %${t[4].c4} · 6 bilet: %${t[6].c4} (4+ net/yakın)</span>`;
 }
 function _agDates(){
   const draws=_kbGetDraws(_agGame);
@@ -19438,13 +19453,27 @@ function _agRun(){
       'Toplam bandı + bölge dengesiyle üretildi; ölçümde 4+ net/yakın hedefinde en iyi sonucu veren yapı.');
   },20);
 }
+// 2. geçmiş test doluyken düzen 3 sütuna geçer (diğer sayfalarla aynı davranış).
+function _agLayout(){
+  const g=document.getElementById('agGrid'),h=document.getElementById('agHdrRow'),o2=document.getElementById('agTestOut2');
+  if(!g||!h||!o2)return;
+  const has2=o2.innerHTML.trim().length>0;
+  o2.style.display=has2?'':'none';
+  const cols=has2?'1fr 1fr 1fr':'1fr 1fr';
+  g.style.gridTemplateColumns=cols;h.style.gridTemplateColumns=cols;
+  let th=h.querySelector('.ag-hdr3');
+  if(has2&&!th){th=document.createElement('div');th.className='ag-hdr3';
+    th.style.cssText='font-size:.68rem;font-weight:800;color:var(--accent)';
+    th.textContent='📊 2. Geçmiş Test';h.appendChild(th);}
+  else if(!has2&&th)th.remove();
+}
 function _agDateTest(slot){
   slot=slot||'';
   const el=document.getElementById('agTestOut'+(slot==='2'?'2':''));if(!el)return;
   const date=document.getElementById('agDateSel'+slot)?.value||'';
-  if(!date){el.innerHTML='';return;}
+  if(!date){el.innerHTML='';_agLayout();return;}
   const game=getGame(_agGame),draws=_kbGetDraws(_agGame);
-  const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
+  const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';_agLayout();return;}
   const actual=draws[idx],prior=draws.slice(idx+1);
   if(prior.length<120){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
   el.innerHTML='<div style="padding:10px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor…</div>';
@@ -19453,6 +19482,7 @@ function _agDateTest(slot){
     const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
     el.innerHTML=_agTickets(game,tk,aSet,'🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' '),
       'Biletler bu tarihten ÖNCEKİ verilerle üretildi (lookahead yok) · ✓ net · ~ ±1 yakın.');
+    _agLayout();
   },20);
 }
 // ── Basit Tahmin sayfası: Hızlı Tahmin'in motorunu aynen kullanır, sadece 9 analizi gösterir ──
