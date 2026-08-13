@@ -1363,6 +1363,8 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="agGameRow"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+   <span style="font-size:.68rem;color:var(--muted)">Yöntem:</span>
+   <select id="agMethod" onchange="_agSetMethod(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;max-width:250px"></select>
    <span style="font-size:.68rem;color:var(--muted)">Bilet:</span>
    <select id="agK" onchange="_agSetK(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px">
     <option value="4">4 bilet</option><option value="6" selected>6 bilet (daha iyi)</option>
@@ -19388,13 +19390,62 @@ const _AG_RATES={
   sayisal: {4:{c4:36.0,c5:12.7,n4:0.0,rc4:20.7}, 6:{c4:60.7,c5:20.7,n4:0.0,rc4:22.0}},
   onnumara:{4:{c4:100,c5:100,n4:72.7,rc4:100},   6:{c4:100,c5:100,n4:86.7,rc4:100}},
 };
-let _agK=6;
+let _agK=6,_agMethod='auto';
+// Yöntemler ÖLÇÜMLE seçildi (K=6, 120 çekiliş walk-forward, en iyi biletin skoru).
+// Denenip ELENEN: Gülsis Sıfır (ort. %45 — hepsinin altında) ve Karma (Nihai 3 + Kapsama 3;
+// karıştırmak iki yapının da altında kaldı). Komşu-çift, sayıları (n,n+1) ikilileri halinde
+// seçerek kümelenmeyi zorlar — Süper'de Nihai'den sonra en iyi ikinci yapı.
+const _AG_METHODS=[
+  {id:'auto',    name:'⭐ Otomatik (oyunun en iyisi)'},
+  {id:'nihai',   name:'🏁 Nihai — toplam bandı + bölge dengesi'},
+  {id:'kapsama', name:'📈 Kapsama — yakın dönem ağırlıklı demet'},
+  {id:'birlesik',name:'🧠 Birleşik AI — çok kaynaklı uzlaşı'},
+  {id:'komsu',   name:'🔗 Komşu Çift — (n, n+1) ikilileriyle kümelenme'},
+];
+const _AG_MRATES={
+  sans:    {nihai:{c4:72.5,c5:25.0},kapsama:{c4:66.7,c5:23.3},birlesik:{c4:67.5,c5:24.2},komsu:{c4:67.5,c5:20.0}},
+  super:   {nihai:{c4:59.2,c5:17.5},kapsama:{c4:49.2,c5:11.7},birlesik:{c4:47.5,c5:11.7},komsu:{c4:50.8,c5: 5.8}},
+  sayisal: {nihai:{c4:55.8,c5:22.5},kapsama:{c4:59.2,c5:20.0},birlesik:{c4:60.0,c5:21.7},komsu:{c4:50.8,c5:14.2}},
+  onnumara:{nihai:{c4:100,c5:100},  kapsama:{c4:100,c5:100},  birlesik:{c4:100,c5:100},  komsu:{c4:100,c5:100}},
+};
+function _agBestMethod(gid){
+  const t=_AG_MRATES[gid];if(!t)return 'nihai';
+  return Object.keys(t).sort((a,b)=>(t[b].c4-t[a].c4)||(t[b].c5-t[a].c5))[0];
+}
+function _agEffMethod(){return _agMethod==='auto'?_agBestMethod(_agGame):_agMethod;}
+function _agSetMethod(m){_agMethod=m;_agRates();
+  ['agOut','agTestOut','agTestOut2'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});_agLayout();}
+function _agPairGen(game,prior,K){
+  const C=_niCompute(game,prior),w=C.wMap||{},max=game.max,cnt=game.count;
+  const pairs=[];for(let n=1;n<max;n++)pairs.push({a:n,b:n+1,s:(w[n]||0)+(w[n+1]||0)});
+  const out=[];
+  for(let t=0;t<K;t++){
+    const pool=pairs.slice(),pick=[];
+    while(pick.length<cnt-1&&pool.length){
+      let tot=0;for(const q of pool)tot+=Math.max(1e-6,q.s);
+      let x=Math.random()*tot,i=0;
+      for(let j=0;j<pool.length;j++){x-=Math.max(1e-6,pool[j].s);if(x<=0){i=j;break;}}
+      const q=pool[i];
+      if(!pick.includes(q.a)&&!pick.includes(q.b))pick.push(q.a,q.b);
+      pool.splice(i,1);
+    }
+    while(pick.length<cnt){const n=1+Math.floor(Math.random()*max);if(!pick.includes(n))pick.push(n);}
+    out.push({main:pick.slice(0,cnt).sort((a,b)=>a-b),bonus:[]});
+  }
+  return out;
+}
 function _agSetK(k){_agK=+k||6;_agRates();
   ['agOut','agTestOut','agTestOut2'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});}
 let _agGame='sayisal',_agGameManual=false;
 function _agGenerate(game,prior){
-  const C=_niCompute(game,prior);
-  let tk=[];try{tk=_niGenBundle(game,prior,_agK,C);}catch(e){}
+  const m=_agEffMethod();let tk=[];
+  try{
+    if(m==='kapsama')tk=_coverageBundle(game,'axrecency',_agK,buildFreq(prior),prior);
+    else if(m==='birlesik')tk=_cbGenBundle(game,prior,_agK);
+    else if(m==='komsu')tk=_agPairGen(game,prior,_agK);
+    else tk=_niGenBundle(game,prior,_agK,_niCompute(game,prior));
+  }catch(e){}
+  if(!tk||!tk.length){try{tk=_niGenBundle(game,prior,_agK,_niCompute(game,prior));}catch(e){}}
   return (tk||[]).slice(0,_agK);
 }
 function _agInit(){
@@ -19402,6 +19453,8 @@ function _agInit(){
   if(!_agGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_agGame=state.selectedGame;
   row.innerHTML=GAMES.map(g=>{const a=g.id===_agGame;
     return `<button onclick="_agSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(239,83,80,.7)':'var(--border)'};background:${a?'rgba(239,83,80,.14)':'var(--surface2)'};color:${a?'#e53935':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
+  const ms=document.getElementById('agMethod');
+  if(ms)ms.innerHTML=_AG_METHODS.map(m=>`<option value="${m.id}"${m.id===_agMethod?' selected':''}>${m.name}</option>`).join('');
   _agRates();_agDates();_agLayout();
 }
 function _agSetGame(g){_agGame=g;_agGameManual=true;_agInit();
@@ -19410,10 +19463,15 @@ function _agRates(){
   const el=document.getElementById('agRates');if(!el)return;
   const t=_AG_RATES[_agGame];if(!t){el.innerHTML='';return;}
   const r=t[_agK]||t[6];const g=getGame(_agGame);
-  el.innerHTML=`<span style="font-size:.58rem;color:var(--muted)">${g.emoji} ${g.name} · <strong>${_agK} bilet</strong> · son 150 çekilişte ölçülen (en iyi bilet): `
-    +`<strong style="color:var(--green)">4+ net/yakın %${r.c4}</strong> · <strong style="color:var(--green)">5+ %${r.c5}</strong> · `
-    +`<span style="color:#c2410c">4+ TAM net %${r.n4}</span> · rastgele ${_agK} bilet: %${r.rc4}`
-    +`<br>4 bilet: %${t[4].c4} · 6 bilet: %${t[6].c4} (4+ net/yakın)</span>`;
+  const m=_agEffMethod(),tab=_AG_MRATES[_agGame]||{},mt=tab[m];
+  const nm=id=>((_AG_METHODS.find(x=>x.id===id)||{}).name||id);
+  const sel=document.getElementById('agMethod');if(sel&&sel.value!==_agMethod)sel.value=_agMethod;
+  let h=`<span style="font-size:.58rem;color:var(--muted)">${g.emoji} ${g.name} · <strong>${_agK} bilet</strong> · yöntem: <strong style="color:var(--text)">${nm(m)}</strong>${_agMethod==='auto'?' <span style="opacity:.75">(bu oyunda ölçülen en iyi)</span>':''}`;
+  if(mt)h+=`<br>Seçili yöntem (K=6 ölçümü): <strong style="color:var(--green)">4+ net/yakın %${mt.c4}</strong> · <strong style="color:var(--green)">5+ %${mt.c5}</strong>`;
+  h+=`<br>Nihai · ${_agK} bilet: 4+ %${r.c4} · 5+ %${r.c5} · <span style="color:#c2410c">4+ TAM net %${r.n4}</span> · rastgele: %${r.rc4}`;
+  h+=`<br><span style="opacity:.85">Sıralama (4+): `+Object.keys(tab).sort((a,b)=>tab[b].c4-tab[a].c4)
+      .map(k=>`${nm(k).split(' ')[1]||k} %${tab[k].c4}`).join(' · ')+`</span></span>`;
+  el.innerHTML=h;
 }
 function _agDates(){
   const draws=_kbGetDraws(_agGame);
