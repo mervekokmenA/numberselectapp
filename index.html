@@ -19445,6 +19445,15 @@ function _agGenerate(game,prior){
   if(!tk||!tk.length){try{tk=_niGenBundle(game,prior,_agK,_niCompute(game,prior));}catch(e){}}
   return (tk||[]).slice(0,_agK);
 }
+// 🧠 AI Bilet Tahmini — uygulamanın en geniş uzlaşı motoru (_qtBuildSources ile çok
+// kaynaklı ağırlık + _niGenBundle). Agresif yöntemlerden bağımsız, ikinci bir görüş.
+// Hem yeni tahminde hem her iki geçmiş testte üretilir.
+function _agGenerateAI(game,prior){
+  let tk=[];
+  try{tk=_qtCombinedBundle(game,prior,_agK);}catch(e){}
+  if(!tk||!tk.length){try{tk=_cbGenBundle(game,prior,_agK);}catch(e){}}
+  return (tk||[]).slice(0,_agK);
+}
 function _agInit(){
   const row=document.getElementById('agGameRow');if(!row)return;
   if(!_agGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_agGame=state.selectedGame;
@@ -19485,7 +19494,7 @@ function _agDates(){
 }
 // Bilet blokları: başlık + bilet başına AYRI satır. Satırlar sütunlar arasında bilet
 // numarasına göre eşleştirilir (bkz. _agRenderGrid) → #12 her sütunda aynı hizada.
-function _agBuild(game,tickets,aSet,title,sub){
+function _agBuild(game,tickets,aSet,title,sub,aiTickets){
   let head=`<div style="padding:9px 11px;background:var(--surface2);border:1px solid ${aSet?'rgba(239,83,80,.3)':'var(--border)'};border-radius:10px">`;
   head+=`<div style="font-size:.66rem;font-weight:800;color:#e53935">${title}</div>`;
   if(sub)head+=`<div style="font-size:.55rem;color:var(--muted);margin-top:3px">${sub}</div>`;
@@ -19508,6 +19517,27 @@ function _agBuild(game,tickets,aSet,title,sub){
   });
   if(aSet)head+=`<div style="font-size:.62rem;font-weight:800;margin-top:6px;color:${bc>=4?'var(--green)':'var(--muted)'}">🏆 En iyi bilet: ${bn} net · toplam ${bc} (net+yakın) ${bc>=5?'— 5+ hedefi tuttu ✅':bc>=4?'— 4+ hedefi tuttu ✅':'— hedef tutmadı'}</div>`;
   head+=`</div>`;
+  if(aiTickets&&aiTickets.length){
+    let an=0,ac=0;
+    const aiRows=aiTickets.map((t,i)=>{
+      const nums=[...(t.main||[])];
+      let net=0,near=0;
+      nums.forEach(n=>{if(aSet&&aSet.has(n))net++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))near++;});
+      const cov=net+near;if(net>an)an=net;if(cov>ac)ac=cov;
+      const hit=aSet&&cov>=4;
+      let h=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;background:${hit?'rgba(0,230,118,.09)':'rgba(129,140,248,.06)'};border:1px solid ${hit?'rgba(0,200,100,.45)':'rgba(129,140,248,.3)'};flex-wrap:wrap;height:100%;box-sizing:border-box">`;
+      h+=`<span style="font-size:.56rem;color:var(--accent);font-weight:800;min-width:34px">AI#${i+1}</span>`;
+      h+=`<span style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">${nums.map(n=>{
+        const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
+        return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}">${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${
+        (t.bonus&&t.bonus.length)?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
+      if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=4?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span></span>`;
+      h+=`</div>`;
+      return h;
+    });
+    rows.push(`<div style="padding:6px 10px;border-radius:8px;background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.3);font-size:.62rem;font-weight:800;color:var(--accent)">🧠 AI Bilet Tahmini${aSet?` — en iyi: ${an} net · toplam ${ac}`:''}</div>`);
+    rows.push(...aiRows);
+  }
   return {head,rows};
 }
 // Üç sütunu bilet numarasına göre TEK grid satırında birleştirir → hizalar tutar.
@@ -19541,9 +19571,11 @@ function _agRun(){
   grid.innerHTML='<div style="padding:12px;font-size:.72rem;color:var(--muted)">⏳ biletler üretiliyor…</div>';
   setTimeout(()=>{
     const tk=_agGenerate(game,prior);
+    const ai=_agGenerateAI(game,prior);
     window._agTxt='🔥 Agresif Tahmin — '+game.name+' ('+tk.length+' bilet)\n'+tk.map(t=>[...(t.main||[]),...(t.bonus||[])].join(' - ')).join('\n');
+    if(ai.length)window._agTxt+='\n\n🧠 AI Bilet Tahmini\n'+ai.map(t=>[...(t.main||[]),...(t.bonus||[])].join(' - ')).join('\n');
     _agData.live=_agBuild(game,tk,null,'🔥 '+game.emoji+' '+game.name+' — '+tk.length+' bilet',
-      'Ölçümde 4+ net/yakın hedefinde en iyi sonucu veren yapı.');
+      'Ölçümde 4+ net/yakın hedefinde en iyi sonucu veren yapı · altta ayrıca AI uzlaşı biletleri.',ai);
     _agRenderGrid();
   },20);
 }
@@ -19558,9 +19590,10 @@ function _agDateTest(slot){
   if(prior.length<120){_agData[key]={head:'<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>',rows:[]};_agRenderGrid();return;}
   setTimeout(()=>{
     const tk=_agGenerate(game,prior);
+    const ai=_agGenerateAI(game,prior);
     const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
     _agData[key]=_agBuild(game,tk,aSet,'🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' '),
-      'Biletler bu tarihten ÖNCEKİ verilerle üretildi (lookahead yok) · ✓ net · ~ ±1 yakın.');
+      'Biletler bu tarihten ÖNCEKİ verilerle üretildi (lookahead yok) · ✓ net · ~ ±1 yakın.',ai);
     _agRenderGrid();
   },20);
 }
