@@ -1391,11 +1391,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="font-size:.68rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
   <div style="font-size:.68rem;font-weight:800;color:var(--accent)">📊 Geçmiş Test</div>
  </div>
- <div id="agGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start">
-  <div id="agOut"></div>
-  <div id="agTestOut"></div>
-  <div id="agTestOut2" style="display:none"></div>
- </div>
+ <div id="agGrid"></div>
 </div>
 
 <!-- ═══════════ PAGE: BASİT TAHMİN ═══════════ -->
@@ -19415,7 +19411,7 @@ function _agBestMethod(gid){
 }
 function _agEffMethod(){return _agMethod||_agBestMethod(_agGame);}
 function _agSetMethod(m){_agMethod=m;_agMethodManual=true;_agRates();
-  ['agOut','agTestOut','agTestOut2'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});_agLayout();}
+  _agData={live:null,t1:null,t2:null};_agRenderGrid();}
 function _agPairGen(game,prior,K){
   const C=_niCompute(game,prior),w=C.wMap||{},max=game.max,cnt=game.count;
   const pairs=[];for(let n=1;n<max;n++)pairs.push({a:n,b:n+1,s:(w[n]||0)+(w[n+1]||0)});
@@ -19458,10 +19454,10 @@ function _agInit(){
   const best=_agBestMethod(_agGame);
   const ms=document.getElementById('agMethod');
   if(ms)ms.innerHTML=_AG_METHODS.map(m=>`<option value="${m.id}"${m.id===_agMethod?' selected':''}>${m.name}${m.id===best?' ⭐ en iyi':''}</option>`).join('');
-  _agRates();_agDates();_agLayout();
+  _agRates();_agDates();_agRenderGrid();
 }
 function _agSetGame(g){_agGame=g;_agGameManual=true;_agMethodManual=false;_agInit();
-  ['agOut','agTestOut','agTestOut2'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});_agLayout();}
+  _agData={live:null,t1:null,t2:null};_agRenderGrid();}
 function _agRates(){
   const el=document.getElementById('agRates');if(!el)return;
   const t=_AG_RATES[_agGame];if(!t){el.innerHTML='';return;}
@@ -19487,74 +19483,85 @@ function _agDates(){
   draws.forEach((d,i)=>{if(draws.length-i-1<120)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
   ['','2'].forEach(sl=>{const e=document.getElementById('agDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
 }
-// Bilet kartı: ✓ net · ~ ±1 yakın · sağ üstte "N net · M yakın (toplam K)"
-function _agTickets(game,tickets,aSet,title,sub){
-  let h=`<div style="padding:10px 12px;background:var(--surface2);border:1px solid ${aSet?'rgba(239,83,80,.3)':'var(--border)'};border-radius:10px">`;
-  h+=`<div style="font-size:.66rem;font-weight:800;color:#e53935;margin-bottom:3px">${title}</div>`;
-  if(sub)h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:7px">${sub}</div>`;
+// Bilet blokları: başlık + bilet başına AYRI satır. Satırlar sütunlar arasında bilet
+// numarasına göre eşleştirilir (bkz. _agRenderGrid) → #12 her sütunda aynı hizada.
+function _agBuild(game,tickets,aSet,title,sub){
+  let head=`<div style="padding:9px 11px;background:var(--surface2);border:1px solid ${aSet?'rgba(239,83,80,.3)':'var(--border)'};border-radius:10px">`;
+  head+=`<div style="font-size:.66rem;font-weight:800;color:#e53935">${title}</div>`;
+  if(sub)head+=`<div style="font-size:.55rem;color:var(--muted);margin-top:3px">${sub}</div>`;
   let bn=0,bc=0;
-  tickets.forEach((t,i)=>{
+  const rows=(tickets||[]).map((t,i)=>{
     const nums=[...(t.main||[])];
     let net=0,near=0;
     nums.forEach(n=>{if(aSet&&aSet.has(n))net++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))near++;});
     const cov=net+near;if(net>bn)bn=net;if(cov>bc)bc=cov;
     const hit=aSet&&cov>=4;
-    h+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;margin-bottom:4px;border-radius:8px;background:${hit?'rgba(0,230,118,.09)':'var(--surface)'};border:1px solid ${hit?'rgba(0,200,100,.45)':'var(--border)'};flex-wrap:wrap">`;
-    h+=`<span style="font-size:.56rem;color:var(--muted);font-weight:700;min-width:22px">#${i+1}</span>`;
+    let h=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;background:${hit?'rgba(0,230,118,.09)':'var(--surface)'};border:1px solid ${hit?'rgba(0,200,100,.45)':'var(--border)'};flex-wrap:wrap;height:100%;box-sizing:border-box">`;
+    h+=`<span style="font-size:.56rem;color:var(--muted);font-weight:700;min-width:26px">#${i+1}</span>`;
     h+=`<span style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">${nums.map(n=>{
       const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
       return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}">${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${
       (t.bonus&&t.bonus.length)?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
     if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=4?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span></span>`;
     h+=`</div>`;
+    return h;
   });
-  if(aSet)h+=`<div style="font-size:.62rem;font-weight:800;margin-top:6px;color:${bc>=4?'var(--green)':'var(--muted)'}">🏆 En iyi bilet: ${bn} net · toplam ${bc} (net+yakın) ${bc>=5?'— 5+ hedefi tuttu ✅':bc>=4?'— 4+ hedefi tuttu ✅':'— hedef tutmadı'}</div>`;
-  h+=`</div>`;
-  return h;
+  if(aSet)head+=`<div style="font-size:.62rem;font-weight:800;margin-top:6px;color:${bc>=4?'var(--green)':'var(--muted)'}">🏆 En iyi bilet: ${bn} net · toplam ${bc} (net+yakın) ${bc>=5?'— 5+ hedefi tuttu ✅':bc>=4?'— 4+ hedefi tuttu ✅':'— hedef tutmadı'}</div>`;
+  head+=`</div>`;
+  return {head,rows};
+}
+// Üç sütunu bilet numarasına göre TEK grid satırında birleştirir → hizalar tutar.
+let _agData={live:null,t1:null,t2:null};
+function _agRenderGrid(){
+  const grid=document.getElementById('agGrid');if(!grid)return;
+  const cols=[_agData.live,_agData.t1,_agData.t2];
+  const has2=!!_agData.t2;
+  const use=has2?[0,1,2]:[0,1];
+  const tpl=has2?'1fr 1fr 1fr':'1fr 1fr';
+  const mk=inner=>{const d=document.createElement('div');
+    d.style.cssText='display:grid;grid-template-columns:'+tpl+';gap:20px;align-items:stretch;margin-bottom:6px';
+    d.className='ag-row';d.innerHTML=inner;return d;};
+  grid.innerHTML='';
+  if(!cols.some(Boolean))return;
+  grid.appendChild(mk(use.map(i=>'<div>'+((cols[i]&&cols[i].head)||'')+'</div>').join('')));
+  const n=Math.max(...use.map(i=>(cols[i]&&cols[i].rows.length)||0));
+  for(let r=0;r<n;r++)grid.appendChild(mk(use.map(i=>'<div>'+((cols[i]&&cols[i].rows[r])||'')+'</div>').join('')));
+  const h=document.getElementById('agHdrRow');
+  if(h){h.style.gridTemplateColumns=tpl;
+    let th=h.querySelector('.ag-hdr3');
+    if(has2&&!th){th=document.createElement('div');th.className='ag-hdr3';
+      th.style.cssText='font-size:.68rem;font-weight:800;color:var(--accent)';
+      th.textContent='📊 2. Geçmiş Test';h.appendChild(th);}
+    else if(!has2&&th)th.remove();}
 }
 function _agRun(){
-  const el=document.getElementById('agOut');if(!el)return;
   const game=getGame(_agGame),prior=_kbGetDraws(_agGame);
-  if(!prior||prior.length<120){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
-  el.innerHTML='<div style="padding:12px;font-size:.72rem;color:var(--muted)">⏳ 4 bilet üretiliyor…</div>';
+  const grid=document.getElementById('agGrid');if(!grid)return;
+  if(!prior||prior.length<120){grid.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
+  grid.innerHTML='<div style="padding:12px;font-size:.72rem;color:var(--muted)">⏳ biletler üretiliyor…</div>';
   setTimeout(()=>{
     const tk=_agGenerate(game,prior);
-    if(!tk.length){el.innerHTML='<div style="padding:12px;font-size:.7rem;color:var(--muted)">Üretilemedi.</div>';return;}
     window._agTxt='🔥 Agresif Tahmin — '+game.name+' ('+tk.length+' bilet)\n'+tk.map(t=>[...(t.main||[]),...(t.bonus||[])].join(' - ')).join('\n');
-    el.innerHTML=_agTickets(game,tk,null,'🔥 '+game.emoji+' '+game.name+' — '+tk.length+' bilet',
-      'Toplam bandı + bölge dengesiyle üretildi; ölçümde 4+ net/yakın hedefinde en iyi sonucu veren yapı.');
+    _agData.live=_agBuild(game,tk,null,'🔥 '+game.emoji+' '+game.name+' — '+tk.length+' bilet',
+      'Ölçümde 4+ net/yakın hedefinde en iyi sonucu veren yapı.');
+    _agRenderGrid();
   },20);
-}
-// 2. geçmiş test doluyken düzen 3 sütuna geçer (diğer sayfalarla aynı davranış).
-function _agLayout(){
-  const g=document.getElementById('agGrid'),h=document.getElementById('agHdrRow'),o2=document.getElementById('agTestOut2');
-  if(!g||!h||!o2)return;
-  const has2=o2.innerHTML.trim().length>0;
-  o2.style.display=has2?'':'none';
-  const cols=has2?'1fr 1fr 1fr':'1fr 1fr';
-  g.style.gridTemplateColumns=cols;h.style.gridTemplateColumns=cols;
-  let th=h.querySelector('.ag-hdr3');
-  if(has2&&!th){th=document.createElement('div');th.className='ag-hdr3';
-    th.style.cssText='font-size:.68rem;font-weight:800;color:var(--accent)';
-    th.textContent='📊 2. Geçmiş Test';h.appendChild(th);}
-  else if(!has2&&th)th.remove();
 }
 function _agDateTest(slot){
   slot=slot||'';
-  const el=document.getElementById('agTestOut'+(slot==='2'?'2':''));if(!el)return;
+  const key=slot==='2'?'t2':'t1';
   const date=document.getElementById('agDateSel'+slot)?.value||'';
-  if(!date){el.innerHTML='';_agLayout();return;}
+  if(!date){_agData[key]=null;_agRenderGrid();return;}
   const game=getGame(_agGame),draws=_kbGetDraws(_agGame);
-  const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';_agLayout();return;}
+  const idx=draws.findIndex(d=>d.date===date);if(idx<0){_agData[key]=null;_agRenderGrid();return;}
   const actual=draws[idx],prior=draws.slice(idx+1);
-  if(prior.length<120){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
-  el.innerHTML='<div style="padding:10px;font-size:.7rem;color:var(--muted)">⏳ Hesaplanıyor…</div>';
+  if(prior.length<120){_agData[key]={head:'<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>',rows:[]};_agRenderGrid();return;}
   setTimeout(()=>{
     const tk=_agGenerate(game,prior);
     const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
-    el.innerHTML=_agTickets(game,tk,aSet,'🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' '),
+    _agData[key]=_agBuild(game,tk,aSet,'🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' '),
       'Biletler bu tarihten ÖNCEKİ verilerle üretildi (lookahead yok) · ✓ net · ~ ±1 yakın.');
-    _agLayout();
+    _agRenderGrid();
   },20);
 }
 // ── Basit Tahmin sayfası: Hızlı Tahmin'in motorunu aynen kullanır, sadece 9 analizi gösterir ──
