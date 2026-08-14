@@ -1616,6 +1616,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    </div>
   </div>
  </div>
+ <div id="f2PickOut" style="margin-top:12px"></div>
  <div id="f2HdrRow" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:10px 0 4px">
   <div style="font-size:.68rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
   <div style="font-size:.68rem;font-weight:800;color:var(--accent)">📊 Geçmiş Test</div>
@@ -20637,6 +20638,7 @@ function _f2SyncPairs(){
     else if(!has2&&th)th.remove();
   }
   grid.innerHTML='';
+  setTimeout(_f2PickRefresh,0);
   keys.forEach(k=>{
     const row=document.createElement('div');
     row.className='f2-pair-row';
@@ -20645,13 +20647,43 @@ function _f2SyncPairs(){
     grid.appendChild(row);
   });
 }
-function _f2RenderRows(d,aSet){
+// ── Seçim (tik) ve "seçilenlerde tekrar eden sayılar" paneli ────────────────
+// Seçim, sütun + formül anahtarıyla saklanır → yeniden üretim/geçmiş test sonrası korunur.
+const _f2Picked=new Set(); const _f2NumsMap={};
+function _f2PickToggle(id,el){ if(el.checked)_f2Picked.add(id); else _f2Picked.delete(id); _f2PickRefresh(); }
+function _f2PickClear(){ _f2Picked.clear(); document.querySelectorAll('.f2-pick').forEach(c=>{c.checked=false;}); _f2PickRefresh(); }
+function _f2PickRefresh(){
+  const el=document.getElementById('f2PickOut');if(!el)return;
+  const ids=[..._f2Picked].filter(id=>_f2NumsMap[id]);
+  if(!ids.length){el.innerHTML='';window._f2PickTxt='';return;}
+  const tal={};
+  ids.forEach(id=>{[...new Set(_f2NumsMap[id])].forEach(n=>{tal[n]=(tal[n]||0)+1;});});
+  const rep=Object.keys(tal).map(Number).filter(n=>tal[n]>=2).sort((a,b)=>tal[b]-tal[a]||a-b);
+  const maxC=Math.max(1,...rep.map(n=>tal[n]));
+  window._f2PickTxt='🎯 Seçili '+ids.length+' formülde tekrar eden sayılar\n'+
+    (rep.length?rep.map(n=>n+' ('+tal[n]+')').join(' ')+'\n\nSadece sayılar: '+[...rep].sort((a,b)=>a-b).join(' '):'(tekrar eden sayı yok)');
+  let h=`<div class="card" style="margin:0;border:1.5px solid rgba(217,119,6,.45);background:linear-gradient(135deg,rgba(217,119,6,.06),transparent)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`;
+  h+=`<span style="font-size:.74rem;font-weight:800;color:#b8860b">🎯 Seçilenlerde Tekrar Eden Sayılar <span style="font-size:.56rem;color:var(--muted);font-weight:600">(${ids.length} formül seçili · ${rep.length} sayı)</span></span>`;
+  h+=`<span style="display:flex;gap:6px"><button onclick="_caCopy(window._f2PickTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋 Kopyala</button>`;
+  h+=`<button onclick="_f2PickClear()" style="font-size:.62rem;padding:3px 9px;border-radius:6px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">✕ Temizle</button></span></div>`;
+  if(!rep.length)h+=`<div style="font-size:.62rem;color:var(--muted)">Seçili formüllerde ortak (birden fazla formülde geçen) sayı yok.</div>`;
+  else h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${rep.map(n=>{
+    const c=tal[n],str=c>=maxC&&maxC>1;
+    return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:${str?'rgba(217,119,6,.16)':'var(--surface2)'};border:1.5px solid ${str?'rgba(217,119,6,.5)':'var(--border)'}"><span style="font-size:.88rem;font-weight:800;font-family:monospace;color:var(--text)">${n}</span><span style="font-size:.46rem;color:var(--muted)">${c}/${ids.length}</span></span>`;}).join('')}</div>`;
+  h+=`</div>`;
+  el.innerHTML=h;
+}
+function _f2RenderRows(d,aSet,col){
   let h='';
   d.rows.forEach(r=>{
     const L=r.st?r.st.lift1:0;
     const lc=L>=1.1?'#0a9a6a':L<=0.9?'#c2410c':'var(--muted)';
     let net=0,near=0;if(aSet)r.nums.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+    const pid=(col||'live')+'|'+_f2RowKey(r);
+    _f2NumsMap[pid]=r.nums;
     h+=`<div class="an-row">`;
+    h+=`<input type="checkbox" class="f2-pick" ${_f2Picked.has(pid)?'checked':''} onchange="_f2PickToggle('${pid}',this)" title="Bu formülü seç — seçilenlerde tekrar eden sayılar en üstte listelenir" style="width:14px;height:14px;accent-color:#b8860b;cursor:pointer;flex-shrink:0">`;
     h+=`<span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:700">${r.term.name} <span style="color:var(--muted);font-weight:400">= ${r.val}</span><span style="color:var(--muted);font-weight:400;font-size:.52rem"> · ${r.mode} · ${r.src}. önceki</span></span>`;
     h+=`<span class="an-stat" style="font-size:.54rem;color:${lc}" title="geçmiş ≥1 net oranı / rastgele havuz şansı">≥1 %${r.st?r.st.h1.toFixed(0):'—'} (şans %${r.st?r.st.c1.toFixed(0):'—'}) ×${L.toFixed(2)}</span>`;
     h+=`<span class="an-nums">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.72rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
@@ -20662,8 +20694,8 @@ function _f2RenderRows(d,aSet){
   return h;
 }
 // Tek satirlik HTML (esli grid icin) — _f2RenderRows ile ayni bicim.
-function _f2RowsAsList(d,aSet){
-  return d.rows.map(r=>({r,html:_f2RenderRows({...d,rows:[r]},aSet)}));
+function _f2RowsAsList(d,aSet,col){
+  return d.rows.map(r=>({r,html:_f2RenderRows({...d,rows:[r]},aSet,col)}));
 }
 function _f2Run(){
   const el=document.getElementById('f2Out'),syn=document.getElementById('f2SynthOut');
@@ -20686,7 +20718,7 @@ function _f2Run(){
   }
   const SHOW=40;
   el.innerHTML=(d.rows.length>SHOW?`<div style="font-size:.56rem;color:var(--muted)">${d.rows.length} kombinasyondan <strong>en başarılı ${SHOW}</strong>'i gösteriliyor (uzlaşı hepsini kullanır).</div>`:'');
-  _f2LiveRows=_f2RowsAsList({...d,rows:d.rows.slice(0,SHOW)},null);
+  _f2LiveRows=_f2RowsAsList({...d,rows:d.rows.slice(0,SHOW)},null,'live');
   _f2SyncPairs();
 }
 function _f2DateTest(slot){
@@ -20723,7 +20755,7 @@ function _f2DateTest(slot){
   if(d.rows.length>SHOW)h+=`<div style="font-size:.56rem;color:var(--muted)">${d.rows.length} kombinasyondan en başarılı ${SHOW}'u gösteriliyor.</div>`;
   h+=`</div>`;
   el.innerHTML=h;
-  setRows(_f2RowsAsList({...d,rows:d.rows.slice(0,SHOW)},aSet));
+  setRows(_f2RowsAsList({...d,rows:d.rows.slice(0,SHOW)},aSet,slot==='2'?'test2':'test1'));
   _f2SyncPairs();
 }
 // ═══════════ 🎯 NİHAİ 3+ NET/YAKIN SİSTEMİ — Hızlı Tahmin sürümü (sayfanın EN ÜSTÜNDE) ═══════════
