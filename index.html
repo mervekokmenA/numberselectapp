@@ -1358,7 +1358,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div class="card">
   <div class="card-title">🔥 Agresif Tahmin</div>
   <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:8px 11px;background:rgba(239,83,80,.06);border:1px solid rgba(239,83,80,.25);border-radius:8px;line-height:1.7">
-   Hedef: <strong style="color:var(--text)">tek bilette 4+ / 5+ net</strong>, olmuyorsa <strong style="color:var(--text)">4-5 sayının net ya da ±1 yakın</strong> olması. Üretim başına <strong>4-100 bilet</strong>. 6+ hedefi için çok daha fazla bilet gerekiyor — oranlar aşağıda.
+   Hedef: tek bilette mümkün olduğunca çok sayının <strong style="color:var(--text)">net ya da ±1 yakın</strong> olması. Hedef eşiği oyuna göre değişir — Şans/Süper/Sayısal'da <strong>4+</strong>, On Numara'da (bilette 10 sayı) <strong>8+</strong>. Üretim başına <strong>4-100 bilet</strong>. 6+ hedefi için çok daha fazla bilet gerekiyor — oranlar aşağıda.
    <div style="margin-top:6px" id="agRates"></div>
   </div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="agGameRow"></div>
@@ -19381,13 +19381,18 @@ function _qtAnnotateAll(){
 // gerçek katkısı "net VEYA ±1 yakın" hedefinde; tam net için kimse şansı yenmiyor.
 // Ölçüm (150 çekiliş walk-forward, en iyi biletin skoru) — 4 ve 6 bilet için ayrı.
 // 6 bilet belirgin biçimde daha iyi: Sayısal %36→%61, Şans %49→%75, Süper %39→%52.
-// Bilet sayısı ölçeklemesi — en iyi biletin (net|yakın) sayısı, 80 çekiliş walk-forward.
-// ÖNEMLİ: Şans Topu bileti 5 sayıdan oluşur → orada 6+ MATEMATİKSEL OLARAK imkânsız (tavan 5).
+// Oyuna göre HEDEF: bilette kaç sayının net ya da ±1 yakın olmasını istiyoruz.
+// On Numara bileti 10 sayıdan oluşup 22 sayı çekildiği için 4 hedefi anlamsız (≈%100) →
+// orada hedef 8. Şans Topu bileti 5 sayı olduğu için tavanı 5'tir.
+const _AG_TARGET={sans:4,super:4,sayisal:4,onnumara:8};
+function _agTarget(gid){return _AG_TARGET[gid]||4;}
+// Bilet sayısı ölçeklemesi — en iyi biletin (net|yakın) sayısı, walk-forward ölçüm.
+// t = hedef · t1 = hedef+1 · t2 = hedef+2
 const _AG_RATES={
-  sans:    {4:{c4:49.3,c5:12.7,c6:0},6:{c4:75.0,c5:25.0,c6:0},12:{c4:92.5,c5:42.5,c6:0},25:{c4:100,c5:65.0,c6:0},50:{c4:100,c5:86.3,c6:0},100:{c4:100,c5:92.5,c6:0}},
-  super:   {4:{c4:39.3,c5: 8.0,c6:0},6:{c4:53.8,c5:17.5,c6:3.8},12:{c4:76.3,c5:28.8,c6:6.3},25:{c4:96.3,c5:43.8,c6:13.8},50:{c4:100,c5:65.0,c6:22.5},100:{c4:100,c5:85.0,c6:35.0}},
-  sayisal: {4:{c4:36.0,c5:12.7,c6:0},6:{c4:57.5,c5:12.5,c6:2.5},12:{c4:82.5,c5:31.3,c6:6.3},25:{c4:95.0,c5:47.5,c6:7.5},50:{c4:96.3,c5:75.0,c6:22.5},100:{c4:97.5,c5:87.5,c6:42.5}},
-  onnumara:{4:{c4:100,c5:100,c6:100},6:{c4:100,c5:100,c6:100},12:{c4:100,c5:100,c6:100},25:{c4:100,c5:100,c6:100},50:{c4:100,c5:100,c6:100},100:{c4:100,c5:100,c6:100}},
+  sans:    {4:{t:49.3,t1:12.7,t2:0},6:{t:75.0,t1:25.0,t2:0},12:{t:92.5,t1:42.5,t2:0},25:{t:100,t1:65.0,t2:0},50:{t:100,t1:86.3,t2:0},100:{t:100,t1:92.5,t2:0}},
+  super:   {4:{t:39.3,t1: 8.0,t2:0},6:{t:53.8,t1:17.5,t2:3.8},12:{t:76.3,t1:28.8,t2:6.3},25:{t:96.3,t1:43.8,t2:13.8},50:{t:100,t1:65.0,t2:22.5},100:{t:100,t1:85.0,t2:35.0}},
+  sayisal: {4:{t:36.0,t1:12.7,t2:0},6:{t:57.5,t1:12.5,t2:2.5},12:{t:82.5,t1:31.3,t2:6.3},25:{t:95.0,t1:47.5,t2:7.5},50:{t:96.3,t1:75.0,t2:22.5},100:{t:97.5,t1:87.5,t2:42.5}},
+  onnumara:{4:{t:68.6,t1:35.7,t2:12.9},6:{t:80.0,t1:44.3,t2:17.1},12:{t:97.1,t1:65.7,t2:28.6},25:{t:98.6,t1:85.7,t2:48.6},50:{t:100,t1:97.1,t2:65.7},100:{t:100,t1:100,t2:87.1}},
 };
 let _agK=6,_agMethod='',_agMethodManual=false;
 // Yöntemler ÖLÇÜMLE seçildi (K=6, 120 çekiliş walk-forward, en iyi biletin skoru).
@@ -19404,7 +19409,7 @@ const _AG_MRATES={
   sans:    {nihai:{c4:72.5,c5:25.0},kapsama:{c4:66.7,c5:23.3},birlesik:{c4:67.5,c5:24.2},komsu:{c4:67.5,c5:20.0}},
   super:   {nihai:{c4:59.2,c5:17.5},kapsama:{c4:49.2,c5:11.7},birlesik:{c4:47.5,c5:11.7},komsu:{c4:50.8,c5: 5.8}},
   sayisal: {nihai:{c4:55.8,c5:22.5},kapsama:{c4:59.2,c5:20.0},birlesik:{c4:60.0,c5:21.7},komsu:{c4:50.8,c5:14.2}},
-  onnumara:{nihai:{c4:100,c5:100},  kapsama:{c4:100,c5:100},  birlesik:{c4:100,c5:100},  komsu:{c4:100,c5:100}},
+  onnumara:{nihai:{c4:86.0,c5:0},kapsama:{c4:88.0,c5:0},birlesik:{c4:80.0,c5:0},komsu:{c4:82.0,c5:0}},
 };
 function _agBestMethod(gid){
   const t=_AG_MRATES[gid];if(!t)return 'nihai';
@@ -19475,14 +19480,14 @@ function _agRates(){
   const m=_agEffMethod(),tab=_AG_MRATES[_agGame]||{},mt=tab[m];
   const nm=id=>((_AG_METHODS.find(x=>x.id===id)||{}).name||id);
   const sel=document.getElementById('agMethod');if(sel&&sel.value!==m)sel.value=m;
-  const cap=g.count;   // bir bilette en fazla bu kadar sayı olabilir
-  let h=`<span style="font-size:.58rem;color:var(--muted)">${g.emoji} ${g.name} · bilette <strong>${cap} sayı</strong> · <strong>${_agK} bilet</strong> · yöntem: <strong style="color:var(--text)">${nm(m)}</strong>${!_agMethodManual?' <span style="opacity:.75">(bu oyunda ölçülen en iyi)</span>':''}`;
-  h+=`<br>Ölçülen (en iyi bilet): <strong style="color:var(--green)">4+ net/yakın %${r.c4}</strong> · <strong style="color:var(--green)">5+ %${r.c5}</strong> · `
-   +(cap<6?`<span style="color:#c2410c">6+ imkânsız — bilette yalnızca ${cap} sayı var (tavan ${cap})</span>`
-          :`<strong style="color:${r.c6>=10?'var(--green)':'#c2410c'}">6+ %${r.c6}</strong>`);
-  if(cap>=6)h+=`<br><span style="opacity:.85">6+ için bilet sayısı: 6→%${t[6].c6} · 12→%${t[12].c6} · 25→%${t[25].c6} · 50→%${t[50].c6} · 100→%${t[100].c6}</span>`;
-  else h+=`<br><span style="opacity:.85">5 (tam bilet) için: 6→%${t[6].c5} · 12→%${t[12].c5} · 25→%${t[25].c5} · 50→%${t[50].c5} · 100→%${t[100].c5}</span>`;
-  if(mt)h+=`<br><span style="opacity:.85">Yöntem sıralaması (4+, K=6): `+Object.keys(tab).sort((a,b)=>tab[b].c4-tab[a].c4)
+  const cap=g.count,T=_agTarget(_agGame);
+  let h=`<span style="font-size:.58rem;color:var(--muted)">${g.emoji} ${g.name} · bilette <strong>${cap} sayı</strong> · <strong>${_agK} bilet</strong> · hedef <strong style="color:#e53935">${T}+ net/yakın</strong> · yöntem: <strong style="color:var(--text)">${nm(m)}</strong>${!_agMethodManual?' <span style="opacity:.75">(ölçülen en iyi)</span>':''}`;
+  h+=`<br>Ölçülen (en iyi bilet): <strong style="color:var(--green)">${T}+ %${r.t}</strong> · <strong style="color:var(--green)">${T+1}+ %${r.t1}</strong> · `
+   +(T+2>cap?`<span style="color:#c2410c">${T+2}+ imkânsız — bilette ${cap} sayı var (tavan ${cap})</span>`
+           :`<strong style="color:${r.t2>=10?'var(--green)':'#c2410c'}">${T+2}+ %${r.t2}</strong>`);
+  const scale=k=>`${k}→%${(t[k]||{})[T+2>cap?'t1':'t2']}`;
+  h+=`<br><span style="opacity:.85">${T+2>cap?`${T+1} için`:`${T+2}+ için`} bilet sayısı: `+[4,6,12,25,50,100].map(scale).join(' · ')+`</span>`;
+  if(mt)h+=`<br><span style="opacity:.85">Yöntem sıralaması (${T}+, K=6): `+Object.keys(tab).sort((a,b)=>tab[b].c4-tab[a].c4)
       .map(k=>`${nm(k).split(' ')[1]||k} %${tab[k].c4}`).join(' · ')+`</span>`;
   h+=`</span>`;
   el.innerHTML=h;
@@ -19505,18 +19510,19 @@ function _agBuild(game,tickets,aSet,title,sub,aiTickets){
     let net=0,near=0;
     nums.forEach(n=>{if(aSet&&aSet.has(n))net++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))near++;});
     const cov=net+near;if(net>bn)bn=net;if(cov>bc)bc=cov;
-    const hit=aSet&&cov>=4;
+    const hit=aSet&&cov>=_agTarget(game.id);
     let h=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;background:${hit?'rgba(0,230,118,.09)':'var(--surface)'};border:1px solid ${hit?'rgba(0,200,100,.45)':'var(--border)'};flex-wrap:wrap;height:100%;box-sizing:border-box">`;
     h+=`<span style="font-size:.56rem;color:var(--muted);font-weight:700;min-width:26px">#${i+1}</span>`;
     h+=`<span style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">${nums.map(n=>{
       const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
       return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}">${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${
       (t.bonus&&t.bonus.length)?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
-    if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=4?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span></span>`;
+    if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=_agTarget(game.id)?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span></span>`;
     h+=`</div>`;
     return h;
   });
-  if(aSet)head+=`<div style="font-size:.62rem;font-weight:800;margin-top:6px;color:${bc>=4?'var(--green)':'var(--muted)'}">🏆 En iyi bilet: ${bn} net · toplam ${bc} (net+yakın) ${bc>=5?'— 5+ hedefi tuttu ✅':bc>=4?'— 4+ hedefi tuttu ✅':'— hedef tutmadı'}</div>`;
+  const TG=_agTarget(game.id);
+  if(aSet)head+=`<div style="font-size:.62rem;font-weight:800;margin-top:6px;color:${bc>=TG?'var(--green)':'var(--muted)'}">🏆 En iyi bilet: ${bn} net · toplam ${bc} (net+yakın) ${bc>=TG+1?`— ${TG+1}+ hedefi tuttu ✅`:bc>=TG?`— ${TG}+ hedefi tuttu ✅`:`— ${TG}+ hedefi tutmadı`}</div>`;
   head+=`</div>`;
   if(aiTickets&&aiTickets.length){
     let an=0,ac=0;
@@ -19525,14 +19531,14 @@ function _agBuild(game,tickets,aSet,title,sub,aiTickets){
       let net=0,near=0;
       nums.forEach(n=>{if(aSet&&aSet.has(n))net++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))near++;});
       const cov=net+near;if(net>an)an=net;if(cov>ac)ac=cov;
-      const hit=aSet&&cov>=4;
+      const hit=aSet&&cov>=_agTarget(game.id);
       let h=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;background:${hit?'rgba(0,230,118,.09)':'rgba(129,140,248,.06)'};border:1px solid ${hit?'rgba(0,200,100,.45)':'rgba(129,140,248,.3)'};flex-wrap:wrap;height:100%;box-sizing:border-box">`;
       h+=`<span style="font-size:.56rem;color:var(--accent);font-weight:800;min-width:34px">AI#${i+1}</span>`;
       h+=`<span style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">${nums.map(n=>{
         const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
         return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}">${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${
         (t.bonus&&t.bonus.length)?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
-      if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=4?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span></span>`;
+      if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=_agTarget(game.id)?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span></span>`;
       h+=`</div>`;
       return h;
     });
