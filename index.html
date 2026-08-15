@@ -1387,6 +1387,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    </div>
   </div>
  </div>
+ <div id="agPosOut" style="margin-bottom:10px"></div>
  <div id="agHdrRow" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:6px">
   <div style="font-size:.68rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
   <div style="font-size:.68rem;font-weight:800;color:var(--accent)">📊 Geçmiş Test</div>
@@ -19503,7 +19504,7 @@ function _agDates(){
 }
 // Bilet blokları: başlık + bilet başına AYRI satır. Satırlar sütunlar arasında bilet
 // numarasına göre eşleştirilir (bkz. _agRenderGrid) → #12 her sütunda aynı hizada.
-function _agBuild(game,tickets,aSet,title,sub,aiTickets){
+function _agBuild(game,tickets,aSet,title,sub,aiTickets,marks){
   let head=`<div style="padding:9px 11px;background:var(--surface2);border:1px solid ${aSet?'rgba(239,83,80,.3)':'var(--border)'};border-radius:10px">`;
   head+=`<div style="font-size:.66rem;font-weight:800;color:#e53935">${title}</div>`;
   if(sub)head+=`<div style="font-size:.55rem;color:var(--muted);margin-top:3px">${sub}</div>`;
@@ -19516,9 +19517,10 @@ function _agBuild(game,tickets,aSet,title,sub,aiTickets){
     const hit=aSet&&cov>=_agTarget(game.id);
     let h=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;background:${hit?'rgba(0,230,118,.09)':'var(--surface)'};border:1px solid ${hit?'rgba(0,200,100,.45)':'var(--border)'};flex-wrap:wrap;height:100%;box-sizing:border-box">`;
     h+=`<span style="font-size:.56rem;color:var(--muted);font-weight:700;min-width:26px">#${i+1}</span>`;
-    h+=`<span style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">${nums.map(n=>{
+    h+=`<span style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">${nums.map((n,j)=>{
       const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
-      return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}">${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${
+      const mk=marks&&marks.has(i+'|'+j);
+      return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr||mk?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}${mk?';border:2px solid #111;border-radius:5px;padding:0 4px;background:rgba(0,0,0,.05)':''}"${mk?' title="Her iki geçmiş testte de bu bilet ve bu sırada NET tutmuştu"':''}>${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${
       (t.bonus&&t.bonus.length)?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
     if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=_agTarget(game.id)?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span></span>`;
     h+=`</div>`;
@@ -19551,10 +19553,53 @@ function _agBuild(game,tickets,aSet,title,sub,aiTickets){
   return {head,rows};
 }
 // Üç sütunu bilet numarasına göre TEK grid satırında birleştirir → hizalar tutar.
+// _agData ham veri tutar (biletler + sonuç kümesi); HTML her çizimde yeniden kurulur,
+// böylece "konum işareti" (aşağıda) canlı sütuna da uygulanabilir.
 let _agData={live:null,t1:null,t2:null};
+// 🔲 KONUM İŞARETİ: iki geçmiş testte de AYNI bilet no + AYNI sıradaki sayı NET tuttuysa,
+// yeni tahminde o hücre siyah çerçeveyle işaretlenir (kullanıcının yöntemi).
+function _agPosMarks(){
+  const a=_agData.t1,b=_agData.t2,lv=_agData.live;
+  const out={marks:new Set(),list:[]};
+  if(!a||!b||!a.aSet||!b.aSet||!a.tickets||!b.tickets)return out;
+  const n=Math.min(a.tickets.length,b.tickets.length);
+  for(let i=0;i<n;i++){
+    const x=(a.tickets[i].main)||[],y=(b.tickets[i].main)||[];
+    const c=(lv&&lv.tickets&&lv.tickets[i]&&lv.tickets[i].main)||[];
+    const m=Math.min(x.length,y.length);
+    for(let j=0;j<m;j++){
+      if(a.aSet.has(x[j])&&b.aSet.has(y[j])){
+        out.marks.add(i+'|'+j);
+        if(c[j]!=null)out.list.push({i:i+1,j:j+1,n:c[j],a:x[j],b:y[j]});
+      }
+    }
+  }
+  return out;
+}
+function _agPosPanel(pm){
+  const el=document.getElementById('agPosOut');if(!el)return;
+  if(!pm.marks.size){el.innerHTML='';window._agPosTxt='';return;}
+  const nums=[...new Set(pm.list.map(x=>x.n))].sort((a,b)=>a-b);
+  window._agPosTxt='🔲 İki geçmiş testte de aynı bilet+sırada NET tutan konumlar\n'+
+    pm.list.map(x=>`#${x.i} · ${x.j}. sıra: ${x.n}  (testler: ${x.a} / ${x.b})`).join('\n')+
+    (nums.length?'\n\nYeni tahmindeki sayılar: '+nums.join(' '):'');
+  let h=`<div class="card" style="margin:0;border:2px solid #111;background:rgba(0,0,0,.03)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`;
+  h+=`<span style="font-size:.74rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.56rem;color:var(--muted);font-weight:600">(${pm.marks.size} konum · ${nums.length} sayı)</span></span>`;
+  h+=`<button onclick="_caCopy(window._agPosTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋 Kopyala</button></div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:7px;line-height:1.6">Her iki geçmiş testte de <strong>aynı bilet numarası ve aynı sıradaki</strong> sayı NET tutmuş. Yeni tahminde o konumdaki sayılar aşağıda ve bilet listesinde siyah çerçeveyle işaretli.</div>`;
+  if(!nums.length)h+=`<div style="font-size:.62rem;color:var(--muted)">Eşleşen konum var ama yeni tahmin henüz üretilmedi.</div>`;
+  else h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${pm.list.map(x=>
+    `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:2px solid #111"><span style="font-size:.88rem;font-weight:800;font-family:monospace;color:var(--text)">${x.n}</span><span style="font-size:.44rem;color:var(--muted)">#${x.i}·${x.j}.sıra</span></span>`).join('')}</div>`;
+  h+=`</div>`;
+  el.innerHTML=h;
+}
 function _agRenderGrid(){
   const grid=document.getElementById('agGrid');if(!grid)return;
-  const cols=[_agData.live,_agData.t1,_agData.t2];
+  const pm=_agPosMarks();
+  _agPosPanel(pm);
+  const build=(d,useMarks)=>d?_agBuild(d.game,d.tickets,d.aSet,d.title,d.sub,d.ai,useMarks?pm.marks:null):null;
+  const cols=[build(_agData.live,true),build(_agData.t1,true),build(_agData.t2,true)];
   const has2=!!_agData.t2;
   const use=has2?[0,1,2]:[0,1];
   const tpl=has2?'1fr 1fr 1fr':'1fr 1fr';
@@ -19584,8 +19629,8 @@ function _agRun(){
     const ai=_agGenerateAI(game,prior);
     window._agTxt='🔥 Agresif Tahmin — '+game.name+' ('+tk.length+' bilet)\n'+tk.map(t=>[...(t.main||[]),...(t.bonus||[])].join(' - ')).join('\n');
     if(ai.length)window._agTxt+='\n\n🧠 AI Bilet Tahmini\n'+ai.map(t=>[...(t.main||[]),...(t.bonus||[])].join(' - ')).join('\n');
-    _agData.live=_agBuild(game,tk,null,'🔥 '+game.emoji+' '+game.name+' — '+tk.length+' bilet',
-      'Ölçümde 4+ net/yakın hedefinde en iyi sonucu veren yapı · altta ayrıca AI uzlaşı biletleri.',ai);
+    _agData.live={game,tickets:tk,ai,aSet:null,title:'🔥 '+game.emoji+' '+game.name+' — '+tk.length+' bilet',
+      sub:'Ölçümde hedefte en iyi sonucu veren yapı · altta ayrıca AI uzlaşı biletleri.'};
     _agRenderGrid();
   },20);
 }
@@ -19597,13 +19642,13 @@ function _agDateTest(slot){
   const game=getGame(_agGame),draws=_kbGetDraws(_agGame);
   const idx=draws.findIndex(d=>d.date===date);if(idx<0){_agData[key]=null;_agRenderGrid();return;}
   const actual=draws[idx],prior=draws.slice(idx+1);
-  if(prior.length<120){_agData[key]={head:'<div style="padding:10px;font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>',rows:[]};_agRenderGrid();return;}
+  if(prior.length<120){_agData[key]={game,tickets:[],ai:[],aSet:null,title:'Bu tarih için yeterli önceki veri yok.',sub:''};_agRenderGrid();return;}
   setTimeout(()=>{
     const tk=_agGenerate(game,prior);
     const ai=_agGenerateAI(game,prior);
     const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
-    _agData[key]=_agBuild(game,tk,aSet,'🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' '),
-      'Biletler bu tarihten ÖNCEKİ verilerle üretildi (lookahead yok) · ✓ net · ~ ±1 yakın.',ai);
+    _agData[key]={game,tickets:tk,ai,aSet,title:'🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' '),
+      sub:'Biletler bu tarihten ÖNCEKİ verilerle üretildi (lookahead yok) · ✓ net · ~ ±1 yakın.'};
     _agRenderGrid();
   },20);
 }
