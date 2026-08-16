@@ -1420,6 +1420,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <select id="btsDateSel2" onchange="_btsDateTest('2')" title="2. geçmiş test" style="flex:1;min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
   </div>
  </div>
+ <div id="btsPosOut" style="margin-bottom:10px"></div>
  <div id="btsHdrRow" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:6px">
   <div style="font-size:.68rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
   <div style="font-size:.68rem;font-weight:800;color:var(--accent)">📊 Geçmiş Test</div>
@@ -1465,6 +1466,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="qtFilterChips" style="display:flex;gap:5px;flex-wrap:wrap"></div>
   <div id="qtFilterOut"></div>
  </div>
+ <div id="qtPosOut" style="margin-bottom:10px"></div>
  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:8px" id="qtHdrRow">
   <div style="font-size:.82rem;font-weight:800;color:var(--accent);padding-left:2px">🔮 Yeni Tahmin — Tüm Yapılar</div>
   <div style="font-size:.82rem;font-weight:800;color:var(--accent);padding-left:2px">📊 Geçmiş Test Sonucu</div>
@@ -19355,8 +19357,56 @@ function _qtBlockTotals(blk){
   while((m=re.exec(txt))){const n=+m[1];if(n>=1&&n<=90)(m[2]==='✓'?net:near).add(n);}
   return {net:net.size,near:near.size};
 }
+// 🔲 KONUM EŞLEŞMESİ (Agresif sayfasındakinin genel hali)
+// Yeni tahmin + İKİ geçmiş test aynı anda açıkken: bir blokta aynı sıradaki sayı HER İKİ
+// testte de NET tuttuysa, yeni tahmindeki aynı konum siyah çerçeveyle işaretlenir.
+// Karşılaştırma blok içi SIRA ile yapılır; güvenlik için yalnızca üç sütunun sayı adedi
+// birebir aynı olan bloklarında çalışır (aksi halde sıralar kayabilirdi).
+function _posMatchApply(grid){
+  const out={n:0,list:[]};if(!grid)return out;
+  const isNum=el=>!el.children.length&&/^\d{1,2}\s*[✓~●]?$/.test((el.textContent||'').trim());
+  const nums=cell=>[...cell.querySelectorAll('span')].filter(isNum);
+  [...grid.children].forEach(row=>{
+    const cells=[...row.children];
+    if(cells.length<3)return;
+    const a=nums(cells[0]),b=nums(cells[1]),c=nums(cells[2]);
+    if(!a.length||a.length!==b.length||a.length!==c.length)return;
+    const blk=cells[0].querySelector('.qt-blk')||row.querySelector('.qt-blk');
+    const key=blk?blk.dataset.k:'';
+    for(let i=0;i<a.length;i++){
+      if(/✓/.test(b[i].textContent)&&/✓/.test(c[i].textContent)){
+        [a[i],b[i],c[i]].forEach(el=>{
+          el.style.border='2px solid #111';el.style.borderRadius='5px';
+          el.style.padding='0 4px';el.style.background='rgba(0,0,0,.05)';el.style.fontWeight='800';
+        });
+        a[i].title='İki geçmiş testte de aynı blokta, aynı sırada NET tuttu';
+        const v=parseInt(a[i].textContent,10);
+        if(v>=1&&v<=90){out.list.push({n:v,k:key,i:i+1});out.n++;}
+      }
+    }
+  });
+  return out;
+}
+function _posMatchPanel(elId,res){
+  const el=document.getElementById(elId);if(!el)return;
+  if(!res.n){el.innerHTML='';window._posMatchTxt='';return;}
+  const uniq=[...new Set(res.list.map(x=>x.n))].sort((a,b)=>a-b);
+  window._posMatchTxt='🔲 İki geçmiş testte de aynı konumda NET tutan yerler ('+res.n+' konum)\n'+
+    res.list.map(x=>`${x.k||'blok'} · ${x.i}. sıra: ${x.n}`).join('\n')+
+    '\n\nYeni tahmindeki sayılar: '+uniq.join(' ');
+  let h=`<div class="card" style="margin:0;border:2px solid #111;background:rgba(0,0,0,.03)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`;
+  h+=`<span style="font-size:.74rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.56rem;color:var(--muted);font-weight:600">(${res.n} konum · ${uniq.length} sayı)</span></span>`;
+  h+=`<button onclick="_caCopy(window._posMatchTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋 Kopyala</button></div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:7px;line-height:1.6">Bir blokta <strong>aynı sıradaki</strong> sayı her iki geçmiş testte de NET tutmuş; yeni tahminde o konumdaki sayılar aşağıda ve listelerde siyah çerçeveli.</div>`;
+  h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${uniq.map(n=>
+    `<span style="font-family:monospace;font-size:.86rem;font-weight:800;color:var(--text);background:var(--surface2);border:2px solid #111;border-radius:7px;padding:2px 9px">${n}</span>`).join('')}</div>`;
+  h+=`</div>`;
+  el.innerHTML=h;
+}
 function _qtAnnotateAll(){
-  const grid=document.getElementById(_curPage==='basit'?'btsPairGrid':'qtPairGrid');
+  const basit=_curPage==='basit';
+  const grid=document.getElementById(basit?'btsPairGrid':'qtPairGrid');
   if(!grid)return;
   grid.querySelectorAll('.qt-blk').forEach(blk=>{
     if(blk.dataset.k==='actual'||blk.querySelector('.qt-tot'))return;
@@ -19372,6 +19422,7 @@ function _qtAnnotateAll(){
     else if(hdr)hdr.appendChild(badge);
     else{const card=blk.querySelector('.card')||blk;card.insertBefore(badge,card.firstChild);}
   });
+  _posMatchPanel(basit?'btsPosOut':'qtPosOut',_posMatchApply(grid));
 }
 
 // ═══════════ 🔥 AGRESİF TAHMİN — 4 bilet, tek bilette 4-5 net/yakın hedefi ═══════════
