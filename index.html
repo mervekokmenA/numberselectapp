@@ -1003,6 +1003,22 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 </div>
 
 <!-- ═══════════ NEW: Oyun No Analizi ═══════════ -->
+<div id="tsSection" style="grid-column:1/-1;margin-top:0;min-width:0">
+ <div class="card">
+  <div class="card-title">🧾 Tespit — Kopyaladığını ve Sonucu Yapıştır</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">
+   Uygulamanın <strong>herhangi bir yerinden</strong> kopyaladığın metni (Hızlı Tahmin, Basit, Agresif, Formül 2, Kapsamlı, Tarama…) ve çekiliş sonucunu yapıştır;
+   her yapı için <strong>net</strong> ve <strong>±1 yakın</strong> sayıları çıkarıp kopyalanabilir bir rapor verir.
+  </div>
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
+   <textarea id="hmFinalPaste" placeholder="Kopyaladığın metni buraya yapıştır…" style="width:100%;min-height:110px;font-size:.72rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;box-sizing:border-box"></textarea>
+   <input id="hmFinalResult" type="text" placeholder="Sonuç — örn. 11 32 33 47 53 59" style="width:100%;font-size:.74rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;box-sizing:border-box">
+   <button onclick="_qtFinalAnalyze('hm')" style="font-size:.78rem;padding:9px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🧾 Tespiti Oluştur</button>
+  </div>
+  <div id="hmFinalOut"></div>
+ </div>
+</div>
+
 <div id="onaSection" style="grid-column:1/-1;margin-top:0;min-width:0">
  <div class="card">
   <div class="card-title">🔢 Oyun No Analizi</div>
@@ -1490,7 +1506,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px">
    <textarea id="qtFinalPaste" placeholder="📋 Tümünü Kopyala ile kopyaladığın metni buraya yapıştır…" style="width:100%;min-height:110px;font-size:.68rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 10px;resize:vertical"></textarea>
    <input id="qtFinalResult" type="text" placeholder="Sonuç — örn. 11 32 33 47 53 59" style="width:100%;font-size:.74rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px">
-   <button onclick="_qtFinalAnalyze()" style="font-size:.78rem;padding:9px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🧾 Tespiti Oluştur</button>
+   <button onclick="_qtFinalAnalyze('qt')" style="font-size:.78rem;padding:9px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🧾 Tespiti Oluştur</button>
   </div>
   <div id="qtFinalOut"></div>
  </div>
@@ -13121,7 +13137,7 @@ function _kbRenderKazanan(){
 }
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
-const _HOME_IDS=['page-generator','page-backtest','homeBiletSection','nnSection','npSection','candSection','cbSection','onaSection'];
+const _HOME_IDS=['page-generator','page-backtest','homeBiletSection','nnSection','npSection','candSection','cbSection','onaSection','tsSection'];
 let _scanGame=null;
 
 // Anasayfaya özel ağır hesaplar, o sayfa AÇIK DEĞİLKEN yapılmasın: oyun değiştirmek
@@ -20267,23 +20283,62 @@ function _qtFinalBlockNums(paragraph){
   });
   return nums;
 }
-function _qtFinalAnalyze(){
-  const el=document.getElementById('qtFinalOut');if(!el)return;
-  const pasted=(document.getElementById('qtFinalPaste')?.value||'').trim();
-  const resultRaw=(document.getElementById('qtFinalResult')?.value||'').trim();
+// Tanınan başlık yoksa GENEL ayrıştırma: uygulamanın herhangi bir yerinden kopyalanan
+// metinde, harf içeren satırlar başlık kabul edilir; "Etiket: sayılar" biçimindeki satırlar
+// (gruplu kopyalama) tek satırlık blok olur. Böylece Agresif, Formül 2, Kapsamlı, Tarama…
+// hepsinden kopyalanan metin çalışır. Tanınan başlık varsa eski davranış aynen korunur.
+function _qtFinalLabel(t){
+  return t.replace(/\s*\([^)]*\)\s*$/,'').replace(/[:：]\s*$/,'').trim().slice(0,60)||'Blok';
+}
+function _qtFinalSegments(pasted){
+  const lines=pasted.split('\n');
+  const segs=[];let cur=null;
+  lines.forEach(line=>{
+    const t=line.trim();
+    const def=_QT_FINAL_BLOCK_DEFS.find(d=>d.match.test(t));
+    if(def){
+      cur={label:def.label,lines:[]};segs.push(cur);
+      // "Başlık (n): 1 2 3" biçimindeyse sayılar aynı satırda → bloğa ekle
+      const inl=t.match(/[:：]\s*([\d\s\-|]+)$/);
+      if(inl)cur.lines.push(inl[1]);
+      return;
+    }
+    // Tanınan bir bloğun İÇİNDE değilsek, "Etiket: sayılar" satırı kendi başına bir bloktur
+    // (gruplu kopyalama). Blok içindeysek satır o bloğa ait kalır — eski davranış korunur.
+    if(!cur){
+      const m2=t.match(/^(.*?[A-Za-zÇĞİÖŞÜçğıöşü].*?)[:：]\s*([\d\s\-|]+)$/);
+      if(m2){segs.push({label:_qtFinalLabel(m2[1]),lines:[m2[2]]});return;}
+    }
+    if(cur)cur.lines.push(line);
+  });
+  // Tanınan başlık VAR ama hiçbirinden sayı çıkmıyorsa (ör. gruplu kopyalamada tek satırlık
+  // bloklar) genel ayrıştırmaya düş.
+  if(segs.length&&segs.some(x=>_qtFinalBlockNums(x.lines.join('\n')).size))return segs;
+  const HAS=/[A-Za-zÇĞİÖŞÜÂÎÛçğıöşüâîû]/;
+  const g=[];let c=null;
+  lines.forEach(line=>{
+    const t=line.trim();
+    if(!t){if(c)c.lines.push(line);return;}
+    const m=t.match(/^(.*?[A-Za-zÇĞİÖŞÜçğıöşü].*?)[:：]\s*([\d\s\-|]+)$/);
+    if(m){g.push({label:_qtFinalLabel(m[1]),lines:[m[2]]});c=null;return;}
+    if(HAS.test(t)&&!/\d\s*-\s*\d/.test(t)){c={label:_qtFinalLabel(t),lines:[]};g.push(c);return;}
+    if(c)c.lines.push(line);
+    else{c={label:'Blok '+(g.length+1),lines:[line]};g.push(c);}
+  });
+  return g.filter(x=>x.lines.join('').trim());
+}
+function _qtFinalAnalyze(pfx){
+  pfx=pfx||'qt';
+  const el=document.getElementById(pfx+'FinalOut');if(!el)return;
+  const pasted=(document.getElementById(pfx+'FinalPaste')?.value||'').trim();
+  const resultRaw=(document.getElementById(pfx+'FinalResult')?.value||'').trim();
   if(!pasted||!resultRaw){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Önce kopyaladığın metni ve sonucu yapıştır.</div>';return;}
   const resultSet=_qtFinalParseNums(resultRaw);
   if(!resultSet.size){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Sonuçtan sayı okunamadı.</div>';return;}
   // Boş satıra göre bölmek GÜVENİLMEZ: bazı bloklar (ör. Nihai Sayı Tablosu) kendi İÇİNDE de boş satır
   // içeriyor. Bunun yerine metni satır satır tarar; tanınan bir başlık satırına rastlayınca YENİ bir
   // blok başlatır, bir sonraki tanınan başlığa kadar (boş satırlar dahil) o bloğa satır ekler.
-  const segments=[];let current=null;
-  pasted.split('\n').forEach(line=>{
-    const trimmed=line.trim();
-    const def=_QT_FINAL_BLOCK_DEFS.find(d=>d.match.test(trimmed));
-    if(def){current={label:def.label,lines:[]};segments.push(current);return;}
-    if(current)current.lines.push(line);
-  });
+  const segments=_qtFinalSegments(pasted);
   const found=[];
   segments.forEach(seg=>{
     const nums=_qtFinalBlockNums(seg.lines.join('\n'));
@@ -20306,13 +20361,13 @@ function _qtFinalAnalyze(){
   found.forEach(f=>{textLines.push(f.label,lineFor(f.net,f.near),'');});
   while(textLines.length&&textLines[textLines.length-1]==='')textLines.pop();
   const report=textLines.join('\n');
-  window._qtFinalReportTxt=report;
+  window['_qtFinalReportTxt_'+pfx]=report;window._qtFinalReportTxt=report;
   if(!found.length){
     el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Yapıştırılan metinde tanınan bir yapı bulunamadı — "📋 Tümünü Kopyala" ile kopyaladığın metni değiştirmeden yapıştırdığından emin ol.</div>';
     return;
   }
   let h=`<div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.7rem;font-weight:800;color:var(--accent)">🧾 Tespit</span><button onclick="_caCopy(window._qtFinalReportTxt)" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋 Kopyala</button></div>`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.7rem;font-weight:800;color:var(--accent)">🧾 Tespit</span><button onclick="_caCopy(window['_qtFinalReportTxt_'+'${pfx}'])" class="copy-btn" style="font-size:.64rem;padding:4px 10px;font-weight:700">📋 Kopyala</button></div>`;
   h+=`<div style="margin-bottom:10px"><div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:3px">sonuç</div><div style="font-family:monospace;font-size:.78rem;font-weight:700;color:var(--text)">${resArr.join(' ')}</div></div>`;
   found.forEach(f=>{
     const hasNet=f.net.length>0;
