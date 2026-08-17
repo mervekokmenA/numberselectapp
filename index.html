@@ -19588,7 +19588,7 @@ function _agBuild(game,tickets,aSet,title,sub,aiTickets,marks){
     h+=`<span style="font-size:.56rem;color:var(--muted);font-weight:700;min-width:26px">#${i+1}</span>`;
     h+=`<span style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">${nums.map((n,j)=>{
       const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
-      const mk=marks&&marks.has(i+'|'+j);
+      const mk=marks&&marks.has('m'+i+'|'+j);
       return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr||mk?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}${mk?';border:2px solid #111;border-radius:5px;padding:0 4px;background:rgba(0,0,0,.05)':''}"${mk?' title="Her iki geçmiş testte de bu bilet ve bu sırada NET tutmuştu"':''}>${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${
       (t.bonus&&t.bonus.length)?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
     if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=_agTarget(game.id)?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span></span>`;
@@ -19608,9 +19608,10 @@ function _agBuild(game,tickets,aSet,title,sub,aiTickets,marks){
       const hit=aSet&&cov>=_agTarget(game.id);
       let h=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;background:${hit?'rgba(0,230,118,.09)':'rgba(129,140,248,.06)'};border:1px solid ${hit?'rgba(0,200,100,.45)':'rgba(129,140,248,.3)'};flex-wrap:wrap;height:100%;box-sizing:border-box">`;
       h+=`<span style="font-size:.56rem;color:var(--accent);font-weight:800;min-width:34px">AI#${i+1}</span>`;
-      h+=`<span style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">${nums.map(n=>{
+      h+=`<span style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">${nums.map((n,j)=>{
         const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
-        return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}">${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${
+        const mk=marks&&marks.has('a'+i+'|'+j);
+        return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr||mk?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}${mk?';border:2px solid #111;border-radius:5px;padding:0 4px;background:rgba(0,0,0,.05)':''}"${mk?' title="Her iki geçmiş testte de bu AI bileti ve bu sırada NET tuttu"':''}>${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${
         (t.bonus&&t.bonus.length)?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
       if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=_agTarget(game.id)?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span></span>`;
       h+=`</div>`;
@@ -19631,18 +19632,24 @@ function _agPosMarks(){
   const a=_agData.t1,b=_agData.t2,lv=_agData.live;
   const out={marks:new Set(),list:[]};
   if(!a||!b||!a.aSet||!b.aSet||!a.tickets||!b.tickets)return out;
-  const n=Math.min(a.tickets.length,b.tickets.length);
-  for(let i=0;i<n;i++){
-    const x=(a.tickets[i].main)||[],y=(b.tickets[i].main)||[];
-    const c=(lv&&lv.tickets&&lv.tickets[i]&&lv.tickets[i].main)||[];
-    const m=Math.min(x.length,y.length);
-    for(let j=0;j<m;j++){
-      if(a.aSet.has(x[j])&&b.aSet.has(y[j])){
-        out.marks.add(i+'|'+j);
-        if(c[j]!=null)out.list.push({i:i+1,j:j+1,n:c[j],a:x[j],b:y[j]});
+  // Hem agresif biletler (m) hem AI biletleri (a) karşılaştırılır.
+  const scan=(pre,key,label)=>{
+    const A=a[key]||[],B=b[key]||[],L=(lv&&lv[key])||[];
+    const n=Math.min(A.length,B.length);
+    for(let i=0;i<n;i++){
+      const x=(A[i]&&A[i].main)||[],y=(B[i]&&B[i].main)||[];
+      const c=(L[i]&&L[i].main)||[];
+      const m=Math.min(x.length,y.length);
+      for(let j=0;j<m;j++){
+        if(a.aSet.has(x[j])&&b.aSet.has(y[j])){
+          out.marks.add(pre+i+'|'+j);
+          if(c[j]!=null)out.list.push({i:i+1,j:j+1,n:c[j],a:x[j],b:y[j],t:label});
+        }
       }
     }
-  }
+  };
+  scan('m','tickets','');
+  scan('a','ai','AI');
   return out;
 }
 function _agPosPanel(pm){
@@ -19650,7 +19657,7 @@ function _agPosPanel(pm){
   if(!pm.marks.size){el.innerHTML='';window._agPosTxt='';return;}
   const nums=[...new Set(pm.list.map(x=>x.n))].sort((a,b)=>a-b);
   window._agPosTxt='🔲 İki geçmiş testte de aynı bilet+sırada NET tutan konumlar\n'+
-    pm.list.map(x=>`#${x.i} · ${x.j}. sıra: ${x.n}  (testler: ${x.a} / ${x.b})`).join('\n')+
+    pm.list.map(x=>`${x.t?'AI':''}#${x.i} · ${x.j}. sıra: ${x.n}  (testler: ${x.a} / ${x.b})`).join('\n')+
     (nums.length?'\n\nYeni tahmindeki sayılar: '+nums.join(' '):'');
   let h=`<div class="card" style="margin:0;border:2px solid #111;background:rgba(0,0,0,.03)">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`;
@@ -19659,7 +19666,7 @@ function _agPosPanel(pm){
   h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:7px;line-height:1.6">Her iki geçmiş testte de <strong>aynı bilet numarası ve aynı sıradaki</strong> sayı NET tutmuş. Yeni tahminde o konumdaki sayılar aşağıda ve bilet listesinde siyah çerçeveyle işaretli.</div>`;
   if(!nums.length)h+=`<div style="font-size:.62rem;color:var(--muted)">Eşleşen konum var ama yeni tahmin henüz üretilmedi.</div>`;
   else h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${pm.list.map(x=>
-    `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:2px solid #111"><span style="font-size:.88rem;font-weight:800;font-family:monospace;color:var(--text)">${x.n}</span><span style="font-size:.44rem;color:var(--muted)">#${x.i}·${x.j}.sıra</span></span>`).join('')}</div>`;
+    `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:2px solid #111"><span style="font-size:.88rem;font-weight:800;font-family:monospace;color:var(--text)">${x.n}</span><span style="font-size:.44rem;color:var(--muted)">${x.t?'AI':''}#${x.i}·${x.j}.sıra</span></span>`).join('')}</div>`;
   h+=`</div>`;
   el.innerHTML=h;
 }
