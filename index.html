@@ -19608,59 +19608,85 @@ function _agRates(){
   h+=`</span>`;
   el.innerHTML=h;
 }
+// Çekilişin TAM sonucu: ana sayılar + "+" sonrası (Şans Topu joker'i, Sayısal Süperstar).
+function _agDrawText(d){
+  const m=[...(d.nums||[])].sort((a,b)=>a-b).join(' ');
+  const b=(d.bonus||[]);
+  return m+(b.length?' + '+b.join(' '):'');
+}
 function _agDates(){
   const draws=_kbGetDraws(_agGame);
   let h='<option value="">— Geçmiş test için tarih seçin —</option>';
   draws.forEach((d,i)=>{if(draws.length-i-1<120)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
   ['','2','3'].forEach(sl=>{const e=document.getElementById('agDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
 }
+// "+" sonrası sayılar (Şans Topu joker'i, Sayısal Süperstar) da kontrol edilir: biletin
+// bonus sayısı çekilişin bonusuyla karşılaştırılıp ✓ net / ~ ±1 yakın işaretlenir.
+// Ana sayılardan AYRI tutulur — bonus kendi havuzundan çekilir (Şans Topu'nda 1-14),
+// dolayısıyla ana sayı hedefinin (4+ net/yakın) ölçülen oranlarına karıştırılmaz.
+function _agBonusCell(t,bSet){
+  const bn=t&&t.bonus?t.bonus:[];
+  if(!bn.length)return {html:'',hit:false};
+  let hit=false;
+  const inner=bn.map(n=>{
+    const isN=bSet&&bSet.has(n),isNr=bSet&&!isN&&(bSet.has(n-1)||bSet.has(n+1));
+    if(isN)hit=true;
+    return `<span style="font-family:monospace;font-weight:${isN||isNr?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--muted)'}">${n}${isN?'✓':isNr?'~':''}</span>`;
+  }).join(' ');
+  return {html:`<span style="color:var(--muted);font-size:.7rem">| ${inner}</span>`,hit};
+}
+function _agBonusSummary(game,hits,total,bSet){
+  if(!bSet||!bSet.size||!game.bonusCount)return '';
+  return `<div style="font-size:.58rem;font-weight:800;margin-top:3px;color:${hits?'var(--green)':'var(--muted)'}">🎁 "+" sayısı (${[...bSet].join(' ')}): ${hits}/${total} bilette tuttu</div>`;
+}
 // Bilet blokları: başlık + bilet başına AYRI satır. Satırlar sütunlar arasında bilet
 // numarasına göre eşleştirilir (bkz. _agRenderGrid) → #12 her sütunda aynı hizada.
-function _agBuild(game,tickets,aSet,title,sub,aiTickets,marks){
+function _agBuild(game,tickets,aSet,title,sub,aiTickets,marks,bSet){
   let head=`<div style="padding:9px 11px;background:var(--surface2);border:1px solid ${aSet?'rgba(239,83,80,.3)':'var(--border)'};border-radius:10px">`;
   head+=`<div style="font-size:.66rem;font-weight:800;color:#e53935">${title}</div>`;
   if(sub)head+=`<div style="font-size:.55rem;color:var(--muted);margin-top:3px">${sub}</div>`;
-  let bn=0,bc=0;
+  let bn=0,bc=0,bHits=0;
   const rows=(tickets||[]).map((t,i)=>{
     const nums=[...(t.main||[])];
     let net=0,near=0;
     nums.forEach(n=>{if(aSet&&aSet.has(n))net++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))near++;});
     const cov=net+near;if(net>bn)bn=net;if(cov>bc)bc=cov;
+    const bc2=_agBonusCell(t,bSet);if(bc2.hit)bHits++;
     const hit=aSet&&cov>=_agTarget(game.id);
     let h=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;background:${hit?'rgba(0,230,118,.09)':'var(--surface)'};border:1px solid ${hit?'rgba(0,200,100,.45)':'var(--border)'};flex-wrap:wrap;height:100%;box-sizing:border-box">`;
     h+=`<span style="font-size:.56rem;color:var(--muted);font-weight:700;min-width:26px">#${i+1}</span>`;
     h+=`<span style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">${nums.map((n,j)=>{
       const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
       const mk=marks&&marks.has('m'+i+'|'+j);
-      return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr||mk?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}${mk?';border:2px solid #111;border-radius:5px;padding:0 4px;background:rgba(0,0,0,.05)':''}"${mk?' title="Her iki geçmiş testte de bu bilet ve bu sırada NET tutmuştu"':''}>${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${
-      (t.bonus&&t.bonus.length)?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
-    if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=_agTarget(game.id)?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span></span>`;
+      return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr||mk?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}${mk?';border:2px solid #111;border-radius:5px;padding:0 4px;background:rgba(0,0,0,.05)':''}"${mk?' title="Her iki geçmiş testte de bu bilet ve bu sırada NET tutmuştu"':''}>${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${bc2.html}</span>`;
+    if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=_agTarget(game.id)?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span>${bc2.hit?' <span style="color:var(--green)">· +✓</span>':''}</span>`;
     h+=`</div>`;
     return h;
   });
   const TG=_agTarget(game.id);
   if(aSet)head+=`<div style="font-size:.62rem;font-weight:800;margin-top:6px;color:${bc>=TG?'var(--green)':'var(--muted)'}">🏆 En iyi bilet: ${bn} net · toplam ${bc} (net+yakın) ${bc>=TG+1?`— ${TG+1}+ hedefi tuttu ✅`:bc>=TG?`— ${TG}+ hedefi tuttu ✅`:`— ${TG}+ hedefi tutmadı`}</div>`;
+  if(aSet)head+=_agBonusSummary(game,bHits,(tickets||[]).length,bSet);
   head+=`</div>`;
   if(aiTickets&&aiTickets.length){
-    let an=0,ac=0;
+    let an=0,ac=0,aBHits=0;
     const aiRows=aiTickets.map((t,i)=>{
       const nums=[...(t.main||[])];
       let net=0,near=0;
       nums.forEach(n=>{if(aSet&&aSet.has(n))net++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))near++;});
       const cov=net+near;if(net>an)an=net;if(cov>ac)ac=cov;
+      const abc=_agBonusCell(t,bSet);if(abc.hit)aBHits++;
       const hit=aSet&&cov>=_agTarget(game.id);
       let h=`<div style="display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:8px;background:${hit?'rgba(0,230,118,.09)':'rgba(129,140,248,.06)'};border:1px solid ${hit?'rgba(0,200,100,.45)':'rgba(129,140,248,.3)'};flex-wrap:wrap;height:100%;box-sizing:border-box">`;
       h+=`<span style="font-size:.56rem;color:var(--accent);font-weight:800;min-width:34px">AI#${i+1}</span>`;
       h+=`<span style="display:flex;gap:6px;flex-wrap:wrap;flex:1;min-width:0">${nums.map((n,j)=>{
         const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
         const mk=marks&&marks.has('a'+i+'|'+j);
-        return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr||mk?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}${mk?';border:2px solid #111;border-radius:5px;padding:0 4px;background:rgba(0,0,0,.05)':''}"${mk?' title="Her iki geçmiş testte de bu AI bileti ve bu sırada NET tuttu"':''}>${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${
-        (t.bonus&&t.bonus.length)?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
-      if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=_agTarget(game.id)?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span></span>`;
+        return `<span style="font-family:monospace;font-size:.86rem;font-weight:${isN||isNr||mk?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'}${mk?';border:2px solid #111;border-radius:5px;padding:0 4px;background:rgba(0,0,0,.05)':''}"${mk?' title="Her iki geçmiş testte de bu AI bileti ve bu sırada NET tuttu"':''}>${n}${isN?'✓':isNr?'~':''}</span>`;}).join('')}${abc.html}</span>`;
+      if(aSet)h+=`<span style="font-size:.6rem;font-weight:800;color:${cov>=_agTarget(game.id)?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın <span style="opacity:.7">(${cov})</span>${abc.hit?' <span style="color:var(--green)">· +✓</span>':''}</span>`;
       h+=`</div>`;
       return h;
     });
-    rows.push(`<div style="padding:6px 10px;border-radius:8px;background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.3);font-size:.62rem;font-weight:800;color:var(--accent)">🧠 AI Bilet Tahmini${aSet?` — en iyi: ${an} net · toplam ${ac}`:''}</div>`);
+    rows.push(`<div style="padding:6px 10px;border-radius:8px;background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.3);font-size:.62rem;font-weight:800;color:var(--accent)">🧠 AI Bilet Tahmini${aSet?` — en iyi: ${an} net · toplam ${ac}`:''}${aSet&&bSet&&bSet.size&&game.bonusCount?` · 🎁 "+": ${aBHits}/${aiTickets.length}`:''}</div>`);
     rows.push(...aiRows);
   }
   return {head,rows};
@@ -19720,7 +19746,7 @@ function _agRenderGrid(){
   const grid=document.getElementById('agGrid');if(!grid)return;
   const pm=_agPosMarks();
   _agPosPanel(pm);
-  const build=(d,useMarks)=>d?_agBuild(d.game,d.tickets,d.aSet,d.title,d.sub,d.ai,useMarks?pm.marks:null):null;
+  const build=(d,useMarks)=>d?_agBuild(d.game,d.tickets,d.aSet,d.title,d.sub,d.ai,useMarks?pm.marks:null,d.bSet):null;
   const cols=[build(_agData.live,true),build(_agData.t1,true),build(_agData.t2,true),build(_agData.t3,true)];
   const has2=!!_agData.t2,has3=!!_agData.t3;
   const use=[0,1].concat(has2?[2]:[]).concat(has3?[3]:[]);
@@ -19769,7 +19795,7 @@ function _agDateTest(slot){
     const tk=_agGenerate(game,prior);
     const ai=_agGenerateAI(game,prior);
     const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
-    _agData[key]={game,tickets:tk,ai,aSet,title:'🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' '),
+    _agData[key]={game,tickets:tk,ai,aSet,bSet:new Set(actual.bonus||[]),title:'🎯 '+actual.date+' — '+_agDrawText(actual),
       sub:'Biletler bu tarihten ÖNCEKİ verilerle üretildi (lookahead yok) · ✓ net · ~ ±1 yakın.'};
     _agRenderGrid();_agxAuto();
   },20);
@@ -19877,12 +19903,12 @@ function _agxPoolHtml(game,wMap,aSet){
   }).join('');
   return `<div style="margin-top:5px"><span style="font-size:.5rem;color:var(--muted)">Havuz — ağırlık sırasıyla ilk ${top.length}:</span><div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${chips}</div></div>`;
 }
-function _agxCompute(eng,key,game,prior,aSet,dateStr,title){
+function _agxCompute(eng,key,game,prior,aSet,dateStr,title,bSet){
   const w=_agxWeights(eng.id,game,prior,dateStr);
-  if(!w){_agxData[eng.id]=_agxData[eng.id]||{};_agxData[eng.id][key]={game,tickets:[],aSet,title,sub:'Bu motor için havuz kurulamadı (yeterli veri yok).',w:null};return;}
+  if(!w){_agxData[eng.id]=_agxData[eng.id]||{};_agxData[eng.id][key]={game,tickets:[],aSet,bSet,title,sub:'Bu motor için havuz kurulamadı (yeterli veri yok).',w:null};return;}
   const tk=_agxBundle(game,w,_agK,prior);
   _agxData[eng.id]=_agxData[eng.id]||{};
-  _agxData[eng.id][key]={game,tickets:tk,aSet,title,w,
+  _agxData[eng.id][key]={game,tickets:tk,aSet,bSet,title,w,
     sub:(aSet?'Biletler bu tarihten ÖNCEKİ verilerle üretildi (lookahead yok) · ✓ net · ~ ±1 yakın.':'Havuz motorun kendi kaynağından, biletler agresif kapsama seçimiyle üretildi.')+_agxPoolHtml(game,w,aSet)};
 }
 function _agxColsHtml(list){
@@ -19907,7 +19933,7 @@ function _agxRender(){
     if(!D)body=`<div style="font-size:.66rem;color:var(--muted);padding:6px 2px">Henüz üretilmedi — <strong>🧨 Ek Motorları Üret</strong>'e basın.</div>`;
     else{
       const cols=['live','t1','t2','t3'].map(k=>{const d=D[k];
-        return d?_agBuild(d.game,d.tickets,d.aSet,d.title,d.sub,null,null):null;});
+        return d?_agBuild(d.game,d.tickets,d.aSet,d.title,d.sub,null,null,d.bSet):null;});
       body=_agxColsHtml(cols)||`<div style="font-size:.66rem;color:var(--muted)">Sonuç yok.</div>`;
     }
     parts.push(`<div class="card" style="border:1.5px solid rgba(${eng.rgb},.45);background:linear-gradient(135deg,rgba(${eng.rgb},.05),transparent)">
@@ -19959,8 +19985,8 @@ function _agxRunAll(){
     const v=document.getElementById('agDateSel'+sl)?.value||'';if(!v)return;
     const idx=draws.findIndex(d=>d.date===v);if(idx<0)return;
     const actual=draws[idx],prior=draws.slice(idx+1);if(prior.length<120)return;
-    jobs.push({key:'t'+(i+1),prior,aSet:new Set([...(actual.nums||[]),...(actual.bonus||[])]),dateStr:actual.date,
-      title:'🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')});
+    jobs.push({key:'t'+(i+1),prior,aSet:new Set([...(actual.nums||[]),...(actual.bonus||[])]),bSet:new Set(actual.bonus||[]),dateStr:actual.date,
+      title:'🎯 '+actual.date+' — '+_agDrawText(actual)});
   });
   const engs=_AGX_ENGINES.filter(e=>_agxOn[e.id]);
   if(!engs.length){_agxData={};_agxRender();return;}
@@ -19970,7 +19996,7 @@ function _agxRunAll(){
   const step=i=>{
     if(i>=queue.length){_agxRender();return;}
     const [e,j]=queue[i];
-    try{_agxCompute(e,j.key,game,j.prior,j.aSet,j.dateStr,j.title);}catch(err){}
+    try{_agxCompute(e,j.key,game,j.prior,j.aSet,j.dateStr,j.title,j.bSet);}catch(err){}
     setTimeout(()=>step(i+1),0);
   };
   setTimeout(()=>step(0),20);
