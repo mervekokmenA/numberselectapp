@@ -1429,7 +1429,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div class="card" style="margin-top:14px;border-color:rgba(239,83,80,.4)">
   <div class="card-title">🧨 Ek Agresif Motorlar — Formüller &amp; Diğer Kaynaklar</div>
   <div style="font-size:.62rem;color:var(--muted);margin-bottom:9px;padding:8px 11px;background:rgba(239,83,80,.06);border:1px solid rgba(239,83,80,.25);border-radius:8px;line-height:1.7">
-   Aynı agresif mantık (tek bilette olabildiğince çok <strong>net ya da ±1 yakın</strong> sayı) uygulamanın <strong>başka kaynaklarına</strong> uygulanır: Excel formülleri, gün/ay/yıl formülleri ve bunların Nihai ağırlıklarıyla füzyonu. Her motor kendi adaylarını bir <strong>ağırlık havuzuna</strong> indirger, biletler ortak üreteçle <strong style="color:#e53935">NET odaklı</strong> seçilir: ±1 komşu doldurma yapılmaz ve demet olabildiğince çok <strong>farklı</strong> sayıya yayılır (ölçüm: birleşik net 5,65→6,18, en iyi bilet 2,33→2,43).
+   Aynı agresif mantık (tek bilette olabildiğince çok <strong>net ya da ±1 yakın</strong> sayı) uygulamanın <strong>başka kaynaklarına</strong> uygulanır: Excel formülleri, gün/ay/yıl formülleri ve bunların Nihai ağırlıklarıyla füzyonu. Her motor kendi adaylarını bir <strong>ağırlık havuzuna</strong> indirger, biletler ortak üreteçle <strong style="color:#e53935">NET odaklı</strong> seçilir: ±1 komşu doldurma yok, sayılar biletlere <strong>yılan (snake) dağıtımıyla</strong> paylaştırılır — hiçbir sayı iki bilette tekrarlamaz, demet teorik olarak mümkün en çok farklı sayıyı kapsar. <span style="opacity:.85">Ölçüm (n=300, walk-forward, 6 bilet): en iyi bilet net 2,35→2,48 · ≥2 net %72→%75 · birleşik net 6,01→7,23. <strong>Havuz sıralamasının kendisi net getirmiyor</strong> — uygulamadaki tüm analizler (Nihai, Uzlaşı, AI, sıcak/soğuk/gecikme, formüller) rastgele havuzla aynı %17 bandında; kazanç yalnızca dağıtımdan geliyor. Tek gerçek kaldıraç bilet sayısıdır.</span>
    <br>Yukarıdaki <strong>oyun · bilet sayısı · geçmiş test tarihleri</strong> seçimleri aynen kullanılır; geçmiş testlerde biletler o tarihten ÖNCEKİ verilerle üretilir (lookahead yok).
    <br><span style="color:#8a6200">⚠️ Dürüst not: taramalarda hiçbir formül şansı kalıcı olarak geçmedi. Buradaki katkı kapsamayı artırmaktır, kesinlik değil.</span>
   </div>
@@ -19892,41 +19892,61 @@ function _agxWeights(id,game,prior,dateStr){
   return _agxPoolFuzyon(game,prior,dateStr);
 }
 // Ortak demet üreteci — NET ODAKLI (±1 yakın değil, tam tutturma hedefi).
-// ÖLÇÜMLE seçildi: 320 örnek (4 oyun × 40 çekiliş × 2 havuz, walk-forward, K=6),
-// demetin BİRLEŞİK net'i ve en iyi biletin net'i:
-//   eski (bitişik-çift + ±1 pencere kapsaması) → 5,65 birleşik · 2,33 en iyi
-//   bu sürüm (şekillendirmesiz + tam-sayı kapsaması) → 6,18 birleşik · 2,43 en iyi  ✅
-//   ağırlık keskinleştirme (üs 2,2)            → 5,70 · 2,38  (fayda yok)
-//   havuzu en güçlü sayılara daraltma          → 4,63 · 2,24  (belirgin ZARAR)
-// 1) Bitişik-çift şekillendirme (_nearShape) KULLANILMAZ — bilet yerlerini ±1
-//    komşulara harcayıp "yakın"ı artırıyor, net'i düşürüyordu.
-// 2) Açgözlü seçim yalnızca SAYININ KENDİSİNİ kapsama sayar (±1 penceresi değil):
-//    demet daha çok FARKLI sayıya yayılır (34,4 → 36,6), net şansı artar.
-// DÜRÜST NOT: tek bilette net, ağırlıkların gücüyle sınırlı — üreteç ayarıyla şans
-// seviyesinin üstüne çıkmıyor. Gerçek kaldıraç bilet sayısıdır (yukarıdaki "Bilet" seçimi).
+//
+// ÖNCE ŞU ÖLÇÜLDÜ: uygulamadaki HİÇBİR analiz havuz sıralamasında şansı geçmiyor.
+// İlk 3×count sayı içinde ortalama net (4 oyun × 30 çekiliş, walk-forward):
+//   Nihai %17,7 · AI Bilet %17,6 · Formül 2 %17,5 · Soğuk %17,6 · Uzlaşı %17,2 ·
+//   Formül %16,8 · Sıcak %16,6 · Gecikme %16,8 — ve RASTGELE havuz %17,4.
+// Yani "daha akıllı sıralama" ile net kazanılmıyor; kazanç yalnızca biletlerin
+// sayılara NASIL dağıtıldığından gelebilir.
+//
+// BU YÜZDEN: ağırlıklı sırasız diziliş (güçlü sayılar öne, her üretimde farklı) +
+// YILAN (snake) dağıtımı. Hiçbir sayı, havuz tükenene dek iki bilette tekrarlamaz →
+// demet mümkün olan EN ÇOK farklı sayıyı kapsar; her bilete de güçlü/orta/zayıf
+// dengeli düşer. Sinyal olmadığında beklenen en iyi bilet ve birleşik net'i aynı
+// anda büyüten tek yapı budur (üst üste binen biletler ikisini de düşürür).
+//
+// ÖLÇÜM (n=300 örnek: 4 oyun × 25 çekiliş × 3 havuz, walk-forward) — önceki
+// kapsama-açgözlü sürüme karşı, en iyi bilet net · 2+ net oranı · birleşik net:
+//   K=6  → 2,35→2,48 · %72→%75 · 6,01→7,23      (farklı sayı 36,5→42 = teorik tavan)
+//   K=12 → 2,78→2,84 · %89→%94 · 8,67→10,33
+//   K=25 → 3,07→3,17 · %95→%99 · 10,04→10,44
+//   K=50 → 3,32→3,45 · %97→%100 · 10,11→10,44
+//   K=4  → berabere (n=840 ile doğrulandı), birleşik net yine daha iyi (4,51→4,83)
+// DENENİP ELENEN: wheel/kapsayan tasarım (havuzu 12-19 sayıya daraltıyor →
+// en iyi bilet 2,37→1,91 · birleşik 6,16→2,17), ağırlık keskinleştirme, havuz daraltma.
+// DÜRÜST NOT: tek bilette net'i şans seviyesinin üstüne çıkaran bir yöntem yok;
+// en güçlü kaldıraç bilet sayısıdır (yukarıdaki "Bilet" seçimi).
 function _agxBundle(game,wMap,K,prior){
   const max=game.max,cnt=game.count,all=[];for(let n=1;n<=max;n++)all.push(n);
   const wArr=all.map(n=>Math.max(1e-6,Math.pow(wMap[n]||0,1.35)+2e-3));
-  const SAMP=Math.min(600,Math.max(240,K*20));
-  const pool=[],seen=new Set();let att=0;
-  while(pool.length<SAMP&&att<SAMP*5){
-    att++;
-    let m=_g0Sample(all,wArr,cnt);if(!m||m.length<cnt)continue;
-    m=m.slice().sort((a,b)=>a-b);
-    const k=m.join(',');if(seen.has(k))continue;seen.add(k);pool.push(m);
-  }
-  const cells=n=>[n];
-  const chosen=[],cov=new Set(),cand=pool.slice();
-  while(chosen.length<K&&cand.length){
-    let bi=0,bg=-1;
-    for(let i=0;i<cand.length;i++){
-      let g=0;for(const n of cand[i])for(const c of cells(n))if(c>=1&&c<=max&&!cov.has(c))g++;
-      if(g>bg){bg=g;bi=i;}
+  // ağırlıklı sırasız diziliş: yüksek ağırlıklı sayılar öne düşer ama sıra her seferinde farklı
+  const shuffle=()=>{
+    const pool=all.slice(),w=wArr.slice(),seq=[];
+    while(pool.length){
+      let tot=0;for(const x of w)tot+=x;
+      let r=Math.random()*tot,i=w.length-1;
+      for(let j=0;j<w.length;j++){r-=w[j];if(r<=0){i=j;break;}}
+      seq.push(pool[i]);pool.splice(i,1);w.splice(i,1);
     }
-    const tk=cand.splice(bi,1)[0];chosen.push(tk);tk.forEach(n=>cells(n).forEach(c=>cov.add(c)));
+    return seq;
+  };
+  const tk=[];for(let i=0;i<K;i++)tk.push([]);
+  let seq=shuffle(),p=0;
+  for(let r=0;r<cnt;r++){
+    const idx=[];for(let i=0;i<K;i++)idx.push(i);
+    if(r%2)idx.reverse();                     // yılan: sıradaki tur ters yönde dağıtılır
+    for(const i of idx){
+      let g=0;
+      while(g++<max*2){
+        if(p>=seq.length){seq=shuffle();p=0;} // havuz tükendi (K×count > max) → yeni diziliş
+        const n=seq[p++];
+        if(!tk[i].includes(n)){tk[i].push(n);break;}
+      }
+    }
   }
   const freq=buildFreq(prior);
-  return chosen.slice(0,K).map(m=>({main:m,bonus:game.bonusCount>0?_g0Bonus(game,freq):[]}));
+  return tk.map(m=>({main:m.sort((a,b)=>a-b),bonus:game.bonusCount>0?_g0Bonus(game,freq):[]}));
 }
 // Demetin BİRLEŞİĞİ: K biletin tüm sayıları bir arada çekilişin kaç sayısını NET tuttu.
 // Tek bilet net'i şansla sınırlı; demetin birleşiği bilet sayısıyla gerçekten büyüyen ölçü.
@@ -19960,7 +19980,7 @@ function _agxCompute(eng,key,game,prior,aSet,dateStr,title,bSet){
   const tk=_agxBundle(game,w,_agK,prior);
   _agxData[eng.id]=_agxData[eng.id]||{};
   _agxData[eng.id][key]={game,tickets:tk,aSet,bSet,title,w,
-    sub:(aSet?'Biletler bu tarihten ÖNCEKİ verilerle üretildi (lookahead yok) · ✓ net · ~ ±1 yakın.'+_agxUnionHtml(tk,aSet):'Havuz motorun kendi kaynağından; biletler NET odaklı seçildi (±1 komşu doldurma yok).')+_agxPoolHtml(game,w,aSet)};
+    sub:(aSet?'Biletler bu tarihten ÖNCEKİ verilerle üretildi (lookahead yok) · ✓ net · ~ ±1 yakın.'+_agxUnionHtml(tk,aSet):'Havuz motorun kendi kaynağından; biletler NET odaklı dağıtıldı (yılan dağıtımı — sayılar biletler arasında tekrarlamaz).')+_agxPoolHtml(game,w,aSet)};
 }
 function _agxColsHtml(list){
   const use=[];list.forEach((c,i)=>{if(c)use.push(i);});
