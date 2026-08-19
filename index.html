@@ -19893,11 +19893,15 @@ function _agxTop(wMap,n){
 function _agxPoolHtml(game,wMap,aSet){
   const top=_agxTop(wMap,Math.min(game.max,game.count*3));
   if(!top.length)return '';
+  let net=0,near=0;
   const chips=top.map(n=>{
     const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
+    if(isN)net++;else if(isNr)near++;
     return `<span style="font-family:monospace;font-size:.62rem;font-weight:${isN||isNr?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--muted)'};background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:1px 5px">${n}${isN?'✓':isNr?'~':''}</span>`;
   }).join('');
-  return `<div style="margin-top:5px"><span style="font-size:.5rem;color:var(--muted)">Havuz — ağırlık sırasıyla ilk ${top.length}:</span><div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${chips}</div></div>`;
+  // Havuzun kendi skoru: çekilen sayılardan kaçı bu havuzda net ya da ±1 yakın çıktı.
+  const tally=aSet?` <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong> · <strong style="color:${near?'#c2410c':'var(--muted)'}">${near} yakın</strong> <span style="opacity:.7">(${net+near}/${top.length})</span>`:'';
+  return `<div style="margin-top:5px"><span style="font-size:.5rem;color:var(--muted)">Havuz — ağırlık sırasıyla ilk ${top.length}:${tally}</span><div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:3px">${chips}</div></div>`;
 }
 function _agxCompute(eng,key,game,prior,aSet,dateStr,title,bSet){
   const w=_agxWeights(eng.id,game,prior,dateStr);
