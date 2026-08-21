@@ -20623,11 +20623,104 @@ function _hyCopyBtn(k,txt){
   _hyCopyReg[k]=txt;
   return `<button onclick="_hyCopyKey('${k}')" class="copy-btn" style="font-size:.54rem;padding:2px 7px;font-weight:700;flex-shrink:0" title="Bu grubun sayılarını kopyala">📋</button>`;
 }
-function _hyNumChips(nums,aSet,big){
-  return nums.map(n=>{
+// markIdx: bu sıradaki sayı, açık geçmiş testlerin HEPSİNDE aynı sırada NET tutmuş →
+// kutu içine alınır (Agresif ve Hızlı Tahmin sayfalarındaki konum eşleşmesiyle aynı gösterim).
+function _hyNumChips(nums,aSet,big,markIdx){
+  return nums.map((n,j)=>{
     const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
-    return `<span style="font-family:monospace;font-size:${big?'.8rem':'.68rem'};font-weight:${isN||isNr?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:var(--surface2);border:1px solid ${isN?'rgba(0,200,100,.5)':'var(--border)'};border-radius:6px;padding:1px 6px">${n}${isN?'✓':isNr?'~':''}</span>`;
+    const mk=markIdx&&markIdx.has(j);
+    return `<span style="font-family:monospace;font-size:${big?'.8rem':'.68rem'};font-weight:${isN||isNr||mk?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:${mk?'rgba(0,0,0,.05)':'var(--surface2)'};border:${mk?'2px solid #111':'1px solid '+(isN?'rgba(0,200,100,.5)':'var(--border)')};border-radius:6px;padding:1px 6px"${mk?' title="Açık geçmiş testlerin hepsinde bu analizde ve bu sırada NET tutmuştu"':''}>${n}${isN?'✓':isNr?'~':''}</span>`;
   }).join('');
+}
+// ── Analiz seçimi (kesişim) ve konum eşleşmesi ──────────────────────────────
+// Sol sütundaki (Yeni Tahmin) her analizin yanında bir kutucuk vardır; işaretlenen
+// analizlerin TÜMÜNDE ortak geçen sayılar en üstte ayrı bir kartta listelenir.
+let _hySel=new Set();
+function _hySelToggle(id){
+  if(_hySel.has(id))_hySel.delete(id);else _hySel.add(id);
+  // Tüm ızgarayı yeniden çizmek kaydırma konumunu ve art arda tıklamayı bozuyordu:
+  // yalnızca üstteki panel ve seçilen hücrenin vurgusu güncellenir.
+  const sel=_hySel.has(id);
+  const cell=document.querySelector('#hyTestGrid [data-hyid="'+id+'"]');
+  if(cell){cell.style.background=sel?'rgba(217,119,6,.07)':'var(--surface)';
+    cell.style.borderColor=sel?'rgba(184,134,11,.5)':'var(--border)';}
+  _hyPanels();
+}
+function _hySelClearAll(){
+  _hySel.clear();
+  document.querySelectorAll('#hyTestGrid [data-hyid]').forEach(c=>{
+    c.style.background='var(--surface)';c.style.borderColor='var(--border)';
+    const b=c.querySelector('input[type=checkbox]');if(b)b.checked=false;});
+  _hyPanels();
+}
+// Üstteki iki panel (konum eşleşmesi + analiz kesişimi) tek yerden çizilir.
+function _hyPanels(){
+  const el=document.getElementById('hyPanels');if(!el)return;
+  const cols=[_hyTestData.live,_hyTestData.t1,_hyTestData.t2,_hyTestData.t3].filter(Boolean);
+  if(cols.length<2){el.innerHTML='';return;}
+  el.innerHTML=_hyPosPanel(_hyPosMarks(cols))+_hySelPanel(cols);
+}
+function _hySelPanel(cols){
+  const live=cols[0];if(!live)return '';
+  const ids=[..._hySel].filter(id=>live.map[id]);
+  if(!ids.length)return `<div class="card" style="margin:0 0 6px;padding:8px 11px;font-size:.58rem;color:var(--muted)">Soldaki <strong>Yeni Tahmin</strong> sütununda analizlerin yanındaki kutucukları işaretle — işaretlediklerinin <strong>TÜMÜNDE ortak</strong> geçen sayılar burada listelenir.</div>`;
+  let inter=live.map[ids[0]].nums.slice();
+  ids.slice(1).forEach(id=>{const st=new Set(live.map[id].nums);inter=inter.filter(n=>st.has(n));});
+  inter.sort((a,b)=>a-b);
+  const txt='🔎 Analiz Kesişimi ('+ids.length+' analiz)\n'+ids.map(id=>live.map[id].M.name).join(' × ')+'\n'+(inter.join(' ')||'(ortak sayı yok)');
+  let h=`<div class="card" style="margin:0 0 6px;border:2px solid rgba(184,134,11,.5);background:linear-gradient(135deg,rgba(217,119,6,.07),transparent)">
+   <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:5px">
+    <span style="font-size:.7rem;font-weight:800;color:#b8860b">🔎 Analiz Kesişimi — ${ids.length} analiz · ${inter.length} ortak sayı</span>
+    <span style="display:flex;gap:5px;align-items:center">
+     ${_hyCopyBtn('sel_inter',txt)}
+     <button onclick="_hySelClearAll()" style="font-size:.58rem;padding:3px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">✕ Temizle</button></span></div>
+   <div style="font-size:.52rem;color:var(--muted);margin-bottom:6px;line-height:1.5">${ids.map(id=>live.map[id].M.name).join(' × ')}</div>`;
+  if(!inter.length)h+=`<div style="font-size:.62rem;color:var(--muted)">Bu analizlerin ortak sayısı yok.</div>`;
+  else{
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${inter.map(n=>`<span style="font-family:monospace;font-size:.84rem;font-weight:800;color:var(--text);background:var(--surface2);border:1.5px solid rgba(184,134,11,.5);border-radius:7px;padding:2px 8px">${n}</span>`).join('')}</div>`;
+    // açık geçmiş testlerde bu kesişim ne tutturmuş
+    const tests=cols.slice(1);
+    if(tests.length)h+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:7px;padding-top:6px;border-top:1px dashed var(--border)">`
+      +tests.map(c=>{let n2=0,y2=0;inter.forEach(n=>{if(c.aSet.has(n))n2++;else if(c.aSet.has(n-1)||c.aSet.has(n+1))y2++;});
+        return `<span style="font-size:.56rem;color:var(--muted)">${c.actual.date}: <strong style="color:${n2?'var(--green)':'var(--muted)'}">${n2} net</strong> · ${y2} yakın</span>`;}).join('')+`</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
+// Konum eşleşmesi: bir analizin AYNI SIRADAKİ sayısı, açık geçmiş testlerin HEPSİNDE
+// (en az iki test) NET tuttuysa, yeni tahminde o sıradaki sayı kutu içine alınır.
+function _hyPosMarks(cols){
+  const out={byId:{},list:[]};
+  const live=cols[0],tests=cols.slice(1);
+  if(!live||tests.length<2)return out;
+  Object.keys(live.map).forEach(id=>{
+    const rows=tests.map(c=>c.map[id]).filter(Boolean);
+    if(rows.length<tests.length)return;
+    const m=Math.min(live.map[id].nums.length,...rows.map(r=>r.nums.length));
+    for(let j=0;j<m;j++){
+      if(tests.every((c,ti)=>c.aSet.has(rows[ti].nums[j]))){
+        (out.byId[id]=out.byId[id]||new Set()).add(j);
+        out.list.push({ad:live.map[id].M.name,sira:j+1,n:live.map[id].nums[j],
+          testler:rows.map(r=>r.nums[j]).join(' / ')});
+      }
+    }
+  });
+  return out;
+}
+function _hyPosPanel(pm){
+  if(!pm.list.length)return '';
+  const nums=[...new Set(pm.list.map(x=>x.n))].sort((a,b)=>a-b);
+  const txt='🔲 Açık geçmiş testlerin hepsinde aynı analiz+sırada NET tutan konumlar\n'
+    +pm.list.map(x=>x.ad+' · '+x.sira+'. sıra: '+x.n+'  (testler: '+x.testler+')').join('\n')
+    +'\n\nYeni tahmindeki sayılar: '+nums.join(' ');
+  return `<div class="card" style="margin:0 0 6px;border:2px solid #111;background:rgba(0,0,0,.03)">
+   <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:5px">
+    <span style="font-size:.7rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.54rem;color:var(--muted);font-weight:600">(${pm.list.length} konum · ${nums.length} sayı)</span></span>
+    ${_hyCopyBtn('pos_match',txt)}</div>
+   <div style="font-size:.52rem;color:var(--muted);margin-bottom:6px;line-height:1.6">Açık geçmiş testlerin <strong>hepsinde</strong> aynı analizin <strong>aynı sıradaki</strong> sayısı NET tutmuş. Yeni tahminde o sıradaki sayılar aşağıda ve sütun içinde <strong>siyah çerçeveyle</strong> işaretli.</div>
+   <div style="display:flex;gap:5px;flex-wrap:wrap">${pm.list.map(x=>
+     `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:2px solid #111"><span style="font-size:.86rem;font-weight:800;font-family:monospace;color:var(--text)">${x.n}</span><span style="font-size:.42rem;color:var(--muted)">${x.sira}. sıra</span></span>`).join('')}</div>
+  </div>`;
 }
 function _hyRender(){
   const el=document.getElementById('hyOut');if(!el||!_hyRes)return;
@@ -20769,16 +20862,18 @@ function _hyColData(game,prior,actual){
     baslik:actual?('🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((x,y)=>x-y).join(' ')+((actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''))
                  :('🔮 Yeni Tahmin — '+game.emoji+' '+game.name)};
 }
-function _hyCell(r,aSet,key){
+function _hyCell(r,aSet,key,opts){
   if(!r)return '<div style="padding:5px 7px;border-radius:7px;border:1px dashed var(--border);font-size:.52rem;color:var(--muted);height:100%;box-sizing:border-box">—</div>';
+  opts=opts||{};
   const txt=r.M.name+'\n'+r.nums.join(' ')+(aSet?`\n${r.net} net · ${r.near} yakın`:'');
-  return `<div style="padding:5px 7px;border-radius:7px;background:${r.net?'rgba(0,230,118,.06)':'var(--surface)'};border:1px solid ${r.net?'rgba(0,200,100,.35)':'var(--border)'};height:100%;box-sizing:border-box">
+  const chk=opts.chk?`<input type="checkbox" onchange="_hySelToggle('${opts.id}')"${opts.sel?' checked':''} style="width:14px;height:14px;accent-color:#b8860b;cursor:pointer;flex-shrink:0" title="Bu analizi kesişime kat">`:'';
+  return `<div ${opts.chk?`data-hyid="${opts.id}"`:''} style="padding:5px 7px;border-radius:7px;background:${r.net?'rgba(0,230,118,.06)':opts.sel?'rgba(217,119,6,.07)':'var(--surface)'};border:1px solid ${r.net?'rgba(0,200,100,.35)':opts.sel?'rgba(184,134,11,.5)':'var(--border)'};height:100%;box-sizing:border-box">
     <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:3px">
-     <span style="font-size:.56rem;font-weight:700;color:var(--text);flex:1;min-width:0">${r.M.name}</span>
+     ${chk}<span style="font-size:.56rem;font-weight:700;color:var(--text);flex:1;min-width:0">${r.M.name}</span>
      <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
       ${aSet?`<span style="font-size:.54rem;font-weight:800;color:${r.net?'var(--green)':'var(--muted)'};white-space:nowrap">${r.net} net · ${r.near} yakın</span>`:''}
       ${_hyCopyBtn(key,txt)}</span></div>
-    <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(r.nums,aSet)}</div></div>`;
+    <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(r.nums,aSet,false,opts.marks)}</div></div>`;
 }
 function _hyRenderTests(){
   const grid=document.getElementById('hyTestGrid');if(!grid)return;
@@ -20786,7 +20881,8 @@ function _hyRenderTests(){
   grid.innerHTML='';
   if(cols.length<2)return;   // yalnızca yeni tahmin varsa sütun düzenine gerek yok
   const mkRow=inner=>`<div class="hy-row" style="display:grid;grid-template-columns:repeat(${cols.length},minmax(0,1fr));gap:14px;align-items:stretch;margin-bottom:5px">${inner}</div>`;
-  let h=mkRow(cols.map(c=>`<div style="padding:8px 10px;background:var(--surface2);border:1px solid ${c.aSet?'rgba(217,119,6,.35)':'var(--border)'};border-radius:9px">
+  const pm=_hyPosMarks(cols);
+  let h='<div id="hyPanels"></div>'+mkRow(cols.map(c=>`<div style="padding:8px 10px;background:var(--surface2);border:1px solid ${c.aSet?'rgba(217,119,6,.35)':'var(--border)'};border-radius:9px">
      <div style="font-size:.64rem;font-weight:800;color:#b8860b">${c.baslik}</div>
      <div style="font-size:.52rem;color:var(--muted);margin-top:3px;line-height:1.5">${c.aSet
        ?`Bu tarihten ÖNCEKİ verilerle (lookahead yok) · ✓ net · ~ ±1 yakın`
@@ -20810,9 +20906,11 @@ function _hyRenderTests(){
   }).join(''));
   _hyRowOrder().forEach(id=>{
     if(!cols.some(c=>c.map[id]))return;
-    h+=mkRow(cols.map((c,ci)=>`<div>${_hyCell(c.map[id],c.aSet,'col'+ci+'_'+id)}</div>`).join(''));
+    h+=mkRow(cols.map((c,ci)=>`<div>${_hyCell(c.map[id],c.aSet,'col'+ci+'_'+id,
+      ci===0?{chk:true,id,sel:_hySel.has(id),marks:pm.byId[id]}:null)}</div>`).join(''));
   });
   grid.innerHTML=h;
+  _hyPanels();
   window._hyTestTxt=cols.map(c=>c.baslik+'\n'
     +(c.uzlasi&&c.uzlasi.nums.length?'🏆 Uzlaşı ('+c.uzlasi.kaynak+' yöntem): '+c.uzlasi.nums.join(' ')
        +(c.aSet?`  → ${c.uzlasi.net} net · ${c.uzlasi.near} yakın`:'')+'\n':'')
@@ -20837,7 +20935,7 @@ function _hyDateTest(slot){
     _hyRenderTests();
   },20);
 }
-function _hyClearTests(){_hyTestData={live:null,t1:null,t2:null,t3:null};
+function _hyClearTests(){_hyTestData={live:null,t1:null,t2:null,t3:null};_hySel.clear();
   ['','2','3'].forEach(sl=>{const e=document.getElementById('hyDateSel'+sl);if(e)e.value='';});
   const g=document.getElementById('hyTestGrid');if(g){g.innerHTML='';g.className='';}}
 // ── ANASAYFA: "Formül" kutusu (yalnızca son 2 çekiliş) ──────────────────────
