@@ -18,15 +18,18 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
     radial-gradient(ellipse at 85% 92%,rgba(224,64,95,.04) 0%,transparent 45%);}
 
 /* Nav */
-.main-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(245,247,252,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:0 12px;height:52px}
-.nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:8px;height:100%}
+/* Menü: tek satıra sığmayınca ALT SATIRA sarar (kaydırma yok, ok butonu yok).
+   Yükseklik içeriğe göre büyür; body'nin üst boşluğu JS'te nav yüksekliğinden okunur. */
+.main-nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(245,247,252,.96);backdrop-filter:blur(14px);border-bottom:1px solid var(--border);padding:6px 12px}
+.nav-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .nav-brand{font-size:.9rem;font-weight:800;white-space:nowrap;flex-shrink:0;background:linear-gradient(135deg,var(--gold),var(--accent));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;cursor:pointer}
-.nav-links{display:flex;gap:5px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;flex:1;min-width:0}
-.nav-links::-webkit-scrollbar{display:none}
+.nav-links{display:flex;gap:5px;flex-wrap:wrap;row-gap:5px;flex:1;min-width:0}
 .nav-link{background:none;border:1px solid transparent;color:var(--muted);border-radius:8px;padding:5px 11px;font-size:.75rem;font-weight:600;cursor:pointer;transition:all .18s;white-space:nowrap;flex-shrink:0}
 .nav-link:hover{border-color:var(--border);color:var(--text)}
 .nav-link.active{background:rgba(108,99,255,.18);border-color:rgba(108,99,255,.45);color:var(--accent)}
-.nav-scroll-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:4px 7px;cursor:pointer;font-size:.8rem;line-height:1;flex-shrink:0;display:none}
+/* Dar ekranda menü sarınca çok satıra yayılıyordu; buton ölçüsü küçültülüp satır sayısı düşürülür. */
+@media(max-width:700px){.nav-link{padding:4px 8px;font-size:.68rem}.nav-inner{gap:6px}.main-nav{padding:5px 8px}}
+@media(max-width:420px){.nav-link{padding:3px 7px;font-size:.64rem}}
 /* Listeler sayfası */
 .lcell{width:22px;height:18px;min-height:18px;max-height:18px;font-size:.58rem;display:flex;align-items:center;justify-content:center;background:#fff;color:#222;border:1px solid #ddd;font-weight:600;border-radius:2px;flex-shrink:0;flex-grow:0;line-height:1;box-sizing:border-box;overflow:hidden}
 .lcell.l-green{background:#43a047;color:#fff;border-color:#2e7d32}
@@ -345,13 +348,13 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
 @media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,#agGrid,#agHdrRow,#agTestCtl,.ag-row,
-  .agx-row,#nnGrid,#npGrid,#fmGrid,#hyTestGrid{grid-template-columns:1fr !important;}}
+  .agx-row,.hy-row,#nnGrid,#npGrid,#fmGrid{grid-template-columns:1fr !important;}}
 /* 3 geçmiş test açıkken 4 sütun olabilir; tablette en fazla 2'ye iner. */
 @media(max-width:1400px) and (min-width:1101px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,.ag-row,#agHdrRow,
-  .agx-row,#hyTestGrid{grid-template-columns:1fr 1fr 1fr !important;}}
+  .agx-row,.hy-row{grid-template-columns:1fr 1fr 1fr !important;}}
 /* 2 geçmiş test açıkken 3 sütun; tablette 2'ye, telefonda 1'e iner. */
 @media(max-width:1100px) and (min-width:601px){.qt-pair-row,#qtHdrRow,#btsHdrRow,
-  .agx-row,#nnGrid,#npGrid,#fmGrid,#hyTestGrid{grid-template-columns:1fr 1fr !important;}}
+  .agx-row,.hy-row,#nnGrid,#npGrid,#fmGrid{grid-template-columns:1fr 1fr !important;}}
 @media(max-width:600px){#caNihaiGrid,#cbNihaiGrid,#f2Grid,#kbGrid,#scanGrid,#hyDateRow{grid-template-columns:1fr !important;}}
 /* Telefonda yan yana iki sütun sayıları dar bir şeride sıkıştırıyordu; ≥600px'te (tablet ve
    üstü) iki pencere gibi yan yana, altında tek sütun. */
@@ -373,7 +376,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <nav class="main-nav" id="mainNav">
   <div class="nav-inner">
     <span class="nav-brand" onclick="showMainPage('home')" title="Ana Sayfa">🎱 Loto</span>
-    <button class="nav-scroll-btn" id="navScrollPrev" onclick="_navScroll(-1)">‹</button>
     <div class="nav-links" id="navLinks">
       <button class="nav-link active" id="navBtn-home" onclick="showMainPage('home')">🏠 Ana Sayfa</button>
       <button class="nav-link" id="navBtn-hizlitahmin" onclick="showMainPage('hizlitahmin')">⚡ Hızlı Tahmin</button>
@@ -393,7 +395,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-haber" onclick="showMainPage('haber')" style="border-color:rgba(180,83,9,.45);color:#b8860b">📰 Haber Yöntemleri</button>
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
     </div>
-    <button class="nav-scroll-btn" id="navScrollNext" onclick="_navScroll(1)">›</button>
   </div>
 </nav>
 
@@ -1507,18 +1508,18 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  </div>
  <div class="card" style="margin-bottom:12px">
   <div class="card-title">📊 Geçmiş Test — tek tek tarih seçerek</div>
-  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; TÜM yöntemler o tarihten ÖNCEKİ verilerle çalıştırılıp gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın) ve kaç yöntemin en az 1 sayıyı net bulduğu yazılır.</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6"><strong>Aynı anda üç tarih</strong> seçebilirsiniz. Yeni tahmin ve seçtiğiniz geçmiş testler yan yana sütunlarda, <strong>her yöntem aynı satırda</strong> gösterilir — böylece bir yöntemin farklı çekilişlerdeki davranışını doğrudan karşılaştırabilirsiniz. Her sütun o tarihten ÖNCEKİ verilerle kurulur (lookahead yok) · ✓ net · ~ ±1 yakın. Satır sırası ölçümdeki lift sırasıdır (ölçüm yapılmadıysa yöntem sırası).</div>
   <div id="hyDateRow" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
    <select id="hyDateSel" onchange="_hyDateTest('')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
    <select id="hyDateSel2" onchange="_hyDateTest('2')" title="2. geçmiş test" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
    <select id="hyDateSel3" onchange="_hyDateTest('3')" title="3. geçmiş test" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
   </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
+   <button onclick="_caCopy(window._hyTestTxt||'')" class="copy-btn" style="font-size:.66rem;padding:5px 12px;font-weight:700">📋 Geçmiş Testi Kopyala</button>
+   <button onclick="_hyClearTests()" style="font-size:.66rem;padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">🗑️ Testleri Temizle</button>
+  </div>
  </div>
- <div id="hyTestGrid" style="display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start;margin-bottom:12px">
-  <div data-col="1" style="display:none"><div id="hyTestOut"></div></div>
-  <div data-col="2" style="display:none"><div id="hyTestOut2"></div></div>
-  <div data-col="3" style="display:none"><div id="hyTestOut3"></div></div>
- </div>
+ <div id="hyTestGrid" style="margin-bottom:12px"></div>
  <div id="hyOut"></div>
 </div>
 
@@ -13390,27 +13391,18 @@ function _splitInit(){
 }
 window.addEventListener('resize',()=>{_splitBarRender();});
 
-// Nav: always fixed, single row; scroll buttons on large screens, touch scroll on mobile
+// Nav sabit ve ÇOK SATIRLI: butonlar sığmayınca alt satıra sarar. Kaydırma ve ok butonu yok.
+// Sarma sonucu yükseklik değiştiği için body'nin üst boşluğu her ölçüde yeniden hesaplanır
+// (ResizeObserver varsa onunla, yoksa resize olayıyla) — yoksa menü içeriğin üstünü örter.
 (function(){
   const nav=document.getElementById('mainNav');
-  const links=document.getElementById('navLinks');
-  const prev=document.getElementById('navScrollPrev');
-  const next=document.getElementById('navScrollNext');
-  if(!nav||!links)return;
-  document.body.style.paddingTop=nav.offsetHeight+'px';
-  function update(){
-    const overflow=links.scrollWidth>links.clientWidth+4;
-    if(prev)prev.style.display=overflow?'block':'none';
-    if(next)next.style.display=overflow?'block':'none';
-  }
-  links.addEventListener('scroll',update,{passive:true});
-  window.addEventListener('resize',update,{passive:true});
-  update();
+  if(!nav)return;
+  const sync=()=>{document.body.style.paddingTop=nav.offsetHeight+'px';};
+  sync();
+  if(window.ResizeObserver)new ResizeObserver(sync).observe(nav);
+  window.addEventListener('resize',sync,{passive:true});
+  window.addEventListener('load',sync);
 })();
-function _navScroll(dir){
-  const links=document.getElementById('navLinks');
-  if(links)links.scrollBy({left:dir*160,behavior:'smooth'});
-}
 
 function _scanGetDraws(gameId){
   const raw=DRAW_DATA[gameId]||'';
@@ -20598,7 +20590,8 @@ function _hyInit(){
   if(_hyRes)_hyRender();
 }
 function _hySetGame(g){_hyGame=g;_hyGameManual=true;_hyRes=null;
-  ['hyOut','hyTestOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});_hyInit();}
+  const e=document.getElementById('hyOut');if(e)e.innerHTML='';
+  _hyClearTests();_hyInit();}
 function _hySetT(v){_hyT=parseInt(v)||100;}
 function _hySetN(v){_hyNMul=parseFloat(v)||2;}
 function _hySetK(v){_hyK=parseInt(v)||6;const e=document.getElementById('hyBiletOut');if(e)e.innerHTML='';}
@@ -20738,56 +20731,83 @@ function _hyBilet(){
       <span style="display:flex;gap:5px;flex-wrap:wrap">${(t.main||[]).map(n=>`<span style="font-family:monospace;font-size:.82rem;font-weight:700;color:var(--text)">${n}</span>`).join('')}
       ${(t.bonus&&t.bonus.length)?`<span style="color:var(--muted);font-size:.68rem">| ${t.bonus.join(' ')}</span>`:''}</span></div>`).join('');
 }
+// ── ÇOKLU GEÇMİŞ TEST — Agresif / Hızlı Tahmin sayfalarındaki düzenin aynısı ────────
+// Yeni tahmin ve açık geçmiş testler YAN YANA sütunlarda; her yöntem TEK bir grid
+// satırında, yani "Markov Ardılı" her sütunda aynı hizada. Sütunlar arası karşılaştırma
+// ancak sıralama sabitse anlamlı olduğu için satır sırası tek yerden gelir (_hyRowOrder):
+// ölçüm yapıldıysa lift sırası, yapılmadıysa yöntem kayıt sırası.
+let _hyTestData={live:null,t1:null,t2:null,t3:null};
+function _hyRowOrder(){
+  if(_hyRes&&_hyRes.res&&_hyRes.res.length)
+    return _hyRes.res.slice().sort((a,b)=>b.lift-a.lift||b.rate1-a.rate1).map(r=>r.id);
+  return _HY_METHODS.map(M=>M.id);
+}
+function _hyColData(game,prior,actual){
+  const aSet=actual?new Set(_hyNums(actual)):null,N=_HY_N(game);
+  const map={};
+  _HY_METHODS.forEach(M=>{
+    let c=[];try{c=M.gen(game,prior,N)||[];}catch(e){}
+    if(!c.length)return;
+    let net=0,near=0;
+    if(aSet)c.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+    map[M.id]={M,nums:c.slice().sort((x,y)=>x-y),net,near};
+  });
+  const list=Object.keys(map).map(k=>map[k]);
+  return {game,actual,aSet,map,
+    bulan:aSet?list.filter(r=>r.net>=1).length:0,toplam:list.length,
+    baslik:actual?('🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((x,y)=>x-y).join(' ')+((actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''))
+                 :('🔮 Yeni Tahmin — '+game.emoji+' '+game.name)};
+}
+function _hyCell(r,aSet){
+  if(!r)return '<div style="padding:5px 7px;border-radius:7px;border:1px dashed var(--border);font-size:.52rem;color:var(--muted);height:100%;box-sizing:border-box">—</div>';
+  return `<div style="padding:5px 7px;border-radius:7px;background:${r.net?'rgba(0,230,118,.06)':'var(--surface)'};border:1px solid ${r.net?'rgba(0,200,100,.35)':'var(--border)'};height:100%;box-sizing:border-box">
+    <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:3px">
+     <span style="font-size:.56rem;font-weight:700;color:var(--text)">${r.M.name}</span>
+     ${aSet?`<span style="font-size:.54rem;font-weight:800;color:${r.net?'var(--green)':'var(--muted)'};white-space:nowrap">${r.net} net · ${r.near} yakın</span>`:''}</div>
+    <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(r.nums,aSet)}</div></div>`;
+}
+function _hyRenderTests(){
+  const grid=document.getElementById('hyTestGrid');if(!grid)return;
+  const cols=[_hyTestData.live,_hyTestData.t1,_hyTestData.t2,_hyTestData.t3].filter(Boolean);
+  grid.innerHTML='';
+  if(cols.length<2)return;   // yalnızca yeni tahmin varsa sütun düzenine gerek yok
+  const mkRow=inner=>`<div class="hy-row" style="display:grid;grid-template-columns:repeat(${cols.length},minmax(0,1fr));gap:14px;align-items:stretch;margin-bottom:5px">${inner}</div>`;
+  let h=mkRow(cols.map(c=>`<div style="padding:8px 10px;background:var(--surface2);border:1px solid ${c.aSet?'rgba(217,119,6,.35)':'var(--border)'};border-radius:9px">
+     <div style="font-size:.64rem;font-weight:800;color:#b8860b">${c.baslik}</div>
+     <div style="font-size:.52rem;color:var(--muted);margin-top:3px;line-height:1.5">${c.aSet
+       ?`Bu tarihten ÖNCEKİ verilerle (lookahead yok) · ✓ net · ~ ±1 yakın`
+       :'Sıradaki çekiliş için — henüz sonuç yok'}</div>
+     ${c.aSet?`<div style="font-size:.58rem;font-weight:800;margin-top:4px;color:${c.bulan?'var(--green)':'var(--muted)'}">${c.bulan}/${c.toplam} yöntem ≥1 net</div>`:''}
+    </div>`).join(''));
+  _hyRowOrder().forEach(id=>{
+    if(!cols.some(c=>c.map[id]))return;
+    h+=mkRow(cols.map(c=>`<div>${_hyCell(c.map[id],c.aSet)}</div>`).join(''));
+  });
+  grid.innerHTML=h;
+  window._hyTestTxt=cols.map(c=>c.baslik+'\n'+_hyRowOrder().filter(id=>c.map[id])
+    .map(id=>c.map[id].M.name+': '+c.map[id].nums.join(' ')+(c.aSet?`  → ${c.map[id].net} net · ${c.map[id].near} yakın`:'')).join('\n')).join('\n\n');
+}
 function _hyDateTest(slot){
   slot=slot||'';
-  const el=document.getElementById('hyTestOut'+slot);if(!el)return;
+  const key=slot==='3'?'t3':slot==='2'?'t2':'t1';
+  const grid=document.getElementById('hyTestGrid');if(!grid)return;
   const date=document.getElementById('hyDateSel'+slot)?.value||'';
-  if(!date){el.innerHTML='';return;}
   const game=getGame(_hyGame),draws=_kbGetDraws(_hyGame);
-  const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
+  if(!date){_hyTestData[key]=null;_hyRenderTests();return;}
+  const idx=draws.findIndex(d=>d.date===date);
+  if(idx<0){_hyTestData[key]=null;_hyRenderTests();return;}
   const actual=draws[idx],prior=draws.slice(idx+1);
-  if(prior.length<150){el.innerHTML='<div class="card" style="font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
-  el.innerHTML='<div class="card" style="font-size:.7rem;color:var(--muted)">⏳ hesaplanıyor…</div>';
+  if(prior.length<150){_hyTestData[key]=null;_hyRenderTests();return;}
+  grid.innerHTML='<div class="card" style="font-size:.7rem;color:var(--muted)">⏳ yöntemler çalıştırılıyor…</div>';
   setTimeout(()=>{
-    const aSet=new Set(_hyNums(actual)),N=_HY_N(game);
-    const rows=_HY_METHODS.map(M=>{
-      let c=[];try{c=M.gen(game,prior,N)||[];}catch(e){}
-      let net=0,near=0;c.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
-      return {M,nums:c.slice().sort((a,b)=>a-b),net,near};
-    }).filter(r=>r.nums.length).sort((a,b)=>b.net-a.net||b.near-a.near);
-    const bulan=rows.filter(r=>r.net>=1).length;
-    let h=`<div class="card" style="margin:0"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-      <span style="font-size:.7rem;font-weight:800;color:#b8860b">🎯 ${actual.date} — ${[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''}</span>
-      <span style="font-size:.6rem;font-weight:800;color:${bulan?'var(--green)':'var(--muted)'}">${bulan}/${rows.length} yöntem ≥1 net</span></div>
-      <div style="font-size:.54rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bu tarihten ÖNCEKİ verilerle (lookahead yok) · ✓ net · ~ ±1 yakın · net sayısına göre sıralı.</div>`;
-    rows.forEach(r=>{
-      // Ad + skor üstte tek satır, sayılar ALTTA tam genişlikte akar. Dar ekranda sayıların
-      // tek tek alt alta düşmesini engeller (yan yana sarmalanır).
-      h+=`<div style="padding:5px 7px;border-radius:7px;background:${r.net?'rgba(0,230,118,.06)':'var(--surface)'};border:1px solid ${r.net?'rgba(0,200,100,.35)':'var(--border)'};margin-bottom:3px">
-        <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:3px">
-         <span style="font-size:.56rem;font-weight:700;color:var(--text)">${r.M.name}</span>
-         <span style="font-size:.54rem;font-weight:800;color:${r.net?'var(--green)':'var(--muted)'};white-space:nowrap">${r.net} net · ${r.near} yakın</span></div>
-        <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(r.nums,aSet)}</div></div>`;
-    });
-    h+=`</div>`;
-    el.innerHTML=h;
-    _hyTestLayout();
+    if(!_hyTestData.live)_hyTestData.live=_hyColData(game,draws,null);
+    _hyTestData[key]=_hyColData(game,prior,actual);
+    _hyRenderTests();
   },20);
 }
-
-// Açık geçmiş test sütunlarını yan yana dizer (diğer sayfalardaki düzenle aynı).
-function _hyTestLayout(){
-  const grid=document.getElementById('hyTestGrid');if(!grid)return;
-  let n=0;
-  ['','2','3'].forEach((sl,i)=>{
-    const col=grid.querySelector('[data-col="'+(i+1)+'"]');if(!col)return;
-    const out=document.getElementById('hyTestOut'+sl);
-    const on=!!(out&&out.innerHTML.trim());
-    col.style.display=on?'':'none';if(on)n++;
-  });
-  grid.style.gridTemplateColumns='repeat('+Math.max(1,n)+',minmax(0,1fr))';
-}
-
+function _hyClearTests(){_hyTestData={live:null,t1:null,t2:null,t3:null};
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('hyDateSel'+sl);if(e)e.value='';});
+  const g=document.getElementById('hyTestGrid');if(g){g.innerHTML='';g.className='';}}
 // ── ANASAYFA: "Formül" kutusu (yalnızca son 2 çekiliş) ──────────────────────
 let _fmGame='sayisal',_fmGameManual=false;
 function _fmInit(){
