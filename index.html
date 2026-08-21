@@ -387,6 +387,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Kazanan/Kronoloji</button>
       <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı</button>
       <button class="nav-link" id="navBtn-gulsis0" onclick="showMainPage('gulsis0')" style="border-color:rgba(16,185,129,.4);color:#0a9a6a">🎯⁰ Gülsis Sıfır</button>
+      <button class="nav-link" id="navBtn-haber" onclick="showMainPage('haber')" style="border-color:rgba(180,83,9,.45);color:#b8860b">📰 Haber Yöntemleri</button>
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
     </div>
     <button class="nav-scroll-btn" id="navScrollNext" onclick="_navScroll(1)">›</button>
@@ -847,6 +848,29 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_qtFinalAnalyze('hm')" style="font-size:.78rem;padding:9px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🧾 Tespiti Oluştur</button>
   </div>
   <div id="hmFinalOut"></div>
+ </div>
+</div>
+
+<!-- ═══════════ FORMÜL — yalnızca son 2 çekiliş ve aralarındaki ilişkiler ═══════════ -->
+<div id="fmSection" style="grid-column:1/-1;margin-top:0;min-width:0">
+ <div class="card" style="border:2px solid rgba(99,102,241,.45);background:linear-gradient(135deg,rgba(99,102,241,.05),transparent)">
+  <div class="card-title">🧮 Formül</div>
+  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:rgba(99,102,241,.06);border-radius:8px;line-height:1.7">
+   Yalnızca <strong style="color:var(--text)">son iki çekilişin sayıları</strong> ve aralarındaki ilişkiler kullanılır — frekans, gecikme, uzlaşı, tarih… hiçbiri yok. Aynı sıradaki sayılar arasında <strong>toplama, fark, çarpım, ortalama, doğrusal zincir (2a−b), ayna, toplam farkı, rakam toplamı, iç farklar ve çapraz eşleme</strong> uygulanır; her formülün ürettiği sayılar ayrı ayrı ve en çok formülün buluştuğu <strong>uzlaşı</strong> olarak gösterilir.
+  </div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="fmGameRow"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <button onclick="_fmRun()" style="flex:1;min-width:180px;font-size:.78rem;padding:9px;border-radius:9px;background:linear-gradient(135deg,rgba(99,102,241,.9),rgba(79,70,229,.8));border:1px solid rgba(99,102,241,.6);color:#fff;cursor:pointer;font-weight:800">🧮 Formülleri Çalıştır</button>
+   <button onclick="_caCopy(window._fmTxt||'')" class="copy-btn" style="font-size:.72rem;padding:8px 14px;font-weight:700">📋 Kopyala</button>
+  </div>
+  <div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--border)">
+   <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:6px">📊 Geçmiş Test — tek tek tarih seçerek</div>
+   <select id="fmDateSel" onchange="_fmDateTest()" style="width:100%;box-sizing:border-box;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+  </div>
+  <div id="fmGrid" style="display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start">
+   <div><div style="font-size:.66rem;font-weight:800;color:var(--accent);margin-bottom:5px">🔮 Yeni Tahmin</div><div id="fmOut"></div></div>
+   <div data-col="1" style="display:none"><div style="font-size:.66rem;font-weight:800;color:var(--accent);margin-bottom:5px">📊 Geçmiş Test</div><div id="fmTestOut"></div></div>
+  </div>
  </div>
 </div>
 
@@ -1440,6 +1464,39 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
  </div>
  <div id="agxOut"></div>
+</div>
+
+<!-- ═══════════ PAGE: HABER YÖNTEMLERİ + YÖNTEM LABORATUVARI ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-haber">
+ <div class="card" style="border-color:rgba(180,83,9,.45)">
+  <div class="card-title">📰 Haber Yöntemleri + Yöntem Laboratuvarı</div>
+  <div style="font-size:.63rem;color:var(--muted);margin-bottom:10px;padding:9px 11px;background:rgba(217,119,6,.07);border:1px solid rgba(217,119,6,.25);border-radius:8px;line-height:1.75">
+   Basında anlatılan tahmin yöntemleri <strong>birebir kodlanıp</strong> ölçüldü, üstüne aynı mantığın onlarca türevi denendi. Ölçüt: <strong style="color:var(--text)">yöntem geçmiş çekilişlerde en az 1 sayıyı NET buluyor mu?</strong> — çekilişlerin en az yarısında ≥1 net bulan yöntemler listeye giriyor, kalanlar "elenenler" bölümünde saklanıyor.
+   <div style="margin-top:7px;padding-top:7px;border-top:1px dashed var(--border)">
+    <div style="font-weight:700;color:var(--text);margin-bottom:3px">Kaynak haberler ve çıkarılan yöntemler</div>
+    • <strong>Habertürk — "Sayısal'ın sırrı Karadeniz'de çözüldü":</strong> emekli nalbur Tuncay Albayrak 13 yılda 600 çekilişi <strong>211 modele</strong> ayırmış. İki fikir: <strong>onluk model deseni</strong> (örn. "1 tek-basamaklı · 1 on'lu · 1 yirmi'li · 2 otuz'lu · 1 kırk'lı" — 5-15-20-32-34-47 gibi — 23 kez tekrarlamış) ve <strong>"deprem haritası"</strong> (sık birlikte düşen ikililer: 3-8, 11-16, 21-27, 32-33, 43-49; hiç birlikte gelmeyen: 11-19). Uygulaması: seçilen ikiliyi her kolonda sabit tut, kalanları değiştir.<br>
+    • <strong>Halk TV — "20 günde bir Sayısal Loto'yu bilen talihli":</strong> yöntem yok; sayılar 23 yıl önce kâğıt çekilerek rastgele belirlenmiş ve <strong>hiç değiştirilmeden</strong> oynanmış (sabit kolon / sadakat).<br>
+    • <strong>Üçüncü bağlantı (Sabah)</strong> sayısal loto ile ilgili değil — Türkiye-Gürcistan sınırındaki Sarp köyünü anlatıyor; buradan yöntem çıkarılamadı.
+   </div>
+   <div style="margin-top:7px;color:#8a6200">⚠️ Habertürk'teki haberde istatistikçi Prof. Fazıl Güler'in uyarısı da var: toplar eşit ağırlıktaysa bu başarılar tesadüftür. Bu sayfa da tam olarak bunu ölçer — her yöntemin yanında <strong>şans tabanı</strong> (aynı büyüklükte rastgele havuzun ≥1 net olasılığı) ve <strong>lift</strong> (yöntem ÷ şans) yazar. Lift 1,00 civarıysa yöntem eşiği geçse bile şanstan farksızdır. Kontrol grubu olarak listeye <strong>🎲 Rastgele</strong> yöntemi de eklendi — kıyas için ona bakın.
+  </div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="hyGameRow"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+   <span style="font-size:.66rem;color:var(--muted)">Ölçüm:</span>
+   <select id="hyT" onchange="_hySetT(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="50">son 50 çekiliş</option><option value="100" selected>son 100 çekiliş</option><option value="200">son 200 çekiliş</option>
+   </select>
+   <button onclick="_hyRun()" style="flex:1;min-width:200px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(217,119,6,.92),rgba(180,83,9,.8));border:1px solid rgba(217,119,6,.6);color:#fff;cursor:pointer;font-weight:800">📰 Tüm Yöntemleri Çalıştır + Ölç</button>
+   <button onclick="_caCopy(window._hyTxt||'')" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Kopyala</button>
+  </div>
+ </div>
+ <div class="card" style="margin-bottom:12px">
+  <div class="card-title">📊 Geçmiş Test — tek tek tarih seçerek</div>
+  <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Bir tarih seçin; TÜM yöntemler o tarihten ÖNCEKİ verilerle çalıştırılıp gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın) ve kaç yöntemin en az 1 sayıyı net bulduğu yazılır.</div>
+  <select id="hyDateSel" onchange="_hyDateTest()" style="width:100%;box-sizing:border-box;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+ </div>
+ <div id="hyTestOut" style="margin-bottom:12px"></div>
+ <div id="hyOut"></div>
 </div>
 
 <!-- ═══════════ PAGE: BASİT TAHMİN ═══════════ -->
@@ -13182,7 +13239,7 @@ function _kbRenderKazanan(){
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
 // Anasayfa bölüm sırası — 🧾 Tespit, 🎫 Bilet Testi & Anomali Analizi'nin hemen altında.
-const _HOME_IDS=['page-generator','page-backtest','homeBiletSection','tsSection','nnSection','npSection','candSection','cbSection','onaSection'];
+const _HOME_IDS=['page-generator','page-backtest','homeBiletSection','tsSection','fmSection','nnSection','npSection','candSection','cbSection','onaSection'];
 let _scanGame=null;
 
 // Anasayfaya özel ağır hesaplar, o sayfa AÇIK DEĞİLKEN yapılmasın: oyun değiştirmek
@@ -13196,8 +13253,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','soz','gulsis0','nsa','hizlitahmin','basit','agresif','arastirma','formul','formul2','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',hizlitahmin:'⚡ Hızlı Tahmin',basit:'✨ Basit Tahmin',agresif:'🔥 Agresif Tahmin',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','soz','gulsis0','nsa','hizlitahmin','basit','agresif','arastirma','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',hizlitahmin:'⚡ Hızlı Tahmin',basit:'✨ Basit Tahmin',agresif:'🔥 Agresif Tahmin',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -13212,6 +13269,7 @@ function _pageInit(id){
   if(id==='hizlitahmin'){_htInit();_qtSyncPairs();}
   if(id==='basit')_btsInit();
   if(id==='agresif')_agInit();
+  if(id==='haber')_hyInit();
   if(id==='arastirma')_mrInit();
   if(id==='formul')_snInit();
   if(id==='formul2')_f2Init();
@@ -13226,11 +13284,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-basit','page-agresif','page-arastirma','page-formul','page-formul2','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-basit','page-agresif','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-basit','navBtn-agresif','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-basit','navBtn-agresif','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
@@ -16047,7 +16105,8 @@ function _homeColLayout(pfx){
   grid.style.gridTemplateColumns='repeat('+n+',minmax(0,1fr))';
 }
 function _homeColInit(){
-  ['nn','np'].forEach(pfx=>{
+  try{_fmInit();}catch(e){}
+  ['nn','np','fm'].forEach(pfx=>{
     ['','2','3'].forEach(sl=>{
       const out=document.getElementById(pfx+'TestOut'+sl);if(!out)return;
       new MutationObserver(()=>_homeColLayout(pfx)).observe(out,{childList:true,subtree:true});
@@ -20077,6 +20136,585 @@ function _agxRunAll(){
 }
 // Ana sayfadaki üret/tarih değişimleri ek motorları da tazelesin (yalnızca bir kez üretildiyse).
 function _agxAuto(){if(_agxRan)_agxRunAll();}
+// ═══════════ 📰 HABER YÖNTEMLERİ + YÖNTEM LABORATUVARI ═══════════
+// Kaynak haberler:
+//  • Habertürk — "Sayısal'ın sırrı Karadeniz'de çözüldü": 600 çekilişi 211 "model"e ayıran
+//    Tuncay Albayrak'ın yöntemi. İki bileşen var: (1) ONLUK MODEL DESENİ — örn. "bir tek
+//    basamaklı, bir 10'lu, bir 20'li, iki 30'lu, bir 40'lı" (5-15-20-32-34-47 gibi) deseni
+//    23 kez tekrarlamış; (2) "DEPREM HARİTASI" — sık birlikte düşen ikililer (3-8, 11-16,
+//    21-27, 32-33, 43-49) ve hiç birlikte gelmeyenler (11-19). Uygulaması: seçilen ikiliyi
+//    her kolonda SABİT tut, kalan sayıları değiştir; kombinasyonu haftalarca tekrar oyna.
+//    Haberdeki istatistikçi Prof. Fazıl Güler: toplar eşit ağırlıktaysa bu başarılar tesadüf.
+//  • Halk TV — "20 günde bir Sayısal Loto'yu bilen talihli": yöntem yok; 23 yıldır AYNI
+//    sayıları hiç değiştirmeden oynamak (sadakat/sabit kolon).
+//  • Sabah'taki üçüncü bağlantı sayısal loto ile ilgili değil (Türkiye-Gürcistan sınırındaki
+//    Sarp köyü) — bu yüzden yöntem çıkarılamadı.
+// Bu sayfa haberlerdeki yöntemleri BİREBİR kodlar, üstüne aynı mantığın onlarca türevini
+// dener ve hepsini AYNI ölçüte vurur: geçmiş çekilişlerde en az 1 sayıyı NET buluyor mu?
+// Ölçüm walk-forward'dır (her çekiliş yalnızca kendisinden ÖNCEKİ verilerle tahmin edilir).
+// Karşılaştırma tabanı: aynı büyüklükte RASTGELE havuzun ≥1 net olasılığı (hipergeometrik).
+const _hyC=(n,r)=>{if(r<0||r>n)return 0;r=Math.min(r,n-r);let x=1;for(let i=0;i<r;i++)x=x*(n-i)/(i+1);return x;};
+function _hyDrawn(g){return g.id==='onnumara'?22:(g.count+(g.bonusCount||0));}
+// p sayılık rastgele havuzun ≥1 net bulma olasılığı
+function _hyBase(g,p){const max=g.max,d=_hyDrawn(g);if(p<=0)return 0;const miss=_hyC(max-d,p);return 1-(miss/_hyC(max,p));}
+function _hyNums(d){return [...new Set([...(d.nums||[]),...(d.bonus||[])])];}
+function _hyWrap(v,max){v=Math.round(v);let w=((v%max)+max)%max;return w===0?max:w;}
+function _hyClip(arr,max,N){
+  const out=[];
+  for(const v of arr){const n=Math.round(v);if(n>=1&&n<=max&&!out.includes(n))out.push(n);if(out.length>=N)break;}
+  return out;
+}
+function _hyFreq(prior,g,N){
+  const f=new Array(g.max+1).fill(0);
+  prior.slice(0,N||300).forEach(d=>_hyNums(d).forEach(n=>{if(n>=1&&n<=g.max)f[n]++;}));
+  return f;
+}
+function _hyRankByFreq(pool,f){return pool.slice().sort((a,b)=>(f[b]||0)-(f[a]||0)||a-b);}
+// ikili birliktelik matrisi (haberdeki "deprem haritası")
+const _hyPairCache={};
+function _hyPairs(prior,g,N){
+  const key=g.id+'|'+(prior[0]&&prior[0].date)+'|'+prior.length+'|'+(N||300);
+  if(_hyPairCache[key])return _hyPairCache[key];
+  const m={};
+  prior.slice(0,N||300).forEach(d=>{
+    const a=_hyNums(d).filter(n=>n>=1&&n<=g.max).sort((x,y)=>x-y);
+    for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++){const k=a[i]*100+a[j];m[k]=(m[k]||0)+1;}
+  });
+  _hyPairCache[key]=m;return m;
+}
+// ardıl (Markov) matrisi: t çekilişinde m varsa t+1'de n kaç kez geldi
+const _hySuccCache={};
+function _hySucc(prior,g,N){
+  const key=g.id+'|'+(prior[0]&&prior[0].date)+'|'+prior.length+'|'+(N||300);
+  if(_hySuccCache[key])return _hySuccCache[key];
+  const m={};
+  const lim=Math.min((N||300),prior.length-1);
+  for(let t=0;t<lim;t++){
+    const nxt=_hyNums(prior[t]),cur=_hyNums(prior[t+1]);
+    cur.forEach(a=>nxt.forEach(b=>{const k=a*100+b;m[k]=(m[k]||0)+1;}));
+  }
+  _hySuccCache[key]=m;return m;
+}
+function _hyDecade(n){return Math.floor(n/10);}
+function _hyPatternOf(nums){const c={};nums.forEach(n=>{const d=_hyDecade(n);c[d]=(c[d]||0)+1;});
+  return Object.keys(c).map(Number).sort((a,b)=>a-b).map(d=>d+':'+c[d]).join('|');}
+function _hyDigitSum(n){let s=0;String(n).split('').forEach(c=>s+=+c);return s;}
+function _hyDigitRoot(n){while(n>9)n=_hyDigitSum(n);return n;}
+function _hyGecikme(prior,g){
+  const gap=new Array(g.max+1).fill(prior.length);
+  for(let i=0;i<prior.length;i++)_hyNums(prior[i]).forEach(n=>{if(n>=1&&n<=g.max&&gap[n]===prior.length)gap[n]=i;});
+  return gap;
+}
+
+// ── SON 2 ÇEKİLİŞ FORMÜLLERİ ────────────────────────────────────────────────
+// Anasayfadaki "Formül" kutusu da bunları kullanır: yalnızca son iki çekilişin
+// sayıları ve aralarındaki ilişkiler (toplam, fark, çarpım, ortalama, zincir, ayna…).
+const _FM_FORMULAS=[
+  {id:'topla2',name:'a + b',desc:'Son çekilişin i. sayısı + bir öncekinin i. sayısı (aralığa sarılır)',
+   f:(A,B,max)=>A.map((a,i)=>_hyWrap(a+(B[i]!=null?B[i]:B[B.length-1]),max))},
+  {id:'fark',name:'|a − b|',desc:'İki çekilişin aynı sıradaki sayılarının farkı',
+   f:(A,B,max)=>A.map((a,i)=>_hyWrap(Math.abs(a-(B[i]!=null?B[i]:B[B.length-1]))||max,max))},
+  {id:'zincir',name:'2a − b (zincir)',desc:'Doğrusal devam: son çekilişin iki katından öncekini çıkar',
+   f:(A,B,max)=>A.map((a,i)=>_hyWrap(2*a-(B[i]!=null?B[i]:B[B.length-1]),max))},
+  {id:'ortalama',name:'(a + b) / 2',desc:'İki çekilişin aynı sıradaki sayılarının ortası',
+   f:(A,B,max)=>A.map((a,i)=>_hyWrap(Math.round((a+(B[i]!=null?B[i]:B[B.length-1]))/2),max))},
+  {id:'carpim',name:'a × b (mod)',desc:'Çarpımın aralığa sarılmış hâli',
+   f:(A,B,max)=>A.map((a,i)=>_hyWrap(a*(B[i]!=null?B[i]:B[B.length-1]),max))},
+  {id:'ayna',name:'Ayna (max+1−a)',desc:'Son çekilişin sayılarının aralık içindeki simetriği',
+   f:(A,B,max)=>A.map(a=>_hyWrap(max+1-a,max))},
+  {id:'toplamfark',name:'a + (ΣA − ΣB)',desc:'İki çekilişin toplamları farkı, son çekilişin her sayısına eklenir',
+   f:(A,B,max)=>{const d=A.reduce((x,y)=>x+y,0)-B.reduce((x,y)=>x+y,0);return A.map(a=>_hyWrap(a+d,max));}},
+  {id:'rakamtop',name:'a + rakam toplamı(b)',desc:'Öncekinin rakam toplamı, son çekilişin sayısına eklenir',
+   f:(A,B,max)=>A.map((a,i)=>_hyWrap(a+_hyDigitSum(B[i]!=null?B[i]:B[B.length-1]),max))},
+  {id:'icfark',name:'İç farklar zinciri',desc:'Son çekilişin kendi ardışık farkları, ilk sayıdan itibaren yeniden uygulanır',
+   f:(A,B,max)=>{const g=[];for(let i=1;i<A.length;i++)g.push(A[i]-A[i-1]);
+     const out=[];let cur=A[0];g.forEach(d=>{cur=_hyWrap(cur+d+1,max);out.push(cur);});
+     out.push(_hyWrap(A[A.length-1]+(g[0]||1),max));return out;}},
+  {id:'capraz',name:'a + b (çapraz)',desc:'Son çekilişin i. sayısı + öncekinin sondan i. sayısı',
+   f:(A,B,max)=>A.map((a,i)=>_hyWrap(a+(B[B.length-1-i]!=null?B[B.length-1-i]:B[0]),max))},
+];
+function _fmCompute(game,prior){
+  if(!prior||prior.length<2)return null;
+  const A=[...(prior[0].nums||[])].sort((x,y)=>x-y),B=[...(prior[1].nums||[])].sort((x,y)=>x-y);
+  if(!A.length||!B.length)return null;
+  const rows=_FM_FORMULAS.map(F=>{
+    let nums=[];try{nums=F.f(A,B,game.max)||[];}catch(e){nums=[];}
+    nums=[...new Set(nums.filter(n=>n>=1&&n<=game.max))].sort((a,b)=>a-b);
+    return {id:F.id,name:F.name,desc:F.desc,nums};
+  }).filter(r=>r.nums.length);
+  const tal={};rows.forEach(r=>r.nums.forEach(n=>tal[n]=(tal[n]||0)+1));
+  const ranked=Object.keys(tal).map(Number).sort((a,b)=>tal[b]-tal[a]||a-b);
+  return {A,B,rows,tal,ranked,pick:ranked.slice(0,game.count).sort((a,b)=>a-b)};
+}
+
+// ── YÖNTEM KAYITLARI ────────────────────────────────────────────────────────
+// gen(game,prior,N) → aday sayı dizisi (en çok N tane). prior[0] = en son çekiliş.
+// src:'haber' → haberde anlatılan yöntem · src:'lab' → aynı mantıktan türettiğim alternatif.
+const _HY_METHODS=[
+  // ══ HABERDEKİ YÖNTEMLER ══
+  {id:'model',src:'haber',name:'🗺️ Onluk Model Deseni',
+   desc:'Habertürk: 600 çekiliş 211 "model"e ayrılmış; en sık tekrarlayan onluk deseni (örn. 1 tek-basamaklı · 1 on\'lu · 1 yirmi\'li · 2 otuz\'lu · 1 kırk\'lı) bulunur ve o desendeki her onluktan en sık sayılar aday olur.',
+   gen:(g,p,N)=>{
+     const cnt={};p.slice(0,300).forEach(d=>{const k=_hyPatternOf([...(d.nums||[])].filter(n=>n<=g.max));cnt[k]=(cnt[k]||0)+1;});
+     const best=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a])[0];if(!best)return [];
+     const f=_hyFreq(p,g,300),out=[];
+     best.split('|').forEach(part=>{
+       const [dec,k]=part.split(':').map(Number);
+       const pool=[];for(let n=Math.max(1,dec*10);n<=Math.min(g.max,dec*10+9);n++)pool.push(n);
+       _hyRankByFreq(pool,f).slice(0,Math.max(1,k)+1).forEach(n=>out.push(n));
+     });
+     return _hyClip(out,g.max,N);
+   }},
+  {id:'deprem',src:'haber',name:'🌋 Deprem Haritası (İkili Birliktelik)',
+   desc:'Habertürk: "3 ile 8 on kere birlikte düştü" mantığı. Son çekilişteki her sayının geçmişte EN SIK birlikte geldiği ortaklar aday olur.',
+   gen:(g,p,N)=>{
+     const m=_hyPairs(p,g,300),last=_hyNums(p[0]).filter(n=>n<=g.max);
+     const sc={};
+     last.forEach(a=>{for(let b=1;b<=g.max;b++){if(b===a)continue;const k=a<b?a*100+b:b*100+a;if(m[k])sc[b]=(sc[b]||0)+m[k];}});
+     return _hyClip(Object.keys(sc).map(Number).sort((x,y)=>sc[y]-sc[x]||x-y),g.max,N);
+   }},
+  {id:'sabitikili',src:'haber',name:'🎯 Sabit İkili + Model (haberdeki uygulama)',
+   desc:'Habertürk\'teki uygulama önerisi: deprem haritasından en güçlü İKİLİ seçilir, her kolonda sabit tutulur; kalan sayılar en sık modelden tamamlanır.',
+   gen:(g,p,N)=>{
+     const m=_hyPairs(p,g,300);
+     const top=Object.keys(m).map(Number).sort((a,b)=>m[b]-m[a])[0];
+     const pair=top?[Math.floor(top/100),top%100]:[];
+     const rest=(_HY_METHODS.find(x=>x.id==='model').gen(g,p,N)||[]);
+     return _hyClip(pair.concat(rest),g.max,N);
+   }},
+  {id:'yasak',src:'haber',name:'🚫 Yasaklı Çift Filtresi',
+   desc:'Habertürk: "11 ile 19 hiçbir zaman birlikte gelmemiş". Son çekilişin sayılarıyla geçmişte HİÇ birlikte gelmemiş sayılar elenir; kalanlar frekansa göre sıralanır.',
+   gen:(g,p,N)=>{
+     const m=_hyPairs(p,g,300),last=_hyNums(p[0]).filter(n=>n<=g.max),f=_hyFreq(p,g,300);
+     const ok=[];
+     for(let b=1;b<=g.max;b++){
+       if(last.includes(b))continue;
+       let hep=true;
+       for(const a of last){const k=a<b?a*100+b:b*100+a;if(!m[k]){hep=false;break;}}
+       if(hep)ok.push(b);
+     }
+     return _hyClip(_hyRankByFreq(ok,f),g.max,N);
+   }},
+  {id:'sadakat',src:'haber',name:'📌 Sabit Kolon (Sadakat)',
+   desc:'Halk TV: 23 yıldır aynı sayıları hiç değiştirmeden oynayan talihli. Burada "sabit kolon" olarak tarihin en sık çıkan sayıları alınır ve HİÇ değişmez.',
+   gen:(g,p,N)=>{
+     const f=_hyFreq(p,g,3000),pool=[];for(let n=1;n<=g.max;n++)pool.push(n);
+     return _hyClip(_hyRankByFreq(pool,f),g.max,N);
+   }},
+  // ══ TÜRETİLMİŞ ALTERNATİFLER ══
+  {id:'ardil',src:'lab',name:'🔗 Markov Ardılı',
+   desc:'Deprem haritasının zamansal hâli: "geçen hafta a çıktıysa, bu hafta en sık hangi sayı geldi?" — ardıl matrisi.',
+   gen:(g,p,N)=>{
+     const m=_hySucc(p,g,300),last=_hyNums(p[0]).filter(n=>n<=g.max),sc={};
+     last.forEach(a=>{for(let b=1;b<=g.max;b++){const k=a*100+b;if(m[k])sc[b]=(sc[b]||0)+m[k];}});
+     return _hyClip(Object.keys(sc).map(Number).sort((x,y)=>sc[y]-sc[x]||x-y),g.max,N);
+   }},
+  {id:'lift',src:'lab',name:'📈 Birliktelik Lift\'i',
+   desc:'Deprem haritasının düzeltilmiş hâli: ham birliktelik sayısı yerine, iki sayının beklenenden ne kadar FAZLA birlikte geldiği (lift) kullanılır — sık çıkan sayıların yarattığı yanılsama giderilir.',
+   gen:(g,p,N)=>{
+     const m=_hyPairs(p,g,300),f=_hyFreq(p,g,300),last=_hyNums(p[0]).filter(n=>n<=g.max),sc={};
+     last.forEach(a=>{for(let b=1;b<=g.max;b++){if(b===a)continue;const k=a<b?a*100+b:b*100+a;
+       const exp=((f[a]||1)*(f[b]||1))/300;if(exp>0&&m[k])sc[b]=(sc[b]||0)+m[k]/exp;}});
+     return _hyClip(Object.keys(sc).map(Number).sort((x,y)=>sc[y]-sc[x]||x-y),g.max,N);
+   }},
+  {id:'ucul',src:'lab',name:'🔺 Üçlü Birliktelik',
+   desc:'İkili yerine ÜÇLÜ gruplar: son çekilişin ikilileriyle geçmişte birlikte gelen üçüncü sayılar.',
+   gen:(g,p,N)=>{
+     const last=_hyNums(p[0]).filter(n=>n<=g.max),sc={};
+     p.slice(0,300).forEach(d=>{const a=_hyNums(d).filter(n=>n<=g.max);
+       let ort=0;a.forEach(x=>{if(last.includes(x))ort++;});
+       if(ort>=2)a.forEach(x=>{if(!last.includes(x))sc[x]=(sc[x]||0)+ort;});});
+     return _hyClip(Object.keys(sc).map(Number).sort((x,y)=>sc[y]-sc[x]||x-y),g.max,N);
+   }},
+  {id:'komsu',src:'lab',name:'➕ Komşu (±1)',
+   desc:'Son çekilişin her sayısının bir altı ve bir üstü — "yakın" bölgede kalma varsayımı.',
+   gen:(g,p,N)=>{const last=_hyNums(p[0]).filter(n=>n<=g.max),out=[];
+     last.forEach(n=>{if(n-1>=1)out.push(n-1);if(n+1<=g.max)out.push(n+1);});
+     return _hyClip(out,g.max,N);}},
+  {id:'tekrar',src:'lab',name:'♻️ Tekrar Edenler',
+   desc:'Son çekilişin sayıları aynen tekrar eder mi? Tarihsel tekrar oranına göre sıralanır.',
+   gen:(g,p,N)=>{const f=_hyFreq(p,g,300);return _hyClip(_hyRankByFreq(_hyNums(p[0]).filter(n=>n<=g.max),f),g.max,N);}},
+  {id:'kesisim',src:'lab',name:'∩ Son 2 Çekiliş Ortak/Komşu',
+   desc:'Son iki çekilişin ortak sayıları ve komşuları; ortak yoksa iki çekilişin birleşimi.',
+   gen:(g,p,N)=>{
+     const a=_hyNums(p[0]).filter(n=>n<=g.max),b=_hyNums(p[1]||p[0]).filter(n=>n<=g.max);
+     const ort=a.filter(x=>b.includes(x)),out=[];
+     ort.forEach(n=>{out.push(n);if(n-1>=1)out.push(n-1);if(n+1<=g.max)out.push(n+1);});
+     a.concat(b).forEach(n=>out.push(n));
+     return _hyClip(out,g.max,N);
+   }},
+  {id:'gecikme',src:'lab',name:'⏳ En Gecikmişler',
+   desc:'En uzun süredir çıkmayan sayılar — "sırası geldi" varsayımı.',
+   gen:(g,p,N)=>{const gp=_hyGecikme(p,g),pool=[];for(let n=1;n<=g.max;n++)pool.push(n);
+     return _hyClip(pool.sort((a,b)=>gp[b]-gp[a]||a-b),g.max,N);}},
+  {id:'sicak',src:'lab',name:'🔥 Sıcaklar (son 30)',
+   desc:'Son 30 çekilişte en çok çıkan sayılar.',
+   gen:(g,p,N)=>{const f=_hyFreq(p,g,30),pool=[];for(let n=1;n<=g.max;n++)pool.push(n);
+     return _hyClip(_hyRankByFreq(pool,f),g.max,N);}},
+  {id:'soguk',src:'lab',name:'❄️ Soğuklar (son 30)',
+   desc:'Son 30 çekilişte en az çıkan sayılar.',
+   gen:(g,p,N)=>{const f=_hyFreq(p,g,30),pool=[];for(let n=1;n<=g.max;n++)pool.push(n);
+     return _hyClip(pool.sort((a,b)=>(f[a]||0)-(f[b]||0)||a-b),g.max,N);}},
+  {id:'bolge',src:'lab',name:'🗂️ Sırası Gelen Onluk',
+   desc:'Modelin tersi: son çekilişlerde EN AZ temsil edilen onluk bölgeler bulunur, oradan en sık sayılar alınır.',
+   gen:(g,p,N)=>{
+     const c={};p.slice(0,20).forEach(d=>_hyNums(d).forEach(n=>{if(n<=g.max)c[_hyDecade(n)]=(c[_hyDecade(n)]||0)+1;}));
+     const decs=[];for(let d=0;d<=Math.floor(g.max/10);d++)decs.push(d);
+     decs.sort((a,b)=>(c[a]||0)-(c[b]||0));
+     const f=_hyFreq(p,g,300),out=[];
+     decs.slice(0,3).forEach(d=>{const pool=[];for(let n=Math.max(1,d*10);n<=Math.min(g.max,d*10+9);n++)pool.push(n);
+       _hyRankByFreq(pool,f).slice(0,4).forEach(n=>out.push(n));});
+     return _hyClip(out,g.max,N);
+   }},
+  {id:'sonhane',src:'lab',name:'🔟 Eksik Son Hane',
+   desc:'Son çekilişte hiç görülmeyen birim rakamlar (0-9) belirlenir; o rakamla biten en sık sayılar aday olur.',
+   gen:(g,p,N)=>{
+     const last=_hyNums(p[0]).filter(n=>n<=g.max),have=new Set(last.map(n=>n%10));
+     const f=_hyFreq(p,g,300),pool=[];
+     for(let n=1;n<=g.max;n++)if(!have.has(n%10))pool.push(n);
+     return _hyClip(_hyRankByFreq(pool,f),g.max,N);
+   }},
+  {id:'mod9',src:'lab',name:'✳️ Gecikmiş Mod-9 Sınıfı',
+   desc:'Sayılar 9\'a bölümünden kalana göre sınıflanır; son çekilişlerde eksik kalan sınıflardan en sık sayılar alınır.',
+   gen:(g,p,N)=>{
+     const c={};p.slice(0,10).forEach(d=>_hyNums(d).forEach(n=>{if(n<=g.max)c[n%9]=(c[n%9]||0)+1;}));
+     const cls=[];for(let r=0;r<9;r++)cls.push(r);cls.sort((a,b)=>(c[a]||0)-(c[b]||0));
+     const f=_hyFreq(p,g,300),pool=[];
+     for(let n=1;n<=g.max;n++)if(cls.slice(0,3).includes(n%9))pool.push(n);
+     return _hyClip(_hyRankByFreq(pool,f),g.max,N);
+   }},
+  {id:'mod7',src:'lab',name:'7️⃣ Gecikmiş Mod-7 Sınıfı',
+   desc:'Aynı fikrin 7\'lik hâli — haftalık döngü sezgisi.',
+   gen:(g,p,N)=>{
+     const c={};p.slice(0,10).forEach(d=>_hyNums(d).forEach(n=>{if(n<=g.max)c[n%7]=(c[n%7]||0)+1;}));
+     const cls=[];for(let r=0;r<7;r++)cls.push(r);cls.sort((a,b)=>(c[a]||0)-(c[b]||0));
+     const f=_hyFreq(p,g,300),pool=[];
+     for(let n=1;n<=g.max;n++)if(cls.slice(0,2).includes(n%7))pool.push(n);
+     return _hyClip(_hyRankByFreq(pool,f),g.max,N);
+   }},
+  {id:'dijitkok',src:'lab',name:'🔢 Gecikmiş Dijital Kök',
+   desc:'Her sayının rakamları tek haneye inene dek toplanır (dijital kök); son çekilişlerde eksik kökler seçilir.',
+   gen:(g,p,N)=>{
+     const c={};p.slice(0,10).forEach(d=>_hyNums(d).forEach(n=>{if(n<=g.max)c[_hyDigitRoot(n)]=(c[_hyDigitRoot(n)]||0)+1;}));
+     const ks=[];for(let r=1;r<=9;r++)ks.push(r);ks.sort((a,b)=>(c[a]||0)-(c[b]||0));
+     const f=_hyFreq(p,g,300),pool=[];
+     for(let n=1;n<=g.max;n++)if(ks.slice(0,3).includes(_hyDigitRoot(n)))pool.push(n);
+     return _hyClip(_hyRankByFreq(pool,f),g.max,N);
+   }},
+  {id:'tekcift',src:'lab',name:'⚖️ Tek/Çift Deseni',
+   desc:'En sık görülen tek-çift dağılımı bulunur (örn. 4 tek + 3 çift); eksik taraftan en sık sayılar alınır.',
+   gen:(g,p,N)=>{
+     const c={};p.slice(0,300).forEach(d=>{const a=_hyNums(d).filter(n=>n<=g.max);const t=a.filter(n=>n%2).length;c[t]=(c[t]||0)+1;});
+     const best=+Object.keys(c).sort((a,b)=>c[b]-c[a])[0];
+     const f=_hyFreq(p,g,300),tek=[],cift=[];
+     for(let n=1;n<=g.max;n++)(n%2?tek:cift).push(n);
+     const out=_hyRankByFreq(tek,f).slice(0,best).concat(_hyRankByFreq(cift,f).slice(0,Math.max(0,g.count-best)));
+     return _hyClip(out,g.max,N);
+   }},
+  {id:'toplamband',src:'lab',name:'🎚️ Toplam Bandı',
+   desc:'Çekiliş toplamlarının tarihsel ortalaması hesaplanır; o toplamı tutturacak orta bölgedeki sayılar aday olur.',
+   gen:(g,p,N)=>{
+     let s=0,k=0;p.slice(0,300).forEach(d=>{const a=[...(d.nums||[])];if(a.length){s+=a.reduce((x,y)=>x+y,0);k++;}});
+     const ort=k?s/k:0,hedef=ort/g.count;
+     const pool=[];for(let n=1;n<=g.max;n++)pool.push(n);
+     return _hyClip(pool.sort((a,b)=>Math.abs(a-hedef)-Math.abs(b-hedef)||a-b),g.max,N);
+   }},
+  {id:'sira',src:'lab',name:'📊 Sıra İstatistiği',
+   desc:'Sıralı çekilişte i. sayının tarihsel ortalaması hesaplanır; her sıra için o ortalamaya en yakın sayılar aday olur.',
+   gen:(g,p,N)=>{
+     const sums=new Array(g.count).fill(0),cn=new Array(g.count).fill(0);
+     p.slice(0,300).forEach(d=>{const a=[...(d.nums||[])].sort((x,y)=>x-y);a.forEach((v,i)=>{if(i<g.count){sums[i]+=v;cn[i]++;}});});
+     const out=[];
+     for(let i=0;i<g.count;i++){if(!cn[i])continue;const m=Math.round(sums[i]/cn[i]);
+       [0,1,-1].forEach(o=>{const v=m+o;if(v>=1&&v<=g.max)out.push(v);});}
+     return _hyClip(out,g.max,N);
+   }},
+  {id:'gap',src:'lab',name:'📏 Aralık Deseni',
+   desc:'Sıralı çekilişte ardışık sayılar arası farkların en sık deseni bulunur ve son çekilişin ilk sayısından itibaren uygulanır.',
+   gen:(g,p,N)=>{
+     const c={};p.slice(0,300).forEach(d=>{const a=[...(d.nums||[])].sort((x,y)=>x-y);
+       const gp=[];for(let i=1;i<a.length;i++)gp.push(a[i]-a[i-1]);if(gp.length)c[gp.join(',')]=(c[gp.join(',')]||0)+1;});
+     const best=Object.keys(c).sort((a,b)=>c[b]-c[a])[0];if(!best)return [];
+     const gp=best.split(',').map(Number),a=[...(p[0].nums||[])].sort((x,y)=>x-y);
+     const out=[];let cur=a[0]||1;out.push(cur);gp.forEach(d=>{cur=_hyWrap(cur+d,g.max);out.push(cur);});
+     return _hyClip(out,g.max,N);
+   }},
+  {id:'freqlift',src:'lab',name:'🧲 Frekans × Gecikme',
+   desc:'Sık çıkan ama uzun süredir görülmeyen sayılar — iki sinyalin çarpımı.',
+   gen:(g,p,N)=>{
+     const f=_hyFreq(p,g,300),gp=_hyGecikme(p,g),pool=[];
+     for(let n=1;n<=g.max;n++)pool.push(n);
+     return _hyClip(pool.sort((a,b)=>((f[b]||0)*(gp[b]||0))-((f[a]||0)*(gp[a]||0))||a-b),g.max,N);
+   }},
+  {id:'ikizonluk',src:'lab',name:'👯 İkiz Onluk (32-33 tipi)',
+   desc:'Haberdeki 32-33 gibi aynı onluktan bitişik ikililer: son çekilişin onluklarında bitişik çiftler aday olur.',
+   gen:(g,p,N)=>{
+     const last=_hyNums(p[0]).filter(n=>n<=g.max),f=_hyFreq(p,g,300),out=[];
+     [...new Set(last.map(_hyDecade))].forEach(d=>{
+       const pool=[];for(let n=Math.max(1,d*10);n<=Math.min(g.max,d*10+9);n++)if(!last.includes(n))pool.push(n);
+       _hyRankByFreq(pool,f).slice(0,3).forEach(n=>out.push(n));});
+     return _hyClip(out,g.max,N);
+   }},
+  {id:'ayniSira',src:'lab',name:'🎞️ Aynı Sırada Tekrar',
+   desc:'Geçmişte i. sırada en sık görülen sayılar — konuma özgü frekans.',
+   gen:(g,p,N)=>{
+     const pos=[];for(let i=0;i<g.count;i++)pos.push({});
+     p.slice(0,300).forEach(d=>{const a=[...(d.nums||[])].sort((x,y)=>x-y);a.forEach((v,i)=>{if(i<g.count)pos[i][v]=(pos[i][v]||0)+1;});});
+     const out=[];pos.forEach(m=>{const b=Object.keys(m).map(Number).sort((x,y)=>m[y]-m[x]||x-y).slice(0,2);b.forEach(n=>out.push(n));});
+     return _hyClip(out,g.max,N);
+   }},
+  {id:'yildonumu',src:'lab',name:'📆 Yıl Dönümü',
+   desc:'Bir yıl önceki aynı dönemin çekilişlerinde çıkan sayılar (mevsimsellik varsayımı).',
+   gen:(g,p,N)=>{
+     const seg=p.slice(100,115);if(!seg.length)return [];
+     const f=new Array(g.max+1).fill(0);seg.forEach(d=>_hyNums(d).forEach(n=>{if(n<=g.max)f[n]++;}));
+     const pool=[];for(let n=1;n<=g.max;n++)if(f[n])pool.push(n);
+     return _hyClip(_hyRankByFreq(pool,f),g.max,N);
+   }},
+  {id:'ciftAdim',src:'lab',name:'⏭️ İki Çekiliş Önce',
+   desc:'Son çekiliş yerine BİR ÖNCEKİ çekilişin sayıları ve komşuları — gecikmeli tekrar varsayımı.',
+   gen:(g,p,N)=>{
+     const d=p[1]||p[0],last=_hyNums(d).filter(n=>n<=g.max),out=[];
+     last.forEach(n=>{out.push(n);if(n+1<=g.max)out.push(n+1);if(n-1>=1)out.push(n-1);});
+     return _hyClip(out,g.max,N);
+   }},
+];
+// Son 2 çekiliş formülleri de birer yöntem olarak ölçüme girer (anasayfadaki "Formül" kutusu).
+_FM_FORMULAS.forEach(F=>_HY_METHODS.push({id:'fm_'+F.id,src:'lab',name:'🧪 Formül: '+F.name,
+  desc:'Yalnızca son iki çekilişin sayılarıyla: '+F.desc,
+  gen:(g,p,N)=>{const r=_fmCompute(g,p);if(!r)return [];const row=r.rows.find(x=>x.id===F.id);return row?_hyClip(row.nums,g.max,N):[];}}));
+_HY_METHODS.push({id:'fm_uzlasi',src:'lab',name:'🧪 Formül Uzlaşısı (son 2 çekiliş)',
+  desc:'Yukarıdaki son-2-çekiliş formüllerinin hepsinin uzlaşısı: en çok formülün ürettiği sayılar.',
+  gen:(g,p,N)=>{const r=_fmCompute(g,p);return r?_hyClip(r.ranked,g.max,N):[];}});
+_HY_METHODS.push({id:'rastgele',src:'lab',name:'🎲 Rastgele (kontrol)',
+  desc:'Kontrol grubu: hiçbir mantık yok, rastgele sayılar. Diğer yöntemlerin gerçekten bir şey bulup bulmadığını anlamak için burada.',
+  gen:(g,p,N)=>{const pool=[];for(let n=1;n<=g.max;n++)pool.push(n);
+    for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+    return pool.slice(0,N);}});
+
+// ── ÖLÇÜM ───────────────────────────────────────────────────────────────────
+// Her yöntem, son T çekilişin HER birinde yalnızca o tarihten önceki verilerle çalıştırılır.
+// ÖLÇÜT (kullanıcının koyduğu eşik): yöntem çekilişlerin en az yarısında ≥1 sayıyı NET buluyor mu?
+// Ayrıca aynı büyüklükte rastgele havuzun ≥1 net olasılığına göre LİFT hesaplanır — bir yöntemin
+// eşiği geçmesi tek başına bir şey söylemez, asıl soru şansın üstünde olup olmadığıdır.
+const _HY_N=g=>g.count*2;
+const _HY_ESIK=50;
+function _hyMeasure(game,draws,T,onDone){
+  const acc=_HY_METHODS.map(M=>({m:M,n:0,hit1:0,hit2:0,net:0,size:0}));
+  let i=0;
+  const step=()=>{
+    const end=Math.min(i+5,T);
+    for(;i<end;i++){
+      const actual=draws[i],prior=draws.slice(i+1);
+      if(!actual||prior.length<150)break;
+      const aS=new Set(_hyNums(actual));
+      acc.forEach(r=>{
+        let c=[];try{c=r.m.gen(game,prior,_HY_N(game))||[];}catch(e){c=[];}
+        if(!c.length)return;
+        let net=0;c.forEach(n=>{if(aS.has(n))net++;});
+        r.n++;r.size+=c.length;r.net+=net;if(net>=1)r.hit1++;if(net>=2)r.hit2++;
+      });
+    }
+    if(i<T&&acc[0].n<T){setTimeout(step,0);return;}
+    onDone(acc.map(r=>{
+      const size=r.n?r.size/r.n:0,rate=r.n?r.hit1/r.n:0,base=_hyBase(game,Math.round(size));
+      // z: gözlenen ≥1 net oranı, aynı büyüklükte rastgele havuzun oranından kaç standart hata uzakta.
+      // |z|<2 → fark şans bandında; yöntem eşiği geçse bile şanstan ayırt edilemiyor.
+      const se=r.n?Math.sqrt(Math.max(1e-9,base*(1-base)/r.n)):1;
+      return {id:r.m.id,m:r.m,n:r.n,size:+size.toFixed(1),rate1:100*rate,
+        rate2:r.n?100*r.hit2/r.n:0,ortNet:r.n?r.net/r.n:0,base:100*base,lift:base?rate/base:0,
+        z:se?(rate-base)/se:0};
+    }));
+  };
+  setTimeout(step,0);
+}
+// ── SAYFA ───────────────────────────────────────────────────────────────────
+let _hyGame='sayisal',_hyGameManual=false,_hyT=100,_hyRes=null,_hyShowFail=false;
+function _hyInit(){
+  const row=document.getElementById('hyGameRow');if(!row)return;
+  if(!_hyGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_hyGame=state.selectedGame;
+  row.innerHTML=GAMES.map(g=>{const a=g.id===_hyGame;
+    return `<button onclick="_hySetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(180,83,9,.7)':'var(--border)'};background:${a?'rgba(217,119,6,.15)':'var(--surface2)'};color:${a?'#b8860b':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
+  _hyDates();
+  if(_hyRes)_hyRender();
+}
+function _hySetGame(g){_hyGame=g;_hyGameManual=true;_hyRes=null;
+  ['hyOut','hyTestOut'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML='';});_hyInit();}
+function _hySetT(v){_hyT=parseInt(v)||100;}
+function _hyToggleFail(){_hyShowFail=!_hyShowFail;_hyRender();}
+function _hyDates(){
+  const sel=document.getElementById('hyDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_hyGame),pv=sel.value;
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  draws.forEach((d,i)=>{if(draws.length-i-1<150)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;if(pv)sel.value=pv;
+}
+function _hyRun(){
+  const el=document.getElementById('hyOut');if(!el)return;
+  const game=getGame(_hyGame),draws=_kbGetDraws(_hyGame);
+  if(!draws||draws.length<200){el.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥200 çekiliş gerekli).</div>';return;}
+  el.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">⏳ '+_HY_METHODS.length+' yöntem × '+_hyT+' çekiliş ölçülüyor…</div>';
+  _hyMeasure(game,draws,_hyT,res=>{_hyRes={game,res,draws};_hyRender();});
+}
+function _hyNumChips(nums,aSet,big){
+  return nums.map(n=>{
+    const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
+    return `<span style="font-family:monospace;font-size:${big?'.8rem':'.68rem'};font-weight:${isN||isNr?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:var(--surface2);border:1px solid ${isN?'rgba(0,200,100,.5)':'var(--border)'};border-radius:6px;padding:1px 6px">${n}${isN?'✓':isNr?'~':''}</span>`;
+  }).join('');
+}
+function _hyRender(){
+  const el=document.getElementById('hyOut');if(!el||!_hyRes)return;
+  const {game,res,draws}=_hyRes;
+  const prior=draws;
+  const withNums=res.map(r=>{
+    let c=[];try{c=r.m.gen(game,prior,_HY_N(game))||[];}catch(e){}
+    return {...r,nums:c.slice().sort((a,b)=>a-b),gecti:r.rate1>=_HY_ESIK};
+  }).sort((a,b)=>b.lift-a.lift||b.rate1-a.rate1);   // sıralama LİFT'e göre — ham oran havuz büyüklüğüne bağlı, lift değil
+  const gecen=withNums.filter(r=>r.gecti),kalan=withNums.filter(r=>!r.gecti);
+  const copy=['📰 Haber Yöntemleri + Laboratuvar — '+game.name+' ('+_hyT+' çekiliş ölçümü)'];
+  const tal={};gecen.forEach(r=>r.nums.forEach(n=>tal[n]=(tal[n]||0)+1));
+  const uz=Object.keys(tal).map(Number).sort((a,b)=>tal[b]-tal[a]||a-b);
+  let h='';
+  // uzlaşı
+  if(uz.length){
+    const top=uz.slice(0,game.count*2);
+    copy.push('🏆 Eşiği geçen yöntemlerin uzlaşısı: '+top.join(' '));
+    h+=`<div class="card" style="border:2px solid rgba(217,119,6,.5);background:linear-gradient(135deg,rgba(217,119,6,.07),transparent)">
+     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <span style="font-size:.78rem;font-weight:800;color:#b8860b">🏆 Uzlaşı — Eşiği Geçen ${gecen.length} Yöntem</span>
+      <button onclick="_caCopy(window._hyTxt||'')" class="copy-btn" style="font-size:.62rem;padding:3px 9px;font-weight:700">📋 Kopyala</button></div>
+     <div style="font-size:.58rem;color:var(--muted);margin-bottom:7px;line-height:1.6">En çok yöntemin birlikte önerdiği sayılar (üst simge: kaç yöntem). Tablo <strong>lift</strong>'e göre sıralıdır — ham "≥1 net" oranı havuz büyüklüğüyle şişer, lift bundan arınmıştır.</div>
+     <div style="display:flex;gap:5px;flex-wrap:wrap">${top.map(n=>`<span style="font-family:monospace;font-size:.88rem;font-weight:800;color:var(--text);background:var(--surface2);border:1.5px solid rgba(217,119,6,.45);border-radius:8px;padding:2px 9px">${n}<sup style="font-size:.5rem;color:var(--muted)">${tal[n]}</sup></span>`).join('')}</div>
+    </div>`;
+  }
+  const tablo=(list,baslik,renk)=>{
+    if(!list.length)return '';
+    let t=`<div class="card"><div style="font-size:.76rem;font-weight:800;color:${renk};margin-bottom:8px">${baslik}</div>`;
+    t+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.62rem">`;
+    t+=`<tr style="color:var(--muted);text-align:left"><th style="padding:4px 6px">Yöntem</th><th style="padding:4px 6px">Kaynak</th><th style="padding:4px 6px;white-space:nowrap">≥1 net</th><th style="padding:4px 6px;white-space:nowrap">şans</th><th style="padding:4px 6px">lift</th><th style="padding:4px 6px">durum</th><th style="padding:4px 6px;white-space:nowrap">≥2 net</th><th style="padding:4px 6px;white-space:nowrap">ort. net</th><th style="padding:4px 6px">aday</th></tr>`;
+    list.forEach(r=>{
+      const ok=r.lift>=1.05,kotu=r.lift<0.95;
+      t+=`<tr style="border-top:1px solid var(--border)">`;
+      t+=`<td style="padding:5px 6px;font-weight:700;color:var(--text)">${r.m.name}<div style="font-size:.52rem;color:var(--muted);font-weight:400;line-height:1.5;max-width:430px">${r.m.desc}</div>`;
+      t+=`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px">${_hyNumChips(r.nums,null)}</div></td>`;
+      t+=`<td style="padding:5px 6px"><span style="font-size:.52rem;font-weight:800;padding:1px 6px;border-radius:5px;background:${r.m.src==='haber'?'rgba(217,119,6,.15)':'rgba(129,140,248,.15)'};color:${r.m.src==='haber'?'#b8860b':'var(--accent)'}">${r.m.src==='haber'?'HABER':'LAB'}</span></td>`;
+      t+=`<td style="padding:5px 6px;font-weight:800;color:${r.rate1>=_HY_ESIK?'var(--green)':'var(--muted)'}">%${r.rate1.toFixed(0)}</td>`;
+      t+=`<td style="padding:5px 6px;color:var(--muted)">%${r.base.toFixed(0)}</td>`;
+      t+=`<td style="padding:5px 6px;font-weight:800;color:${ok?'var(--green)':kotu?'#c2410c':'var(--muted)'}">${r.lift.toFixed(2)}</td>`;
+      const ust=r.z>=2,alt=r.z<=-2;
+      t+=`<td style="padding:5px 6px;white-space:nowrap"><span style="font-size:.52rem;font-weight:800;color:${ust?'var(--green)':alt?'#c2410c':'var(--muted)'}" title="z = ${r.z.toFixed(2)} · |z|<2 ise fark şans bandındadır">${ust?'şansın üstünde':alt?'şansın altında':'şans bandında'}</span></td>`;
+      t+=`<td style="padding:5px 6px;color:var(--muted)">%${r.rate2.toFixed(0)}</td>`;
+      t+=`<td style="padding:5px 6px;color:var(--muted)">${r.ortNet.toFixed(2)}</td>`;
+      t+=`<td style="padding:5px 6px;color:var(--muted)">${r.size}</td>`;
+      t+=`</tr>`;
+      copy.push(r.m.name+' — ≥1 net %'+r.rate1.toFixed(0)+' (şans %'+r.base.toFixed(0)+', lift '+r.lift.toFixed(2)+', z '+r.z.toFixed(2)+') → '+r.nums.join(' '));
+    });
+    t+=`</table></div></div>`;
+    return t;
+  };
+  h+=tablo(gecen,`✅ Eşiği Geçen Yöntemler (${gecen.length}) — çekilişlerin en az yarısında ≥1 sayıyı NET buldu`,'var(--green)');
+  h+=`<div class="card" style="padding:8px 12px"><button onclick="_hyToggleFail()" style="font-size:.68rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">${_hyShowFail?'▲ Elenen yöntemleri gizle':'▼ Elenen yöntemleri göster ('+kalan.length+')'}</button></div>`;
+  if(_hyShowFail)h+=tablo(kalan,`❌ Eşiği Geçemeyen Yöntemler (${kalan.length}) — denendi, eşiğin altında kaldı`,'#c2410c');
+  window._hyTxt=copy.join('\n');
+  el.innerHTML=h;
+}
+function _hyDateTest(){
+  const el=document.getElementById('hyTestOut');if(!el)return;
+  const date=document.getElementById('hyDateSel')?.value||'';
+  if(!date){el.innerHTML='';return;}
+  const game=getGame(_hyGame),draws=_kbGetDraws(_hyGame);
+  const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
+  const actual=draws[idx],prior=draws.slice(idx+1);
+  if(prior.length<150){el.innerHTML='<div class="card" style="font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
+  el.innerHTML='<div class="card" style="font-size:.7rem;color:var(--muted)">⏳ hesaplanıyor…</div>';
+  setTimeout(()=>{
+    const aSet=new Set(_hyNums(actual));
+    const rows=_HY_METHODS.map(M=>{
+      let c=[];try{c=M.gen(game,prior,_HY_N(game))||[];}catch(e){}
+      let net=0,near=0;c.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+      return {M,nums:c.slice().sort((a,b)=>a-b),net,near};
+    }).filter(r=>r.nums.length).sort((a,b)=>b.net-a.net||b.near-a.near);
+    const bulan=rows.filter(r=>r.net>=1).length;
+    let h=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+      <span style="font-size:.74rem;font-weight:800;color:#b8860b">🎯 ${actual.date} — ${[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''}</span>
+      <span style="font-size:.62rem;font-weight:800;color:${bulan?'var(--green)':'var(--muted)'}">${bulan}/${rows.length} yöntem ≥1 net buldu</span></div>
+      <div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Her yöntem bu tarihten ÖNCEKİ verilerle çalıştırıldı (lookahead yok) · ✓ net · ~ ±1 yakın · net sayısına göre sıralı.</div>`;
+    rows.forEach(r=>{
+      h+=`<div style="display:flex;gap:8px;align-items:flex-start;padding:5px 7px;border-radius:7px;background:${r.net?'rgba(0,230,118,.06)':'var(--surface)'};border:1px solid ${r.net?'rgba(0,200,100,.35)':'var(--border)'};margin-bottom:4px;flex-wrap:wrap">
+        <span style="font-size:.6rem;font-weight:700;color:var(--text);min-width:190px">${r.M.name}</span>
+        <span style="display:flex;gap:3px;flex-wrap:wrap;flex:1;min-width:0">${_hyNumChips(r.nums,aSet)}</span>
+        <span style="font-size:.58rem;font-weight:800;color:${r.net?'var(--green)':'var(--muted)'};white-space:nowrap">${r.net} net · ${r.near} yakın</span></div>`;
+    });
+    h+=`</div>`;
+    el.innerHTML=h;
+  },20);
+}
+// ── ANASAYFA: "Formül" kutusu (yalnızca son 2 çekiliş) ──────────────────────
+let _fmGame='sayisal',_fmGameManual=false;
+function _fmInit(){
+  const row=document.getElementById('fmGameRow');if(!row)return;
+  if(!_fmGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_fmGame=state.selectedGame;
+  row.innerHTML=GAMES.map(g=>{const a=g.id===_fmGame;
+    return `<button onclick="_fmSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(99,102,241,.7)':'var(--border)'};background:${a?'rgba(99,102,241,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
+  _fmDates();_fmRun();
+}
+function _fmSetGame(g){_fmGame=g;_fmGameManual=true;const e=document.getElementById('fmTestOut');if(e)e.innerHTML='';_fmInit();}
+function _fmDates(){
+  const sel=document.getElementById('fmDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_fmGame),pv=sel.value;
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  draws.forEach((d,i)=>{if(draws.length-i-1<3)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;if(pv)sel.value=pv;
+}
+function _fmBlock(game,r,aSet,baslik,alt){
+  let h=`<div style="padding:9px 11px;background:var(--surface2);border:1px solid ${aSet?'rgba(99,102,241,.35)':'var(--border)'};border-radius:10px;margin-bottom:8px">`;
+  h+=`<div style="font-size:.66rem;font-weight:800;color:var(--accent)">${baslik}</div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-top:3px;line-height:1.6">${alt}</div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:5px">Son çekiliş <strong style="color:var(--text);font-family:monospace">${r.A.join(' ')}</strong> · bir önceki <strong style="color:var(--text);font-family:monospace">${r.B.join(' ')}</strong></div>`;
+  h+=`</div>`;
+  r.rows.forEach(row=>{
+    let net=0,near=0;row.nums.forEach(n=>{if(aSet&&aSet.has(n))net++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))near++;});
+    h+=`<div style="display:flex;gap:8px;align-items:center;padding:5px 8px;border-radius:7px;background:${net?'rgba(0,230,118,.06)':'var(--surface)'};border:1px solid ${net?'rgba(0,200,100,.35)':'var(--border)'};margin-bottom:4px;flex-wrap:wrap">
+      <span style="font-size:.6rem;font-weight:700;color:var(--text);min-width:150px" title="${row.desc}">${row.name}</span>
+      <span style="display:flex;gap:3px;flex-wrap:wrap;flex:1;min-width:0">${_hyNumChips(row.nums,aSet)}</span>`;
+    if(aSet)h+=`<span style="font-size:.58rem;font-weight:800;color:${net?'var(--green)':'var(--muted)'};white-space:nowrap">${net} net · ${near} yakın</span>`;
+    h+=`</div>`;
+  });
+  const top=r.ranked.slice(0,game.count*2);
+  let un=0,ua=0;top.forEach(n=>{if(aSet&&aSet.has(n))un++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))ua++;});
+  h+=`<div style="margin-top:7px;padding:8px 10px;border-radius:8px;background:rgba(99,102,241,.07);border:1.5px solid rgba(99,102,241,.35)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+     <span style="font-size:.62rem;font-weight:800;color:var(--accent)">🏆 Formül Uzlaşısı — en çok formülün ürettiği sayılar</span>
+     ${aSet?`<span style="font-size:.58rem;font-weight:800;color:${un?'var(--green)':'var(--muted)'}">${un} net · ${ua} yakın</span>`:''}</div>
+    <div style="display:flex;gap:4px;flex-wrap:wrap">${top.map(n=>{
+      const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
+      return `<span style="font-family:monospace;font-size:.84rem;font-weight:800;color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:var(--surface2);border:1.5px solid ${isN?'rgba(0,200,100,.5)':'rgba(99,102,241,.3)'};border-radius:7px;padding:2px 8px">${n}${isN?'✓':isNr?'~':''}<sup style="font-size:.48rem;color:var(--muted)">${r.tal[n]}</sup></span>`;}).join('')}</div></div>`;
+  return h;
+}
+function _fmRun(){
+  const el=document.getElementById('fmOut');if(!el)return;
+  const game=getGame(_fmGame),draws=_kbGetDraws(_fmGame);
+  const r=_fmCompute(game,draws);
+  if(!r){el.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Yeterli veri yok (≥2 çekiliş gerekli).</div>';return;}
+  window._fmTxt='🧮 Formül — '+game.name+' (yalnızca son 2 çekiliş)\nSon: '+r.A.join(' ')+'\nÖnceki: '+r.B.join(' ')+'\n'
+    +r.rows.map(x=>x.name+': '+x.nums.join(' ')).join('\n')+'\nUzlaşı: '+r.ranked.slice(0,game.count*2).join(' ');
+  el.innerHTML=_fmBlock(game,r,null,'🔮 Yeni Tahmin — '+game.emoji+' '+game.name,
+    'Yalnızca son iki çekilişin sayıları ve aralarındaki ilişkiler kullanıldı; başka hiçbir veri yok.');
+}
+function _fmDateTest(){
+  const el=document.getElementById('fmTestOut');if(!el)return;
+  const date=document.getElementById('fmDateSel')?.value||'';
+  if(!date){el.innerHTML='';return;}
+  const game=getGame(_fmGame),draws=_kbGetDraws(_fmGame);
+  const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
+  const actual=draws[idx],prior=draws.slice(idx+1);
+  const r=_fmCompute(game,prior);
+  if(!r){el.innerHTML='<div style="font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
+  const aSet=new Set(_hyNums(actual));
+  el.innerHTML=_fmBlock(game,r,aSet,'🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')+((actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''),
+    'Formüller bu tarihten ÖNCEKİ iki çekilişle hesaplandı (lookahead yok) · ✓ net · ~ ±1 yakın.');
+}
+
 // ── Basit Tahmin sayfası: Hızlı Tahmin'in motorunu aynen kullanır, sadece 9 analizi gösterir ──
 function _btsInit(){
   // Hızlı Tahmin hiç açılmamışsa oyun listesi/tarih seçenekleri henüz kurulmamış olur.
