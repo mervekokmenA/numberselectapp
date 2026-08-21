@@ -20584,11 +20584,19 @@ function _hyInit(){
   row.innerHTML=GAMES.map(g=>{const a=g.id===_hyGame;
     return `<button onclick="_hySetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(180,83,9,.7)':'var(--border)'};background:${a?'rgba(217,119,6,.15)':'var(--surface2)'};color:${a?'#b8860b':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
   _hyDates();
+  _hyRunLive();          // sayfa açılır açılmaz Yeni Tahmin sütunu hazır olsun
   if(_hyRes)_hyRender();
+}
+// Yeni tahmin sütunu: ölçümden ve geçmiş test seçiminden bağımsız, tek başına da çalışır.
+function _hyRunLive(){
+  const game=getGame(_hyGame),draws=_kbGetDraws(_hyGame);
+  if(!draws||draws.length<10)return;
+  try{_hyTestData.live=_hyColData(game,draws,null);}catch(e){return;}
+  _hyRenderTests();
 }
 function _hySetGame(g){_hyGame=g;_hyGameManual=true;_hyRes=null;
   const e=document.getElementById('hyOut');if(e)e.innerHTML='';
-  _hyClearTests();_hyInit();}
+  _hyClearTests();_hyInit();}   // _hyInit içinde _hyRunLive yeniden kurar
 function _hySetT(v){_hyT=parseInt(v)||100;}
 function _hySetN(v){_hyNMul=parseFloat(v)||2;}
 function _hySetK(v){_hyK=parseInt(v)||6;const e=document.getElementById('hyBiletOut');if(e)e.innerHTML='';}
@@ -20607,7 +20615,7 @@ function _hyRun(){
   if(!draws||draws.length<200){el.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥200 çekiliş gerekli).</div>';return;}
   const games=_hyAllGames?GAMES.map(g=>g.id).filter(id=>(_kbGetDraws(id)||[]).length>=200):[_hyGame];
   el.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">⏳ '+_HY_METHODS.length+' yöntem × '+_hyT+' çekiliş × '+games.length+' oyun ölçülüyor…</div>';
-  _hyMeasure(games,_hyT,(res,nul)=>{_hyRes={game,res,draws,nul,games};_hyRender();});
+  _hyMeasure(games,_hyT,(res,nul)=>{_hyRes={game,res,draws,nul,games};_hyRender();_hyRenderTests();});
 }
 // Grup başına kopyalama: metin bir kayıtta tutulur, düğme yalnızca anahtarı taşır —
 // böylece sayılar/adlar onclick içine gömülmez (tırnak ve kaçış sorunu çıkmaz).
@@ -20655,7 +20663,7 @@ function _hySelClearAll(){
 function _hyPanels(){
   const el=document.getElementById('hyPanels');if(!el)return;
   const cols=[_hyTestData.live,_hyTestData.t1,_hyTestData.t2,_hyTestData.t3].filter(Boolean);
-  if(cols.length<2){el.innerHTML='';return;}
+  if(!cols.length){el.innerHTML='';return;}
   el.innerHTML=_hyPosPanel(_hyPosMarks(cols))+_hySelPanel(cols);
 }
 function _hySelPanel(cols){
@@ -20873,7 +20881,7 @@ function _hyRenderTests(){
   const grid=document.getElementById('hyTestGrid');if(!grid)return;
   const cols=[_hyTestData.live,_hyTestData.t1,_hyTestData.t2,_hyTestData.t3].filter(Boolean);
   grid.innerHTML='';
-  if(cols.length<2)return;   // yalnızca yeni tahmin varsa sütun düzenine gerek yok
+  if(!cols.length)return;
   const mkRow=inner=>`<div class="hy-row" style="display:grid;grid-template-columns:repeat(${cols.length},minmax(0,1fr));gap:14px;align-items:stretch;margin-bottom:5px">${inner}</div>`;
   const pm=_hyPosMarks(cols);
   let h='<div id="hyPanels"></div>'+mkRow(cols.map(c=>`<div style="padding:8px 10px;background:var(--surface2);border:1px solid ${c.aSet?'rgba(217,119,6,.35)':'var(--border)'};border-radius:9px">
@@ -20927,9 +20935,10 @@ function _hyDateTest(slot){
     _hyRenderTests();
   },20);
 }
-function _hyClearTests(){_hyTestData={live:null,t1:null,t2:null,t3:null};_hySel.clear();
+// Testleri temizlemek yalnızca geçmiş test sütunlarını kaldırır — yeni tahmin sütunu kalır.
+function _hyClearTests(){_hyTestData.t1=_hyTestData.t2=_hyTestData.t3=null;_hySel.clear();
   ['','2','3'].forEach(sl=>{const e=document.getElementById('hyDateSel'+sl);if(e)e.value='';});
-  const g=document.getElementById('hyTestGrid');if(g){g.innerHTML='';g.className='';}}
+  _hyRenderTests();}
 // ── ANASAYFA: "Formül" kutusu (yalnızca son 2 çekiliş) ──────────────────────
 let _fmGame='sayisal',_fmGameManual=false;
 function _fmInit(){
@@ -20939,7 +20948,7 @@ function _fmInit(){
     return `<button onclick="_fmSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(99,102,241,.7)':'var(--border)'};background:${a?'rgba(99,102,241,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
   _fmDates();_fmRun();
 }
-function _fmSetGame(g){_fmGame=g;_fmGameManual=true;_fmClearTests();_fmInit();}
+function _fmSetGame(g){_fmGame=g;_fmGameManual=true;_fmSel.clear();_fmClearTests();_fmInit();}
 function _fmDates(){
   const draws=_kbGetDraws(_fmGame);
   let h='<option value="">— Geçmiş test için tarih seçin —</option>';
@@ -20950,6 +20959,55 @@ function _fmDates(){
 // Yeni tahmin ve açık geçmiş testler yan yana; her formül TEK grid satırında,
 // yani "a + b" her sütunda aynı hizada. Üstte her sütunun kendi uzlaşısı.
 let _fmData={live:null,t1:null,t2:null,t3:null};
+// Formül seçimi (kesişim) — haber sayfasındaki yapının aynısı: soldaki Yeni Tahmin
+// sütununda her formülün başında kutucuk; işaretlenenlerin TÜMÜNDE ortak geçen sayılar
+// en üstte listelenir. Tıklama ızgarayı baştan çizmez, yalnızca panel ve hücre vurgusu.
+let _fmSel=new Set();
+function _fmSelToggle(id){
+  if(_fmSel.has(id))_fmSel.delete(id);else _fmSel.add(id);
+  const sel=_fmSel.has(id);
+  const cell=document.querySelector('#fmGrid [data-fmid="'+id+'"]');
+  if(cell){cell.style.background=sel?'rgba(99,102,241,.09)':'var(--surface)';
+    cell.style.borderColor=sel?'rgba(99,102,241,.55)':'var(--border)';}
+  _fmPanels();
+}
+function _fmSelClearAll(){
+  _fmSel.clear();
+  document.querySelectorAll('#fmGrid [data-fmid]').forEach(c=>{
+    c.style.background='var(--surface)';c.style.borderColor='var(--border)';
+    const b=c.querySelector('input[type=checkbox]');if(b)b.checked=false;});
+  _fmPanels();
+}
+function _fmPanels(){
+  const el=document.getElementById('fmPanels');if(!el)return;
+  const cols=[_fmData.live,_fmData.t1,_fmData.t2,_fmData.t3].filter(Boolean);
+  el.innerHTML=cols.length?_fmSelPanel(cols):'';
+}
+function _fmSelPanel(cols){
+  const live=cols[0];if(!live)return '';
+  const ids=[..._fmSel].filter(id=>live.map[id]);
+  if(!ids.length)return `<div class="card" style="margin:0 0 6px;padding:8px 11px;font-size:.58rem;color:var(--muted)">Soldaki <strong>Yeni Tahmin</strong> sütununda formüllerin yanındaki kutucukları işaretle — işaretlediklerinin <strong>TÜMÜNDE ortak</strong> geçen sayılar burada listelenir.</div>`;
+  let inter=live.map[ids[0]].row.nums.slice();
+  ids.slice(1).forEach(id=>{const st=new Set(live.map[id].row.nums);inter=inter.filter(n=>st.has(n));});
+  inter.sort((a,b)=>a-b);
+  let h=`<div class="card" style="margin:0 0 6px;border:2px solid rgba(99,102,241,.5);background:linear-gradient(135deg,rgba(99,102,241,.07),transparent)">
+   <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:5px">
+    <span style="font-size:.7rem;font-weight:800;color:var(--accent)">🔎 Formül Kesişimi — ${ids.length} formül · ${inter.length} ortak sayı</span>
+    <span style="display:flex;gap:5px;align-items:center">
+     ${_hyCopyBtn('fmsel_inter',inter.join(' '))}
+     <button onclick="_fmSelClearAll()" style="font-size:.58rem;padding:3px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">✕ Temizle</button></span></div>
+   <div style="font-size:.52rem;color:var(--muted);margin-bottom:6px;line-height:1.5">${ids.map(id=>live.map[id].row.name).join(' × ')}</div>`;
+  if(!inter.length)h+=`<div style="font-size:.62rem;color:var(--muted)">Bu formüllerin ortak sayısı yok.</div>`;
+  else{
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${inter.map(n=>`<span style="font-family:monospace;font-size:.84rem;font-weight:800;color:var(--text);background:var(--surface2);border:1.5px solid rgba(99,102,241,.5);border-radius:7px;padding:2px 8px">${n}</span>`).join('')}</div>`;
+    const tests=cols.slice(1);
+    if(tests.length)h+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:7px;padding-top:6px;border-top:1px dashed var(--border)">`
+      +tests.map(c=>{let n2=0,y2=0;inter.forEach(n=>{if(c.aSet.has(n))n2++;else if(c.aSet.has(n-1)||c.aSet.has(n+1))y2++;});
+        return `<span style="font-size:.56rem;color:var(--muted)">${c.actual.date}: <strong style="color:${n2?'var(--green)':'var(--muted)'}">${n2} net</strong> · ${y2} yakın</span>`;}).join('')+`</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
 function _fmColData(game,prior,actual){
   const r=_fmCompute(game,prior);if(!r)return null;
   const aSet=actual?new Set(_hyNums(actual)):null;
@@ -20975,7 +21033,7 @@ function _fmRenderTests(){
   grid.innerHTML='';
   if(!cols.length)return;
   const mkRow=inner=>`<div class="fm-row" style="display:grid;grid-template-columns:repeat(${cols.length},minmax(0,1fr));gap:14px;align-items:stretch;margin-bottom:5px">${inner}</div>`;
-  let h=mkRow(cols.map(c=>`<div style="padding:8px 10px;background:var(--surface2);border:1px solid ${c.aSet?'rgba(99,102,241,.35)':'var(--border)'};border-radius:9px">
+  let h='<div id="fmPanels"></div>'+mkRow(cols.map(c=>`<div style="padding:8px 10px;background:var(--surface2);border:1px solid ${c.aSet?'rgba(99,102,241,.35)':'var(--border)'};border-radius:9px">
      <div style="font-size:.64rem;font-weight:800;color:var(--accent)">${c.baslik}</div>
      <div style="font-size:.52rem;color:var(--muted);margin-top:3px;line-height:1.5">${c.alt}</div>
      <div style="font-size:.52rem;color:var(--muted);margin-top:4px;line-height:1.5">${c.kaynak}</div>
@@ -20997,8 +21055,10 @@ function _fmRenderTests(){
     h+=mkRow(cols.map((c,ci)=>{
       const e=c.map[F.id];
       if(!e)return '<div style="padding:5px 8px;border-radius:7px;border:1px dashed var(--border);font-size:.52rem;color:var(--muted);height:100%;box-sizing:border-box">—</div>';
-      return `<div style="padding:5px 8px;border-radius:7px;background:${e.net?'rgba(0,230,118,.06)':'var(--surface)'};border:1px solid ${e.net?'rgba(0,200,100,.35)':'var(--border)'};height:100%;box-sizing:border-box">
+      const chk=ci===0,sel=chk&&_fmSel.has(F.id);
+      return `<div ${chk?`data-fmid="${F.id}"`:''} style="padding:5px 8px;border-radius:7px;background:${e.net?'rgba(0,230,118,.06)':sel?'rgba(99,102,241,.09)':'var(--surface)'};border:1px solid ${e.net?'rgba(0,200,100,.35)':sel?'rgba(99,102,241,.55)':'var(--border)'};height:100%;box-sizing:border-box">
         <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:3px">
+         ${chk?`<input type="checkbox" onchange="_fmSelToggle('${F.id}')"${sel?' checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" title="Bu formülü kesişime kat">`:''}
          <span style="font-size:.6rem;font-weight:700;color:var(--text);flex:1;min-width:0" title="${e.row.desc}">${e.row.name}</span>
          <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
           ${c.aSet?`<span style="font-size:.58rem;font-weight:800;color:${e.net?'var(--green)':'var(--muted)'};white-space:nowrap">${e.net} net · ${e.near} yakın</span>`:''}
@@ -21007,6 +21067,7 @@ function _fmRenderTests(){
     }).join(''));
   });
   grid.innerHTML=h;
+  _fmPanels();
   window._fmTxt=cols.map(c=>c.uzlasi.nums.join(' ')+'\n'
     +_FM_FORMULAS.filter(F=>c.map[F.id]).map(F=>c.map[F.id].row.nums.join(' ')).join('\n')).join('\n\n');
 }
