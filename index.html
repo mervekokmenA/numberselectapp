@@ -20523,7 +20523,7 @@ let _hyNMul=2;
 const _HY_ESIK=50;
 const _HY_N=g=>Math.max(2,Math.round(g.count*_hyNMul));
 function _hyMeasure(games,T,onDone){
-  const acc=_HY_METHODS.map(M=>({m:M,n:0,hit1:0,hit2:0,net:0,size:0,exp:0,vr:0,marks:[],
+  const acc=_HY_METHODS.map(M=>({m:M,n:0,hit1:0,hit2:0,net:0,size:0,exp:0,vr:0,
     w:[{n:0,h:0,e:0,v:0},{n:0,h:0,e:0,v:0}]}));
   const jobs=[];
   games.forEach(gid=>{
@@ -20547,7 +20547,6 @@ function _hyMeasure(games,T,onDone){
         r.n++;r.size+=c.length;r.net+=net;r.hit1+=h;if(net>=2)r.hit2++;
         r.exp+=p;r.vr+=p*(1-p);
         const w=r.w[j.win];w.n++;w.h+=h;w.e+=p;w.v+=p*(1-p);
-        if(r.marks.length<80)r.marks.push(net);
       });
     }
     if(k<jobs.length){setTimeout(step,0);return;}
@@ -20557,7 +20556,7 @@ function _hyMeasure(games,T,onDone){
       const wl=r.w.map(w=>({lift:w.e?w.h/w.e:0,z:w.v>0?(w.h-w.e)/Math.sqrt(w.v):0,n:w.n}));
       return {id:r.m.id,m:r.m,n:r.n,size:r.n?+(r.size/r.n).toFixed(1):0,
         rate1:r.n?100*r.hit1/r.n:0,rate2:r.n?100*r.hit2/r.n:0,ortNet:r.n?r.net/r.n:0,
-        base:r.n?100*r.exp/r.n:0,lift,z,w1:wl[0],w2:wl[1],marks:r.marks,
+        base:r.n?100*r.exp/r.n:0,lift,z,w1:wl[0],w2:wl[1],
         tutarli:wl[0].lift>=1&&wl[1].lift>=1};
     });
     onDone(out,_hyNullMax(out));
@@ -20621,11 +20620,6 @@ function _hyNumChips(nums,aSet,big){
     return `<span style="font-family:monospace;font-size:${big?'.8rem':'.68rem'};font-weight:${isN||isNr?800:600};color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:var(--surface2);border:1px solid ${isN?'rgba(0,200,100,.5)':'var(--border)'};border-radius:6px;padding:1px 6px">${n}${isN?'✓':isNr?'~':''}</span>`;
   }).join('');
 }
-// yöntemin çekiliş çekiliş isabet şeridi — kaç net bulduğu renk yoğunluğuyla
-function _hySpark(marks){
-  return `<span style="display:inline-flex;gap:1px;align-items:flex-end" title="Soldan sağa: en yeni çekilişten geriye. Dolu kutu = o çekilişte en az 1 net.">`
-    +marks.slice(0,40).map(v=>`<span style="width:3px;height:${v?Math.min(10,4+v*3):2}px;background:${v>=2?'var(--green)':v===1?'rgba(0,200,100,.55)':'var(--border)'};border-radius:1px"></span>`).join('')+`</span>`;
-}
 function _hyRender(){
   const el=document.getElementById('hyOut');if(!el||!_hyRes)return;
   const {game,res,draws,nul,games}=_hyRes;
@@ -20684,31 +20678,22 @@ function _hyRender(){
      <div id="hyBiletOut" style="margin-top:9px"></div>
     </div>`;
   }
+  // Yöntem listesi: yalnızca ad, açıklama ve ÜRETTİĞİ SAYILAR. İstatistik sütunları
+  // (kaynak, ≥1 net, şans, lift, z, iki pencere, seyir, ≥2 net, ort. net, aday) kaldırıldı —
+  // ölçüm arka planda çalışmaya devam eder; sonucu yukarıdaki Ölçüm Karnesi'nde ve
+  // yöntemlerin sıralamasında (lift sırası) kullanılır.
   const tablo=(list,baslik,renk)=>{
     if(!list.length)return '';
     let t=`<div class="card"><div style="font-size:.76rem;font-weight:800;color:${renk};margin-bottom:8px">${baslik}</div>`;
-    t+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.62rem">`;
-    t+=`<tr style="color:var(--muted);text-align:left"><th style="padding:4px 6px">Yöntem</th><th style="padding:4px 6px">Kaynak</th><th style="padding:4px 6px;white-space:nowrap">≥1 net</th><th style="padding:4px 6px;white-space:nowrap">şans</th><th style="padding:4px 6px">lift</th><th style="padding:4px 6px">z</th><th style="padding:4px 6px;white-space:nowrap" title="Ölçüm aralığı ikiye bölünür; bir yöntem yalnızca tek pencerede iyiyse bu aşırı-uydurmadır">iki pencere</th><th style="padding:4px 6px" title="Son 40 çekiliş: dolu kutu = en az 1 net">seyir</th><th style="padding:4px 6px;white-space:nowrap">≥2 net</th><th style="padding:4px 6px;white-space:nowrap">ort. net</th><th style="padding:4px 6px">aday</th></tr>`;
+    t+=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;align-items:start">`;
     list.forEach(r=>{
-      const ok=r.lift>=1.05,kotu=r.lift<0.95,ust=r.z>=2,alt=r.z<=-2;
-      t+=`<tr style="border-top:1px solid var(--border)">`;
-      t+=`<td style="padding:5px 6px;font-weight:700;color:var(--text)">${r.m.name}<div style="font-size:.52rem;color:var(--muted);font-weight:400;line-height:1.5;max-width:400px">${r.m.desc}</div>`;
-      t+=`<div style="display:flex;gap:3px;flex-wrap:wrap;margin-top:4px">${_hyNumChips(r.nums,null)}</div></td>`;
-      t+=`<td style="padding:5px 6px"><span style="font-size:.52rem;font-weight:800;padding:1px 6px;border-radius:5px;background:${r.m.src==='haber'?'rgba(217,119,6,.15)':'rgba(129,140,248,.15)'};color:${r.m.src==='haber'?'#b8860b':'var(--accent)'}">${r.m.src==='haber'?'HABER':'LAB'}</span></td>`;
-      t+=`<td style="padding:5px 6px;font-weight:800;color:${r.rate1>=_HY_ESIK?'var(--green)':'var(--muted)'}">%${r.rate1.toFixed(0)}</td>`;
-      t+=`<td style="padding:5px 6px;color:var(--muted)">%${r.base.toFixed(0)}</td>`;
-      t+=`<td style="padding:5px 6px;font-weight:800;color:${ok?'var(--green)':kotu?'#c2410c':'var(--muted)'}">${r.lift.toFixed(2)}</td>`;
-      t+=`<td style="padding:5px 6px;font-weight:800;color:${ust?'var(--green)':alt?'#c2410c':'var(--muted)'}" title="|z|<2 → fark şans bandında">${r.z>=0?'+':''}${r.z.toFixed(1)}</td>`;
-      t+=`<td style="padding:5px 6px;white-space:nowrap"><span style="font-size:.54rem;font-weight:700;color:${r.tutarli?'var(--green)':'var(--muted)'}" title="Eski pencere / yeni pencere lift'i">${r.w1.lift.toFixed(2)} / ${r.w2.lift.toFixed(2)}${r.tutarli?' ✓':''}</span></td>`;
-      t+=`<td style="padding:5px 6px">${_hySpark(r.marks)}</td>`;
-      t+=`<td style="padding:5px 6px;color:var(--muted)">%${r.rate2.toFixed(0)}</td>`;
-      t+=`<td style="padding:5px 6px;color:var(--muted)">${r.ortNet.toFixed(2)}</td>`;
-      t+=`<td style="padding:5px 6px;color:var(--muted)">${r.size}</td>`;
-      t+=`</tr>`;
-      copy.push(r.m.name+' — ≥1 net %'+r.rate1.toFixed(0)+' (şans %'+r.base.toFixed(0)+', lift '+r.lift.toFixed(2)
-        +', z '+r.z.toFixed(1)+', pencereler '+r.w1.lift.toFixed(2)+'/'+r.w2.lift.toFixed(2)+') → '+r.nums.join(' '));
+      t+=`<div style="padding:7px 9px;border-radius:8px;background:var(--surface);border:1px solid var(--border)">
+        <div style="font-size:.62rem;font-weight:800;color:var(--text)">${r.m.name}</div>
+        <div style="font-size:.52rem;color:var(--muted);line-height:1.5;margin:2px 0 5px">${r.m.desc}</div>
+        <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(r.nums,null)}</div></div>`;
+      copy.push(r.m.name+': '+r.nums.join(' '));
     });
-    t+=`</table></div></div>`;
+    t+=`</div></div>`;
     return t;
   };
   h+=tablo(gecen,`✅ Eşiği Geçen Yöntemler (${gecen.length}) — çekilişlerin en az yarısında ≥1 sayıyı NET buldu`,'var(--green)');
