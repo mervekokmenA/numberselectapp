@@ -348,14 +348,14 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
 @media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,#agGrid,#agHdrRow,#agTestCtl,.ag-row,
-  .agx-row,.hy-row,#nnGrid,#npGrid,#fmGrid{grid-template-columns:1fr !important;}}
+  .agx-row,.hy-row,.fm-row,#nnGrid,#npGrid{grid-template-columns:1fr !important;}}
 /* 3 geçmiş test açıkken 4 sütun olabilir; tablette en fazla 2'ye iner. */
 @media(max-width:1400px) and (min-width:1101px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,.ag-row,#agHdrRow,
-  .agx-row,.hy-row{grid-template-columns:1fr 1fr 1fr !important;}}
+  .agx-row,.hy-row,.fm-row{grid-template-columns:1fr 1fr 1fr !important;}}
 /* 2 geçmiş test açıkken 3 sütun; tablette 2'ye, telefonda 1'e iner. */
 @media(max-width:1100px) and (min-width:601px){.qt-pair-row,#qtHdrRow,#btsHdrRow,
-  .agx-row,.hy-row,#nnGrid,#npGrid,#fmGrid{grid-template-columns:1fr 1fr !important;}}
-@media(max-width:600px){#caNihaiGrid,#cbNihaiGrid,#f2Grid,#kbGrid,#scanGrid,#hyDateRow{grid-template-columns:1fr !important;}}
+  .agx-row,.hy-row,.fm-row,#nnGrid,#npGrid{grid-template-columns:1fr 1fr !important;}}
+@media(max-width:600px){#caNihaiGrid,#cbNihaiGrid,#f2Grid,#kbGrid,#scanGrid,#hyDateRow,#fmDateRow{grid-template-columns:1fr !important;}}
 /* Telefonda yan yana iki sütun sayıları dar bir şeride sıkıştırıyordu; ≥600px'te (tablet ve
    üstü) iki pencere gibi yan yana, altında tek sütun. */
 @media(max-width:600px){
@@ -868,13 +868,15 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_caCopy(window._fmTxt||'')" class="copy-btn" style="font-size:.72rem;padding:8px 14px;font-weight:700">📋 Kopyala</button>
   </div>
   <div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--border)">
-   <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:6px">📊 Geçmiş Test — tek tek tarih seçerek</div>
-   <select id="fmDateSel" onchange="_fmDateTest()" style="width:100%;box-sizing:border-box;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:6px">📊 Geçmiş Test — aynı anda üç tarih</div>
+   <div id="fmDateRow" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+    <select id="fmDateSel" onchange="_fmDateTest('')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+    <select id="fmDateSel2" onchange="_fmDateTest('2')" title="2. geçmiş test" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+    <select id="fmDateSel3" onchange="_fmDateTest('3')" title="3. geçmiş test" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   </div>
+   <button onclick="_fmClearTests();_fmRenderTests()" style="margin-top:8px;font-size:.66rem;padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">🗑️ Testleri Temizle</button>
   </div>
-  <div id="fmGrid" style="display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start">
-   <div><div style="font-size:.66rem;font-weight:800;color:var(--accent);margin-bottom:5px">🔮 Yeni Tahmin</div><div id="fmOut"></div></div>
-   <div data-col="1" style="display:none"><div style="font-size:.66rem;font-weight:800;color:var(--accent);margin-bottom:5px">📊 Geçmiş Test</div><div id="fmTestOut"></div></div>
-  </div>
+  <div id="fmGrid"></div>
  </div>
 </div>
 
@@ -16121,7 +16123,7 @@ function _homeColLayout(pfx){
 }
 function _homeColInit(){
   try{_fmInit();}catch(e){}
-  ['nn','np','fm'].forEach(pfx=>{
+  ['nn','np'].forEach(pfx=>{
     ['','2','3'].forEach(sl=>{
       const out=document.getElementById(pfx+'TestOut'+sl);if(!out)return;
       new MutationObserver(()=>_homeColLayout(pfx)).observe(out,{childList:true,subtree:true});
@@ -19560,8 +19562,7 @@ function _posMatchPanel(elId,res){
   if(!res.n){el.innerHTML='';window._posMatchTxt='';return;}
   const uniq=[...new Set(res.list.map(x=>x.n))].sort((a,b)=>a-b);
   // Kopyalama sade tutulur: konum dökümü ekranda zaten var, kopyada yalnızca sonuç sayıları.
-  window._posMatchTxt='🔲 İki geçmiş testte de aynı konumda NET tutan yerler\n'+
-    'Yeni tahmindeki sayılar: '+uniq.join(' ');
+  window._posMatchTxt='🔲 İki geçmiş testte de aynı konumda NET tutan yerler\n'+uniq.join(' ');
   let h=`<div class="card" style="margin:0;border:2px solid #111;background:rgba(0,0,0,.03)">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`;
   h+=`<span style="font-size:.74rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.56rem;color:var(--muted);font-weight:600">(${res.n} konum · ${uniq.length} sayı)</span></span>`;
@@ -19835,7 +19836,7 @@ function _agPosPanel(pm){
   const nums=[...new Set(pm.list.map(x=>x.n))].sort((a,b)=>a-b);
   // Kopyalama sade tutulur: konum dökümü ekranda zaten var, kopyada yalnızca sonuç sayıları.
   window._agPosTxt='🔲 İki geçmiş testte de aynı bilet+sırada NET tutan konumlar'+
-    (nums.length?'\nYeni tahmindeki sayılar: '+nums.join(' '):'');
+    (nums.length?'\n'+nums.join(' '):'');
   let h=`<div class="card" style="margin:0;border:2px solid #111;background:rgba(0,0,0,.03)">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`;
   h+=`<span style="font-size:.74rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.56rem;color:var(--muted);font-weight:600">(${pm.marks.size} konum · ${nums.length} sayı)</span></span>`;
@@ -20099,10 +20100,7 @@ function _agxTxtFor(id){
   const eng=_AGX_ENGINES.find(e=>e.id===id),D=_agxData[id];
   if(!eng||!D||!D.live||!D.live.tickets.length)return '';
   const g=D.live.game;
-  let t=eng.name+' — '+g.name+' ('+D.live.tickets.length+' bilet)\n'
-    +D.live.tickets.map(x=>[...(x.main||[]),...(x.bonus||[])].join(' - ')).join('\n');
-  if(D.live.w)t+='\nHavuz: '+_agxTop(D.live.w,g.count*3).join(' ');
-  return t;
+  return D.live.tickets.map(x=>[...(x.main||[]),...(x.bonus||[])].join(' - ')).join('\n');
 }
 function _agxCopy(id){
   const t=_agxTxtFor(id);
@@ -20670,7 +20668,7 @@ function _hySelPanel(cols){
   let inter=live.map[ids[0]].nums.slice();
   ids.slice(1).forEach(id=>{const st=new Set(live.map[id].nums);inter=inter.filter(n=>st.has(n));});
   inter.sort((a,b)=>a-b);
-  const txt='🔎 Analiz Kesişimi ('+ids.length+' analiz)\n'+ids.map(id=>live.map[id].M.name).join(' × ')+'\n'+(inter.join(' ')||'(ortak sayı yok)');
+  const txt='🔎 Analiz Kesişimi\n'+inter.join(' ');
   let h=`<div class="card" style="margin:0 0 6px;border:2px solid rgba(184,134,11,.5);background:linear-gradient(135deg,rgba(217,119,6,.07),transparent)">
    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:5px">
     <span style="font-size:.7rem;font-weight:800;color:#b8860b">🔎 Analiz Kesişimi — ${ids.length} analiz · ${inter.length} ortak sayı</span>
@@ -20713,9 +20711,8 @@ function _hyPosMarks(cols){
 function _hyPosPanel(pm){
   if(!pm.list.length)return '';
   const nums=[...new Set(pm.list.map(x=>x.n))].sort((a,b)=>a-b);
-  const txt='🔲 Açık geçmiş testlerin hepsinde aynı analiz+sırada NET tutan konumlar\n'
-    +pm.list.map(x=>x.ad+' · '+x.sira+'. sıra: '+x.n+'  (testler: '+x.testler+')').join('\n')
-    +'\n\nYeni tahmindeki sayılar: '+nums.join(' ');
+  // Kopyada türetme dökümü yok: yalnızca başlık ve sayılar.
+  const txt='🔲 Açık geçmiş testlerin hepsinde aynı analiz+sırada NET tutan konumlar\n'+nums.join(' ');
   return `<div class="card" style="margin:0 0 6px;border:2px solid #111;background:rgba(0,0,0,.03)">
    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:5px">
     <span style="font-size:.7rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.54rem;color:var(--muted);font-weight:600">(${pm.list.length} konum · ${nums.length} sayı)</span></span>
@@ -20735,7 +20732,7 @@ function _hyRender(){
   const gecen=withNums.filter(r=>r.gecti),kalan=withNums.filter(r=>!r.gecti);
   const enIyi=withNums[0];
   const kesif=nul&&enIyi&&enIyi.lift>nul.p95;
-  const copy=['📰 Haber Yöntemleri + Laboratuvar — '+(games.length>1?games.length+' oyun':game.name)+' · '+_hyT+' çekiliş · havuz '+_HY_N(game)+' sayı'];
+  const copy=[];   // toplu kopya da yalnızca sayı satırlarından oluşur
   const tal={};gecen.forEach(r=>r.nums.forEach(n=>tal[n]=(tal[n]||0)+1));
   const uz=Object.keys(tal).map(Number).sort((a,b)=>tal[b]-tal[a]||a-b);
   window._hyTally=tal;window._hyUz=uz;
@@ -20761,12 +20758,10 @@ function _hyRender(){
     ${kesif?'bu sınırın ÜSTÜNDE, yani sırf çok yöntem denemekle açıklanamıyor. Yine de ikinci pencerede de tutup tutmadığına bakın.'
            :'bu sınırın ALTINDA. Yani "en iyi yöntem" başlığı, sırf '+_HY_METHODS.length+' yöntem denenmiş olmasının doğal sonucu; gerçek bir kenar değil.'}
    </div></div>`;
-  copy.push('Karne: '+gecen.length+'/'+withNums.length+' yöntem eşiği geçti · en yüksek lift '+(enIyi?enIyi.lift.toFixed(2):'—')
-    +' · şans altında beklenen en yüksek lift '+(nul?nul.p95.toFixed(2):'—')+' → '+(kesif?'dikkate değer':'keşif yok'));
   // ── uzlaşı + bilet ──
   if(uz.length){
     const top=uz.slice(0,game.count*2);
-    copy.push('🏆 Eşiği geçen yöntemlerin uzlaşısı: '+top.join(' '));
+    copy.push(top.join(' '));
     h+=`<div class="card" style="border:2px solid rgba(217,119,6,.5);background:linear-gradient(135deg,rgba(217,119,6,.07),transparent)">
      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
       <span style="font-size:.78rem;font-weight:800;color:#b8860b">🏆 Uzlaşı — Eşiği Geçen ${gecen.length} Yöntem</span>
@@ -20795,10 +20790,10 @@ function _hyRender(){
       t+=`<div style="padding:7px 9px;border-radius:8px;background:var(--surface);border:1px solid var(--border)">
         <div style="display:flex;justify-content:space-between;gap:6px;align-items:center">
          <span style="font-size:.62rem;font-weight:800;color:var(--text);flex:1;min-width:0">${r.m.name}</span>
-         ${_hyCopyBtn('m_'+r.id,r.m.name+'\n'+r.nums.join(' '))}</div>
+         ${_hyCopyBtn('m_'+r.id,r.nums.join(' '))}</div>
         <div style="font-size:.52rem;color:var(--muted);line-height:1.5;margin:2px 0 5px">${r.m.desc}</div>
         <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(r.nums,null)}</div></div>`;
-      copy.push(r.m.name+': '+r.nums.join(' '));
+      copy.push(r.nums.join(' '));
     });
     t+=`</div></div>`;
     return t;
@@ -20818,8 +20813,7 @@ function _hyBilet(){
   const w={};keys.forEach(k=>w[+k]=tal[k]/mx);
   let tk=[];try{tk=_agxBundle(game,w,_hyK,prior);}catch(e){}
   if(!tk.length){el.innerHTML='<div style="font-size:.64rem;color:var(--muted)">Bilet üretilemedi.</div>';return;}
-  window._hyBiletTxt='🎫 Haber Yöntemleri Uzlaşısı — '+game.name+' ('+tk.length+' bilet)\n'
-    +tk.map(t=>[...(t.main||[]),...(t.bonus||[])].join(' - ')).join('\n');
+  window._hyBiletTxt=tk.map(t=>[...(t.main||[]),...(t.bonus||[])].join(' - ')).join('\n');
   el.innerHTML=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:5px">Uzlaşı ağırlıklarıyla, biletler arası sayı tekrarı olmadan dağıtıldı (Agresif sayfasındaki net odaklı üreteç).</div>`
     +tk.map((t,i)=>`<div style="display:flex;gap:8px;align-items:center;padding:4px 8px;border-radius:7px;background:var(--surface);border:1px solid var(--border);margin-bottom:3px">
       <span style="font-size:.54rem;color:var(--muted);font-weight:700;min-width:24px">#${i+1}</span>
@@ -20868,7 +20862,7 @@ function _hyColData(game,prior,actual){
 function _hyCell(r,aSet,key,opts){
   if(!r)return '<div style="padding:5px 7px;border-radius:7px;border:1px dashed var(--border);font-size:.52rem;color:var(--muted);height:100%;box-sizing:border-box">—</div>';
   opts=opts||{};
-  const txt=r.M.name+'\n'+r.nums.join(' ')+(aSet?`\n${r.net} net · ${r.near} yakın`:'');
+  const txt=r.nums.join(' ');   // kopyada yalnızca sayılar
   const chk=opts.chk?`<input type="checkbox" onchange="_hySelToggle('${opts.id}')"${opts.sel?' checked':''} style="width:14px;height:14px;accent-color:#b8860b;cursor:pointer;flex-shrink:0" title="Bu analizi kesişime kat">`:'';
   return `<div ${opts.chk?`data-hyid="${opts.id}"`:''} style="padding:5px 7px;border-radius:7px;background:${r.net?'rgba(0,230,118,.06)':opts.sel?'rgba(217,119,6,.07)':'var(--surface)'};border:1px solid ${r.net?'rgba(0,200,100,.35)':opts.sel?'rgba(184,134,11,.5)':'var(--border)'};height:100%;box-sizing:border-box">
     <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:3px">
@@ -20896,7 +20890,7 @@ function _hyRenderTests(){
   h+=mkRow(cols.map((c,ci)=>{
     const u=c.uzlasi;
     if(!u||!u.nums.length)return '<div></div>';
-    const uTxt='🏆 Uzlaşı ('+u.kaynak+' yöntem) — '+c.baslik+'\n'+u.nums.join(' ')+(c.aSet?`\n${u.net} net · ${u.near} yakın`:'');
+    const uTxt=u.nums.join(' ');
     return `<div style="padding:7px 9px;border-radius:8px;background:${u.net?'rgba(0,230,118,.09)':'rgba(217,119,6,.07)'};border:1.5px solid ${u.net?'rgba(0,200,100,.5)':'rgba(217,119,6,.4)'};height:100%;box-sizing:border-box">
       <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
        <span style="font-size:.62rem;font-weight:800;color:#b8860b;flex:1;min-width:0">🏆 Uzlaşı <span style="font-size:.5rem;color:var(--muted);font-weight:600">(${u.kaynak} yöntem)</span></span>
@@ -20914,11 +20908,9 @@ function _hyRenderTests(){
   });
   grid.innerHTML=h;
   _hyPanels();
-  window._hyTestTxt=cols.map(c=>c.baslik+'\n'
-    +(c.uzlasi&&c.uzlasi.nums.length?'🏆 Uzlaşı ('+c.uzlasi.kaynak+' yöntem): '+c.uzlasi.nums.join(' ')
-       +(c.aSet?`  → ${c.uzlasi.net} net · ${c.uzlasi.near} yakın`:'')+'\n':'')
-    +_hyRowOrder().filter(id=>c.map[id])
-    .map(id=>c.map[id].M.name+': '+c.map[id].nums.join(' ')+(c.aSet?`  → ${c.map[id].net} net · ${c.map[id].near} yakın`:'')).join('\n')).join('\n\n');
+  window._hyTestTxt=cols.map(c=>
+    (c.uzlasi&&c.uzlasi.nums.length?c.uzlasi.nums.join(' ')+'\n':'')
+    +_hyRowOrder().filter(id=>c.map[id]).map(id=>c.map[id].nums.join(' ')).join('\n')).join('\n\n');
 }
 function _hyDateTest(slot){
   slot=slot||'';
@@ -20950,66 +20942,98 @@ function _fmInit(){
     return `<button onclick="_fmSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(99,102,241,.7)':'var(--border)'};background:${a?'rgba(99,102,241,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
   _fmDates();_fmRun();
 }
-function _fmSetGame(g){_fmGame=g;_fmGameManual=true;const e=document.getElementById('fmTestOut');if(e)e.innerHTML='';_fmInit();}
+function _fmSetGame(g){_fmGame=g;_fmGameManual=true;_fmClearTests();_fmInit();}
 function _fmDates(){
-  const sel=document.getElementById('fmDateSel');if(!sel)return;
-  const draws=_kbGetDraws(_fmGame),pv=sel.value;
+  const draws=_kbGetDraws(_fmGame);
   let h='<option value="">— Geçmiş test için tarih seçin —</option>';
   draws.forEach((d,i)=>{if(draws.length-i-1<3)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
-  sel.innerHTML=h;if(pv)sel.value=pv;
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('fmDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
 }
-function _fmBlock(game,r,aSet,baslik,alt){
-  let h=`<div style="padding:9px 11px;background:var(--surface2);border:1px solid ${aSet?'rgba(99,102,241,.35)':'var(--border)'};border-radius:10px;margin-bottom:8px">`;
-  h+=`<div style="font-size:.66rem;font-weight:800;color:var(--accent)">${baslik}</div>`;
-  h+=`<div style="font-size:.55rem;color:var(--muted);margin-top:3px;line-height:1.6">${alt}</div>`;
-  h+=`<div style="font-size:.56rem;color:var(--muted);margin-top:5px">Son çekiliş <strong style="color:var(--text);font-family:monospace">${r.A.join(' ')}</strong> · bir önceki <strong style="color:var(--text);font-family:monospace">${r.B.join(' ')}</strong></div>`;
-  h+=`</div>`;
+// ── ÇOKLU GEÇMİŞ TEST — haber/agresif sayfalarındaki düzenin aynısı ──
+// Yeni tahmin ve açık geçmiş testler yan yana; her formül TEK grid satırında,
+// yani "a + b" her sütunda aynı hizada. Üstte her sütunun kendi uzlaşısı.
+let _fmData={live:null,t1:null,t2:null,t3:null};
+function _fmColData(game,prior,actual){
+  const r=_fmCompute(game,prior);if(!r)return null;
+  const aSet=actual?new Set(_hyNums(actual)):null;
+  const map={};
   r.rows.forEach(row=>{
-    let net=0,near=0;row.nums.forEach(n=>{if(aSet&&aSet.has(n))net++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))near++;});
-    const fKey='fm_'+(aSet?'t':'l')+'_'+row.id;
-    h+=`<div style="padding:5px 8px;border-radius:7px;background:${net?'rgba(0,230,118,.06)':'var(--surface)'};border:1px solid ${net?'rgba(0,200,100,.35)':'var(--border)'};margin-bottom:4px">
-      <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:3px">
-       <span style="font-size:.6rem;font-weight:700;color:var(--text);flex:1;min-width:0" title="${row.desc}">${row.name}</span>
-       <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
-        ${aSet?`<span style="font-size:.58rem;font-weight:800;color:${net?'var(--green)':'var(--muted)'};white-space:nowrap">${net} net · ${near} yakın</span>`:''}
-        ${_hyCopyBtn(fKey,row.name+'\n'+row.nums.join(' ')+(aSet?`\n${net} net · ${near} yakın`:''))}</span></div>
-      <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(row.nums,aSet)}</div></div>`;
+    let net=0,near=0;
+    if(aSet)row.nums.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
+    map[row.id]={row,net,near};
   });
-  const top=r.ranked.slice(0,game.count*2);
-  let un=0,ua=0;top.forEach(n=>{if(aSet&&aSet.has(n))un++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))ua++;});
-  h+=`<div style="margin-top:7px;padding:8px 10px;border-radius:8px;background:rgba(99,102,241,.07);border:1.5px solid rgba(99,102,241,.35)">
-    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
-     <span style="font-size:.62rem;font-weight:800;color:var(--accent);flex:1;min-width:0">🏆 Formül Uzlaşısı — en çok formülün ürettiği sayılar</span>
-     <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
-      ${aSet?`<span style="font-size:.58rem;font-weight:800;color:${un?'var(--green)':'var(--muted)'}">${un} net · ${ua} yakın</span>`:''}
-      ${_hyCopyBtn('fmuz_'+(aSet?'t':'l'),'🏆 Formül Uzlaşısı\n'+top.join(' ')+(aSet?`\n${un} net · ${ua} yakın`:''))}</span></div>
-    <div style="display:flex;gap:4px;flex-wrap:wrap">${top.map(n=>{
-      const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
-      return `<span style="font-family:monospace;font-size:.84rem;font-weight:800;color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:var(--surface2);border:1.5px solid ${isN?'rgba(0,200,100,.5)':'rgba(99,102,241,.3)'};border-radius:7px;padding:2px 8px">${n}${isN?'✓':isNr?'~':''}<sup style="font-size:.48rem;color:var(--muted)">${r.tal[n]}</sup></span>`;}).join('')}</div></div>`;
-  return h;
+  const top=r.ranked.slice(0,game.count*2).sort((x,y)=>x-y);
+  let un=0,ua=0;
+  if(aSet)top.forEach(n=>{if(aSet.has(n))un++;else if(aSet.has(n-1)||aSet.has(n+1))ua++;});
+  return {game,actual,aSet,map,r,uzlasi:{nums:top,tal:r.tal,net:un,near:ua},
+    baslik:actual?('🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((x,y)=>x-y).join(' ')+((actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''))
+                 :('🔮 Yeni Tahmin — '+game.emoji+' '+game.name),
+    alt:actual?'Formüller bu tarihten ÖNCEKİ iki çekilişle hesaplandı (lookahead yok) · ✓ net · ~ ±1 yakın'
+              :'Yalnızca son iki çekilişin sayıları kullanıldı; başka hiçbir veri yok',
+    kaynak:'Son çekiliş <strong style="color:var(--text);font-family:monospace">'+r.A.join(' ')+'</strong> · bir önceki <strong style="color:var(--text);font-family:monospace">'+r.B.join(' ')+'</strong>'};
+}
+function _fmRenderTests(){
+  const grid=document.getElementById('fmGrid');if(!grid)return;
+  const cols=[_fmData.live,_fmData.t1,_fmData.t2,_fmData.t3].filter(Boolean);
+  grid.innerHTML='';
+  if(!cols.length)return;
+  const mkRow=inner=>`<div class="fm-row" style="display:grid;grid-template-columns:repeat(${cols.length},minmax(0,1fr));gap:14px;align-items:stretch;margin-bottom:5px">${inner}</div>`;
+  let h=mkRow(cols.map(c=>`<div style="padding:8px 10px;background:var(--surface2);border:1px solid ${c.aSet?'rgba(99,102,241,.35)':'var(--border)'};border-radius:9px">
+     <div style="font-size:.64rem;font-weight:800;color:var(--accent)">${c.baslik}</div>
+     <div style="font-size:.52rem;color:var(--muted);margin-top:3px;line-height:1.5">${c.alt}</div>
+     <div style="font-size:.52rem;color:var(--muted);margin-top:4px;line-height:1.5">${c.kaynak}</div>
+    </div>`).join(''));
+  h+=mkRow(cols.map((c,ci)=>{
+    const u=c.uzlasi;
+    return `<div style="padding:7px 9px;border-radius:8px;background:${u.net?'rgba(0,230,118,.09)':'rgba(99,102,241,.07)'};border:1.5px solid ${u.net?'rgba(0,200,100,.5)':'rgba(99,102,241,.35)'};height:100%;box-sizing:border-box">
+      <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+       <span style="font-size:.62rem;font-weight:800;color:var(--accent);flex:1;min-width:0">🏆 Formül Uzlaşısı</span>
+       <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+        ${c.aSet?`<span style="font-size:.58rem;font-weight:800;color:${u.net?'var(--green)':'var(--muted)'};white-space:nowrap">${u.net} net · ${u.near} yakın</span>`:''}
+        ${_hyCopyBtn('fmuz'+ci,u.nums.join(' '))}</span></div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${u.nums.map(n=>{
+        const isN=c.aSet&&c.aSet.has(n),isNr=c.aSet&&!isN&&(c.aSet.has(n-1)||c.aSet.has(n+1));
+        return `<span style="font-family:monospace;font-size:.8rem;font-weight:800;color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:var(--surface2);border:1.5px solid ${isN?'rgba(0,200,100,.5)':'rgba(99,102,241,.3)'};border-radius:7px;padding:1px 7px">${n}${isN?'✓':isNr?'~':''}<sup style="font-size:.46rem;color:var(--muted)">${u.tal[n]}</sup></span>`;}).join('')}</div></div>`;
+  }).join(''));
+  _FM_FORMULAS.forEach(F=>{
+    if(!cols.some(c=>c.map[F.id]))return;
+    h+=mkRow(cols.map((c,ci)=>{
+      const e=c.map[F.id];
+      if(!e)return '<div style="padding:5px 8px;border-radius:7px;border:1px dashed var(--border);font-size:.52rem;color:var(--muted);height:100%;box-sizing:border-box">—</div>';
+      return `<div style="padding:5px 8px;border-radius:7px;background:${e.net?'rgba(0,230,118,.06)':'var(--surface)'};border:1px solid ${e.net?'rgba(0,200,100,.35)':'var(--border)'};height:100%;box-sizing:border-box">
+        <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:3px">
+         <span style="font-size:.6rem;font-weight:700;color:var(--text);flex:1;min-width:0" title="${e.row.desc}">${e.row.name}</span>
+         <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+          ${c.aSet?`<span style="font-size:.58rem;font-weight:800;color:${e.net?'var(--green)':'var(--muted)'};white-space:nowrap">${e.net} net · ${e.near} yakın</span>`:''}
+          ${_hyCopyBtn('fm'+ci+'_'+F.id,e.row.nums.join(' '))}</span></div>
+        <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(e.row.nums,c.aSet)}</div></div>`;
+    }).join(''));
+  });
+  grid.innerHTML=h;
+  window._fmTxt=cols.map(c=>c.uzlasi.nums.join(' ')+'\n'
+    +_FM_FORMULAS.filter(F=>c.map[F.id]).map(F=>c.map[F.id].row.nums.join(' ')).join('\n')).join('\n\n');
 }
 function _fmRun(){
-  const el=document.getElementById('fmOut');if(!el)return;
   const game=getGame(_fmGame),draws=_kbGetDraws(_fmGame);
-  const r=_fmCompute(game,draws);
-  if(!r){el.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Yeterli veri yok (≥2 çekiliş gerekli).</div>';return;}
-  window._fmTxt='🧮 Formül — '+game.name+' (yalnızca son 2 çekiliş)\nSon: '+r.A.join(' ')+'\nÖnceki: '+r.B.join(' ')+'\n'
-    +r.rows.map(x=>x.name+': '+x.nums.join(' ')).join('\n')+'\nUzlaşı: '+r.ranked.slice(0,game.count*2).join(' ');
-  el.innerHTML=_fmBlock(game,r,null,'🔮 Yeni Tahmin — '+game.emoji+' '+game.name,
-    'Yalnızca son iki çekilişin sayıları ve aralarındaki ilişkiler kullanıldı; başka hiçbir veri yok.');
+  _fmData.live=_fmColData(game,draws,null);
+  if(!_fmData.live){const g=document.getElementById('fmGrid');
+    if(g)g.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Yeterli veri yok (≥2 çekiliş gerekli).</div>';return;}
+  _fmRenderTests();
 }
-function _fmDateTest(){
-  const el=document.getElementById('fmTestOut');if(!el)return;
-  const date=document.getElementById('fmDateSel')?.value||'';
-  if(!date){el.innerHTML='';return;}
+function _fmDateTest(slot){
+  slot=slot||'';
+  const key=slot==='3'?'t3':slot==='2'?'t2':'t1';
+  const date=document.getElementById('fmDateSel'+slot)?.value||'';
   const game=getGame(_fmGame),draws=_kbGetDraws(_fmGame);
-  const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
-  const actual=draws[idx],prior=draws.slice(idx+1);
-  const r=_fmCompute(game,prior);
-  if(!r){el.innerHTML='<div style="font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
-  const aSet=new Set(_hyNums(actual));
-  el.innerHTML=_fmBlock(game,r,aSet,'🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')+((actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''),
-    'Formüller bu tarihten ÖNCEKİ iki çekilişle hesaplandı (lookahead yok) · ✓ net · ~ ±1 yakın.');
+  if(!date){_fmData[key]=null;_fmRenderTests();return;}
+  const idx=draws.findIndex(d=>d.date===date);
+  if(idx<0){_fmData[key]=null;_fmRenderTests();return;}
+  _fmData[key]=_fmColData(game,draws.slice(idx+1),draws[idx]);
+  if(!_fmData.live)_fmRun();else _fmRenderTests();
+}
+function _fmClearTests(){
+  _fmData={live:null,t1:null,t2:null,t3:null};
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('fmDateSel'+sl);if(e)e.value='';});
 }
 
 // ── Basit Tahmin sayfası: Hızlı Tahmin'in motorunu aynen kullanır, sadece 9 analizi gösterir ──
