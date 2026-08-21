@@ -20753,7 +20753,19 @@ function _hyColData(game,prior,actual){
     map[M.id]={M,nums:c.slice().sort((x,y)=>x-y),net,near};
   });
   const list=Object.keys(map).map(k=>map[k]);
-  return {game,actual,aSet,map,
+  // Sütunun KENDİ uzlaşısı: o çekilişte hangi sayıları en çok yöntem birlikte önerdi.
+  // Katkı veren yöntem kümesi ana uzlaşıyla aynı olsun diye ölçüm varsa eşiği geçenler,
+  // ölçüm yoksa tüm yöntemler sayılır — böylece yeni tahmin ile geçmiş test aynı tarifle kurulur.
+  const gecenIds=(_hyRes&&_hyRes.res&&_hyRes.res.length)
+    ? _hyRes.res.filter(r=>r.rate1>=_HY_ESIK).map(r=>r.id) : Object.keys(map);
+  const tal={};
+  gecenIds.forEach(id=>{const r=map[id];if(r)r.nums.forEach(n=>tal[n]=(tal[n]||0)+1);});
+  const sira=Object.keys(tal).map(Number).sort((x,y)=>tal[y]-tal[x]||x-y);
+  const uzNums=sira.slice(0,game.count*2).sort((x,y)=>x-y);
+  let uNet=0,uNear=0;
+  if(aSet)uzNums.forEach(n=>{if(aSet.has(n))uNet++;else if(aSet.has(n-1)||aSet.has(n+1))uNear++;});
+  const uzlasi={nums:uzNums,tal,net:uNet,near:uNear,kaynak:gecenIds.filter(id=>map[id]).length};
+  return {game,actual,aSet,map,uzlasi,
     bulan:aSet?list.filter(r=>r.net>=1).length:0,toplam:list.length,
     baslik:actual?('🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((x,y)=>x-y).join(' ')+((actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''))
                  :('🔮 Yeni Tahmin — '+game.emoji+' '+game.name)};
@@ -20779,12 +20791,27 @@ function _hyRenderTests(){
        :'Sıradaki çekiliş için — henüz sonuç yok'}</div>
      ${c.aSet?`<div style="font-size:.58rem;font-weight:800;margin-top:4px;color:${c.bulan?'var(--green)':'var(--muted)'}">${c.bulan}/${c.toplam} yöntem ≥1 net</div>`:''}
     </div>`).join(''));
+  // 🏆 Uzlaşı satırı — her sütun kendi uzlaşısını ve (geçmiş testte) tutma durumunu gösterir
+  h+=mkRow(cols.map(c=>{
+    const u=c.uzlasi;
+    if(!u||!u.nums.length)return '<div></div>';
+    return `<div style="padding:7px 9px;border-radius:8px;background:${u.net?'rgba(0,230,118,.09)':'rgba(217,119,6,.07)'};border:1.5px solid ${u.net?'rgba(0,200,100,.5)':'rgba(217,119,6,.4)'};height:100%;box-sizing:border-box">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px">
+       <span style="font-size:.62rem;font-weight:800;color:#b8860b">🏆 Uzlaşı <span style="font-size:.5rem;color:var(--muted);font-weight:600">(${u.kaynak} yöntem)</span></span>
+       ${c.aSet?`<span style="font-size:.58rem;font-weight:800;color:${u.net?'var(--green)':'var(--muted)'};white-space:nowrap">${u.net} net · ${u.near} yakın</span>`:''}</div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${u.nums.map(n=>{
+        const isN=c.aSet&&c.aSet.has(n),isNr=c.aSet&&!isN&&(c.aSet.has(n-1)||c.aSet.has(n+1));
+        return `<span style="font-family:monospace;font-size:.8rem;font-weight:800;color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:var(--surface2);border:1.5px solid ${isN?'rgba(0,200,100,.5)':'rgba(217,119,6,.35)'};border-radius:7px;padding:1px 7px">${n}${isN?'✓':isNr?'~':''}<sup style="font-size:.46rem;color:var(--muted)">${u.tal[n]}</sup></span>`;}).join('')}</div></div>`;
+  }).join(''));
   _hyRowOrder().forEach(id=>{
     if(!cols.some(c=>c.map[id]))return;
     h+=mkRow(cols.map(c=>`<div>${_hyCell(c.map[id],c.aSet)}</div>`).join(''));
   });
   grid.innerHTML=h;
-  window._hyTestTxt=cols.map(c=>c.baslik+'\n'+_hyRowOrder().filter(id=>c.map[id])
+  window._hyTestTxt=cols.map(c=>c.baslik+'\n'
+    +(c.uzlasi&&c.uzlasi.nums.length?'🏆 Uzlaşı ('+c.uzlasi.kaynak+' yöntem): '+c.uzlasi.nums.join(' ')
+       +(c.aSet?`  → ${c.uzlasi.net} net · ${c.uzlasi.near} yakın`:'')+'\n':'')
+    +_hyRowOrder().filter(id=>c.map[id])
     .map(id=>c.map[id].M.name+': '+c.map[id].nums.join(' ')+(c.aSet?`  → ${c.map[id].net} net · ${c.map[id].near} yakın`:'')).join('\n')).join('\n\n');
 }
 function _hyDateTest(slot){
