@@ -20611,6 +20611,18 @@ function _hyRun(){
   el.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">⏳ '+_HY_METHODS.length+' yöntem × '+_hyT+' çekiliş × '+games.length+' oyun ölçülüyor…</div>';
   _hyMeasure(games,_hyT,(res,nul)=>{_hyRes={game,res,draws,nul,games};_hyRender();});
 }
+// Grup başına kopyalama: metin bir kayıtta tutulur, düğme yalnızca anahtarı taşır —
+// böylece sayılar/adlar onclick içine gömülmez (tırnak ve kaçış sorunu çıkmaz).
+const _hyCopyReg={};
+function _hyCopyKey(k){
+  const t=_hyCopyReg[k]||'';
+  if(!t){if(typeof showToast==='function')showToast('Kopyalanacak veri yok');return;}
+  _caCopy(t);if(typeof showToast==='function')showToast('📋 Kopyalandı');
+}
+function _hyCopyBtn(k,txt){
+  _hyCopyReg[k]=txt;
+  return `<button onclick="_hyCopyKey('${k}')" class="copy-btn" style="font-size:.54rem;padding:2px 7px;font-weight:700;flex-shrink:0" title="Bu grubun sayılarını kopyala">📋</button>`;
+}
 function _hyNumChips(nums,aSet,big){
   return nums.map(n=>{
     const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
@@ -20685,7 +20697,9 @@ function _hyRender(){
     t+=`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:8px;align-items:start">`;
     list.forEach(r=>{
       t+=`<div style="padding:7px 9px;border-radius:8px;background:var(--surface);border:1px solid var(--border)">
-        <div style="font-size:.62rem;font-weight:800;color:var(--text)">${r.m.name}</div>
+        <div style="display:flex;justify-content:space-between;gap:6px;align-items:center">
+         <span style="font-size:.62rem;font-weight:800;color:var(--text);flex:1;min-width:0">${r.m.name}</span>
+         ${_hyCopyBtn('m_'+r.id,r.m.name+'\n'+r.nums.join(' '))}</div>
         <div style="font-size:.52rem;color:var(--muted);line-height:1.5;margin:2px 0 5px">${r.m.desc}</div>
         <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(r.nums,null)}</div></div>`;
       copy.push(r.m.name+': '+r.nums.join(' '));
@@ -20755,12 +20769,15 @@ function _hyColData(game,prior,actual){
     baslik:actual?('🎯 '+actual.date+' — '+[...(actual.nums||[])].sort((x,y)=>x-y).join(' ')+((actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''))
                  :('🔮 Yeni Tahmin — '+game.emoji+' '+game.name)};
 }
-function _hyCell(r,aSet){
+function _hyCell(r,aSet,key){
   if(!r)return '<div style="padding:5px 7px;border-radius:7px;border:1px dashed var(--border);font-size:.52rem;color:var(--muted);height:100%;box-sizing:border-box">—</div>';
+  const txt=r.M.name+'\n'+r.nums.join(' ')+(aSet?`\n${r.net} net · ${r.near} yakın`:'');
   return `<div style="padding:5px 7px;border-radius:7px;background:${r.net?'rgba(0,230,118,.06)':'var(--surface)'};border:1px solid ${r.net?'rgba(0,200,100,.35)':'var(--border)'};height:100%;box-sizing:border-box">
-    <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:3px">
-     <span style="font-size:.56rem;font-weight:700;color:var(--text)">${r.M.name}</span>
-     ${aSet?`<span style="font-size:.54rem;font-weight:800;color:${r.net?'var(--green)':'var(--muted)'};white-space:nowrap">${r.net} net · ${r.near} yakın</span>`:''}</div>
+    <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:3px">
+     <span style="font-size:.56rem;font-weight:700;color:var(--text);flex:1;min-width:0">${r.M.name}</span>
+     <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+      ${aSet?`<span style="font-size:.54rem;font-weight:800;color:${r.net?'var(--green)':'var(--muted)'};white-space:nowrap">${r.net} net · ${r.near} yakın</span>`:''}
+      ${_hyCopyBtn(key,txt)}</span></div>
     <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(r.nums,aSet)}</div></div>`;
 }
 function _hyRenderTests(){
@@ -20777,20 +20794,23 @@ function _hyRenderTests(){
      ${c.aSet?`<div style="font-size:.58rem;font-weight:800;margin-top:4px;color:${c.bulan?'var(--green)':'var(--muted)'}">${c.bulan}/${c.toplam} yöntem ≥1 net</div>`:''}
     </div>`).join(''));
   // 🏆 Uzlaşı satırı — her sütun kendi uzlaşısını ve (geçmiş testte) tutma durumunu gösterir
-  h+=mkRow(cols.map(c=>{
+  h+=mkRow(cols.map((c,ci)=>{
     const u=c.uzlasi;
     if(!u||!u.nums.length)return '<div></div>';
+    const uTxt='🏆 Uzlaşı ('+u.kaynak+' yöntem) — '+c.baslik+'\n'+u.nums.join(' ')+(c.aSet?`\n${u.net} net · ${u.near} yakın`:'');
     return `<div style="padding:7px 9px;border-radius:8px;background:${u.net?'rgba(0,230,118,.09)':'rgba(217,119,6,.07)'};border:1.5px solid ${u.net?'rgba(0,200,100,.5)':'rgba(217,119,6,.4)'};height:100%;box-sizing:border-box">
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px">
-       <span style="font-size:.62rem;font-weight:800;color:#b8860b">🏆 Uzlaşı <span style="font-size:.5rem;color:var(--muted);font-weight:600">(${u.kaynak} yöntem)</span></span>
-       ${c.aSet?`<span style="font-size:.58rem;font-weight:800;color:${u.net?'var(--green)':'var(--muted)'};white-space:nowrap">${u.net} net · ${u.near} yakın</span>`:''}</div>
+      <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+       <span style="font-size:.62rem;font-weight:800;color:#b8860b;flex:1;min-width:0">🏆 Uzlaşı <span style="font-size:.5rem;color:var(--muted);font-weight:600">(${u.kaynak} yöntem)</span></span>
+       <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+        ${c.aSet?`<span style="font-size:.58rem;font-weight:800;color:${u.net?'var(--green)':'var(--muted)'};white-space:nowrap">${u.net} net · ${u.near} yakın</span>`:''}
+        ${_hyCopyBtn('uz'+ci,uTxt)}</span></div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">${u.nums.map(n=>{
         const isN=c.aSet&&c.aSet.has(n),isNr=c.aSet&&!isN&&(c.aSet.has(n-1)||c.aSet.has(n+1));
         return `<span style="font-family:monospace;font-size:.8rem;font-weight:800;color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:var(--surface2);border:1.5px solid ${isN?'rgba(0,200,100,.5)':'rgba(217,119,6,.35)'};border-radius:7px;padding:1px 7px">${n}${isN?'✓':isNr?'~':''}<sup style="font-size:.46rem;color:var(--muted)">${u.tal[n]}</sup></span>`;}).join('')}</div></div>`;
   }).join(''));
   _hyRowOrder().forEach(id=>{
     if(!cols.some(c=>c.map[id]))return;
-    h+=mkRow(cols.map(c=>`<div>${_hyCell(c.map[id],c.aSet)}</div>`).join(''));
+    h+=mkRow(cols.map((c,ci)=>`<div>${_hyCell(c.map[id],c.aSet,'col'+ci+'_'+id)}</div>`).join(''));
   });
   grid.innerHTML=h;
   window._hyTestTxt=cols.map(c=>c.baslik+'\n'
@@ -20845,18 +20865,23 @@ function _fmBlock(game,r,aSet,baslik,alt){
   h+=`</div>`;
   r.rows.forEach(row=>{
     let net=0,near=0;row.nums.forEach(n=>{if(aSet&&aSet.has(n))net++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))near++;});
+    const fKey='fm_'+(aSet?'t':'l')+'_'+row.id;
     h+=`<div style="padding:5px 8px;border-radius:7px;background:${net?'rgba(0,230,118,.06)':'var(--surface)'};border:1px solid ${net?'rgba(0,200,100,.35)':'var(--border)'};margin-bottom:4px">
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:3px">
-       <span style="font-size:.6rem;font-weight:700;color:var(--text)" title="${row.desc}">${row.name}</span>
-       ${aSet?`<span style="font-size:.58rem;font-weight:800;color:${net?'var(--green)':'var(--muted)'};white-space:nowrap">${net} net · ${near} yakın</span>`:''}</div>
+      <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:3px">
+       <span style="font-size:.6rem;font-weight:700;color:var(--text);flex:1;min-width:0" title="${row.desc}">${row.name}</span>
+       <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+        ${aSet?`<span style="font-size:.58rem;font-weight:800;color:${net?'var(--green)':'var(--muted)'};white-space:nowrap">${net} net · ${near} yakın</span>`:''}
+        ${_hyCopyBtn(fKey,row.name+'\n'+row.nums.join(' ')+(aSet?`\n${net} net · ${near} yakın`:''))}</span></div>
       <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(row.nums,aSet)}</div></div>`;
   });
   const top=r.ranked.slice(0,game.count*2);
   let un=0,ua=0;top.forEach(n=>{if(aSet&&aSet.has(n))un++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))ua++;});
   h+=`<div style="margin-top:7px;padding:8px 10px;border-radius:8px;background:rgba(99,102,241,.07);border:1.5px solid rgba(99,102,241,.35)">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
-     <span style="font-size:.62rem;font-weight:800;color:var(--accent)">🏆 Formül Uzlaşısı — en çok formülün ürettiği sayılar</span>
-     ${aSet?`<span style="font-size:.58rem;font-weight:800;color:${un?'var(--green)':'var(--muted)'}">${un} net · ${ua} yakın</span>`:''}</div>
+     <span style="font-size:.62rem;font-weight:800;color:var(--accent);flex:1;min-width:0">🏆 Formül Uzlaşısı — en çok formülün ürettiği sayılar</span>
+     <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+      ${aSet?`<span style="font-size:.58rem;font-weight:800;color:${un?'var(--green)':'var(--muted)'}">${un} net · ${ua} yakın</span>`:''}
+      ${_hyCopyBtn('fmuz_'+(aSet?'t':'l'),'🏆 Formül Uzlaşısı\n'+top.join(' ')+(aSet?`\n${un} net · ${ua} yakın`:''))}</span></div>
     <div style="display:flex;gap:4px;flex-wrap:wrap">${top.map(n=>{
       const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
       return `<span style="font-family:monospace;font-size:.84rem;font-weight:800;color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:var(--surface2);border:1.5px solid ${isN?'rgba(0,200,100,.5)':'rgba(99,102,241,.3)'};border-radius:7px;padding:2px 8px">${n}${isN?'✓':isNr?'~':''}<sup style="font-size:.48rem;color:var(--muted)">${r.tal[n]}</sup></span>`;}).join('')}</div></div>`;
