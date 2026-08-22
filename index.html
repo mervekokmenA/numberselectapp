@@ -351,13 +351,13 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
 @media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,#agGrid,#agHdrRow,#agTestCtl,.ag-row,
-  .agx-row,.hy-row,.fm-row,#nnGrid,#npGrid{grid-template-columns:minmax(0,1fr) !important;}}
+  .agx-row,.hy-row,.fm-row,.a3-row,.a3-date,.ls-ai-row,#nnGrid,#npGrid{grid-template-columns:minmax(0,1fr) !important;}}
 /* 3 geçmiş test açıkken 4 sütun olabilir; tablette en fazla 2'ye iner. */
 @media(max-width:1400px) and (min-width:1101px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,.ag-row,#agHdrRow,
-  .agx-row,.hy-row,.fm-row{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
+  .agx-row,.hy-row,.fm-row,.a3-row{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
 /* 2 geçmiş test açıkken 3 sütun; tablette 2'ye, telefonda 1'e iner. */
 @media(max-width:1100px) and (min-width:601px){.qt-pair-row,#qtHdrRow,#btsHdrRow,
-  .agx-row,.hy-row,.fm-row,#nnGrid,#npGrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
+  .agx-row,.hy-row,.fm-row,.a3-row,.ls-ai-row,#nnGrid,#npGrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
 @media(max-width:600px){#caNihaiGrid,#cbNihaiGrid,#f2Grid,#kbGrid,#scanGrid,#hyDateRow,#fmDateRow{grid-template-columns:minmax(0,1fr) !important;}}
 /* Telefonda yan yana iki sütun sayıları dar bir şeride sıkıştırıyordu; ≥600px'te (tablet ve
    üstü) iki pencere gibi yan yana, altında tek sütun. */
@@ -655,6 +655,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <!-- ═══════════ PAGE: TARAMA ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-scan">
+ <div id="a3trRoot" style="margin-bottom:14px"></div>
   <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start" id="scanGrid">
 
     <!-- Left: Tahmin -->
@@ -783,6 +784,8 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     </div>
   </div>
 
+  <div id="a3lsRoot" style="margin-bottom:16px"></div>
+
   <!-- Bulunan Sayılar (Kontrol sonrası gösterilir) -->
   <div id="listelerBulundu" style="display:none;margin-bottom:16px">
     <div class="card">
@@ -825,31 +828,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 </div>
 
-<!-- ═══════════ BİLET TESTİ & ANOMALİ ANALİZİ (Kapsamlı'dan taşındı + genişletildi) ═══════════ -->
-<div id="homeBiletSection" style="grid-column:1/-1;margin-top:0;min-width:0">
- <div class="card">
-  <div class="card-title">🎫 Bilet Testi &amp; Anomali Analizi</div>
-  <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Biletlerinizi girin (her satır bir bilet; Joker/bonus için <code style="color:var(--accent)">| 58</code> ya da satır sonuna sırasız yazın). <strong>Anomali kuralı:</strong> sıralı bilette bir sıranın beklenen onluk bölgesi atlanmışsa (örn. 1. sırada 0'lar/10'lar yokken bilet 30'larla başlıyorsa), o sıranın bir <strong>üstteki ve alttaki biletteki</strong> sayısı (ya da yakını) olası adaydır; en üst satır anomalisinde yalnızca alttaki bilete bakılır. Tarih seçerseniz geçmiş test yapılır, boş bırakırsanız yeni oyun tahmini olarak değerlendirilir.</div>
-  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="hbGameRow"></div>
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-   <select id="hbDateSel" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:200px"></select>
-  </div>
-  <textarea id="hbInput" placeholder="4 9 35 69 78 89 | 58&#10;6 20 32 60 75 90 | 21&#10;..." style="width:100%;box-sizing:border-box;min-height:130px;font-size:.8rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:9px 11px;resize:vertical"></textarea>
-  <div style="display:flex;gap:8px;align-items:center;margin:8px 0 12px;flex-wrap:wrap">
-   <button onclick="_hbAnalyze()" style="font-size:.78rem;padding:8px 20px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">🔍 Analiz Et</button>
-   <button onclick="document.getElementById('hbImgFile').click()" style="font-size:.72rem;padding:7px 14px;border-radius:8px;border:1px solid rgba(0,150,58,.4);background:rgba(0,150,58,.1);color:var(--green);cursor:pointer;font-weight:700" title="Bilet ekran görüntüsünden sayıları otomatik okur (cihazda çalışır, hiçbir yere gönderilmez)">📷 Görselden Oku</button>
-   <input type="file" id="hbImgFile" accept="image/*" multiple style="display:none" onchange="_hbOcrFiles(this.files);this.value=''">
-   <button onclick="_hbCopyAll()" class="copy-btn" style="font-size:.72rem;padding:7px 14px" title="Analizdeki tüm bölümleri başlıklarıyla tek seferde kopyalar">📋 Tümünü Kopyala</button>
-   <button onclick="document.getElementById('hbInput').value='';" style="font-size:.72rem;padding:7px 14px;border-radius:8px;border:1px solid rgba(255,82,82,.3);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer">🗑️ Temizle</button>
-  </div>
-  <div id="hbTicketsOut"></div>
-  <div id="hbAnomaliOut"></div>
-  <div id="hbGulayOut"></div>
-  <div id="hbG0Out"></div>
-  <div id="hbAiOut"></div>
- </div>
-</div>
-
 <!-- ═══════════ TESPİT — Bilet Testi & Anomali Analizi'nin hemen altında ═══════════ -->
 <div id="tsSection" style="grid-column:1/-1;margin-top:0;min-width:0">
  <div class="card">
@@ -865,6 +843,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
   <div id="hmFinalOut"></div>
  </div>
+</div>
+
+<!-- ═══════════ 🎯 3 BİLET AI — uygulamanın tamamını gözden geçirir ═══════════ -->
+<div id="a3Section" style="grid-column:1/-1;margin-top:0;min-width:0">
+ <div id="a3Root"></div>
 </div>
 
 <!-- ═══════════ FORMÜL — yalnızca son 2 çekiliş ve aralarındaki ilişkiler ═══════════ -->
@@ -1149,6 +1132,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <!-- ═══════════ PAGE: GÜLAY ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-soz">
+ <div id="a3gyRoot" style="margin-bottom:14px"></div>
  <div class="card">
   <div class="card-title">🔮 Gülay'ın Hesaplamalar</div>
   <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Seçilen çekilişin ardışık sayıları arasındaki <strong>farkları (gap)</strong> bulur. Her farkı tüm sayılara ekleyerek <strong>Toplama</strong>, çıkararak <strong>Çıkarma</strong> sütunlarını oluşturur. Birden fazla sütunda tekrar eden sayılar güçlü banko adayıdır. <strong>Fark Zinciri</strong> ise farkları ardışık uygulayarak olası bir sonraki çekiliş şablonunu gösterir.</div>
@@ -1173,6 +1157,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <!-- ═══════════ PAGE: NİHAİ ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-nihai">
+ <div id="a3niRoot" style="margin-bottom:14px"></div>
  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start">
   <div>
    <div class="card">
@@ -1330,6 +1315,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <!-- ═══════════ PAGE: ASTRO TAHMİN ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-astro">
+ <div id="a3asRoot" style="margin-bottom:14px"></div>
  <div class="card">
   <div class="card-title">🪐 Astro Tahmin</div>
   <div style="font-size:.63rem;color:var(--muted);margin-bottom:14px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">Doğum tarihiniz, doğum saatiniz/yeriniz ve anne bilgilerinizden astrolojik profilinizi (Batı burcu, Çin burcu, yaklaşık yükselen) çıkarır; bunlardan ve seçtiğiniz <strong>Kozmik Hizalanma Tarihi</strong>'nden deterministik olarak, her biri bir <strong>gezegenle</strong> ilişkilendirilmiş sayılar üretir. Aynı bilgilerle her zaman aynı sayıları verir — eğlence/deneme amaçlıdır, astrolojik gerçeklik iddiası taşımaz. Aşağıdaki <strong>Geçmiş Test</strong> ile sizin verilerinizde hangi gezegenin daha sık "yakın" (±10) veya "net" çıktığını görebilirsiniz.</div>
@@ -1534,6 +1520,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_hyClearTests()" style="font-size:.66rem;padding:5px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">🗑️ Testleri Temizle</button>
   </div>
  </div>
+ <div id="a3hyRoot" style="margin-bottom:14px"></div>
  <div id="hyTestGrid" style="margin-bottom:12px"></div>
  <div id="hyOut"></div>
 </div>
@@ -1699,6 +1686,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
   <div id="snAiTestOut"></div>
  </div>
+ <div id="a3fRoot" style="margin-bottom:14px"></div>
  <div class="card">
   <div class="card-title">📋 Excel Görünümü</div>
   <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">İlk satır bilinmeyen SONRAKİ çekiliş için tahmin (oyun sonucu boş); altındaki satırlar geçmiş çekilişlerle, o tarihten ÖNCEKİ verilerle hesaplanmış · ✓ net · ~ ±1 yakın.</div>
@@ -1736,6 +1724,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_caCopy(window._f2Txt)" class="copy-btn" style="font-size:.72rem;padding:8px 14px;font-weight:700">📋 Kopyala</button>
   </div>
  </div>
+ <div id="a3f2Root" style="margin-bottom:14px"></div>
  <div id="f2SynthOut"></div>
  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start" id="f2Grid">
   <div>
@@ -1776,6 +1765,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <!-- ═══════════ PAGE: KAPSAMLI BAKIŞ ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-kapsamli">
+ <div id="a3kpRoot" style="margin-bottom:14px"></div>
  <div class="card">
   <div class="card-title">🧭 Kapsamlı Bakış</div>
   <div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;padding:7px 10px;background:rgba(0,0,0,.03);border-radius:6px;line-height:1.7">7 bağımsız analiz yöntemini (frekans · üstel frekans · gecikme · eş-görünüm · şablon zinciri · Bayes momentum · son hane) tek bir konsensüs motorunda birleştirir. Yöntem ağırlıkları geçmiş isabete göre otomatik ayarlanır; <strong>banko adayları</strong> birden çok yöntemin aynı anda öne çıkardığı sayılardır.</div>
@@ -6762,7 +6752,6 @@ function _syncOtherGameGrids(id){
   const sdt=document.getElementById('scanTargetDate');if(sdt)sdt.value=nd;
   const lpdt=document.getElementById('listelerPredDate');if(lpdt)lpdt.value=nd;
   // Bilet Testi & Anomali de anasayfa oyununu takip etsin (kullanıcı orada elle seçmediyse)
-  try{if(!_hbGameManual&&typeof _hbInit==='function'){_hbGame=id;_hbInit();}}catch(e){}
   try{if(!_caGameManual&&typeof _caInit==='function'){_caGame=id;_caInit();}}catch(e){}
   try{if(!_cbGameManual&&typeof _cbInit==='function'){_cbGame=id;_cbInit();}}catch(e){}
   try{if(!_nnGameManual&&typeof _nnInit==='function'){_nnGame=id;_nnInit();['nnOut','nnTestOut'].forEach(x=>{const e=document.getElementById(x);if(e)e.innerHTML='';});}}catch(e){}
@@ -13275,7 +13264,7 @@ function _kbRenderKazanan(){
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
 // Anasayfa bölüm sırası — 🧾 Tespit, 🎫 Bilet Testi & Anomali Analizi'nin hemen altında.
-const _HOME_IDS=['page-generator','page-backtest','homeBiletSection','tsSection','fmSection','nnSection','npSection','candSection','cbSection','onaSection'];
+const _HOME_IDS=['page-generator','page-backtest','tsSection','a3Section','fmSection','nnSection','npSection','candSection','cbSection','onaSection'];
 let _scanGame=null;
 
 // Anasayfaya özel ağır hesaplar, o sayfa AÇIK DEĞİLKEN yapılmasın: oyun değiştirmek
@@ -13306,6 +13295,27 @@ function _pageInit(id){
   if(id==='basit')_btsInit();
   if(id==='agresif')_agInit();
   if(id==='haber')_hyInit();
+  // 🎯 3 Bilet AI blokları — her sayfa kendi kaynak katmanıyla
+  try{
+    if(id==='formul')_a3Mount('a3f','formul','🎯 3 Bilet AI — Formül Sistemi',
+      'Bu sayfanın <strong>kendi formül çıktısını</strong> (güvenilirlik ağırlıklı Excel formülleri + son iki çekilişin formülleri) kaynak alır.');
+    if(id==='formul2')_a3Mount('a3f2','formul2','🎯 3 Bilet AI — Formül 2',
+      'Bu sayfanın <strong>gün/ay/yıl formüllerinin ağırlıklı uzlaşısını</strong> kaynak alır.');
+    if(id==='haber')_a3Mount('a3hy','haber','🎯 3 Bilet AI — Haber Yöntemleri',
+      'Bu sayfadaki <strong>haber yöntemleri ve türevlerinin uzlaşısını</strong> kaynak alır (rastgele kontrol grubu hariç).');
+    if(id==='soz')_a3Mount('a3gy','tum','🎯 3 Bilet AI — Gülay',
+      'Uygulamadaki <strong>tüm kaynakların uzlaşısını</strong> alır ve gerçek çekiliş yapısına oturtur.');
+    if(id==='nihai')_a3Mount('a3ni','tum','🎯 3 Bilet AI — Nihai',
+      'Uygulamadaki <strong>tüm kaynakların uzlaşısını</strong> alır ve gerçek çekiliş yapısına oturtur.');
+    if(id==='kapsamli')_a3Mount('a3kp','tum','🎯 3 Bilet AI — Kapsamlı',
+      'Uygulamadaki <strong>tüm kaynakların uzlaşısını</strong> alır ve gerçek çekiliş yapısına oturtur.');
+    if(id==='scan')_a3Mount('a3tr','tum','🎯 3 Bilet AI — Tarama',
+      'Uygulamadaki <strong>tüm kaynakların uzlaşısını</strong> alır ve gerçek çekiliş yapısına oturtur.');
+    if(id==='astro')_a3Mount('a3as','tum','🎯 3 Bilet AI — Astro',
+      'Uygulamadaki <strong>tüm kaynakların uzlaşısını</strong> alır ve gerçek çekiliş yapısına oturtur.');
+    if(id==='listeler')_a3Mount('a3ls','tum','🎯 3 Bilet AI — Listeler',
+      'Uygulamadaki <strong>tüm kaynakların uzlaşısını</strong> alır; AI Analiz Merkezi\'nin yanına ikinci ve bağımsız bir görüş koyar.');
+  }catch(e){}
   if(id==='arastirma')_mrInit();
   if(id==='formul')_snInit();
   if(id==='formul2')_f2Init();
@@ -16222,6 +16232,8 @@ function _homeColLayout(pfx){
 }
 function _homeColInit(){
   try{_fmInit();}catch(e){}
+  try{_a3Mount('a3','tum','🎯 3 Bilet AI — Uygulamanın Tamamı',
+    'Uygulamadaki <strong>her şeyi</strong> tek yerde toplar: çok kaynaklı uzlaşı, Nihai, AI Bilet Üretici, Formül Sistemi, son iki çekilişin formülleri, Formül 2, sıcaklık ve gecikme.');}catch(e){}
   ['nn','np'].forEach(pfx=>{
     ['','2','3'].forEach(sl=>{
       const out=document.getElementById(pfx+'TestOut'+sl);if(!out)return;
@@ -16720,7 +16732,7 @@ function _onaInit(){_onaBacktest('');}
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();_hbInit();_caInit();_cbInit();_nnInit();_npInit();_onaInit();_alphaRefRender();
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();_caInit();_cbInit();_nnInit();_npInit();_onaInit();_alphaRefRender();
 try{_splitInit();}catch(e){console.warn('splitInit',e);}
 setTimeout(()=>{_autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);},800);
 
@@ -17053,7 +17065,6 @@ function _mpRRenderPrediction(tickets,poolRows,game,gid,totalDraws,cal,actual){
   html+=`<div style="background:${isBacktest?'rgba(184,134,11,.07)':'rgba(129,140,248,.07)'};border:1px solid ${isBacktest?'rgba(184,134,11,.28)':'rgba(129,140,248,.25)'};border-radius:10px;padding:10px 14px;margin-bottom:10px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">`;
   html+=`<div style="font-size:.78rem;font-weight:800;color:${isBacktest?'#8a6200':'var(--accent)'}">${isBacktest?'⏪ Geçmiş Simülasyon':'🧭 KB Tahmin Modu'}</div>`;
   html+=`<div style="font-size:.65rem;color:var(--muted)">${game.emoji} ${game.name} · ${tickets.length} kupon · ${poolRows.length} sayı · ${totalDraws} çekiliş${isBacktest?' · '+actual.date+' öncesi veri':''} · kalibre: ${cal.valid}</div>`;
-  if(!isBacktest)html+=`<button onclick="_kbOpenBiletWith(document.getElementById('mpRInput').value,'${gid}')" style="margin-left:auto;padding:4px 11px;background:rgba(0,150,58,.12);border:1px solid rgba(0,150,58,.35);color:var(--green);border-radius:7px;cursor:pointer;font-size:.63rem;font-weight:700;white-space:nowrap">🧭 Kapsamlı Bakış'ta Aç</button>`;
   html+=`</div>`;
   // Actual draw section (backtest only)
   if(isBacktest){
@@ -17161,25 +17172,6 @@ function _mpRRenderPrediction(tickets,poolRows,game,gid,totalDraws,cal,actual){
   html+=`</div>`;
   el.innerHTML=html;
 }
-function _kbOpenBiletWith(rawTxt,gid){
-  // Bilet Testi anasayfaya taşındı — oraya yönlendir ve biletleri doldur.
-  if(gid){_hbGame=gid;_hbGameManual=true;}
-  showMainPage('home');
-  setTimeout(()=>{
-    try{_hbInit();}catch(e){}
-    const ta=document.getElementById('hbInput');
-    if(!ta)return;
-    const lines=[];
-    (rawTxt||'').split('\n').forEach(line=>{
-      line=line.trim();if(!line)return;
-      const nums=(line.match(/\d+/g)||[]).map(Number);
-      if(nums.length)lines.push(nums.join(' '));
-    });
-    ta.value=lines.join('\n');
-    document.getElementById('homeBiletSection')?.scrollIntoView({behavior:'smooth',block:'start'});
-  },250);
-}
-
 // ═══════════ Geçmiş Kazanan ══════════════════════════════════
 // Büyük ikramiye kazanıldığı doğrulanmış çekilişler (internet araştırması - 2021 sonrası)
 // Değer = kazanılan TL tutarı (0 = bilinmiyor)
@@ -21194,6 +21186,419 @@ function _fmDateTest(slot){
 function _fmClearTests(){
   _fmData={live:null,t1:null,t2:null,t3:null};
   ['','2','3'].forEach(sl=>{const e=document.getElementById('fmDateSel'+sl);if(e)e.value='';});
+}
+
+// ═══════════ 🎯 3 BİLET AI — SEZGİSEL / İNSAN MANTIĞI KATMANI ═══════════
+// Uygulamadaki her şeyi tek yerde toplayıp SADECE 3 bilet üretir. İki katman var:
+//
+//  1) KAYNAK KATMANI — sayıların ham ağırlığı. Sayfaya göre değişir: anasayfada
+//     uygulamanın TÜMÜ (uzlaşı + Nihai + AI Bilet + son-2-çekiliş formülleri +
+//     Formül Sistemi + haber yöntemleri + gecikme/sıcaklık), formül sayfalarında
+//     o sayfanın kendi çıktısı.
+//  2) YAPI KATMANI (insan mantığı) — bir çekilişin "nasıl göründüğüne" dair
+//     kurallar. Gerçek çekilişlerin geçmişinden ölçülür, uydurulmaz:
+//       • onluk profili   — kaç sayı hangi onlukta (en sık desen)
+//       • tek/çift dengesi — en sık tek sayı adedi
+//       • toplam bandı     — tarihsel orta bant
+//       • ardışık çift     — çekilişlerin yüzde kaçında var
+//       • son çekilişten tekrar — tipik tekrar adedi
+//       • uç/orta dağılımı — alt ve üst üçlükten en az birer sayı
+//     Ağırlık sıralaması şansı geçmiyor (bu oturumda ölçüldü); yapı katmanının
+//     katkısı biletin GERÇEKÇİ görünmesi ve 3 biletin birbirini tamamlamasıdır.
+//
+// Üç bilet birbirinin kopyası değil, üç farklı bakış:
+//   #1 Uzlaşı çekirdeği · #2 Yapı/denge · #3 Gecikme & aykırı senaryo
+// Her biletin altında NEDEN öyle kurulduğu tek tek yazılır.
+//
+// DÜRÜST ÇERÇEVE: "her zaman 3 net" matematiksel olarak mümkün değil; blok bunu
+// vaat etmez, ölçülen gerçek oranı (≥1/≥2/≥3 net) ve aynı boyutta rastgele biletin
+// şansını yan yana gösterir. Kullanıcı ne aldığını görerek karar verir.
+
+function _a3Yapı(game,prior){
+  const max=game.max,cnt=game.count,N=Math.min(150,prior.length);
+  const dec=d=>Math.floor(d/10);
+  const say={},tek={},ard={},tekrar={};let topl=[],ilkUc=0,sonUc=0,n=0;
+  for(let i=0;i<N;i++){
+    const a=[...(prior[i].nums||[])].filter(x=>x>=1&&x<=max).sort((x,y)=>x-y);
+    if(a.length<2)continue;
+    const p={};a.forEach(x=>p[dec(x)]=(p[dec(x)]||0)+1);
+    const key=Object.keys(p).map(Number).sort((x,y)=>x-y).map(d=>d+':'+p[d]).join('|');
+    say[key]=(say[key]||0)+1;
+    const t=a.filter(x=>x%2).length;tek[t]=(tek[t]||0)+1;
+    let ac=0;for(let j=1;j<a.length;j++)if(a[j]-a[j-1]===1)ac++;
+    ard[ac]=(ard[ac]||0)+1;
+    if(i+1<N){const onc=new Set([...(prior[i+1].nums||[])]);const r=a.filter(x=>onc.has(x)).length;tekrar[r]=(tekrar[r]||0)+1;}
+    topl.push(a.reduce((x,y)=>x+y,0));
+    if(a.some(x=>x<=max/3))ilkUc++;
+    if(a.some(x=>x>max*2/3))sonUc++;
+    n++;
+  }
+  topl.sort((a,b)=>a-b);
+  const enSik=o=>Object.keys(o).sort((a,b)=>o[b]-o[a])[0];
+  const ardEnSik=+enSik(ard)||0;
+  return {
+    profil:(enSik(say)||'').split('|').filter(Boolean).map(s=>{const[d,k]=s.split(':').map(Number);return{dec:d,k};}),
+    profilOran:n?Math.round(100*(say[enSik(say)]||0)/n):0,
+    tekSayi:+enSik(tek)||Math.round(cnt/2),
+    tekOran:n?Math.round(100*(tek[enSik(tek)]||0)/n):0,
+    toplamLo:topl[Math.floor(topl.length*0.2)]||0,
+    toplamHi:topl[Math.floor(topl.length*0.8)]||max*cnt,
+    ardisik:ardEnSik,ardisikOran:n?Math.round(100*(ard[ardEnSik]||0)/n):0,
+    ardisikVarOran:n?Math.round(100*(n-(ard[0]||0))/n):0,
+    tekrar:+enSik(tekrar)||0,tekrarOran:n?Math.round(100*(tekrar[enSik(tekrar)]||0)/n):0,
+    ucOran:n?Math.round(100*ilkUc/n):0,ustOran:n?Math.round(100*sonUc/n):0,n
+  };
+}
+// Kaynak ağırlıkları — sayfaya göre farklı beslenir, hepsi 0..1'e normalize edilir.
+function _a3Kaynak(game,prior,kind){
+  const max=game.max,W={},kat=[];
+  const ekle=(ad,m,agir)=>{
+    const nm=_agxNorm(m);if(!nm)return;
+    kat.push(ad);
+    for(let n=1;n<=max;n++)W[n]=(W[n]||0)+(nm[n]||0)*agir;
+  };
+  const rankW=r=>{if(!r||!r.length)return null;const m={};r.forEach((n,i)=>m[n]=(r.length-i)/r.length);return m;};
+  if(kind==='formul'){
+    try{const c=_snAiCore(game,prior);if(c)ekle('Formül Sistemi',rankW(c.ranked),1);}catch(e){}
+    try{const r=_fmCompute(game,prior);if(r)ekle('Son 2 çekiliş formülleri',rankW(r.ranked),0.7);}catch(e){}
+  }else if(kind==='formul2'){
+    try{const w=_agxPoolF2(game,prior,(_predNextDrawDate(game.id)||prior[0].date));if(w)ekle('Formül 2 uzlaşısı',w,1);}catch(e){}
+    try{const r=_fmCompute(game,prior);if(r)ekle('Son 2 çekiliş formülleri',rankW(r.ranked),0.6);}catch(e){}
+  }else if(kind==='haber'){
+    try{
+      const t={},N=game.count*2;
+      _HY_METHODS.forEach(M=>{if(M.id==='rastgele')return;let c=[];try{c=M.gen(game,prior,N)||[];}catch(e){}
+        c.forEach(n=>t[n]=(t[n]||0)+1);});
+      ekle('Haber yöntemleri uzlaşısı',t,1);
+    }catch(e){}
+  }else{ // 'tum' — uygulamanın tamamı
+    try{const C=_qtCombineWeights(game,prior,_qtBuildSources(game,prior));if(C&&C.wMap)ekle('Çok kaynaklı uzlaşı',C.wMap,1.15);}catch(e){}
+    try{ekle('Nihai',_niCompute(game,prior).wMap,1);}catch(e){}
+    try{ekle('AI Bilet Üretici',_cbCompute(game,prior).wMap,0.9);}catch(e){}
+    try{const c=_snAiCore(game,prior);if(c)ekle('Formül Sistemi',rankW(c.ranked),0.5);}catch(e){}
+    try{const r=_fmCompute(game,prior);if(r)ekle('Son 2 çekiliş formülleri',rankW(r.ranked),0.4);}catch(e){}
+    try{const w=_agxPoolF2(game,prior,(_predNextDrawDate(game.id)||prior[0].date));if(w)ekle('Formül 2',w,0.4);}catch(e){}
+  }
+  // her zaman eklenen iki temel sinyal
+  const f=new Array(max+1).fill(0);prior.slice(0,40).forEach(d=>[...(d.nums||[]),...(d.bonus||[])].forEach(n=>{if(n<=max)f[n]++;}));
+  const fm={};for(let n=1;n<=max;n++)fm[n]=f[n];ekle('Sıcaklık (son 40)',fm,0.35);
+  const gap={};for(let n=1;n<=max;n++){let d=0;for(let i=0;i<prior.length;i++){if([...(prior[i].nums||[]),...(prior[i].bonus||[])].includes(n))break;d++;}gap[n]=d;}
+  ekle('Gecikme',gap,0.35);
+  const nm=_agxNorm(W);
+  return {W:nm||{},kat,gap};
+}
+
+// Bir bileti YAPI kurallarına göre kurar ve her adımın gerekçesini biriktirir.
+// mod: 'cekirdek' (uzlaşının en güçlüleri) · 'denge' (orta katman + yapı) · 'gecikme' (aykırı senaryo)
+function _a3Bilet(game,prior,K,yapı,mod,kullanilan){
+  const max=game.max,cnt=game.count,W=K.W,gap=K.gap;
+  const neden=[];
+  const sirali=Object.keys(W).map(Number).filter(n=>n>=1&&n<=max).sort((a,b)=>W[b]-W[a]);
+  const sonCekilis=new Set([...(prior[0].nums||[])]);
+  // havuz: moda göre farklı katman — üç bilet birbirinin kopyası olmasın
+  let havuz;
+  if(mod==='cekirdek'){havuz=sirali.slice(0,Math.max(cnt*3,14));neden.push('Uzlaşının en güçlü '+havuz.length+' sayısından kuruldu');}
+  else if(mod==='denge'){havuz=sirali.slice(Math.floor(cnt*1.5),Math.max(cnt*6,26));neden.push('Uzlaşının orta katmanından (ilk '+Math.floor(cnt*1.5)+' hariç) kuruldu — 1. bileti tekrarlamasın diye');}
+  else{
+    havuz=Object.keys(gap).map(Number).sort((a,b)=>gap[b]-gap[a]).slice(0,Math.max(cnt*4,20));
+    neden.push('En uzun süredir çıkmayan '+havuz.length+' sayıdan kuruldu — aykırı çekiliş senaryosu');
+  }
+  const skor=n=>(W[n]||0)+(mod==='gecikme'?(gap[n]||0)/Math.max(1,prior.length)*0.6:0)
+    -(kullanilan.has(n)?0.45:0)   // önceki biletlerde kullanılmışsa geri plana at
+    -(sonCekilis.has(n)?0.15:0);
+  const sec=[];
+  // 1) ONLUK PROFİLİ — en sık desen neyse o kadar sayı o onluktan
+  const profil=yapı.profil&&yapı.profil.length?yapı.profil:null;
+  if(profil){
+    profil.forEach(({dec,k})=>{
+      const aday=havuz.filter(n=>Math.floor(n/10)===dec&&!sec.includes(n)).sort((a,b)=>skor(b)-skor(a));
+      const yedek=[];for(let n=Math.max(1,dec*10);n<=Math.min(max,dec*10+9);n++)if(!sec.includes(n))yedek.push(n);
+      yedek.sort((a,b)=>skor(b)-skor(a));
+      for(let i=0;i<k&&sec.length<cnt;i++){const p=aday[i]!=null?aday[i]:yedek[i];if(p!=null&&!sec.includes(p))sec.push(p);}
+    });
+    neden.push('Onluk profili '+profil.map(p=>p.dec*10+'\'lar×'+p.k).join(' · ')+' — son '+yapı.n+' çekilişin en sık deseni (%'+yapı.profilOran+')');
+  }
+  // 2) eksik kalırsa havuzdan en güçlülerle tamamla
+  havuz.sort((a,b)=>skor(b)-skor(a));
+  for(const n of havuz){if(sec.length>=cnt)break;if(!sec.includes(n))sec.push(n);}
+  for(let n=1;n<=max&&sec.length<cnt;n++)if(!sec.includes(n))sec.push(n);
+  sec.length=cnt;
+  // 3) TEK/ÇİFT DENGESİ
+  const tekSay=()=>sec.filter(n=>n%2).length;
+  let guard=0;
+  while(tekSay()!==yapı.tekSayi&&guard++<40){
+    const fazlaTek=tekSay()>yapı.tekSayi;
+    const cikar=sec.filter(n=>(n%2===1)===fazlaTek).sort((a,b)=>skor(a)-skor(b))[0];
+    const gir=havuz.concat(sirali).find(n=>!sec.includes(n)&&((n%2===1)!==fazlaTek));
+    if(cikar==null||gir==null)break;
+    sec[sec.indexOf(cikar)]=gir;
+  }
+  if(tekSay()===yapı.tekSayi)neden.push(yapı.tekSayi+' tek / '+(cnt-yapı.tekSayi)+' çift — en sık dağılım (%'+yapı.tekOran+')');
+  // 4) TOPLAM BANDI
+  const tp=()=>sec.reduce((a,b)=>a+b,0);
+  guard=0;
+  while((tp()<yapı.toplamLo||tp()>yapı.toplamHi)&&guard++<40){
+    const yuksek=tp()>yapı.toplamHi;
+    const cikar=[...sec].sort((a,b)=>yuksek?b-a:a-b)[0];
+    const gir=(yuksek?sirali.filter(n=>n<cikar):sirali.filter(n=>n>cikar)).find(n=>!sec.includes(n)&&(n%2)===(cikar%2));
+    if(gir==null)break;
+    sec[sec.indexOf(cikar)]=gir;
+  }
+  const T=tp();
+  if(T>=yapı.toplamLo&&T<=yapı.toplamHi)neden.push('Toplam '+T+' — tarihsel orta bant '+yapı.toplamLo+'–'+yapı.toplamHi+' içinde');
+  else neden.push('Toplam '+T+' — bant ('+yapı.toplamLo+'–'+yapı.toplamHi+') dışında kaldı, yapı bozulmasın diye zorlanmadı');
+  // 5) ARDIŞIK ÇİFT
+  const srt=()=>[...sec].sort((a,b)=>a-b);
+  const ardVar=()=>{const a=srt();for(let i=1;i<a.length;i++)if(a[i]-a[i-1]===1)return true;return false;};
+  if(yapı.ardisikVarOran>=50&&!ardVar()&&mod!=='gecikme'){
+    const a=srt();
+    for(const n of a){
+      const komsu=[n-1,n+1].filter(x=>x>=1&&x<=max&&!sec.includes(x)).sort((x,y)=>skor(y)-skor(x))[0];
+      if(komsu==null)continue;
+      const cikar=sec.filter(x=>x!==n).sort((x,y)=>skor(x)-skor(y))[0];
+      if(cikar==null)break;
+      sec[sec.indexOf(cikar)]=komsu;
+      neden.push('Bir ardışık çift eklendi ('+Math.min(n,komsu)+'-'+Math.max(n,komsu)+') — çekilişlerin %'+yapı.ardisikVarOran+'inde ardışık ikili var');
+      break;
+    }
+  }
+  // 6) UÇ/ORTA DAĞILIMI
+  if(!sec.some(n=>n<=max/3)){
+    const gir=sirali.find(n=>n<=max/3&&!sec.includes(n));
+    if(gir!=null){const cikar=sec.sort((a,b)=>skor(a)-skor(b))[0];sec[sec.indexOf(cikar)]=gir;
+      neden.push('Alt üçlükten sayı eklendi — çekilişlerin %'+yapı.ucOran+'inde alt bölgeden en az bir sayı var');}
+  }
+  if(!sec.some(n=>n>max*2/3)){
+    const gir=sirali.find(n=>n>max*2/3&&!sec.includes(n));
+    if(gir!=null){const cikar=sec.sort((a,b)=>skor(a)-skor(b))[0];sec[sec.indexOf(cikar)]=gir;
+      neden.push('Üst üçlükten sayı eklendi — çekilişlerin %'+yapı.ustOran+'inde üst bölgeden en az bir sayı var');}
+  }
+  // 7) SON ÇEKİLİŞ TEKRARI
+  const tekrarSay=sec.filter(n=>sonCekilis.has(n)).length;
+  if(tekrarSay>yapı.tekrar+1){
+    const cikar=sec.filter(n=>sonCekilis.has(n)).sort((a,b)=>skor(a)-skor(b))[0];
+    const gir=sirali.find(n=>!sec.includes(n)&&!sonCekilis.has(n));
+    if(gir!=null){sec[sec.indexOf(cikar)]=gir;
+      neden.push('Son çekilişten tekrar '+yapı.tekrar+'e çekildi — tipik tekrar bu (%'+yapı.tekrarOran+')');}
+  }else neden.push('Son çekilişten '+tekrarSay+' sayı tekrar ediyor — tipik değer '+yapı.tekrar);
+  const main=[...new Set(sec)].sort((a,b)=>a-b).slice(0,cnt);
+  while(main.length<cnt){const n=sirali.find(x=>!main.includes(x));if(n==null)break;main.push(n);main.sort((a,b)=>a-b);}
+  main.forEach(n=>kullanilan.add(n));
+  let bonus=[];
+  try{if(game.bonusCount>0)bonus=_g0Bonus(game,buildFreq(prior));}catch(e){}
+  return {main,bonus,neden};
+}
+const _A3_MODLAR=[
+  {mod:'cekirdek',ad:'🎯 Bilet 1 — Uzlaşı Çekirdeği',renk:'16,185,129',
+   ozet:'Kaynakların en çok birleştiği sayılar, gerçek çekiliş yapısına oturtularak'},
+  {mod:'denge',ad:'⚖️ Bilet 2 — Yapı & Denge',renk:'99,102,241',
+   ozet:'1. bileti tekrarlamayan orta katman; ağırlık yerine ÖRÜNTÜ önceliği'},
+  {mod:'gecikme',ad:'⏳ Bilet 3 — Gecikme & Aykırı',renk:'217,119,6',
+   ozet:'Uzun süredir çıkmayanlar — ilk iki biletin ıskaladığı senaryo'},
+];
+function _a3Uret(game,prior,kind){
+  if(!prior||prior.length<30)return null;
+  const yapı=_a3Yapı(game,prior);
+  const K=_a3Kaynak(game,prior,kind);
+  if(!Object.keys(K.W).length)return null;
+  const kullanilan=new Set();
+  const tickets=_A3_MODLAR.map(M=>({...M,...(_a3Bilet(game,prior,K,yapı,M.mod,kullanilan))}));
+  return {game,yapı,kat:K.kat,tickets};
+}
+
+// ── ORTAK BLOK: her sayfaya aynı yapı takılır (kaynak katmanı sayfaya göre değişir) ──
+// pfx: blok kimliği (a3, a3f, a3f2, a3hy…) · kind: kaynak katmanı türü
+const _A3_BLOKLAR={};
+let _a3Data={};
+function _a3Kayit(pfx,kind,oyunSec){_A3_BLOKLAR[pfx]={kind,oyunSec:oyunSec!==false};_a3Data[pfx]={oyun:null,live:null,t1:null,t2:null,t3:null,olcum:null};}
+function _a3Oyun(pfx){
+  const d=_a3Data[pfx];
+  if(d&&d.oyun&&GAMES.some(g=>g.id===d.oyun))return d.oyun;
+  return (state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))?state.selectedGame:GAMES[0].id;
+}
+function _a3SetOyun(pfx,g){_a3Data[pfx]={oyun:g,live:null,t1:null,t2:null,t3:null,olcum:null};_a3Init(pfx);}
+function _a3Init(pfx){
+  const kok=document.getElementById(pfx+'Root');if(!kok)return;
+  const B=_A3_BLOKLAR[pfx];if(!B)return;
+  const gid=_a3Oyun(pfx);
+  const row=document.getElementById(pfx+'GameRow');
+  if(row)row.innerHTML=GAMES.map(g=>{const a=g.id===gid;
+    return `<button onclick="_a3SetOyun('${pfx}','${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(16,185,129,.7)':'var(--border)'};background:${a?'rgba(16,185,129,.14)':'var(--surface2)'};color:${a?'#0a9a6a':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
+  _a3Dates(pfx);
+  _a3Run(pfx);
+}
+function _a3Dates(pfx){
+  const gid=_a3Oyun(pfx),draws=_kbGetDraws(gid);
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  draws.forEach((d,i)=>{if(draws.length-i-1<40)return;
+    h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  ['','2','3'].forEach(sl=>{const e=document.getElementById(pfx+'Date'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
+}
+function _a3Run(pfx){
+  const B=_A3_BLOKLAR[pfx];if(!B)return;
+  const gid=_a3Oyun(pfx),game=getGame(gid),draws=_kbGetDraws(gid);
+  const out=document.getElementById(pfx+'Out');if(!out)return;
+  if(!draws||draws.length<40){out.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Yeterli veri yok (≥40 çekiliş gerekli).</div>';return;}
+  out.innerHTML='<div style="font-size:.72rem;color:var(--muted);padding:10px">⏳ 3 bilet kuruluyor…</div>';
+  setTimeout(()=>{
+    _a3Data[pfx].live=_a3Uret(game,draws,B.kind);
+    _a3Render(pfx);
+  },20);
+}
+function _a3DateTest(pfx,slot){
+  slot=slot||'';
+  const key=slot==='3'?'t3':slot==='2'?'t2':'t1';
+  const B=_A3_BLOKLAR[pfx];if(!B)return;
+  const gid=_a3Oyun(pfx),game=getGame(gid),draws=_kbGetDraws(gid);
+  const date=document.getElementById(pfx+'Date'+slot)?.value||'';
+  if(!date){_a3Data[pfx][key]=null;_a3Render(pfx);return;}
+  const idx=draws.findIndex(d=>d.date===date);
+  if(idx<0){_a3Data[pfx][key]=null;_a3Render(pfx);return;}
+  const prior=draws.slice(idx+1);
+  if(prior.length<30){_a3Data[pfx][key]=null;_a3Render(pfx);return;}
+  const out=document.getElementById(pfx+'Out');
+  if(out)out.innerHTML='<div style="font-size:.72rem;color:var(--muted);padding:10px">⏳ geçmiş test kuruluyor…</div>';
+  setTimeout(()=>{
+    const r=_a3Uret(game,prior,B.kind);
+    if(r)r.actual=draws[idx];
+    _a3Data[pfx][key]=r;
+    if(!_a3Data[pfx].live)_a3Data[pfx].live=_a3Uret(game,draws,B.kind);
+    _a3Render(pfx);
+  },20);
+}
+function _a3Chips(nums,aSet){
+  return nums.map(n=>{
+    const isN=aSet&&aSet.has(n),isNr=aSet&&!isN&&(aSet.has(n-1)||aSet.has(n+1));
+    return `<span style="font-family:monospace;font-size:.9rem;font-weight:800;color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:var(--surface2);border:1.5px solid ${isN?'rgba(0,200,100,.55)':isNr?'rgba(244,114,63,.45)':'var(--border)'};border-radius:8px;padding:2px 9px">${n}${isN?'✓':isNr?'~':''}</span>`;
+  }).join('');
+}
+function _a3Sutun(pfx,d,ci){
+  if(!d)return null;
+  const aSet=d.actual?new Set([...(d.actual.nums||[]),...(d.actual.bonus||[])]):null;
+  const bas=d.actual
+    ?`🎯 ${d.actual.date} — ${[...(d.actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(d.actual.bonus&&d.actual.bonus.length)?' + '+d.actual.bonus.join(' '):''}`
+    :`🔮 Yeni Tahmin — ${d.game.emoji} ${d.game.name}`;
+  let enIyi=0,enIyiY=0;
+  const kartlar=d.tickets.map((t,i)=>{
+    let net=0,yak=0;
+    t.main.forEach(n=>{if(aSet&&aSet.has(n))net++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))yak++;});
+    if(net>enIyi||(net===enIyi&&yak>enIyiY)){enIyi=net;enIyiY=yak;}
+    return `<div style="padding:8px 10px;border-radius:9px;background:${net>=3?'rgba(0,230,118,.1)':`rgba(${t.renk},.06)`};border:1.5px solid ${net>=3?'rgba(0,200,100,.5)':`rgba(${t.renk},.35)`};margin-bottom:7px">
+      <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+       <span style="font-size:.66rem;font-weight:800;color:rgb(${t.renk})">${t.ad}</span>
+       <span style="display:flex;gap:5px;align-items:center">
+        ${aSet?`<span style="font-size:.62rem;font-weight:800;color:${net>=3?'var(--green)':net?'#0a9a6a':'var(--muted)'}">${net} net · ${yak} yakın</span>`:''}
+        ${_hyCopyBtn(pfx+'_c'+ci+'_'+i,t.ad+'\\n'+[...t.main,...(t.bonus||[])].join(' '))}</span></div>
+      <div style="font-size:.52rem;color:var(--muted);margin-bottom:5px;line-height:1.5">${t.ozet}</div>
+      <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:5px">${_a3Chips(t.main,aSet)}${
+        (t.bonus&&t.bonus.length)?`<span style="color:var(--muted);font-size:.8rem;align-self:center">| ${t.bonus.join(' ')}</span>`:''}</div>
+      <details style="font-size:.53rem;color:var(--muted)"><summary style="cursor:pointer;color:rgb(${t.renk});font-weight:700">🧠 Neden bu sayılar?</summary>
+       <ul style="margin:4px 0 0 14px;line-height:1.7">${t.neden.map(x=>`<li>${x}</li>`).join('')}</ul></details>
+    </div>`;
+  }).join('');
+  const y=d.yapı;
+  const bas2=`<div style="padding:8px 10px;background:var(--surface2);border:1px solid ${aSet?'rgba(16,185,129,.35)':'var(--border)'};border-radius:9px;margin-bottom:7px">
+     <div style="font-size:.66rem;font-weight:800;color:#0a9a6a">${bas}</div>
+     <div style="font-size:.5rem;color:var(--muted);margin-top:3px;line-height:1.6">Kaynaklar: ${d.kat.join(' · ')||'—'}</div>
+     <div style="font-size:.5rem;color:var(--muted);margin-top:3px;line-height:1.6">Yapı okuması (son ${y.n} çekiliş): ${y.tekSayi} tek/${d.game.count-y.tekSayi} çift · toplam bandı ${y.toplamLo}–${y.toplamHi} · ardışık ikili %${y.ardisikVarOran} · tipik tekrar ${y.tekrar}</div>
+     ${aSet?`<div style="font-size:.62rem;font-weight:800;margin-top:4px;color:${enIyi>=3?'var(--green)':'var(--muted)'}">🏆 En iyi bilet: ${enIyi} net · ${enIyiY} yakın ${enIyi>=3?'— 3+ net hedefi tuttu ✅':''}</div>`:''}
+    </div>`;
+  return bas2+kartlar;
+}
+function _a3Render(pfx){
+  const out=document.getElementById(pfx+'Out');if(!out)return;
+  const D=_a3Data[pfx];if(!D){out.innerHTML='';return;}
+  const cols=[D.live,D.t1,D.t2,D.t3].filter(Boolean);
+  if(!cols.length){out.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Üretilemedi.</div>';return;}
+  const tpl='repeat('+cols.length+',minmax(0,1fr))';
+  out.innerHTML=`<div class="a3-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
+    +cols.map((c,i)=>`<div>${_a3Sutun(pfx,c,i)}</div>`).join('')+`</div>`;
+  window['_a3Txt_'+pfx]=cols.map(c=>c.tickets.map(t=>t.ad+'\n'+[...t.main,...(t.bonus||[])].join(' ')).join('\n\n')).join('\n\n');
+}
+// ── ÖLÇÜM: son N çekilişte 3 biletin gerçekte ne tutturduğu + şans tabanı ──
+function _a3Olc(pfx){
+  const B=_A3_BLOKLAR[pfx];if(!B)return;
+  const el=document.getElementById(pfx+'OlcOut');if(!el)return;
+  const gid=_a3Oyun(pfx),game=getGame(gid),draws=_kbGetDraws(gid);
+  const N=parseInt(document.getElementById(pfx+'OlcN')?.value)||30;
+  if(!draws||draws.length<80){el.innerHTML='<div style="font-size:.68rem;color:var(--muted)">Ölçüm için yeterli veri yok.</div>';return;}
+  el.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:8px">⏳ '+N+' çekiliş ölçülüyor…</div>';
+  const acc={n:0,g1:0,g2:0,g3:0,net:0,kap:0,k3:0,k4:0};
+  let i=0;
+  const step=()=>{
+    const end=Math.min(i+2,N);
+    for(;i<end;i++){
+      const actual=draws[i],prior=draws.slice(i+1);
+      if(!actual||prior.length<30)break;
+      const r=_a3Uret(game,prior,B.kind);if(!r)continue;
+      const aS=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      let best=0,bestKap=0;
+      r.tickets.forEach(t=>{let net=0,yak=0;t.main.forEach(n=>{if(aS.has(n))net++;else if(aS.has(n-1)||aS.has(n+1))yak++;});
+        if(net>best)best=net;if(net+yak>bestKap)bestKap=net+yak;});
+      acc.n++;acc.net+=best;acc.kap+=bestKap;
+      if(best>=1)acc.g1++;if(best>=2)acc.g2++;if(best>=3)acc.g3++;
+      if(bestKap>=3)acc.k3++;if(bestKap>=4)acc.k4++;
+    }
+    if(i<N&&acc.n<N){setTimeout(step,0);return;}
+    // şans tabanı: aynı boyutta 3 rastgele biletin en iyisi (hipergeometrik, tam)
+    const bc=(n,r)=>{if(r<0||r>n)return 0;r=Math.min(r,n-r);let x=1;for(let k=0;k<r;k++)x=x*(n-k)/(k+1);return x;};
+    const drawn=game.id==='onnumara'?22:(game.count+(game.bonusCount||0));
+    const pAz=t=>{let s=0;for(let x=t;x<=Math.min(game.count,drawn);x++)s+=bc(drawn,x)*bc(game.max-drawn,game.count-x);return s/bc(game.max,game.count);};
+    const sans=t=>1-Math.pow(1-pAz(t),3);
+    const satir=(t,v)=>`<tr style="border-top:1px solid var(--border)"><td style="padding:4px 8px;font-weight:700">≥${t} net</td>
+      <td style="padding:4px 8px;font-weight:800;color:${v/acc.n>=sans(t)*1.15?'var(--green)':'var(--text)'}">%${Math.round(100*v/acc.n)}</td>
+      <td style="padding:4px 8px;color:var(--muted)">%${Math.round(100*sans(t))}</td>
+      <td style="padding:4px 8px;font-weight:700;color:${(v/acc.n)/(sans(t)||1)>=1.1?'var(--green)':'var(--muted)'}">${((v/acc.n)/(sans(t)||1)).toFixed(2)}×</td></tr>`;
+    el.innerHTML=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:6px;line-height:1.6">Her çekiliş yalnızca kendisinden ÖNCEKİ verilerle yeniden üretildi (lookahead yok). Ölçülen: <strong>3 biletin EN İYİSİ</strong>. Şans tabanı: aynı boyutta 3 rastgele biletin en iyisi.</div>
+     <div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.62rem">
+      <tr style="color:var(--muted);text-align:left"><th style="padding:4px 8px">Hedef</th><th style="padding:4px 8px">Bu blok</th><th style="padding:4px 8px">Şans</th><th style="padding:4px 8px">Kat</th></tr>
+      ${satir(1,acc.g1)}${satir(2,acc.g2)}${satir(3,acc.g3)}
+      <tr style="border-top:2px solid var(--border)"><td colspan="4" style="padding:5px 8px;font-size:.56rem;color:var(--muted)">Hedefin "3 net, sonrası yaklaşık olabilir" biçimi — <strong>net VEYA ±1 yakın</strong> sayılırsa:</td></tr>
+      <tr style="border-top:1px solid var(--border)"><td style="padding:4px 8px;font-weight:700">≥3 net/yakın</td><td style="padding:4px 8px;font-weight:800;color:var(--green)">%${Math.round(100*acc.k3/acc.n)}</td><td style="padding:4px 8px;color:var(--muted)">—</td><td style="padding:4px 8px;color:var(--muted)">—</td></tr>
+      <tr style="border-top:1px solid var(--border)"><td style="padding:4px 8px;font-weight:700">≥4 net/yakın</td><td style="padding:4px 8px;font-weight:800;color:${acc.k4/acc.n>=0.2?'var(--green)':'var(--text)'}">%${Math.round(100*acc.k4/acc.n)}</td><td style="padding:4px 8px;color:var(--muted)">—</td><td style="padding:4px 8px;color:var(--muted)">—</td></tr>
+     </table></div>
+     <div style="font-size:.6rem;color:var(--muted);margin-top:6px">Ortalama en iyi bilet: <strong style="color:var(--text)">${(acc.net/acc.n).toFixed(2)} net</strong> · net+yakın <strong style="color:var(--text)">${(acc.kap/acc.n).toFixed(2)}</strong> · ${acc.n} çekiliş</div>
+     ${acc.g3/acc.n<0.5?`<div style="font-size:.58rem;color:#8a6200;margin-top:6px;line-height:1.6">⚠️ Hedef "her zaman 3 net" olsa da gerçekleşen oran %${Math.round(100*acc.g3/acc.n)}. Tek bir çekilişte 3 net garanti eden bir yöntem yok; blok bunu vaat etmez, ölçülen gerçeği gösterir. Oranı yükseltmenin bilinen tek yolu daha çok bilet oynamaktır.</div>`:''}`;
+  };
+  setTimeout(step,20);
+}
+
+// Blok iskeleti tek yerden kurulur; her sayfa yalnızca bir <div id="<pfx>Root"> koyar.
+function _a3Mount(pfx,kind,baslik,aciklama){
+  const kok=document.getElementById(pfx+'Root');if(!kok)return;
+  if(kok.dataset.mounted==='1'){_a3Init(pfx);return;}
+  kok.dataset.mounted='1';
+  _a3Kayit(pfx,kind);
+  kok.innerHTML=`<div class="card" style="border:2px solid rgba(16,185,129,.5);background:linear-gradient(135deg,rgba(16,185,129,.06),transparent)">
+   <div class="card-title">${baslik}</div>
+   <div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;padding:8px 10px;background:rgba(16,185,129,.06);border-radius:8px;line-height:1.7">
+    ${aciklama}
+    <br><strong style="color:var(--text)">Nasıl kurulur:</strong> önce kaynaklar tek ağırlığa indirgenir, sonra <strong>insan mantığı katmanı</strong> devreye girer — onluk profili, tek/çift dengesi, toplam bandı, ardışık ikili, uç/orta dağılımı ve son çekilişten tekrar. Bu kurallar uydurma değil, son çekilişlerden ölçülür. Üç bilet birbirinin kopyası değildir: <strong>uzlaşı çekirdeği</strong>, <strong>yapı/denge</strong> ve <strong>gecikme/aykırı</strong>. Her biletin altında "🧠 Neden bu sayılar?" ile gerekçeler tek tek yazılır.
+    <br><span style="color:#8a6200">⚠️ Hedef 3+ net; ama hiçbir yöntem bunu garanti edemez. Aşağıdaki <strong>ölçüm</strong> düğmesi gerçekte ne olduğunu şans tabanıyla yan yana gösterir.</span>
+   </div>
+   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="${pfx}GameRow"></div>
+   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+    <button onclick="_a3Run('${pfx}')" style="flex:1;min-width:180px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(16,185,129,.92),rgba(5,150,105,.8));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:800">🎯 3 Bilet Üret</button>
+    <button onclick="_caCopy(window['_a3Txt_${pfx}']||'')" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Kopyala</button>
+   </div>
+   <div style="margin-bottom:10px;padding-bottom:9px;border-bottom:1px dashed var(--border)">
+    <div style="font-size:.64rem;font-weight:800;color:var(--text);margin-bottom:5px">📊 Geçmiş Test — aynı anda üç tarih</div>
+    <div class="a3-date" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+     <select id="${pfx}Date" onchange="_a3DateTest('${pfx}','')" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
+     <select id="${pfx}Date2" onchange="_a3DateTest('${pfx}','2')" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
+     <select id="${pfx}Date3" onchange="_a3DateTest('${pfx}','3')" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px">
+     <span style="font-size:.62rem;color:var(--muted)">Ölçüm:</span>
+     <select id="${pfx}OlcN" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px">
+      <option value="20">son 20 çekiliş</option><option value="30" selected>son 30</option><option value="60">son 60</option></select>
+     <button onclick="_a3Olc('${pfx}')" style="font-size:.68rem;padding:5px 13px;border-radius:8px;border:1px solid rgba(16,185,129,.5);background:rgba(16,185,129,.1);color:#0a9a6a;cursor:pointer;font-weight:700">📏 Gerçekte ne tutturuyor?</button>
+    </div>
+    <div id="${pfx}OlcOut" style="margin-top:8px"></div>
+   </div>
+   <div id="${pfx}Out"></div>
+  </div>`;
+  _a3Init(pfx);
 }
 
 // ── Basit Tahmin sayfası: Hızlı Tahmin'in motorunu aynen kullanır, sadece 9 analizi gösterir ──
