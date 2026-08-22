@@ -771,6 +771,15 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
           <div id="listelerAiFinal"></div>
         </div>
       </div>
+      <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
+        <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:5px">📊 AI Geçmiş Testi</div>
+        <div style="font-size:.58rem;color:var(--muted);margin-bottom:7px;line-height:1.6">Bir tarih seçin; AI analizi <strong>yalnızca o tarihten ÖNCEKİ</strong> çekilişlerle sıfırdan kurulur (tahmin demeti de o veriyle yeniden üretilir, lookahead yok) ve ürettiği 3 bilet gerçek sonuca göre işaretlenir · ✓ net · ~ ±1 yakın.</div>
+        <div style="display:flex;gap:6px;align-items:stretch;flex-wrap:wrap">
+          <select id="listelerAiDate" style="flex:1;min-width:200px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+          <button onclick="listelerAiBacktest()" style="font-size:.72rem;padding:6px 16px;border-radius:8px;background:linear-gradient(135deg,rgba(129,140,248,.25),rgba(255,101,132,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);cursor:pointer;font-weight:700;white-space:nowrap">📊 Geçmiş Testi</button>
+        </div>
+        <div id="listelerAiBtOut" style="margin-top:10px"></div>
+      </div>
     </div>
   </div>
 
@@ -14143,7 +14152,80 @@ function listelerCopyKirmizi(){
 }
 
 // ─── AI Analiz Merkezi ──────────────────────────────────────────
+// Geçmiş testi: seçilen tarih için AI analizi o tarihten ÖNCEKİ verilerle yeniden
+// kurulur. Tahmin demeti aynı algoritma/pencere ile prior'dan üretilir, geçmiş
+// sütunlarından yalnızca tarihi daha eski olanlar kullanılır, EWF/NS/gecikme
+// sinyalleri prior çekilişlerden hesaplanır → lookahead yok.
+function _listelerAiDates(){
+  const sel=document.getElementById('listelerAiDate');if(!sel)return;
+  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
+  const draws=_scanGetDraws(gameId);const pv=sel.value;
+  const sorted=[...draws].sort((a,b)=>a.date<b.date?1:-1);
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  sorted.forEach((d,i)=>{if(sorted.length-i-1<10)return;
+    h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  sel.innerHTML=h;if(pv)sel.value=pv;
+}
+function listelerAiBacktest(){
+  const out=document.getElementById('listelerAiBtOut');if(!out)return;
+  const testDate=document.getElementById('listelerAiDate')?.value||'';
+  if(!testDate){out.innerHTML='';return;}
+  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
+  const game=getGame(gameId);if(!game)return;
+  const draws=_scanGetDraws(gameId);
+  const actual=draws.find(d=>d.date===testDate);
+  let prior=draws.filter(d=>d.date<testDate).sort((a,b)=>a.date<b.date?1:-1);
+  if(!actual||prior.length<10){out.innerHTML='<div style="font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
+  out.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:8px">⏳ AI analizi o tarihe göre yeniden kuruluyor…</div>';
+  setTimeout(()=>{
+    const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
+    const win=document.getElementById('listelerWindow')?.value||'30';
+    const n=Math.max(1,Math.min(2000,parseInt(document.getElementById('listelerCount')?.value)||2000));
+    const pw=win==='all'?prior:prior.slice(0,parseInt(win));
+    const freq=buildFreq(pw);
+    const tickets=Array.from({length:n},()=>generateNumbers(game,algoId,freq,pw));
+    tickets.sort((a,b)=>calcTicketScore(b,game)-calcTicketScore(a,game));
+    const pred={tickets,game,algoId};
+    const cols=_listelerHistory.filter(h=>h.game.id===gameId&&h.date<testDate);
+    const {numScore,redNums,nsNums,delayNums}=_listelerAiScore(game,pred,cols,prior);
+    const ai=_listelerGenAiTickets(game,game.max,numScore);
+    const aSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+    const mark=nums=>nums.map(x=>{
+      const hit=aSet.has(x),nr=!hit&&(aSet.has(x-1)||aSet.has(x+1));
+      return `<span style="font-family:monospace;font-size:.8rem;font-weight:${hit||nr?800:600};color:${hit?'var(--green)':nr?'#c2410c':'var(--text)'};background:var(--surface2);border:1px solid ${hit?'rgba(0,200,100,.5)':'var(--border)'};border-radius:6px;padding:1px 7px">${x}${hit?'✓':nr?'~':''}</span>`;}).join('');
+    let best=0,bestNear=0;
+    const satir=ai.map((t,i)=>{
+      const nums=[...t.main,...t.bonus];
+      let net=0,near=0;nums.forEach(x=>{if(aSet.has(x))net++;else if(aSet.has(x-1)||aSet.has(x+1))near++;});
+      if(net>best){best=net;bestNear=near;}
+      return `<div style="margin-bottom:6px;padding:7px 10px;background:${net?'rgba(0,230,118,.07)':'rgba(129,140,248,.05)'};border:1px solid ${net?'rgba(0,200,100,.35)':'rgba(129,140,248,.2)'};border-radius:9px">
+        <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
+         <span style="font-size:.6rem;font-weight:700;color:var(--accent)">AI Bilet ${i+1}</span>
+         <span style="display:flex;gap:6px;align-items:center">
+          <span style="font-size:.6rem;font-weight:800;color:${net?'var(--green)':'var(--muted)'}">${net} net · ${near} yakın</span>
+          <button onclick="_cpDo('${_cpKey('AI Bilet '+(i+1)+' — '+testDate,nums.join(' '))}')" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋</button></span></div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap">${mark(nums)}</div></div>`;
+    }).join('');
+    const top=[];for(let x=1;x<=game.max;x++)if(numScore[x]>0)top.push({n:x,s:numScore[x]});
+    top.sort((a,b)=>b.s-a.s);
+    const t15=top.slice(0,15).map(o=>o.n);
+    let tn=0,tny=0;t15.forEach(x=>{if(aSet.has(x))tn++;else if(aSet.has(x-1)||aSet.has(x+1))tny++;});
+    out.innerHTML=`<div style="padding:9px 11px;background:var(--surface2);border:1px solid rgba(129,140,248,.3);border-radius:10px;margin-bottom:8px">
+      <div style="font-size:.68rem;font-weight:800;color:var(--accent)">🎯 ${actual.date} — ${[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''}</div>
+      <div style="font-size:.56rem;color:var(--muted);margin-top:3px;line-height:1.5">AI analizi bu tarihten önceki ${prior.length} çekilişle kuruldu · ${cols.length} geçmiş sütunu katıldı · algoritma: ${algoId}</div>
+      <div style="font-size:.62rem;font-weight:800;margin-top:5px;color:${best?'var(--green)':'var(--muted)'}">🏆 En iyi AI bileti: ${best} net · ${bestNear} yakın</div></div>
+     ${satir}
+     <div style="padding:8px 10px;background:var(--surface);border:1px solid var(--border);border-radius:9px">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:5px">
+       <span style="font-size:.6rem;font-weight:800;color:var(--text)">🏅 Top 15 hedef sayı</span>
+       <span style="display:flex;gap:6px;align-items:center">
+        <span style="font-size:.6rem;font-weight:800;color:${tn?'var(--green)':'var(--muted)'}">${tn} net · ${tny} yakın</span>
+        <button onclick="_cpDo('${_cpKey('🏅 Top 15 hedef sayı — '+testDate,t15.join(' '))}')" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋</button></span></div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap">${mark(t15)}</div></div>`;
+  },30);
+}
 function listelerRunAi(silent){
+  try{_listelerAiDates();}catch(e){}
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
   const game=getGame(gameId);
   const confEl=document.getElementById('listelerAiConfidence');
@@ -14162,23 +14244,33 @@ function listelerRunAi(silent){
   setTimeout(()=>{try{_listelerDoAi(game,gameId,confEl,finalEl,body,btn,silent);}catch(e){console.error(e);if(btn)btn.textContent='🤖 Analiz Et & Tahmin Üret';}},30);
 }
 
-function _listelerDoAi(game,gameId,confEl,finalEl,body,btn,silent){
+// AI puanlaması tek yerde: hem canlı analiz hem geçmiş testi bunu kullanır.
+// pred  : o an geçerli tahmin demeti (kırmızı hücreler ve varlık sinyali için)
+// cols  : dikkate alınacak geçmiş sütunları (yeşil frekans için)
+// draws : EWF / NS zinciri / gecikme sinyallerinin besleneceği çekilişler.
+//         GEÇMİŞ TESTİNDE buraya yalnızca o tarihten ÖNCEKİ çekilişler verilir (lookahead yok).
+// redKeys: kırmızı hücre anahtarları; verilmezse cols'tan yeniden hesaplanır.
+function _listelerAiScore(game,pred,cols,draws,redKeys){
   const gmax=game.max;
   const numScore=new Array(gmax+1).fill(0);
-
   // Sinyal 1: Kırmızı (çapraz kolon) — en güçlü +5
   const redNums=new Set();
-  if(_listelerNewPred){
-    _listelerNewPred.tickets.forEach((t,ti)=>{
+  let rk=redKeys;
+  if(!rk){
+    const cnt={};(cols||[]).forEach(c=>c.greenCells.forEach(k=>{cnt[k]=(cnt[k]||0)+1;}));
+    const tot=(cols||[]).length;
+    rk=new Set(tot>=2?Object.entries(cnt).filter(([,v])=>v>=tot).map(([k])=>k):[]);
+  }
+  if(pred){
+    pred.tickets.forEach((t,ti)=>{
       [...t.main,...t.bonus].forEach((n,pi)=>{
-        if(_listelerRedKeys.has(`${ti}-${pi}`)){numScore[n]+=5;redNums.add(n);}
+        if(rk.has(`${ti}-${pi}`)){numScore[n]+=5;redNums.add(n);}
       });
     });
   }
-
   // Sinyal 2: Geçmiş kolonlarda yeşil frekansı +3
   const greenFreq=new Array(gmax+1).fill(0);
-  const checkedCols=_listelerHistory.filter(c=>c.checked);
+  const checkedCols=(cols||[]).filter(c=>c.checked);
   checkedCols.forEach(col=>{
     col.tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((n,pi)=>{
       if(col.greenCells.has(`${ti}-${pi}`))greenFreq[n]++;
@@ -14186,42 +14278,42 @@ function _listelerDoAi(game,gameId,confEl,finalEl,body,btn,silent){
   });
   const nCols=checkedCols.length||1;
   for(let n=1;n<=gmax;n++)numScore[n]+=(greenFreq[n]/nCols)*3;
-
   // Sinyal 3: EWF üstel ağırlıklı frekans +1.5
-  const draws=_scanGetDraws(gameId);
   if(draws.length>0){
     const ewf=buildEWF([...draws].reverse(),gmax,0.85);
     const maxEWF=Math.max(0,...Object.values(ewf));
     if(maxEWF>0){for(let n=1;n<=gmax;n++)numScore[n]+=((ewf[n]||0)/maxEWF)*1.5;}
   }
-
   // Sinyal 4: Mevcut tahmin varlığı +0.3
-  if(_listelerNewPred){
-    _listelerNewPred.tickets.forEach(t=>[...t.main,...t.bonus].forEach(n=>{numScore[n]+=0.3;}));
-  }
-
-  // Sinyal 5: NS/NST Zincir skoru +2.5 (YENİ)
+  if(pred)pred.tickets.forEach(t=>[...t.main,...t.bonus].forEach(n=>{numScore[n]+=0.3;}));
+  // Sinyal 5: NS/NST Zincir skoru +2.5
   const nsNums=new Set();
   if(draws.length>0){
     try{
       const {score:ns}=_sablonScoreNext(draws[0],game);
       const maxNS=Math.max(...ns.slice(1),1);
       for(let n=1;n<=gmax;n++){
-        const s=(ns[n]||0)/maxNS*2.5;
-        numScore[n]+=s;
-        if(s>=1.5)nsNums.add(n);
+        const sc=(ns[n]||0)/maxNS*2.5;
+        numScore[n]+=sc;
+        if(sc>=1.5)nsNums.add(n);
       }
     }catch(e){}
   }
-
-  // Sinyal 6: Gecikme skoru +1.5 (YENİ)
+  // Sinyal 6: Gecikme skoru +1.5
   const delayNums=new Set();
   if(draws.length>0){
     const delay=new Float32Array(gmax+1);
     for(let n=1;n<=gmax;n++){const i=draws.findIndex(d=>[...d.nums,...(d.bonus||[])].includes(n));delay[n]=i===-1?draws.length:i;}
     const maxD=Math.max(...delay.slice(1),1);
-    for(let n=1;n<=gmax;n++){const s=delay[n]/maxD*1.5;numScore[n]+=s;if(delay[n]>=6)delayNums.add(n);}
+    for(let n=1;n<=gmax;n++){const sc=delay[n]/maxD*1.5;numScore[n]+=sc;if(delay[n]>=6)delayNums.add(n);}
   }
+  return {numScore,redNums,greenFreq,nsNums,delayNums};
+}
+function _listelerDoAi(game,gameId,confEl,finalEl,body,btn,silent){
+  const gmax=game.max;
+  const draws=_scanGetDraws(gameId);
+  const {numScore,redNums,greenFreq,nsNums,delayNums}=
+    _listelerAiScore(game,_listelerNewPred,_listelerHistory,draws,_listelerRedKeys);
 
   // ── TOP 15 HEDEF SAYI ─────────────────────────────────────────
   const ranked=[];
