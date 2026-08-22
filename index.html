@@ -338,7 +338,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 @media(max-width:720px){#page-nsa #gizliPageKolon>div[style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr) !important;}}
 /* Analiz satırı: etiket + istatistik + sayılar. Dar ekranda sayıları ince bir sütuna sıkıştırmak
    yerine, sayı bloğu kendi satırına inip TÜM genişliği kullanır (flex-basis + wrap). */
-.an-row{display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--surface2);border-radius:7px;margin-bottom:4px;flex-wrap:wrap}
+.an-row{display:flex;align-items:center;gap:8px;padding:5px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;margin-bottom:5px;flex-wrap:wrap}
 .an-row .an-lbl{flex:0 1 auto;min-width:0}
 .an-row .an-stat{flex:0 1 auto;min-width:0;white-space:nowrap}
 .an-row .an-nums{display:flex;gap:5px;flex-wrap:wrap;flex:1 1 260px;min-width:0}
@@ -22215,15 +22215,27 @@ function _f2PickRefresh(){
   h+=`</div>`;
   el.innerHTML=h;
 }
-function _f2RenderRows(d,aSet,col){
-  let h='';
+// Satırlar tek düze bir zemindeydi; hangi formül terimine ait oldukları ve grubun
+// nerede bittiği ayırt edilemiyordu. Her TERİM kendi rengini alır (soldaki renk şeridi
+// + aynı tondan çok açık zemin) ve terim değiştiğinde araya boşluk konur.
+// Renk terimin _F2_TERMS içindeki sırasından türetilir → her terime ayrı ton.
+function _f2TermRenk(term){
+  const i=Math.max(0,_F2_TERMS.findIndex(t=>t.id===term.id));
+  // Altın açı (137,5°) ile dağıtım: sıradaki terimler renk çemberinde birbirinden
+  // olabildiğince uzağa düşer, böylece komşu gruplar asla benzer tonda olmaz.
+  const h=Math.round((i*137.5)%360);
+  return {zemin:`hsl(${h} 72% 93.5%)`,cerceve:`hsl(${h} 48% 82%)`,serit:`hsl(${h} 62% 50%)`};
+}
+function _f2RenderRows(d,aSet,col,oncekiTerim){
+  let h='',prev=(oncekiTerim===undefined?null:oncekiTerim);
   d.rows.forEach(r=>{
     const L=r.st?r.st.lift1:0;
     const lc=L>=1.1?'#0a9a6a':L<=0.9?'#c2410c':'var(--muted)';
     let net=0,near=0;if(aSet)r.nums.forEach(n=>{if(aSet.has(n))net++;else if(aSet.has(n-1)||aSet.has(n+1))near++;});
     const pid=(col||'live')+'|'+_f2RowKey(r);
     _f2NumsMap[pid]=r.nums;
-    h+=`<div class="an-row">`;
+    const rk=_f2TermRenk(r.term),yeniGrup=prev!==null&&prev!==r.term.id;prev=r.term.id;
+    h+=`<div class="an-row" style="background:${rk.zemin};border:1px solid ${rk.cerceve};border-left:4px solid ${rk.serit}${yeniGrup?';margin-top:10px':''}">`;
     h+=`<input type="checkbox" class="f2-pick" ${_f2Picked.has(pid)?'checked':''} onchange="_f2PickToggle('${pid}',this)" title="Bu formülü seç — seçilenlerde tekrar eden sayılar en üstte listelenir" style="width:14px;height:14px;accent-color:#b8860b;cursor:pointer;flex-shrink:0">`;
     h+=`<span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:700">${r.term.name} <span style="color:var(--muted);font-weight:400">= ${r.val}</span><span style="color:var(--muted);font-weight:400;font-size:.52rem"> · ${r.mode} · ${r.src}. önceki</span></span>`;
     h+=`<span class="an-stat" style="font-size:.54rem;color:${lc}" title="geçmiş ≥1 net oranı / rastgele havuz şansı">≥1 %${r.st?r.st.h1.toFixed(0):'—'} (şans %${r.st?r.st.c1.toFixed(0):'—'}) ×${L.toFixed(2)}</span>`;
@@ -22236,7 +22248,9 @@ function _f2RenderRows(d,aSet,col){
 }
 // Tek satirlik HTML (esli grid icin) — _f2RenderRows ile ayni bicim.
 function _f2RowsAsList(d,aSet,col){
-  return d.rows.map(r=>({r,html:_f2RenderRows({...d,rows:[r]},aSet,col)}));
+  // Tek tek çizilen satırlarda da grup boşluğu doğru düşsün diye bir önceki satırın
+  // terimi aktarılır; tüm sütunlar aynı sırayı kullandığı için hizalama bozulmaz.
+  return d.rows.map((r,i)=>({r,html:_f2RenderRows({...d,rows:[r]},aSet,col,i?d.rows[i-1].term.id:null)}));
 }
 function _f2Run(){
   const el=document.getElementById('f2Out'),syn=document.getElementById('f2SynthOut');
