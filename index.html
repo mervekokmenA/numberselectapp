@@ -351,13 +351,13 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
 @media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,#agGrid,#agHdrRow,#agTestCtl,.ag-row,
-  .agx-row,.hy-row,.fm-row,.a3-row,.a3-date,.ls-ai-row,#nnGrid,#npGrid{grid-template-columns:minmax(0,1fr) !important;}}
+  .agx-row,.hy-row,.fm-row,.a3-row,.a3-date,.ls-ai-row,.ls-date,.so-row,.so-date,.sn-row,.sn-date,#nnGrid,#npGrid{grid-template-columns:minmax(0,1fr) !important;}}
 /* 3 geçmiş test açıkken 4 sütun olabilir; tablette en fazla 2'ye iner. */
 @media(max-width:1400px) and (min-width:1101px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,.ag-row,#agHdrRow,
-  .agx-row,.hy-row,.fm-row,.a3-row{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
+  .agx-row,.hy-row,.fm-row,.a3-row,.so-row,.sn-row,.ls-ai-row{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
 /* 2 geçmiş test açıkken 3 sütun; tablette 2'ye, telefonda 1'e iner. */
 @media(max-width:1100px) and (min-width:601px){.qt-pair-row,#qtHdrRow,#btsHdrRow,
-  .agx-row,.hy-row,.fm-row,.a3-row,.ls-ai-row,#nnGrid,#npGrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
+  .agx-row,.hy-row,.fm-row,.a3-row,.ls-ai-row,.so-row,.sn-row,#nnGrid,#npGrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
 @media(max-width:600px){#caNihaiGrid,#cbNihaiGrid,#f2Grid,#kbGrid,#scanGrid,#hyDateRow,#fmDateRow{grid-template-columns:minmax(0,1fr) !important;}}
 /* Telefonda yan yana iki sütun sayıları dar bir şeride sıkıştırıyordu; ≥600px'te (tablet ve
    üstü) iki pencere gibi yan yana, altında tek sütun. */
@@ -767,19 +767,22 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
         <button onclick="listelerRunAi()" id="listelerAiBtn" style="padding:7px 16px;background:linear-gradient(135deg,rgba(129,140,248,.25),rgba(255,101,132,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700;white-space:nowrap;flex-shrink:0">🤖 Analiz Et &amp; Tahmin Üret</button>
       </div>
       <div id="listelerAiBody" style="display:none;margin-top:14px">
-        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start">
-          <div id="listelerAiConfidence"></div>
-          <div id="listelerAiFinal"></div>
+        <div id="listelerAiConfidence" style="margin-bottom:14px"></div>
+        <div style="margin-bottom:8px">
+          <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:5px">📊 AI Geçmiş Testi — aynı anda üç tarih</div>
+          <div style="font-size:.58rem;color:var(--muted);margin-bottom:7px;line-height:1.6">Tarih seçin; AI analizi <strong>yalnızca o tarihten ÖNCEKİ</strong> çekilişlerle sıfırdan kurulur (tahmin demeti de o veriyle yeniden üretilir, lookahead yok) ve ürettiği 3 bilet gerçek sonuca göre işaretlenir · ✓ net · ~ ±1 yakın. Sonuçlar yeni tahminin YANINDA, hizalı sütunlarda gösterilir.</div>
+          <div class="ls-date" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px">
+            <select id="listelerAiDate" onchange="listelerAiBacktest('')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+            <select id="listelerAiDate2" onchange="listelerAiBacktest('2')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+            <select id="listelerAiDate3" onchange="listelerAiBacktest('3')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+          </div>
         </div>
-      </div>
-      <div style="margin-top:12px;padding-top:10px;border-top:1px dashed var(--border)">
-        <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:5px">📊 AI Geçmiş Testi</div>
-        <div style="font-size:.58rem;color:var(--muted);margin-bottom:7px;line-height:1.6">Bir tarih seçin; AI analizi <strong>yalnızca o tarihten ÖNCEKİ</strong> çekilişlerle sıfırdan kurulur (tahmin demeti de o veriyle yeniden üretilir, lookahead yok) ve ürettiği 3 bilet gerçek sonuca göre işaretlenir · ✓ net · ~ ±1 yakın.</div>
-        <div style="display:flex;gap:6px;align-items:stretch;flex-wrap:wrap">
-          <select id="listelerAiDate" style="flex:1;min-width:200px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
-          <button onclick="listelerAiBacktest()" style="font-size:.72rem;padding:6px 16px;border-radius:8px;background:linear-gradient(135deg,rgba(129,140,248,.25),rgba(255,101,132,.15));border:1px solid rgba(129,140,248,.5);color:var(--accent);cursor:pointer;font-weight:700;white-space:nowrap">📊 Geçmiş Testi</button>
+        <div id="listelerAiPair" class="ls-ai-row" style="display:grid;grid-template-columns:minmax(0,1fr);gap:16px;align-items:start">
+          <div><div style="font-size:.64rem;font-weight:800;color:var(--accent);margin-bottom:5px">🔮 Yeni Tahmin</div><div id="listelerAiFinal"></div></div>
+          <div data-lscol="1" style="display:none"><div style="font-size:.64rem;font-weight:800;color:var(--accent);margin-bottom:5px">📊 Geçmiş Test</div><div id="listelerAiBtOut"></div></div>
+          <div data-lscol="2" style="display:none"><div style="font-size:.64rem;font-weight:800;color:var(--accent);margin-bottom:5px">📊 2. Geçmiş Test</div><div id="listelerAiBtOut2"></div></div>
+          <div data-lscol="3" style="display:none"><div style="font-size:.64rem;font-weight:800;color:var(--accent);margin-bottom:5px">📊 3. Geçmiş Test</div><div id="listelerAiBtOut3"></div></div>
         </div>
-        <div id="listelerAiBtOut" style="margin-top:10px"></div>
       </div>
     </div>
   </div>
@@ -1677,14 +1680,20 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div class="card">
   <div class="card-title">📊 AI Analizi — Geçmiş Test</div>
   <div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.6">Yukarıdaki oyun seçimi geçerlidir. Bir tarih seçin — AI analizi o tarihten <strong>ÖNCEKİ</strong> verilerle yeniden kurulur (lookahead yok) ve gerçek sonuca göre işaretlenir (✓ net · ~ ±1 yakın). ▲▼ ile çekilişler arasında tek tek gezinebilirsin.</div>
-  <div style="display:flex;gap:6px;align-items:stretch;margin-bottom:8px">
-   <select id="snAiDateSel" onchange="_snAiDateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
-   <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
-    <button onclick="_snAiStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
-    <button onclick="_snAiStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+  <div class="sn-date" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:8px">
+   <div style="display:flex;gap:5px;align-items:stretch;min-width:0">
+    <select id="snAiDateSel" onchange="_snAiDateTest('')" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+     <button onclick="_snAiStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+     <button onclick="_snAiStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+    </div>
    </div>
+   <select id="snAiDateSel2" onchange="_snAiDateTest('2')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   <select id="snAiDateSel3" onchange="_snAiDateTest('3')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
   </div>
-  <div id="snAiTestOut"></div>
+  <div class="sn-row" id="snAiTestGrid" style="display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start">
+   <div id="snAiTestOut"></div><div id="snAiTestOut2"></div><div id="snAiTestOut3"></div>
+  </div>
  </div>
  <div id="a3fRoot" style="margin-bottom:14px"></div>
  <div class="card">
@@ -14178,12 +14187,26 @@ function _listelerAiDates(){
   let h='<option value="">— Geçmiş test için tarih seçin —</option>';
   sorted.forEach((d,i)=>{if(sorted.length-i-1<10)return;
     h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
-  sel.innerHTML=h;if(pv)sel.value=pv;
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('listelerAiDate'+sl);if(!e)return;
+    const v=e.value;e.innerHTML=h;if(v)e.value=v;});
 }
-function listelerAiBacktest(){
-  const out=document.getElementById('listelerAiBtOut');if(!out)return;
-  const testDate=document.getElementById('listelerAiDate')?.value||'';
-  if(!testDate){out.innerHTML='';return;}
+// Açık geçmiş test sütunlarını yeni tahminin yanına dizer (hizalı).
+function _lsAiLayout(){
+  const pair=document.getElementById('listelerAiPair');if(!pair)return;
+  let n=1;
+  ['','2','3'].forEach((sl,i)=>{
+    const col=pair.querySelector('[data-lscol="'+(i+1)+'"]'),o=document.getElementById('listelerAiBtOut'+sl);
+    const on=!!(o&&o.innerHTML.trim());
+    if(col)col.style.display=on?'':'none';
+    if(on)n++;
+  });
+  pair.style.gridTemplateColumns='repeat('+n+',minmax(0,1fr))';
+}
+function listelerAiBacktest(slot){
+  slot=slot||'';
+  const out=document.getElementById('listelerAiBtOut'+slot);if(!out)return;
+  const testDate=document.getElementById('listelerAiDate'+slot)?.value||'';
+  if(!testDate){out.innerHTML='';_lsAiLayout();return;}
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
   const game=getGame(gameId);if(!game)return;
   const draws=_scanGetDraws(gameId);
@@ -14191,6 +14214,7 @@ function listelerAiBacktest(){
   let prior=draws.filter(d=>d.date<testDate).sort((a,b)=>a.date<b.date?1:-1);
   if(!actual||prior.length<10){out.innerHTML='<div style="font-size:.68rem;color:var(--muted)">Bu tarih için yeterli önceki veri yok.</div>';return;}
   out.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:8px">⏳ AI analizi o tarihe göre yeniden kuruluyor…</div>';
+  _lsAiLayout();
   setTimeout(()=>{
     const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
     const win=document.getElementById('listelerWindow')?.value||'30';
@@ -14237,6 +14261,7 @@ function listelerAiBacktest(){
         <button onclick="_cpDo('${_cpKey('🏅 Top 15 hedef sayı — '+testDate,t15.join(' '))}')" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋</button></span></div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">${mark(t15)}</div></div>`;
   },30);
+  _lsAiLayout();
 }
 function listelerRunAi(silent){
   try{_listelerAiDates();}catch(e){}
@@ -17775,14 +17800,14 @@ const HIZLI_ON_DRAWS=[
 function _soHizliOnGame(){return{id:'onnumarahizli',name:'Hızlı On Numara',emoji:'⚡',max:80,count:10,bonusCount:0,bonusMax:0};}
 function _soGetGame(){return _soGame==='onnumarahizli'?_soHizliOnGame():getGame(_soGame);}
 function _soGetDraws(){return _soGame==='onnumarahizli'?HIZLI_ON_DRAWS:_kbGetDraws(_soGame);}
-let _soGame='super',_soDate='';
+let _soGame='super',_soDate='',_soDate2='',_soDate3='';
 function _soInit(){
   if(state.selectedGame&&getGame(state.selectedGame))_soGame=state.selectedGame;
   _soRenderFull();
   const btEl=document.getElementById('soAiBtResult');if(btEl)btEl.innerHTML='';
 }
 function _soSetGame(g){
-  _soGame=g;_soDate='';_soRenderFull();
+  _soGame=g;_soDate=_soDate2=_soDate3='';_soRenderFull();
   const btEl=document.getElementById('soAiBtResult');if(btEl)btEl.innerHTML='';
 }
 function _soStepDate(dir){
@@ -17795,53 +17820,73 @@ function _soStepDate(dir){
   _soSetDate(sel.value);
 }
 function _soSetDate(v){_soDate=v;_soRenderFull();}
+function _soSetDate2(v){_soDate2=v;_soRenderFull();}
+function _soSetDate3(v){_soDate3=v;_soRenderFull();}
+function _soTemizle(){_soDate=_soDate2=_soDate3='';_soRenderFull();}
+// Gülay: yeni tahmin ve geçmiş testler YAN YANA sütunlarda (aynı anda üç tarih).
+// Bir sütun = o hedef için tüm Gülay çıktısı (analiz + Nihai bloğu + İlk Hane + AI bölümü).
+// Geçmiş sütunlarında kaynak, hedeften ÖNCEKİ çekiliştir ve AI bölümüne yalnızca o tarihe
+// kadarki veri verilir (lookahead yok) — tek tarihli eski sürümdeki davranışın aynısı.
+function _soKolonHtml(draws,game,dateStr){
+  if(!dateStr){
+    return _soDoAnalysis(draws[0],game,null,true)
+      +_soRenderNihaiBlock(draws[0],game,null)
+      +_soRenderIlkHaneBlock(draws[0],game,null)
+      +_soAiSection(draws,game,draws[0],null);
+  }
+  const targetDraw=draws.find(d=>d.date===dateStr);
+  if(!targetDraw)return '<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu tarih bulunamadı.</div>';
+  const tIdx=draws.indexOf(targetDraw);
+  const srcDraw=tIdx<draws.length-1?draws[tIdx+1]:null;
+  if(!srcDraw)return '<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için kaynak (önceki) çekiliş bulunamadı.</div>';
+  return _soDoAnalysis(srcDraw,game,targetDraw,false)
+    +_soRenderNihaiBlock(srcDraw,game,targetDraw)
+    +_soRenderIlkHaneBlock(srcDraw,game,targetDraw)
+    +_soAiSection(draws.slice(tIdx+1),game,srcDraw,targetDraw);
+}
 function _soRenderFull(){
   const el=document.getElementById('soContent');if(!el)return;
   const game=_soGetGame();
   const draws=_soGetDraws();
   if(!draws||draws.length<2){el.innerHTML='<div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok.</div>';return;}
-  const GLIST=[{id:'sayisal',e:'🔵',n:'Sayısal'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'},{id:'onnumarahizli',e:'⚡',n:'Hızlı On Numara'}];
+  const GLIST=[{id:'sayisal',e:'🔵',n:'Sayısal'},{id:'super',e:'⭐',n:'Süper Loto'},{id:'sans',e:'🔴',n:'Şans Topu'},{id:'onnumara',e:'🟢',n:'On Numara'}];
   let h=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">`;
   GLIST.forEach(g=>{const a=g.id===_soGame;h+=`<button onclick="_soSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.e} ${g.n}</button>`;});
   h+=`</div>`;
-  // Dropdown: "" = new prediction (latest draw → future), else = show how prev draw predicted selected date
-  const btnSt='background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:.75rem;line-height:1;flex-shrink:0;display:block';
-  h+=`<div style="margin-bottom:14px;display:flex;align-items:center;gap:6px">`;
-  h+=`<select id="soDateSel" onchange="_soSetDate(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px;flex:1;min-width:0">`;
-  h+=`<option value=""${_soDate===''?' selected':''}>🔮 Yeni Tahmin — ${draws[0].date} sonuçlarından gelecek tahmini</option>`;
-  draws.slice(0,79).forEach((d,i)=>{
-    if(i>=draws.length-1)return; // skip the oldest (no prev draw to use)
-    h+=`<option value="${d.date}"${d.date===_soDate?' selected':''}>🎯 Hedef: ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;
-  });
-  h+=`</select>`;
-  h+=`<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">`;
-  h+=`<button onclick="_soStepDate(-1)" style="${btnSt}" title="Daha yeni">▲</button>`;
-  h+=`<button onclick="_soStepDate(1)" style="${btnSt}" title="Daha eski">▼</button>`;
+  // üç geçmiş test tarihi — yeni tahmin sütunu her zaman açık
+  const secOpts=(sel)=>{
+    let o=`<option value=""${sel===''?' selected':''}>— Geçmiş test için tarih seçin —</option>`;
+    draws.slice(0,79).forEach((d,i)=>{
+      if(i>=draws.length-1)return;
+      o+=`<option value="${d.date}"${d.date===sel?' selected':''}>🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;
+    });
+    return o;
+  };
+  const btnSt='background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:3px 7px;cursor:pointer;font-size:.75rem;line-height:1.1';
+  const selSt='min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px';
+  h+=`<div style="font-size:.64rem;font-weight:800;color:var(--text);margin-bottom:5px">📊 Geçmiş Test — aynı anda üç tarih</div>`;
+  h+=`<div class="so-date" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:6px">`;
+  h+=`<div style="display:flex;gap:5px;align-items:stretch;min-width:0"><select id="soDateSel" onchange="_soSetDate(this.value)" style="${selSt};flex:1">${secOpts(_soDate)}</select>`;
+  h+=`<div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0"><button onclick="_soStepDate(-1)" style="${btnSt}" title="Daha yeni">▲</button><button onclick="_soStepDate(1)" style="${btnSt}" title="Daha eski">▼</button></div></div>`;
+  h+=`<select id="soDateSel2" onchange="_soSetDate2(this.value)" style="${selSt}">${secOpts(_soDate2)}</select>`;
+  h+=`<select id="soDateSel3" onchange="_soSetDate3(this.value)" style="${selSt}">${secOpts(_soDate3)}</select>`;
   h+=`</div>`;
+  h+=`<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:10px">`;
+  h+=`<button onclick="_soTemizle()" style="font-size:.62rem;padding:4px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">🗑️ Testleri Temizle</button>`;
+  h+=`<button onclick="_kbCopy(window._soCopy)" style="font-size:.62rem;padding:4px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">📋 Kopyala</button>`;
   h+=`</div>`;
-  h+=`<div style="display:flex;justify-content:flex-end;margin-bottom:10px">`;
-  h+=`<button onclick="_kbCopy(window._soCopy)" style="font-size:.62rem;padding:4px 12px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋 Tüm Analizi Kopyala</button>`;
-  h+=`</div>`;
-  if(_soDate===''){
-    // New prediction: analyze latest draw, no validation target
-    h+=_soDoAnalysis(draws[0],game,null,true);
-    h+=_soRenderNihaiBlock(draws[0],game,null);
-    h+=_soRenderIlkHaneBlock(draws[0],game,null);
-    h+=_soAiSection(draws,game,draws[0],null);
-  } else {
-    const targetDraw=draws.find(d=>d.date===_soDate);
-    if(targetDraw){
-      const tIdx=draws.indexOf(targetDraw);
-      const srcDraw=tIdx<draws.length-1?draws[tIdx+1]:null; // draw BEFORE target
-      if(srcDraw){
-        h+=_soDoAnalysis(srcDraw,game,targetDraw,false);
-        h+=_soRenderNihaiBlock(srcDraw,game,targetDraw);
-        h+=_soRenderIlkHaneBlock(srcDraw,game,targetDraw);
-        h+=_soAiSection(draws.slice(tIdx+1),game,srcDraw,targetDraw); // only data available before target — no lookahead
-      }
-      else{h+=`<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için kaynak (önceki) çekiliş bulunamadı.</div>`;}
-    }
-  }
+  // sütunlar
+  const hedefler=[{d:'',bas:'🔮 Yeni Tahmin — '+draws[0].date+' sonuçlarından'}];
+  [_soDate,_soDate2,_soDate3].forEach(dt=>{if(dt)hedefler.push({d:dt,bas:'🎯 Geçmiş Test — '+dt});});
+  const kopya=[];
+  const sut=hedefler.map(t=>{
+    window._soCopy='';
+    const inner=_soKolonHtml(draws,game,t.d);
+    if(window._soCopy)kopya.push(t.bas+'\n'+window._soCopy);
+    return `<div><div style="font-size:.66rem;font-weight:800;color:var(--accent);margin-bottom:5px">${t.bas}</div>${inner}</div>`;
+  }).join('');
+  window._soCopy=kopya.join('\n\n');
+  h+=`<div class="so-row" style="display:grid;grid-template-columns:repeat(${hedefler.length},minmax(0,1fr));gap:16px;align-items:start">${sut}</div>`;
   el.innerHTML=h;
 }
 
@@ -19299,20 +19344,29 @@ function _snAiRender(game,draws){
 // ── 🧠 AI Analizi — Geçmiş Test (seçili oyun + seçilen tarih) ─────────────────────────────
 function _snAiDates(){
   const sel=document.getElementById('snAiDateSel');if(!sel)return;
-  const draws=_kbGetDraws(_snGame);const prev=sel.value;
+  const draws=_kbGetDraws(_snGame);
   let h='<option value="">— Geçmiş test için tarih seçin —</option>';
   draws.forEach((d,i)=>{if(draws.length-i-1<26)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
-  sel.innerHTML=h;if(prev)sel.value=prev;
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('snAiDateSel'+sl);if(!e)return;
+    const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
 }
 function _snAiStepDate(dir){
   const sel=document.getElementById('snAiDateSel');if(!sel||sel.options.length<2)return;
   let i=sel.selectedIndex;if(i<1)i=1;else i=Math.min(sel.options.length-1,Math.max(1,i+dir));
-  sel.selectedIndex=i;_snAiDateTest();
+  sel.selectedIndex=i;_snAiDateTest('');
 }
-function _snAiDateTest(){
-  const el=document.getElementById('snAiTestOut');if(!el)return;
-  const date=document.getElementById('snAiDateSel')?.value||'';
-  if(!date){el.innerHTML='';return;}
+// Üç tarih aynı anda: her biri kendi sütununda, hizalı.
+function _snAiTestLayout(){
+  const g=document.getElementById('snAiTestGrid');if(!g)return;
+  let n=0;['','2','3'].forEach(sl=>{const e=document.getElementById('snAiTestOut'+sl);
+    const on=!!(e&&e.innerHTML.trim());if(e)e.style.display=on?'':'none';if(on)n++;});
+  g.style.gridTemplateColumns='repeat('+Math.max(1,n)+',minmax(0,1fr))';
+}
+function _snAiDateTest(slot){
+  slot=slot||'';
+  const el=document.getElementById('snAiTestOut'+slot);if(!el)return;
+  const date=document.getElementById('snAiDateSel'+slot)?.value||'';
+  if(!date){el.innerHTML='';_snAiTestLayout();return;}
   const game=getGame(_snGame),draws=_kbGetDraws(_snGame);
   const idx=draws.findIndex(d=>d.date===date);if(idx<0){el.innerHTML='';return;}
   const actual=draws[idx];
@@ -19333,6 +19387,7 @@ function _snAiDateTest(){
   h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${core.ext.map(badge).join('')}</div>`;
   h+=`</div>`;
   el.innerHTML=h;
+  _snAiTestLayout();
 }
 // Kendi Tahmin Yapım — sadece yeni (bilinmeyen) tahmin için: tüm sistemlerin oyladığı sayılar
 function _snRenderSynth(game,systems,row){
