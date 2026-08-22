@@ -15715,7 +15715,7 @@ function _caRenderCurrent(){
     let h=`<div style="margin-top:6px;padding:11px 13px;background:var(--surface2);border:1px solid var(--border);border-radius:10px">`;
     h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.7rem;font-weight:800;color:var(--accent)">${aName} · ${game.emoji} ${game.name} — Adaylar</span><button onclick="document.getElementById('caCurrentOut').innerHTML=''" style="font-size:.62rem;padding:3px 9px;border-radius:7px;border:1px solid rgba(255,82,82,.35);background:rgba(255,82,82,.08);color:#cc2222;cursor:pointer;flex-shrink:0">✕ Temizle</button></div>`;
     h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">🎯 En güçlü ${game.count} aday (analizin bilet çekirdeği):</div>`;
-    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px">${pick.map(n=>_caBadge(n,null,'',gulay.has(n))).join('')}<button onclick="_caCopy('${pick.join(' ')}')" class="copy-btn" style="font-size:.6rem;padding:3px 9px">📋</button></div>`;
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:9px">${pick.map(n=>_caBadge(n,null,'',gulay.has(n))).join('')}<button onclick="_cpDo('${_cpKey(aName+' — en güçlü '+game.count+' aday',pick.join(' '))}')" class="copy-btn" style="font-size:.6rem;padding:3px 9px">📋</button></div>`;
     if(gulay.size)h+=`<div style="font-size:.53rem;color:#2f6fed;margin-bottom:6px">🔵 mavi = Gülay fark-analizinin (toplama/çıkarma/fark) bu oyun için ürettiği sayılarda da var</div>`;
     h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:5px">Tüm adaylar (bilet içi görülme sıklığı — çubuk = güven):</div>`;
     h+=`<div style="display:flex;flex-direction:column;gap:3px">`;
@@ -15728,6 +15728,12 @@ function _caRenderCurrent(){
   },20);
 }
 function _caCopy(txt){try{navigator.clipboard.writeText(txt);}catch(e){}}
+// Tekil kopyalama: ilk satır ANALİZ ADI, ikinci satır sayılar. Metin bir kayıtta
+// tutulur, düğme yalnızca anahtarı taşır — ad ve sayılar onclick içine gömülmediği
+// için tırnak/apostrof (örn. "12'li") kaçış sorunu çıkmaz.
+const _cpReg={};let _cpSeq=0;
+function _cpKey(ad,sayilar){const k='cp'+(++_cpSeq);_cpReg[k]=(ad?String(ad).replace(/<[^>]*>/g,'').trim()+'\n':'')+sayilar;return k;}
+function _cpDo(k){const t=_cpReg[k]||'';if(!t)return;_caCopy(t);if(typeof showToast==='function')showToast('📋 Kopyalandı');}
 function _caRenderAll(){
   const el=document.getElementById('caAllOut');if(!el)return;
   const game=getGame(_caGame),prior=_kbGetDraws(_caGame);
@@ -15754,9 +15760,9 @@ function _caRenderAll(){
     h+=`<div style="padding:11px 13px;background:linear-gradient(135deg,rgba(0,230,118,.09),rgba(129,140,248,.09));border:2px solid rgba(0,200,100,.4);border-radius:11px;margin-bottom:12px">`;
     h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px"><span style="font-size:.72rem;font-weight:800;color:var(--green)">🤝 ANALİZLER-ARASI UZLAŞI</span><span style="font-size:.53rem;color:var(--muted)">k/${nA} = kaç analiz bu sayıyı adaylarına koydu</span></div>`;
     h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:4px">En çok uzlaşılan ${game.count} sayı (çoğunluk sinyali):</div>`;
-    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${consPick.map(n=>_caBadge(n,null,`<sup style="font-size:.5rem;color:${gulay.has(n)?'#2f6fed':'var(--green)'}">${consensus[n]}</sup>`,gulay.has(n))).join('')}<button onclick="_caCopy('${consPick.join(' ')}')" class="copy-btn" style="font-size:.6rem;padding:3px 9px">📋</button></div>`;
+    h+=`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${consPick.map(n=>_caBadge(n,null,`<sup style="font-size:.5rem;color:${gulay.has(n)?'#2f6fed':'var(--green)'}">${consensus[n]}</sup>`,gulay.has(n))).join('')}<button onclick="_cpDo('${_cpKey('🤝 Analizler-Arası Uzlaşı',consPick.join(' '))}')" class="copy-btn" style="font-size:.6rem;padding:3px 9px">📋</button></div>`;
     const consExtNums=consArr.slice(0,game.count*3).map(c=>c.n);
-    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px"><span style="font-size:.53rem;color:var(--muted)">diğer adaylar (${consExtNums.length}, anlaşma sırası):</span><button onclick="_caCopy('${consExtNums.join(' ')}')" class="copy-btn" style="font-size:.58rem;padding:2px 8px">📋</button></div>`;
+    h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px"><span style="font-size:.53rem;color:var(--muted)">diğer adaylar (${consExtNums.length}, anlaşma sırası):</span><button onclick="_cpDo('${_cpKey('🤝 Analizler-Arası Uzlaşı — diğer adaylar',consExtNums.join(' '))}')" class="copy-btn" style="font-size:.58rem;padding:2px 8px">📋</button></div>`;
     h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">${consArr.slice(0,game.count*3).map(c=>{const bl=gulay.has(c.n);return `<span style="font-family:monospace;font-size:.62rem;font-weight:${bl?800:400};color:${bl?'#2f6fed':c.k>=nA*0.5?'var(--green)':'var(--muted)'};background:${bl?'rgba(47,111,237,.1)':'var(--surface2)'};border:1px solid ${bl?'rgba(47,111,237,.5)':'var(--border)'};border-radius:5px;padding:1px 5px">${c.n}<sup style="font-size:.5rem">${c.k}</sup></span>`;}).join('')}</div>`;
     if(gulay.size)h+=`<div style="font-size:.52rem;color:#2f6fed;margin-top:6px">🔵 mavi = Gülay fark-analizinin (toplama/çıkarma/fark) bu oyun için ürettiği sayılarda da var</div>`;
     h+=`</div>`;
@@ -15764,7 +15770,7 @@ function _caRenderAll(){
     h+=`<div style="font-size:.6rem;font-weight:700;color:var(--text);margin-bottom:6px;text-transform:uppercase;letter-spacing:.6px">Analiz bazlı adaylar (${game.emoji} ${game.name})</div>`;
     h+=`<div style="display:flex;flex-direction:column;gap:4px">`;
     rows.forEach(r=>{
-      h+=`<div class="an-row"><span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:600">${r.name}</span><div class="an-nums">${r.top.map(n=>{const bl=gulay.has(n),strong=consensus[n]>=nA*0.5;return `<span style="font-family:monospace;font-size:.64rem;font-weight:${bl||strong?800:600};color:${bl?'#2f6fed':strong?'var(--green)':'var(--text)'}">${n}</span>`;}).join(' ')}</div><button class="an-btn" onclick="_caCopy('${r.top.join(' ')}')" title="Kopyala" style="font-size:.58rem;padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button></div>`;
+      h+=`<div class="an-row"><span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:600">${r.name}</span><div class="an-nums">${r.top.map(n=>{const bl=gulay.has(n),strong=consensus[n]>=nA*0.5;return `<span style="font-family:monospace;font-size:.64rem;font-weight:${bl||strong?800:600};color:${bl?'#2f6fed':strong?'var(--green)':'var(--text)'}">${n}</span>`;}).join(' ')}</div><button class="an-btn" onclick="_cpDo('${_cpKey(r.name,r.top.join(' '))}')" title="Kopyala" style="font-size:.58rem;padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button></div>`;
     });
     h+=`</div></div>`;
     el.innerHTML=h;
@@ -15829,7 +15835,7 @@ function _caBacktest(){
     h+=`</div>`;
     // ── satırlar ──
     // Her aday bloğu: üstte etiket + skor + kopya tek satır, altta rozetler sola dayalı (mobilde kaymayı önler)
-    const pb=(label,color,pick,aSet,strong)=>`<div style="margin-top:5px;padding-top:4px;border-top:1px dashed var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.56rem;color:${color};font-weight:${strong?700:600};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span><span style="display:flex;align-items:center;gap:5px;flex-shrink:0">${_caScoreLine(pick,aSet)}<button onclick="_caCopy('${pick.join(' ')}')" title="Kopyala" style="font-size:.58rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></span></div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${pick.map(n=>_caBadge(n,aSet)).join('')}</div></div>`;
+    const pb=(label,color,pick,aSet,strong)=>`<div style="margin-top:5px;padding-top:4px;border-top:1px dashed var(--border)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.56rem;color:${color};font-weight:${strong?700:600};min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span><span style="display:flex;align-items:center;gap:5px;flex-shrink:0">${_caScoreLine(pick,aSet)}<button onclick="_cpDo('${_cpKey(label,pick.join(' '))}')" title="Kopyala" style="font-size:.58rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></span></div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${pick.map(n=>_caBadge(n,aSet)).join('')}</div></div>`;
     h+=`<div style="max-height:520px;overflow-y:auto;display:flex;flex-direction:column;gap:8px">`;
     rows.forEach(r=>{
       const res=[...(r.aSet)].sort((a,b)=>a-b);
@@ -15840,7 +15846,7 @@ function _caBacktest(){
       // uzlaşı — genişletilmiş diğer adaylar (anlaşma sırası korunur, üst sıra vurgulu)
       if(r.consExt&&r.consExt.length){
         const extCopy=r.consExt.map(c=>c.n).join(' ');
-        h+=`<div style="margin-top:4px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.53rem;color:var(--muted)">uzlaşı — diğer adaylar (${r.consExt.length}, anlaşma sırası)</span><button onclick="_caCopy('${extCopy}')" title="Kopyala" style="font-size:.58rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${r.consExt.map((c,i)=>{const hit=r.aSet.has(c.n),near=!hit&&(r.aSet.has(c.n-1)||r.aSet.has(c.n+1));const col=hit?'var(--green)':near?'#c2410c':(i<cnt?'var(--text)':'var(--muted)');return `<span style="font-family:monospace;font-size:.6rem;font-weight:${hit||near?800:(i<cnt?700:500)};color:${col};background:var(--surface2);border:1px solid ${hit?'rgba(0,200,100,.5)':near?'rgba(244,114,63,.4)':'var(--border)'};border-radius:5px;padding:1px 5px">${c.n}${hit?'✓':near?'~':''}<sup style="font-size:.5rem;color:var(--muted)">${c.k}</sup></span>`;}).join('')}</div></div>`;
+        h+=`<div style="margin-top:4px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.53rem;color:var(--muted)">uzlaşı — diğer adaylar (${r.consExt.length}, anlaşma sırası)</span><button onclick="_cpDo('${_cpKey('🤝 Uzlaşı — diğer adaylar',extCopy)}')" title="Kopyala" style="font-size:.58rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${r.consExt.map((c,i)=>{const hit=r.aSet.has(c.n),near=!hit&&(r.aSet.has(c.n-1)||r.aSet.has(c.n+1));const col=hit?'var(--green)':near?'#c2410c':(i<cnt?'var(--text)':'var(--muted)');return `<span style="font-family:monospace;font-size:.6rem;font-weight:${hit||near?800:(i<cnt?700:500)};color:${col};background:var(--surface2);border:1px solid ${hit?'rgba(0,200,100,.5)':near?'rgba(244,114,63,.4)':'var(--border)'};border-radius:5px;padding:1px 5px">${c.n}${hit?'✓':near?'~':''}<sup style="font-size:.5rem;color:var(--muted)">${c.k}</sup></span>`;}).join('')}</div></div>`;
       }
       if(showAll){
         const list=ALGOS.map(a=>({name:a.name,id:a.id,...r.per[a.id]})).sort((x,y)=>y.net-x.net);
@@ -16477,7 +16483,7 @@ function _cbBacktest(){
       const badge=n=>{const hit=r.aSet.has(n),near=!hit&&(r.aSet.has(n-1)||r.aSet.has(n+1));return `<span style="font-family:monospace;font-size:.62rem;font-weight:${hit||near?800:600};color:${hit?'var(--green)':near?'#c2410c':'var(--muted)'};background:${hit?'rgba(0,230,118,.14)':near?'rgba(244,114,63,.12)':'var(--surface2)'};border:1px solid ${hit?'rgba(0,200,100,.5)':near?'rgba(244,114,63,.4)':'var(--border)'};border-radius:5px;padding:1px 5px">${n}${hit?'✓':near?'~':''}</span>`;};
       h+=`<div style="padding:7px 9px;background:var(--surface2);border-radius:8px">`;
       h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:3px">${r.date} · 🎯 sonuç: <span style="font-family:monospace;color:var(--text);font-weight:700">${res.join(' ')}</span></div>`;
-      h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.55rem;color:var(--accent)">🏆 grubun en iyi bileti</span><span style="display:flex;align-items:center;gap:6px"><span style="font-size:.6rem;font-weight:800;color:${r.bn>=3?'var(--green)':'var(--muted)'}">${r.bn} net · ${r.bnn} n+y</span><button onclick="_caCopy('${bm.join(' ')}')" title="Kopyala" style="font-size:.56rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></span></div>`;
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><span style="font-size:.55rem;color:var(--accent)">🏆 grubun en iyi bileti</span><span style="display:flex;align-items:center;gap:6px"><span style="font-size:.6rem;font-weight:800;color:${r.bn>=3?'var(--green)':'var(--muted)'}">${r.bn} net · ${r.bnn} n+y</span><button onclick="_cpDo('${_cpKey('🏆 '+r.date+' — grubun en iyi bileti',bm.join(' '))}')" title="Kopyala" style="font-size:.56rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">📋</button></span></div>`;
       h+=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${bm.map(badge).join('')}</div>`;
       h+=`<div style="font-size:.54rem;color:var(--green);margin-top:4px">🧲 birleşik kapsama: ${r.u.net} net · ${r.u.near} ±1 (${r.u.size} farklı sayı)</div>`;
       if(r.pool&&r.pool.length){
@@ -20101,7 +20107,7 @@ function _agxTxtFor(id){
   const eng=_AGX_ENGINES.find(e=>e.id===id),D=_agxData[id];
   if(!eng||!D||!D.live||!D.live.tickets.length)return '';
   const g=D.live.game;
-  return D.live.tickets.map(x=>[...(x.main||[]),...(x.bonus||[])].join(' - ')).join('\n');
+  return eng.name+'\n'+D.live.tickets.map(x=>[...(x.main||[]),...(x.bonus||[])].join(' - ')).join('\n');
 }
 function _agxCopy(id){
   const t=_agxTxtFor(id);
@@ -20998,7 +21004,7 @@ function _fmSelPanel(cols){
    <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:5px">
     <span style="font-size:.7rem;font-weight:800;color:var(--accent)">🔎 Formül Kesişimi — ${ids.length} formül · ${inter.length} ortak sayı</span>
     <span style="display:flex;gap:5px;align-items:center">
-     ${_hyCopyBtn('fmsel_inter',inter.join(' '))}
+     ${_hyCopyBtn('fmsel_inter','🔎 Formül Kesişimi\n'+inter.join(' '))}
      <button onclick="_fmSelClearAll()" style="font-size:.58rem;padding:3px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">✕ Temizle</button></span></div>
    <div style="font-size:.52rem;color:var(--muted);margin-bottom:6px;line-height:1.5">${ids.map(id=>live.map[id].row.name).join(' × ')}</div>`;
   if(!inter.length)h+=`<div style="font-size:.62rem;color:var(--muted)">Bu formüllerin ortak sayısı yok.</div>`;
@@ -21049,7 +21055,7 @@ function _fmRenderTests(){
        <span style="font-size:.62rem;font-weight:800;color:var(--accent);flex:1;min-width:0">🏆 Formül Uzlaşısı</span>
        <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
         ${c.aSet?`<span style="font-size:.58rem;font-weight:800;color:${u.net?'var(--green)':'var(--muted)'};white-space:nowrap">${u.net} net · ${u.near} yakın</span>`:''}
-        ${_hyCopyBtn('fmuz'+ci,u.nums.join(' '))}</span></div>
+        ${_hyCopyBtn('fmuz'+ci,'🏆 Formül Uzlaşısı\n'+u.nums.join(' '))}</span></div>
       <div style="display:flex;gap:4px;flex-wrap:wrap">${u.nums.map(n=>{
         const isN=c.aSet&&c.aSet.has(n),isNr=c.aSet&&!isN&&(c.aSet.has(n-1)||c.aSet.has(n+1));
         return `<span style="font-family:monospace;font-size:.8rem;font-weight:800;color:${isN?'var(--green)':isNr?'#c2410c':'var(--text)'};background:var(--surface2);border:1.5px solid ${isN?'rgba(0,200,100,.5)':'rgba(99,102,241,.3)'};border-radius:7px;padding:1px 7px">${n}${isN?'✓':isNr?'~':''}<sup style="font-size:.46rem;color:var(--muted)">${u.tal[n]}</sup></span>`;}).join('')}</div></div>`;
@@ -21066,7 +21072,7 @@ function _fmRenderTests(){
          <span style="font-size:.6rem;font-weight:700;color:var(--text);flex:1;min-width:0" title="${e.row.desc}">${e.row.name}</span>
          <span style="display:flex;gap:5px;align-items:center;flex-shrink:0">
           ${c.aSet?`<span style="font-size:.58rem;font-weight:800;color:${e.net?'var(--green)':'var(--muted)'};white-space:nowrap">${e.net} net · ${e.near} yakın</span>`:''}
-          ${_hyCopyBtn('fm'+ci+'_'+F.id,e.row.nums.join(' '))}</span></div>
+          ${_hyCopyBtn('fm'+ci+'_'+F.id,e.row.name+'\n'+e.row.nums.join(' '))}</span></div>
         <div style="display:flex;gap:3px;flex-wrap:wrap">${_hyNumChips(e.row.nums,c.aSet)}</div></div>`;
     }).join(''));
   });
@@ -21885,7 +21891,7 @@ function _qtFormulBlock(game,prior,aSet,actual){
       h+=`<div class="an-row">`;
       h+=`<span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:700">${r.name}</span>`;
       h+=`<span class="an-nums">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.72rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
-      h+=`<button onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.56rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;flex-shrink:0">📋</button>`;
+      h+=`<button onclick="_cpDo('${_cpKey(r.name,r.nums.join(' '))}')" title="Kopyala" style="font-size:.56rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer;flex-shrink:0">📋</button>`;
       h+=`</div>`;
     });
     h+=`</div>`;
@@ -22241,7 +22247,7 @@ function _f2RenderRows(d,aSet,col,oncekiTerim){
     h+=`<span class="an-stat" style="font-size:.54rem;color:${lc}" title="geçmiş ≥1 net oranı / rastgele havuz şansı">≥1 %${r.st?r.st.h1.toFixed(0):'—'} (şans %${r.st?r.st.c1.toFixed(0):'—'}) ×${L.toFixed(2)}</span>`;
     h+=`<span class="an-nums">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.72rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
     if(aSet)h+=`<span style="font-size:.58rem;font-weight:800;color:${net>0?'var(--green)':'var(--muted)'};flex-shrink:0">${net} net · ${near} yakın</span>`;
-    h+=`<button class="an-btn" onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button>`;
+    h+=`<button class="an-btn" onclick="_cpDo('${_cpKey(r.term.name+' = '+r.val+' · '+r.mode+' · '+r.src+'. önceki',r.nums.join(' '))}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button>`;
     h+=`</div>`;
   });
   return h;
@@ -22422,7 +22428,7 @@ function _qtTrInner(game,prior,aSet){
     h+=`<span class="an-lbl" style="font-size:.6rem;color:var(--text);font-weight:700">${r.def.name}</span>`;
     h+=`<span class="an-stat" style="font-size:.54rem;color:${lc}" title="geçmiş ≥1 net oranı / aynı boyutta rastgele havuzun şansı">≥1 %${r.st?r.st.h1.toFixed(0):'—'} (şans %${r.st?r.st.c1.toFixed(0):'—'}) ×${L.toFixed(2)}</span>`;
     h+=`<span class="an-nums">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
-    h+=`<button class="an-btn" onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button>`;
+    h+=`<button class="an-btn" onclick="_cpDo('${_cpKey(r.def.name,r.nums.join(' '))}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button>`;
     h+=`</div>`;
   });
   return h;
@@ -22466,7 +22472,7 @@ function _qtAdayBlock(game,prior,aSet){
       h+=`<div class="an-row">`;
       h+=`<span class="an-lbl" style="font-size:.58rem;color:var(--text);font-weight:700">${r.name}</span>`;
       h+=`<span class="an-nums">${r.nums.map(n=>{const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&(aSet.has(n-1)||aSet.has(n+1));return `<span style="font-family:monospace;font-size:.7rem;font-weight:${hit||nr?800:400};color:${hit?'var(--green)':nr?'#c2410c':'var(--muted)'}">${n}${hit?'✓':nr?'~':''}</span>`;}).join('')}</span>`;
-      h+=`<button class="an-btn" onclick="_caCopy('${r.nums.join(' ')}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button>`;
+      h+=`<button class="an-btn" onclick="_cpDo('${_cpKey(r.name,r.nums.join(' '))}')" title="Kopyala" style="font-size:.54rem;padding:1px 6px;border-radius:5px;border:1px solid var(--border);background:var(--surface);color:var(--muted);cursor:pointer">📋</button>`;
       h+=`</div>`;
     });
     h+=`</div>`;
