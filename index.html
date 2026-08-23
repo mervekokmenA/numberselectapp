@@ -13724,7 +13724,7 @@ function _initListelerPage(){
       const btn=document.createElement('button');
       btn.style.cssText='padding:5px 12px;border-radius:8px;font-size:.75rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .18s';
       btn.textContent=g.emoji+' '+g.name;
-      btn.onclick=()=>{_listelerGame=g.id;_listelerHighlightGame(g.id);_listelerPopulateDates();};
+      btn.onclick=()=>{_listelerGame=g.id;_listelerHighlightGame(g.id);_listelerPopulateDates();try{_oyunYay(g.id,'_listeler');}catch(e){}};
       grid.appendChild(btn);
     });
   }
@@ -25254,6 +25254,59 @@ function _g0RunTicketBacktest(){
     rc.innerHTML=buildMultiResultHtml(game,results,actual,testDate,'',prior.length,false,'');
   },10);
 }
+
+// ═══════════ GLOBAL OYUN TİPİ SENKRONU ═══════════
+// Uygulamanın HERHANGİ bir yerinde oyun tipi değiştirilirse, tüm sayfalardaki
+// tüm oyun seçicileri aynı oyuna geçer. Her seçici fonksiyonu tek bir sarmalayıcıdan
+// geçirilir; yayılım sırasında tekrar tetiklenmemesi için bayrakla korunur.
+const _OYUN_SETTERS=['selectGame','_kbSetGame','_hbSetGame','_niSetGame','_caSetGame','_npSetGame',
+  '_nnSetGame','_cbSetGame','_mpRSetGame','_kazananSetGame','_soSetGame','_mrSetGame','_snSetGame',
+  '_qtSetGame','_agSetGame','_hySetGame','_fmSetGame','_f2SetGame','_htSetGame','_gsSetGame',
+  '_g0SetGame','_gizliSetGame'];
+let _oyunYayilim=false,_oyunToken=0;
+function _oyunGecerli(gid){return !!(gid&&typeof GAMES!=='undefined'&&GAMES.some(g=>g.id===gid));}
+function _oyunYay(gid,kaynak){
+  if(_oyunYayilim||!_oyunGecerli(gid))return;
+  _oyunYayilim=true;
+  const tk=++_oyunToken;
+  try{state.selectedGame=gid;}catch(e){}
+  try{localStorage.setItem('_oyunSecimGlobal',gid);}catch(e){}
+  // Kaynak sayfa zaten güncellendi; kalan seçiciler UI'yı kilitlememek için
+  // 25 ms'lik dilimler halinde, sırayla çalıştırılır.
+  const isler=[];
+  _OYUN_SETTERS.forEach(ad=>{if(ad===kaynak)return;
+    isler.push(()=>{const f=window[ad];if(typeof f==='function')f(gid);});});
+  try{Object.keys(_A3_BLOKLAR||{}).forEach(pfx=>{
+    if(_A3_BLOKLAR[pfx].oyunSec===false)return;
+    isler.push(()=>{if(!_a3Data[pfx]||_a3Data[pfx].oyun!==gid)_a3SetOyunTemel(pfx,gid);});});}catch(e){}
+  isler.push(()=>{if(typeof _listelerGame!=='undefined'&&_listelerGame!==gid){
+    _listelerGame=gid;_listelerHighlightGame(gid);_listelerPopulateDates();}});
+  const calis=()=>{
+    if(tk!==_oyunToken)return;                     // daha yeni bir seçim geldi
+    _oyunYayilim=true;                             // dilim içinde çağrılan seçiciler geri tetiklemesin
+    const t0=performance.now();
+    while(isler.length&&performance.now()-t0<25){const j=isler.shift();try{j();}catch(e){}}
+    _oyunYayilim=false;                            // dilimler arası: yeni kullanıcı seçimine açık
+    if(isler.length)setTimeout(calis,0);
+  };
+  _oyunYayilim=false;
+  setTimeout(calis,0);
+}
+// Seçici fonksiyonları sarmala (function bildirimleri global olduğundan yeniden atanabilir)
+(function _oyunSarmala(){
+  _OYUN_SETTERS.forEach(ad=>{
+    const f=window[ad];
+    if(typeof f!=='function'||f._oyunSarmali)return;
+    const w=function(g){const r=f.apply(this,arguments);try{_oyunYay(g,ad);}catch(e){}return r;};
+    w._oyunSarmali=true;window[ad]=w;
+  });
+  if(typeof _a3SetOyun==='function'&&!_a3SetOyun._oyunSarmali){
+    const o=_a3SetOyun;
+    window._a3SetOyunTemel=o;
+    const w=function(pfx,g){const r=o.apply(this,arguments);try{_oyunYay(g,'_a3SetOyun');}catch(e){}return r;};
+    w._oyunSarmali=true;window._a3SetOyun=w;
+  }
+})();
 
 </script>
 
