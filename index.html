@@ -14108,9 +14108,9 @@ function listelerClearAll(){
 function listelerCopyAll(){
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
   const game=getGame(gameId);
+  // Yalnızca yeni tahmin sütunu kopyalanır — geçmiş sütunlar kopyaya girmez.
   const cols=[];
   if(_listelerNewPred)cols.push({type:'new',data:_listelerNewPred});
-  _listelerHistory.forEach(col=>cols.push({type:'hist',data:col}));
   if(!cols.length){showToast('⚠️ Kopyalanacak veri yok');return;}
   const firstT=cols[0].data.tickets[0];
   const numCount=firstT?[...firstT.main,...firstT.bonus].length:6;
@@ -16037,11 +16037,15 @@ function _lpGenSayilar(node){
   return m.map(x=>x.replace(/[^\d]/g,'')).filter(x=>x!=='');
 }
 function _lpGenBul(el){
+  // 1) Açıkça işaretlenmiş bilet/grup: data-lp içindeki metin birebir kopyalanır
+  const acik=el.closest&&el.closest('[data-lp]');
+  if(acik&&acik.dataset.lp)return acik.dataset.lp;
+  // 2) Aksi halde en yakın sayı grubundan çıkarım
   let n=el;
   for(let i=0;i<6&&n&&n!==document.body;i++){
     if(/^(BUTTON|INPUT|SELECT|TEXTAREA|A|OPTION)$/.test(n.tagName))return null;
     const nums=_lpGenSayilar(n);
-    if(nums.length>=3&&nums.length<=15)return nums;
+    if(nums.length>=3&&nums.length<=15)return nums.join(' ');
     n=n.parentElement;
   }
   return null;
@@ -16054,9 +16058,8 @@ function _lpGenStart(ev){
   _lpGenPt={x:p.clientX,y:p.clientY};
   _lpGenTimer=setTimeout(()=>{
     _lpGenTimer=null;
-    const nums=_lpGenBul(el);
-    if(!nums)return;
-    const txt=nums.join(' ');
+    const txt=_lpGenBul(el);
+    if(!txt)return;
     try{navigator.clipboard.writeText(txt);}catch(e){}
     if(typeof showToast==='function')showToast('📋 Kopyalandı: '+txt);
   },600);
@@ -21279,9 +21282,10 @@ function _hyRenderTests(){
   });
   grid.innerHTML=h;
   _hyPanels();
-  window._hyTestTxt=cols.map(c=>
-    (c.uzlasi&&c.uzlasi.nums.length?c.uzlasi.nums.join(' ')+'\n':'')
-    +_hyRowOrder().filter(id=>c.map[id]).map(id=>c.map[id].nums.join(' ')).join('\n')).join('\n\n');
+  // Yalnızca yeni tahmin sütunu kopyalanır.
+  const _hyCanli=cols[0];
+  window._hyTestTxt=_hyCanli?((_hyCanli.uzlasi&&_hyCanli.uzlasi.nums.length?_hyCanli.uzlasi.nums.join(' ')+'\n':'')
+    +_hyRowOrder().filter(id=>_hyCanli.map[id]).map(id=>_hyCanli.map[id].nums.join(' ')).join('\n')):'';
 }
 function _hyDateTest(slot){
   slot=slot||'';
@@ -21434,8 +21438,10 @@ function _fmRenderTests(){
   });
   grid.innerHTML=h;
   _fmPanels();
-  window._fmTxt=cols.map(c=>c.uzlasi.nums.join(' ')+'\n'
-    +_FM_FORMULAS.filter(F=>c.map[F.id]).map(F=>c.map[F.id].row.nums.join(' ')).join('\n')).join('\n\n');
+  // Yalnızca yeni tahmin sütunu kopyalanır.
+  const _fmCanli=cols[0];
+  window._fmTxt=_fmCanli?(_fmCanli.uzlasi.nums.join(' ')+'\n'
+    +_FM_FORMULAS.filter(F=>_fmCanli.map[F.id]).map(F=>_fmCanli.map[F.id].row.nums.join(' ')).join('\n')):'';
 }
 function _fmRun(){
   const game=getGame(_fmGame),draws=_kbGetDraws(_fmGame);
@@ -21752,7 +21758,7 @@ function _a3Sutun(pfx,d,ci){
     let net=0,yak=0;
     t.main.forEach(n=>{if(aSet&&aSet.has(n))net++;else if(aSet&&(aSet.has(n-1)||aSet.has(n+1)))yak++;});
     if(net>enIyi||(net===enIyi&&yak>enIyiY)){enIyi=net;enIyiY=yak;}
-    return `<div style="padding:8px 10px;border-radius:9px;background:${net>=3?'rgba(0,230,118,.1)':`rgba(${t.renk},.06)`};border:1.5px solid ${net>=3?'rgba(0,200,100,.5)':`rgba(${t.renk},.35)`};margin-bottom:7px">
+    return `<div data-lp="${[...t.main,...(t.bonus||[])].join(' ')}" title="Basılı tutarak bu bileti kopyala" style="padding:8px 10px;border-radius:9px;background:${net>=3?'rgba(0,230,118,.1)':`rgba(${t.renk},.06)`};border:1.5px solid ${net>=3?'rgba(0,200,100,.5)':`rgba(${t.renk},.35)`};margin-bottom:7px">
       <div style="display:flex;justify-content:space-between;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:4px">
        <span style="font-size:.66rem;font-weight:800;color:rgb(${t.renk})">${t.ad}</span>
        <span style="display:flex;gap:5px;align-items:center">
@@ -21778,7 +21784,9 @@ function _a3Render(pfx){
   const tpl='repeat('+cols.length+',minmax(0,1fr))';
   out.innerHTML=`<div class="a3-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
     +cols.map((c,i)=>`<div>${_a3Sutun(pfx,c,i)}</div>`).join('')+`</div>`;
-  window['_a3Txt_'+pfx]=cols.map(c=>c.tickets.map(t=>t.ad+'\n'+[...t.main,...(t.bonus||[])].join(' ')).join('\n\n')).join('\n\n');
+  // Kopya yalnızca YENİ TAHMİN sütunundan alınır — geçmiş testler kopyalanmaz.
+  const canli=D.live||cols[0];
+  window['_a3Txt_'+pfx]=canli?canli.tickets.map(t=>t.ad+'\n'+[...t.main,...(t.bonus||[])].join(' ')).join('\n\n'):'';
 }
 // ── ÖLÇÜM: son N çekilişte 3 biletin gerçekte ne tutturduğu + şans tabanı ──
 function _a3Olc(pfx){
@@ -25521,11 +25529,12 @@ function _auJokerCip(j,bSet,yakB,ti,pi){
     +`<span${konum} style="font-family:monospace;font-size:.78rem;font-weight:800;color:${renk};background:${net?'rgba(0,230,118,.12)':yak?'rgba(244,114,63,.09)':'rgba(37,99,235,.08)'};border:1px solid ${kenar};border-radius:6px;padding:1px 7px">${j}${net?'✓':yak?'~':''}</span>`;
 }
 function _auBiletHtml(t,aSet,hedef,i,yakSet,j,bSet,yakB){
+  const lp=t.join(' ')+(j!=null?' + '+j:'');
   const net=t.filter(n=>aSet&&aSet.has(n)).length;
   const yak=yakSet?t.filter(n=>yakSet.has(n)).length:0;
   const jTut=hedef.bonus?(j!=null&&bSet&&bSet.has(j)):true;
   const tut=aSet&&net>=hedef.net&&jTut;
-  return `<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:3px 5px;border-radius:7px;${tut?'background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.45)':''}">`
+  return `<div data-lp="${lp}" title="Basılı tutarak bu bileti kopyala" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:3px 5px;border-radius:7px;${tut?'background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.45)':''}">`
     +`<span style="font-size:.55rem;color:var(--muted);min-width:22px">#${i+1}</span>`
     +t.map((n,pi)=>_auCip(n,aSet,false,yakSet,i,pi)).join('')
     +_auJokerCip(j,bSet,yakB,i,t.length)
@@ -25553,7 +25562,7 @@ function _auSutun(D,slot){
   h+=`<div style="padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">`
     +`<div style="font-size:.55rem;color:var(--muted);margin-bottom:4px">Havuz (${havuz.length} sayı)`
     +(hOlc?` — <strong style="color:${hOlc.yeterli?'var(--green)':'var(--muted)'}">${hOlc.icinde} net</strong>${hOlc.yakin?` · <strong style="color:#c2410c">${hOlc.yakin} yakın</strong>`:''}${hOlc.yeterli?' ✅':` (hedef için ${g.count} gerekiyordu)`}`:'')
-    +`</div><div style="display:flex;gap:3px;flex-wrap:wrap">`+havuz.map(n=>_auCip(n,aSet,true,yakSet)).join('')+`</div></div>`;
+    +`</div><div data-lp="${havuz.join(' ')}" title="Basılı tutarak havuzu kopyala" style="display:flex;gap:3px;flex-wrap:wrap">`+havuz.map(n=>_auCip(n,aSet,true,yakSet)).join('')+`</div></div>`;
   // bonus
   if(H.ust.bonus){
     const bTut=bSet&&bAd.some(n=>bSet.has(n));
@@ -25576,7 +25585,7 @@ function _auSutun(D,slot){
   }
   return h;
 }
-function _auKonumEsle(out){
+function _auKonumEsle(out,slot){
   const grid=out.querySelector('.au-row');if(!grid)return 0;
   const kol=[...grid.children];
   if(kol.length<3)return 0;                       // yeni tahmin + en az 2 geçmiş test
@@ -25586,7 +25595,7 @@ function _auKonumEsle(out){
     return m;
   });
   const yeni=harita[0],testler=harita.slice(1);
-  let n=0;
+  let n=0;const liste=[];
   Object.keys(yeni).forEach(k=>{
     const hucreler=testler.map(t=>t[k]);
     if(hucreler.some(x=>!x))return;
@@ -25602,9 +25611,28 @@ function _auKonumEsle(out){
     yeni[k].title=hepsiNet
       ?'Açık geçmiş testlerin hepsinde aynı bilette, aynı sırada NET tuttu'
       :'Açık geçmiş testlerin hepsinde aynı bilette, aynı sırada net ya da ±1 yakın tuttu';
+    const v=parseInt((yeni[k].textContent||'').replace(/[^\d]/g,''),10);
+    if(v>=1)liste.push({n:v,ti:+yeni[k].dataset.ti+1,pi:+yeni[k].dataset.pi+1});
     n++;
   });
+  _auKonumPanel(out,slot,liste);
   return n;
+}
+// Kare içine alınan konumların HAVUZU — ayrı kopyalama butonuyla
+function _auKonumPanel(out,slot,liste){
+  const id='auKonum'+slot;
+  let el=document.getElementById(id);
+  if(!liste.length){if(el)el.remove();window['_auKonumTxt'+slot]='';return;}
+  const nums=[...new Set(liste.map(x=>x.n))].sort((a,b)=>a-b);
+  window['_auKonumTxt'+slot]='🔲 Konum Eşleşmesi Havuzu\n'+nums.join(' ');
+  const h=`<div id="${id}" style="margin-bottom:8px;padding:7px 10px;border:2px solid #111;border-radius:9px;background:rgba(0,0,0,.03)">`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">`
+    +`<span style="font-size:.7rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.54rem;color:var(--muted);font-weight:600">(${liste.length} konum · ${nums.length} sayı)</span></span>`
+    +`<button onclick="_caCopy(window['_auKonumTxt${slot}']||'');showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋 Havuzu Kopyala</button></div>`
+    +`<div data-lp="${nums.join(' ')}" style="display:flex;gap:5px;flex-wrap:wrap">`
+    +liste.map(x=>`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:#111;color:#fff;border:2px solid #111"><span style="font-size:.86rem;font-weight:900;font-family:monospace">${x.n}</span><span style="font-size:.42rem;opacity:.75">#${x.ti}·${x.pi}.sıra</span></span>`).join('')
+    +`</div></div>`;
+  if(el)el.outerHTML=h; else out.insertAdjacentHTML('afterbegin',h);
 }
 function _auRenderSlot(slot){
   const out=document.getElementById('auC'+slot+'Out');if(!out)return;
@@ -25613,7 +25641,7 @@ function _auRenderSlot(slot){
   const tpl='repeat('+cols.length+',minmax(0,1fr))';
   out.innerHTML=`<div class="au-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
     +cols.map(c=>`<div>${_auSutun(c,slot)}</div>`).join('')+`</div>`;
-  try{_auKonumEsle(out);}catch(e){}
+  try{_auKonumEsle(out,slot);}catch(e){}
 }
 function _auRender(){
   const g=getGame(_auOyun());if(!g)return;
