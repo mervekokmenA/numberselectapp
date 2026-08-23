@@ -1493,6 +1493,42 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="auC1Out"></div>
  </div>
 
+ <!-- ═══ CONTAINER 3 — BANKO + ROTASYON ═══ -->
+ <div class="card" style="margin-bottom:12px;border:2px solid rgba(29,78,216,.4);background:linear-gradient(135deg,rgba(37,99,235,.05),transparent)">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+   <div class="card-title" style="margin:0" id="auC3Baslik">🔒 Container 3 — Banko + Rotasyon</div>
+   <button onclick="_auCopy(3)" class="copy-btn" style="font-size:.64rem;padding:3px 10px">📋 Kopyala</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <span style="font-size:.66rem;color:var(--muted)">Havuz:</span>
+   <select id="auP3" onchange="_auSetP(3,this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+   <select id="auBanko" onchange="_auSetBanko(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+   <span style="font-size:.66rem;color:var(--muted)">Bilet:</span>
+   <select id="auK3" onchange="_auSetK(3,this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="6">6</option><option value="12">12</option><option value="20" selected>20</option><option value="40">40</option><option value="80">80</option><option value="150">150</option>
+   </select>
+  </div>
+  <div id="auC3Out"></div>
+ </div>
+
+ <!-- ═══ CONTAINER 4 — ÇİFT HAVUZ ═══ -->
+ <div class="card" style="margin-bottom:12px;border:2px solid rgba(126,34,206,.4);background:linear-gradient(135deg,rgba(147,51,234,.05),transparent)">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+   <div class="card-title" style="margin:0" id="auC4Baslik">🧬 Container 4 — Çift Havuz</div>
+   <button onclick="_auCopy(4)" class="copy-btn" style="font-size:.64rem;padding:3px 10px">📋 Kopyala</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <span style="font-size:.66rem;color:var(--muted)">Havuz:</span>
+   <select id="auP4" onchange="_auSetP(4,this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+   <select id="auCekirdek" onchange="_auSetCekirdek(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+   <span style="font-size:.66rem;color:var(--muted)">Bilet:</span>
+   <select id="auK4" onchange="_auSetK(4,this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="6">6</option><option value="12">12</option><option value="20" selected>20</option><option value="40">40</option><option value="80">80</option><option value="150">150</option>
+   </select>
+  </div>
+  <div id="auC4Out"></div>
+ </div>
+
  <!-- ═══ CONTAINER 2 — TAM HEDEF ═══ -->
  <div class="card" style="margin-bottom:12px;border:2px solid rgba(120,53,15,.45);background:linear-gradient(135deg,rgba(180,83,9,.05),transparent)">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
@@ -25338,9 +25374,12 @@ const _AU_KAYNAKLAR=[
   {id:'formul', ad:'🧮 Formül Sistemi uzlaşısı'},
   {id:'formul2',ad:'📅 Formül 2 (gün/ay/yıl) uzlaşısı'},
   {id:'sicak',  ad:'🔥 Yakın dönem frekansı'},
+  {id:'gecikme',ad:'⏳ Gecikme — sırası gelenler'},
+  {id:'uzlasi', ad:'🤝 Uzlaşı — tüm kaynakların füzyonu'},
 ];
 let _auKaynak='fuzyon';
-let _auP={1:null,2:null},_auK={1:20,2:60};
+let _auP={1:null,2:null,3:null,4:null},_auK={1:20,2:60,3:20,4:20};
+let _auBanko=2,_auCekirdek=3;
 let _auData={live:null,t1:null,t2:null,t3:null};
 let _auOlcData=null;
 
@@ -25356,13 +25395,16 @@ function _auHedefMetin(game,tip){
 }
 // Varsayılan havuz büyüklükleri — hedefe göre farklı: üst hedef geniş, tam hedef dar.
 function _auVarP(game,slot){
-  if(slot===1)return game.id==='onnumara'?16:Math.min(game.max,game.count+7);
-  return game.id==='onnumara'?12:Math.min(game.max,game.count+2);
+  const c=game.count,mx=game.max;
+  if(slot===1)return game.id==='onnumara'?16:Math.min(mx,c+7);
+  if(slot===2)return game.id==='onnumara'?12:Math.min(mx,c+2);
+  if(slot===3)return game.id==='onnumara'?15:Math.min(mx,c+6);
+  return game.id==='onnumara'?20:Math.min(mx,c+10);   // çift havuz daha geniş
 }
 function _auOyun(){return (state&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))?state.selectedGame:'sans';}
 
 // ── Havuz ağırlıkları ──
-function _auHavuzW(game,prior,kaynak){
+function _auHavuzW(game,prior,kaynak,ham){
   let w=null;
   try{
     if(kaynak==='fuzyon')w=_agxPoolFuzyon(game,prior);
@@ -25373,7 +25415,28 @@ function _auHavuzW(game,prior,kaynak){
       for(let n=1;n<=game.max;n++)m[n]=(f&&f[n])||0;
       w=_agxNorm(m);
     }
+    else if(kaynak==='gecikme'){
+      const son={},m={};
+      prior.forEach((d,i)=>{[...(d.nums||[])].forEach(n=>{if(son[n]==null)son[n]=i;});});
+      for(let n=1;n<=game.max;n++)m[n]=(son[n]==null?prior.length:son[n]);
+      w=_agxNorm(m);
+    }
+    else if(kaynak==='uzlasi'){
+      // Her kaynağı kendi içinde SIRAYA çevirip topla — ölçek farkları etkilemesin
+      const alt=['fuzyon','nihai','formul','formul2','sicak','gecikme'];
+      const top={};let kac=0;
+      alt.forEach(k=>{
+        let x=null;try{x=_auHavuzW(game,prior,k,true);}catch(e){}
+        if(!x)return;
+        const sirali=Object.keys(x).map(Number).filter(n=>n>=1&&n<=game.max).sort((a,b)=>x[b]-x[a]);
+        if(!sirali.length)return;
+        kac++;
+        sirali.forEach((n,i)=>{top[n]=(top[n]||0)+Math.pow((sirali.length-i)/sirali.length,1.5);});
+      });
+      if(kac)w=_agxNorm(top);
+    }
   }catch(e){}
+  if(ham)return w;                       // uzlaşı füzyonunda yedeğe düşme yok
   if(!w){try{const C=_niCompute(game,prior);w=_agxNorm(C&&C.wMap);}catch(e){}}
   if(!w){const m={};for(let n=1;n<=game.max;n++)m[n]=Math.random();w=_agxNorm(m);}
   return w;
@@ -25444,6 +25507,16 @@ function _auKapsayan(havuz,cnt,K,hedefNet,wMap){
     secilen.push(nums.sort((x,y)=>x-y));
     adaylar.list.splice(enIyi,1);
   }
+  // Kapsama tamamlandıysa greedy durur; istenen bilet sayısına ağırlığı en yüksek
+  // kalan kombinasyonlarla tamamla (fazladan bilet garantiyi düşürmez, şansı artırır).
+  if(secilen.length<K&&adaylar.list.length){
+    const kalan=adaylar.list.map(m=>{
+      let sk=0;const nums=[];
+      for(let i=0;i<P;i++)if(m&(1<<i)){sk+=(wMap[havuz[i]]||0);nums.push(havuz[i]);}
+      return {sk,nums:nums.sort((x,y)=>x-y)};
+    }).sort((x,y)=>y.sk-x.sk);
+    for(const k of kalan){if(secilen.length>=K)break;secilen.push(k.nums);}
+  }
   return {tickets:secilen,kapsam:kapananAg/toplamAg,tamSayim:hedefler.tam,toplam:hedefler.toplam};
 }
 // Tam hedef: havuzdan mümkün olan tüm cnt'li kombinasyonlar (bilet tavanına kadar,
@@ -25459,6 +25532,41 @@ function _auTamDemet(havuz,cnt,capK,wMap){
   }).sort((a,b)=>b.s-a.s);
   return {tickets:skorlu.slice(0,capK).map(x=>x.nums),toplam:c.toplam,tam:c.tam&&c.list.length<=capK};
 }
+// Banko + rotasyon: en güçlü B sayı HER bilette sabit, kalan sıralar kapsayan sistemle
+function _auBankoDemet(havuz,cnt,K,bankoAdet,hedefNet,wMap){
+  const B=Math.max(0,Math.min(bankoAdet,cnt-1));
+  if(havuz.length<cnt)return {tickets:[],banko:[],kapsam:0,toplam:0,tamSayim:false};
+  const banko=havuz.slice(0,B);
+  const kalan=havuz.slice(B);
+  const kalanCnt=cnt-B;
+  if(kalan.length<kalanCnt)return {tickets:[],banko,kapsam:0,toplam:0,tamSayim:false};
+  const alt=_auKapsayan(kalan,kalanCnt,K,Math.max(1,hedefNet-B),wMap);
+  return {tickets:alt.tickets.map(t=>[...banko,...t].sort((a,b)=>a-b)),
+          banko,kapsam:alt.kapsam,toplam:alt.toplam,tamSayim:alt.tamSayim};
+}
+// Çift havuz: her bilette çekirdekten kC, kanattan cnt-kC sayı
+function _auCiftHavuz(cekirdek,kanat,cnt,kC,K,wMap){
+  const k1=Math.max(1,Math.min(kC,cnt-1)),k2=cnt-k1;
+  if(cekirdek.length<k1||kanat.length<k2)return {tickets:[],kapsam:0,toplam:0,tamSayim:false};
+  const a=_auKapsayan(cekirdek,k1,K,Math.max(1,k1-1),wMap);
+  const b=_auKapsayan(kanat,k2,K,Math.max(1,k2-1),wMap);
+  if(!a.tickets.length||!b.tickets.length)return {tickets:[],kapsam:0,toplam:0,tamSayim:false};
+  // Çekirdek × kanat çaprazını tarayarak K farklı bilete ulaş
+  const tk=[],gor=new Set();
+  outer:
+  for(let d=0;d<b.tickets.length;d++){
+    for(let i=0;i<a.tickets.length;i++){
+      const x=a.tickets[i],y=b.tickets[(i+d)%b.tickets.length];
+      const m=[...new Set([...x,...y])].sort((p,q)=>p-q);
+      if(m.length!==cnt)continue;
+      const key=m.join(',');if(gor.has(key))continue;gor.add(key);
+      tk.push(m);
+      if(tk.length>=K)break outer;
+    }
+  }
+  return {tickets:tk,kapsam:(a.kapsam+b.kapsam)/2,toplam:a.toplam*b.toplam,tamSayim:a.tamSayim&&b.tamSayim};
+}
+
 // ── Joker/süperstar adayları (bonus hedefi için) ──
 function _auBonus(game,prior,adet){
   if(!(game.bonusCount>0))return [];
@@ -25472,13 +25580,24 @@ function _auBonus(game,prior,adet){
 // ── Tek bir "kolon" (yeni tahmin veya bir geçmiş test) üret ──
 function _auUret(game,prior,actual){
   const w=_auHavuzW(game,prior,_auKaynak);
-  const H=_auHedef(game);
-  const P1=_auP[1]||_auVarP(game,1),P2=_auP[2]||_auVarP(game,2);
-  const h1=_auTopN(w,P1,game.max),h2=_auTopN(w,P2,game.max);
-  const c1=_auKapsayan(h1,game.count,_auK[1],H.ust.net,w);
-  const c2=_auTamDemet(h2,game.count,_auK[2],w);
+  const H=_auHedef(game),cnt=game.count;
+  const P=k=>_auP[k]||_auVarP(game,k);
+  const h1=_auTopN(w,P(1),game.max),h2=_auTopN(w,P(2),game.max);
+  const h3=_auTopN(w,P(3),game.max),h4=_auTopN(w,P(4),game.max);
+  const c1=_auKapsayan(h1,cnt,_auK[1],H.ust.net,w);
+  const c2=_auTamDemet(h2,cnt,_auK[2],w);
+  const c3=_auBankoDemet(h3,cnt,_auK[3],_auBanko,H.ust.net,w);
+  // çift havuz: h4'ün üst yarısı çekirdek, alt yarısı kanat
+  const kes=Math.max(_auCekirdek+1,Math.ceil(h4.length*0.4));
+  const c4=_auCiftHavuz(h4.slice(0,kes),h4.slice(kes),cnt,_auCekirdek,_auK[4],w);
   const bonus=_auBonus(game,prior,game.bonusCount>0?3:0);
-  return {game,actual:actual||null,w,havuz1:h1,havuz2:h2,c1,c2,bonus,hedef:H,
+  const bloklar={
+    1:{havuz:h1,tickets:c1.tickets,hedef:H.ust,meta:c1},
+    2:{havuz:h2,tickets:c2.tickets,hedef:H.tam,meta:c2},
+    3:{havuz:h3,tickets:c3.tickets,hedef:H.ust,meta:c3,banko:c3.banko},
+    4:{havuz:h4,tickets:c4.tickets,hedef:H.ust,meta:c4},
+  };
+  return {game,actual:actual||null,w,bloklar,havuz1:h1,havuz2:h2,c1,c2,c3,c4,bonus,hedef:H,
           tarih:actual?actual.date:null};
 }
 
@@ -25551,9 +25670,9 @@ function _auSutun(D,slot){
   const bSet=D.actual?new Set([...(D.actual.bonus||[])]):null;
   const yakSet=aSet?_auYakinSet(aSet,g.max):null;
   const yakB=bSet?_auYakinSet(bSet,g.bonusMax||g.max):null;
-  const H=D.hedef,hedef=slot===1?H.ust:H.tam;
-  const tk=slot===1?D.c1.tickets:D.c2.tickets;
-  const havuz=slot===1?D.havuz1:D.havuz2;
+  const H=D.hedef;
+  const B=(D.bloklar&&D.bloklar[slot])||{havuz:[],tickets:[],hedef:H.ust};
+  const hedef=B.hedef,tk=B.tickets,havuz=B.havuz;
   const bAd=D.bonus||[];
   const jokerFn=i=>(H.ust.bonus&&bAd.length)?bAd[i%bAd.length]:null;
   const hOlc=aSet?_auHavuzOlc(havuz,aSet,g.count,yakSet):null;
@@ -25583,7 +25702,7 @@ function _auSutun(D,slot){
   }
   if(dOlc){
     h+=`<div style="margin-top:6px;padding:6px 8px;border-radius:8px;background:${dOlc.hedefTut?'rgba(0,230,118,.14)':'var(--surface2)'};border:1px solid ${dOlc.hedefTut?'rgba(0,230,118,.5)':'var(--border)'};font-size:.58rem;font-weight:700;color:${dOlc.hedefTut?'var(--green)':'var(--muted)'}">`
-      +`En iyi bilet: ${dOlc.enIyi} net${dOlc.enIyiYak?` · ${dOlc.enIyiYak} yakın`:''} · hedefi (${_auHedefMetin(g,slot===1?'ust':'tam')}) tutturan bilet: ${dOlc.tutan}`
+      +`En iyi bilet: ${dOlc.enIyi} net${dOlc.enIyiYak?` · ${dOlc.enIyiYak} yakın`:''} · hedefi (${hedef.net} net${hedef.bonus?(' + '+(g.id==='sans'?'joker':'süperstar')):''}) tutturan bilet: ${dOlc.tutan}`
       +(hedef.bonus?` · ${g.id==='sans'?'joker':'süperstar'} tutturan bilet: ${dOlc.jokerTutan}/${tk.length}`:'')
       +`<br>${dOlc.hedefTut?'🎉 HEDEF TUTTU':'hedef tutmadı'}</div>`;
   }
@@ -25629,12 +25748,12 @@ function _auKonumPanel(out,slot,liste){
   if(!liste.length){if(el)el.remove();window['_auKonumTxt'+slot]='';return;}
   const nums=[...new Set(liste.map(x=>x.n))].sort((a,b)=>a-b);
   window['_auKonumTxt'+slot]='🔲 Konum Eşleşmesi Havuzu\n'+nums.join(' ');
-  const h=`<div id="${id}" style="margin-bottom:8px;padding:7px 10px;border:2px solid #111;border-radius:9px;background:rgba(0,0,0,.03)">`
+  const h=`<div id="${id}" style="margin-bottom:8px;padding:7px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface2)">`
     +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">`
     +`<span style="font-size:.7rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.54rem;color:var(--muted);font-weight:600">(${liste.length} konum · ${nums.length} sayı)</span></span>`
     +`<button onclick="_caCopy(window['_auKonumTxt${slot}']||'');showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋 Havuzu Kopyala</button></div>`
     +`<div data-lp="${nums.join(' ')}" style="display:flex;gap:5px;flex-wrap:wrap">`
-    +liste.map(x=>`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:#111;color:#fff;border:2px solid #111"><span style="font-size:.86rem;font-weight:900;font-family:monospace">${x.n}</span><span style="font-size:.42rem;opacity:.75">#${x.ti}·${x.pi}.sıra</span></span>`).join('')
+    +liste.map(x=>`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface);border:1.5px solid var(--text)"><span style="font-size:.86rem;font-weight:800;font-family:monospace;color:var(--text)">${x.n}</span><span style="font-size:.42rem;color:var(--muted)">#${x.ti}·${x.pi}.sıra</span></span>`).join('')
     +`</div></div>`;
   if(el)el.outerHTML=h; else out.insertAdjacentHTML('afterbegin',h);
 }
@@ -25657,7 +25776,10 @@ function _auRender(){
   const b1=document.getElementById('auC1Baslik'),b2=document.getElementById('auC2Baslik');
   if(b1)b1.textContent='🎯 Container 1 — Üst Hedef: '+_auHedefMetin(g,'ust');
   if(b2)b2.textContent='💎 Container 2 — Tam Hedef: '+_auHedefMetin(g,'tam');
-  _auRenderSlot(1);_auRenderSlot(2);
+  const b3=document.getElementById('auC3Baslik'),b4=document.getElementById('auC4Baslik');
+  if(b3)b3.textContent='🔒 Container 3 — Banko + Rotasyon: '+_auHedefMetin(g,'ust');
+  if(b4)b4.textContent='🧬 Container 4 — Çift Havuz: '+_auHedefMetin(g,'ust');
+  [1,2,3,4].forEach(_auRenderSlot);
   _auCopyHazirla();
 }
 function _auCopyHazirla(){
@@ -25665,15 +25787,18 @@ function _auCopyHazirla(){
   const g=D.game;
   const bAd=D.bonus||[];
   const jk=i=>bAd.length?(' + '+bAd[i%bAd.length]):'';
-  window._auTxt1='🎯 Agresif Üst — Container 1 ('+g.name+' · hedef '+_auHedefMetin(g,'ust')+')\n'
-    +'Havuz: '+D.havuz1.join(' ')+'\n'+D.c1.tickets.map((t,i)=>t.join(' ')+jk(i)).join('\n');
-  window._auTxt2='💎 Agresif Üst — Container 2 ('+g.name+' · hedef '+_auHedefMetin(g,'tam')+')\n'
-    +'Havuz: '+D.havuz2.join(' ')+'\n'+D.c2.tickets.map((t,i)=>t.join(' ')+jk(i)).join('\n');
+  const AD={1:'🎯 Container 1 — Kapsayan Sistem',2:'💎 Container 2 — Tam Sistem',
+            3:'🔒 Container 3 — Banko + Rotasyon',4:'🧬 Container 4 — Çift Havuz'};
+  [1,2,3,4].forEach(sl=>{
+    const B=(D.bloklar||{})[sl];
+    window['_auTxt'+sl]=B?(AD[sl]+' ('+g.name+')\nHavuz: '+B.havuz.join(' ')+'\n'
+      +B.tickets.map((t,i)=>t.join(' ')+jk(i)).join('\n')):'';
+  });
 }
 function _auCopy(slot){_auCopyHazirla();_caCopy(window['_auTxt'+slot]||'');
   if(typeof showToast==='function')showToast('📋 Kopyalandı');}
 function _auCopyAll(){_auCopyHazirla();
-  _caCopy([window._auTxt1||'',window._auTxt2||''].filter(Boolean).join('\n\n'));
+  _caCopy([1,2,3,4].map(i=>window['_auTxt'+i]||'').filter(Boolean).join('\n\n'));
   if(typeof showToast==='function')showToast('📋 Kopyalandı');}
 
 // ── Kontroller ──
@@ -25682,14 +25807,21 @@ function _auSetP(slot,v){_auP[slot]=+v||null;_auData={live:null,t1:null,t2:null,
 function _auSetK(slot,v){_auK[slot]=+v||20;_auData={live:null,t1:null,t2:null,t3:null};_auRender();}
 function _auPOptions(){
   const g=getGame(_auOyun());if(!g)return;
-  [1,2].forEach(slot=>{
+  [1,2,3,4].forEach(slot=>{
     const el=document.getElementById('auP'+slot);if(!el)return;
     const varsayilan=_auVarP(g,slot);
-    const lo=slot===1?g.count+2:g.count,hi=slot===1?Math.min(g.max,g.count+14):Math.min(g.max,g.count+6);
+    const lo=slot===2?g.count:g.count+2;
+    const hi=slot===2?Math.min(g.max,g.count+6):Math.min(g.max,g.count+(slot===4?20:14));
     let h='';for(let P=lo;P<=hi;P++)h+=`<option value="${P}"${P===(_auP[slot]||varsayilan)?' selected':''}>${P} sayı</option>`;
     el.innerHTML=h;
   });
+  const b=document.getElementById('auBanko');
+  if(b){let h='';for(let i=1;i<=Math.min(4,g.count-2);i++)h+=`<option value="${i}"${i===_auBanko?' selected':''}>${i} banko</option>`;b.innerHTML=h;}
+  const c=document.getElementById('auCekirdek');
+  if(c){let h='';for(let i=1;i<=g.count-1;i++)h+=`<option value="${i}"${i===_auCekirdek?' selected':''}>çekirdekten ${i}</option>`;c.innerHTML=h;}
 }
+function _auSetBanko(v){_auBanko=+v||2;_auData={live:null,t1:null,t2:null,t3:null};_auRender();}
+function _auSetCekirdek(v){_auCekirdek=+v||3;_auData={live:null,t1:null,t2:null,t3:null};_auRender();}
 function _auDates(){
   const draws=_kbGetDraws(_auOyun());
   let h='<option value="">— Geçmiş test için tarih seçin —</option>';
@@ -25829,8 +25961,8 @@ function _oyunYay(gid,kaynak){
     // Yalnızca gerçekten BAŞKA bir oyunun sonuçları duruyorsa temizle — geç boşalan
     // kuyruk, bu arada üretilmiş taze sonuçları silmesin.
     const mevcut=(_auData&&_auData.live&&_auData.live.game)?_auData.live.game.id:null;
-    if(mevcut&&mevcut!==gid){_auData={live:null,t1:null,t2:null,t3:null};_auP={1:null,2:null};}
-    else if(!mevcut)_auP={1:null,2:null};
+    if(mevcut&&mevcut!==gid){_auData={live:null,t1:null,t2:null,t3:null};_auP={1:null,2:null,3:null,4:null};}
+    else if(!mevcut)_auP={1:null,2:null,3:null,4:null};
     if(_curPage==='agresifust')_auInit();
   }catch(e){}});
   isler.push(()=>{if(typeof _listelerGame!=='undefined'&&_listelerGame!==gid){
