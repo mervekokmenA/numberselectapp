@@ -401,6 +401,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
 </nav>
 
+<div id="tarih3Bar" style="max-width:1700px;margin:0 auto;padding:4px 12px 0;display:flex;justify-content:flex-end">
+  <button onclick="_t3Doldur()" title="Bu sayfadaki geçmiş test tarihlerini son 3 çekilişle (yeniden eskiye) doldurur"
+    style="font-size:.66rem;font-weight:700;padding:4px 12px;border-radius:7px;border:1px solid rgba(0,150,58,.35);background:rgba(0,150,58,.09);color:var(--text);cursor:pointer">📅 Son 3 çekilişi doldur</button>
+</div>
+
 <div class="app">
 <div style="grid-column:1/-1;margin-bottom:4px" id="splitBar"></div>
 
@@ -11383,7 +11388,15 @@ function _sablonRenderNext(panel,draws,game){
   let html='';
   html+=`<div style="background:rgba(129,140,248,.05);border:1px solid rgba(129,140,248,.25);border-radius:8px;padding:9px 11px;margin-bottom:10px">`;
   html+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:5px">Baz: ${lastDraw.date} · NS+NST${ext.xs?'+XS+XST':''} zincirleri → decade-class · mod-100 · mod-${game.max} taraması</div>`;
-  html+=`<div style="font-size:.66rem;color:var(--text);font-weight:700;margin-bottom:6px">🎯 En Güçlü ${topN.length} Aday (skor sırasıyla)</div>`;
+  const _topNums=topN.map(x=>x.n);
+  const _topSirali=[..._topNums].sort((x,y)=>x-y);
+  html+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">`
+    +`<div style="font-size:.66rem;color:var(--text);font-weight:700">🎯 En Güçlü ${topN.length} Aday (skor sırasıyla)</div>`
+    +`<span style="display:flex;gap:5px;flex-wrap:wrap">`
+    +`<button onclick="_cpDo('${_cpKey('🎯 En Güçlü '+topN.length+' Aday (skor sırasıyla)',_topNums.join(' '))}')" class="copy-btn" style="font-size:.58rem;padding:2px 9px">📋 Skor sırası</button>`
+    +`<button onclick="_cpDo('${_cpKey('🎯 En Güçlü '+topN.length+' Aday (küçükten büyüğe)',_topSirali.join(' '))}')" class="copy-btn" style="font-size:.58rem;padding:2px 9px">📋 Sıralı</button>`
+    +`<button onclick="_cpDo('${_cpKey('🎯 En Güçlü '+game.count+' Aday',_topNums.slice(0,game.count).join(' '))}')" class="copy-btn" style="font-size:.58rem;padding:2px 9px">📋 İlk ${game.count}</button>`
+    +`</span></div>`;
   html+=`<div style="display:flex;flex-wrap:wrap;gap:4px">`;
   topN.forEach(({n,s})=>{
     const ratio=s/maxS;
@@ -12657,7 +12670,7 @@ function _kbColRepeats(cols){const c={};cols.forEach(col=>[...new Set(col)].forE
 function _kbArith(col){const s=[...col].sort((a,b)=>a-b);if(s.length<3)return null;const d=s[1]-s[0];if(d<=0)return null;return s.every((v,i)=>i===0||v-s[i-1]===d)?d:null;}
 function _kbFmtTL(v){return v?'₺'+v.toLocaleString('tr-TR'):'—';}
 function _kbCopy(text){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(()=>showToast('📋 Kopyalandı'),()=>_kbCopyFb(text));}else _kbCopyFb(text);}
-function _kbCopyFb(text){const t=document.createElement('textarea');t.value=text;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();try{document.execCommand('copy');showToast('📋 Kopyalandı');}catch(e){}document.body.removeChild(t);}
+function _kbCopyFb(text){text=_cpFix(text);const t=document.createElement('textarea');t.value=text;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();try{document.execCommand('copy');showToast('📋 Kopyalandı');}catch(e){}document.body.removeChild(t);}
 function _kbParseTickets(){const txt=document.getElementById('kbBiletInput')?.value||'',tickets=[];txt.split('\n').forEach((line,li)=>{line=line.trim();if(!line)return;const nums=(line.match(/\d+/g)||[]).map(Number);if(nums.length)tickets.push({nums,idx:li});});return tickets;}
 
 // ── KB render ──────────────────────────────────────────────────
@@ -14125,6 +14138,7 @@ function _listelerClipCopy(text){
   }else{_listelerExecCopy(text);}
 }
 function _listelerExecCopy(text){
+  text=_cpFix(text);
   const ta=document.createElement('textarea');
   ta.value=text;ta.style.cssText='position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
   document.body.appendChild(ta);ta.focus();ta.select();
@@ -15865,6 +15879,131 @@ function _caCopy(txt){try{navigator.clipboard.writeText(txt);}catch(e){}}
 const _cpReg={};let _cpSeq=0;
 function _cpKey(ad,sayilar){const k='cp'+(++_cpSeq);_cpReg[k]=(ad?String(ad).replace(/<[^>]*>/g,'').trim()+'\n':'')+sayilar;return k;}
 function _cpDo(k){const t=_cpReg[k]||'';if(!t)return;_caCopy(t);if(typeof showToast==='function')showToast('📋 Kopyalandı');}
+// ═══════════ GLOBAL KOPYALAMA BİÇİMİ ═══════════
+// Uygulamanın her yerindeki kopyalama tek noktadan geçer:
+//  1) Alt alta yazılmış sayı satırları YAN YANA birleştirilir (3\n11\n14 → "3 11 14").
+//  2) Metnin ilk satırı (başlık) varsa sağına " - Sayfa adı" eklenir.
+function _aktifSayfaAdi(){
+  try{
+    const b=document.querySelector('#navLinks .nav-link.active');
+    if(!b)return'';
+    const parts=(b.textContent||'').trim().split(/\s+/);
+    if(parts.length>1&&!/[0-9A-Za-zÇĞİÖŞÜçğıöşü]/.test(parts[0]))parts.shift();
+    return parts.join(' ').trim();
+  }catch(e){return'';}
+}
+function _cpFix(text){
+  if(typeof text!=='string'||!text)return text;
+  const src=text.split('\n'),out=[];let buf=[];
+  const flush=()=>{if(buf.length){out.push(buf.join(' '));buf=[];}};
+  for(const ln of src){
+    // yalnız tek bir sayı (isteğe bağlı ✓/~/★ işaretiyle) içeren satırlar yan yana toplanır
+    if(/^\s*\d{1,2}\s*[✓~★●]?\s*$/.test(ln))buf.push(ln.trim());
+    else{flush();out.push(ln);}
+  }
+  flush();
+  const sayfa=_aktifSayfaAdi();
+  if(sayfa&&out.length){
+    const t=out[0];
+    const salt=/^[\s\d✓~★●+|,\-·]*$/.test(t);          // ilk satır sadece sayıysa başlık değildir
+    if(t.trim()&&!salt&&!t.endsWith(' - '+sayfa))out[0]=t.replace(/\s+$/,'')+' - '+sayfa;
+  }
+  return out.join('\n');
+}
+(function _cpPatchClipboard(){
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      const orig=navigator.clipboard.writeText.bind(navigator.clipboard);
+      navigator.clipboard.writeText=function(t){return orig(_cpFix(t));};
+    }
+  }catch(e){}
+})();
+
+// ═══════════ 📅 SON 3 ÇEKİLİŞİ OTOMATİK DOLDUR ═══════════
+// Menünün hemen altındaki buton: açık sayfadaki geçmiş-test tarih dropdown'larını
+// son 3 çekilişle, soldan sağa yeniden → eskiye doldurur.
+function _t3Gorunur(el){return !!(el&&(el.offsetWidth||el.offsetHeight||el.getClientRects().length));}
+function _t3Tarihler(sel){
+  const out=[];
+  for(const o of sel.options)if(/^\d{4}-\d{2}-\d{2}/.test(o.value))out.push(o.value);
+  return out;
+}
+function _t3Doldur(){
+  const seller=[...document.querySelectorAll('select[id]')];
+  let grup=0,alan=0;
+  seller.forEach(s=>{
+    if(/[23]$/.test(s.id))return;                       // 2./3. slotlar gruba göre bulunur
+    if(!_t3Gorunur(s))return;
+    const kendi=_t3Tarihler(s);
+    if(kendi.length<2)return;
+    const g=[s];
+    ['2','3'].forEach(k=>{const e=document.getElementById(s.id+k);if(e&&_t3Gorunur(e))g.push(e);});
+    // en yeni → en eski (tarih dizgileri sıralanabilir)
+    const sirali=[...new Set(kendi)].sort().reverse();
+    let dolduruldu=false;
+    g.forEach((e,i)=>{
+      const v=sirali[i];if(!v)return;
+      if(![...e.options].some(o=>o.value===v))return;
+      e.value=v;
+      try{e.dispatchEvent(new Event('change',{bubbles:true}));}catch(err){}
+      alan++;dolduruldu=true;
+    });
+    if(dolduruldu)grup++;
+  });
+  if(typeof showToast==='function'){
+    showToast(alan?('📅 '+alan+' tarih alanı son çekilişlerle dolduruldu ('+grup+' blok)')
+                  :'⚠️ Bu sayfada doldurulacak geçmiş test tarihi yok');
+  }
+}
+
+// ═══════════ BASILI TUTARAK KOPYALA (genel) ═══════════
+// Ayrıca elle bağlanmamış her bilet/sayı grubu da 600 ms basılı tutunca kopyalanır.
+let _lpGenTimer=null,_lpGenPt=null;
+function _lpGenSayilar(node){
+  const t=(node.textContent||'').replace(/\s+/g,' ').trim();
+  if(t.length>140)return[];
+  const m=t.match(/(?:^|[\s\-|,·+])(\d{1,2})(?=[\s\-|,·+✓~★●]|$)/g)||[];
+  return m.map(x=>x.replace(/[^\d]/g,'')).filter(x=>x!=='');
+}
+function _lpGenBul(el){
+  let n=el;
+  for(let i=0;i<6&&n&&n!==document.body;i++){
+    if(/^(BUTTON|INPUT|SELECT|TEXTAREA|A|OPTION)$/.test(n.tagName))return null;
+    const nums=_lpGenSayilar(n);
+    if(nums.length>=3&&nums.length<=15)return nums;
+    n=n.parentElement;
+  }
+  return null;
+}
+function _lpGenStart(ev){
+  if(_lpTimer)return;                       // elle bağlanmış lpStart zaten çalışıyor
+  const el=ev.target;
+  if(!el||el.closest('button,input,select,textarea,a'))return;
+  const p=ev.touches&&ev.touches[0]?ev.touches[0]:ev;
+  _lpGenPt={x:p.clientX,y:p.clientY};
+  _lpGenTimer=setTimeout(()=>{
+    _lpGenTimer=null;
+    const nums=_lpGenBul(el);
+    if(!nums)return;
+    const txt=nums.join(' ');
+    try{navigator.clipboard.writeText(txt);}catch(e){}
+    if(typeof showToast==='function')showToast('📋 Kopyalandı: '+txt);
+  },600);
+}
+function _lpGenEnd(){if(_lpGenTimer){clearTimeout(_lpGenTimer);_lpGenTimer=null;}_lpGenPt=null;}
+function _lpGenMove(ev){
+  if(!_lpGenTimer||!_lpGenPt)return;
+  const p=ev.touches&&ev.touches[0]?ev.touches[0]:ev;
+  if(Math.abs(p.clientX-_lpGenPt.x)>10||Math.abs(p.clientY-_lpGenPt.y)>10)_lpGenEnd();
+}
+document.addEventListener('touchstart',_lpGenStart,{passive:true});
+document.addEventListener('touchend',_lpGenEnd,{passive:true});
+document.addEventListener('touchcancel',_lpGenEnd,{passive:true});
+document.addEventListener('touchmove',_lpGenMove,{passive:true});
+document.addEventListener('mousedown',_lpGenStart);
+document.addEventListener('mouseup',_lpGenEnd);
+document.addEventListener('mousemove',_lpGenMove);
+document.addEventListener('scroll',_lpGenEnd,{passive:true,capture:true});
 function _caRenderAll(){
   const el=document.getElementById('caAllOut');if(!el)return;
   const game=getGame(_caGame),prior=_kbGetDraws(_caGame);
@@ -17070,6 +17209,7 @@ function _mpRCopyAll(){
   _mpRCopy(_mpRAllTicketsTxt);
 }
 function _mpRCopyFallback(text){
+  text=_cpFix(text);
   const t=document.createElement('textarea');t.value=text;t.style.position='fixed';t.style.opacity='0';
   document.body.appendChild(t);t.select();try{document.execCommand('copy');showToast('✅ Kopyalandı');}catch(e){}document.body.removeChild(t);
 }
@@ -23826,7 +23966,7 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
   copyLines.push('Son haneler:');
   copyLines.push(rowsData.map(({r,dup,dupOf})=>`${r.label}${r.isBonus?' ★':''}: ${r.lastDigit}`+(dup?` (aynı, bkz. ${dupOf})`:'')).join(' , '));
   copyLines.push('','🎯 Sonuç:'+(netCount!==null?` (${netCount} net)`:''));
-  rowsData.forEach(({dup,found})=>{if(!dup)copyLines.push(found.join(' ')||'(yok)');});
+  copyLines.push(sonucArr.join(' ')||'(yok)');
 
   let h=`<div style="background:rgba(37,99,235,.05);border:1px solid rgba(37,99,235,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:.74rem;font-weight:800;color:#2563eb">🧮 Nihai Sayı Tablosu</div><button onclick="${copyFn}" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(37,99,235,.3);background:rgba(37,99,235,.06);color:#2563eb;cursor:pointer">📋</button></div>`;
@@ -23902,7 +24042,7 @@ function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,note
   copyLines.push('İlk haneler:');
   copyLines.push(rowsData.map(({r,fd,dup,dupOf})=>`${r.label}${r.isBonus?' ★':''}: ${fd}`+(dup?` (aynı, bkz. ${dupOf})`:'')).join(' , '));
   copyLines.push('','🎯 Sonuç:'+(netCount!==null?` (${netCount} net)`:''));
-  rowsData.forEach(({dup,found})=>{if(!dup)copyLines.push(found.join(' ')||'(yok)');});
+  copyLines.push(sonucArr.join(' ')||'(yok)');
 
   let h=`<div style="background:rgba(124,58,237,.05);border:1px solid rgba(124,58,237,.25);border-radius:10px;padding:12px 14px;margin-bottom:12px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:.74rem;font-weight:800;color:#7c3aed">🔢 İlk Hane Tablosu</div><button onclick="${copyFn}" style="font-size:.56rem;padding:2px 8px;border-radius:5px;border:1px solid rgba(124,58,237,.3);background:rgba(124,58,237,.06);color:#7c3aed;cursor:pointer">📋</button></div>`;
