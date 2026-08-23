@@ -1493,6 +1493,23 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="auC1Out"></div>
  </div>
 
+ <!-- ═══ CONTAINER 5 — AI BİLET ═══ -->
+ <div class="card" style="margin-bottom:12px;border:2px solid rgba(16,185,129,.5);background:linear-gradient(135deg,rgba(16,185,129,.06),transparent)">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+   <div class="card-title" style="margin:0" id="auC5Baslik">🧠 Container 5 — AI Bilet</div>
+   <button onclick="_auCopy(5)" class="copy-btn" style="font-size:.64rem;padding:3px 10px">📋 Kopyala</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <span style="font-size:.66rem;color:var(--muted)">Havuz:</span>
+   <select id="auP5" onchange="_auSetP(5,this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+   <span style="font-size:.66rem;color:var(--muted)">Bilet:</span>
+   <select id="auK5" onchange="_auSetK(5,this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="6">6</option><option value="12">12</option><option value="20" selected>20</option><option value="40">40</option><option value="80">80</option><option value="150">150</option>
+   </select>
+  </div>
+  <div id="auC5Out"></div>
+ </div>
+
  <!-- ═══ CONTAINER 3 — BANKO + ROTASYON ═══ -->
  <div class="card" style="margin-bottom:12px;border:2px solid rgba(29,78,216,.4);background:linear-gradient(135deg,rgba(37,99,235,.05),transparent)">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
@@ -25378,7 +25395,7 @@ const _AU_KAYNAKLAR=[
   {id:'uzlasi', ad:'🤝 Uzlaşı — tüm kaynakların füzyonu'},
 ];
 let _auKaynak='fuzyon';
-let _auP={1:null,2:null,3:null,4:null},_auK={1:20,2:60,3:20,4:20};
+let _auP={1:null,2:null,3:null,4:null,5:null},_auK={1:20,2:60,3:20,4:20,5:20};
 let _auBanko=2,_auCekirdek=3;
 let _auData={live:null,t1:null,t2:null,t3:null};
 let _auOlcData=null;
@@ -25399,6 +25416,7 @@ function _auVarP(game,slot){
   if(slot===1)return game.id==='onnumara'?16:Math.min(mx,c+7);
   if(slot===2)return game.id==='onnumara'?12:Math.min(mx,c+2);
   if(slot===3)return game.id==='onnumara'?15:Math.min(mx,c+6);
+  if(slot===5)return game.id==='onnumara'?18:Math.min(mx,c+8);
   return game.id==='onnumara'?20:Math.min(mx,c+10);   // çift havuz daha geniş
 }
 function _auOyun(){return (state&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))?state.selectedGame:'sans';}
@@ -25532,6 +25550,36 @@ function _auTamDemet(havuz,cnt,capK,wMap){
   }).sort((a,b)=>b.s-a.s);
   return {tickets:skorlu.slice(0,capK).map(x=>x.nums),toplam:c.toplam,tam:c.tam&&c.list.length<=capK};
 }
+// 🧠 AI: uygulamadaki tüm analizlerin uzlaşısı → hem havuz hem bilet demeti
+function _auAiHavuzW(game,prior){
+  let W=null;
+  try{const K=_a3Kaynak(game,prior,'tum');if(K&&K.W&&Object.keys(K.W).length)W=_agxNorm(K.W);}catch(e){}
+  if(!W){try{const C=_qtCombineWeights(game,prior,_qtBuildSources(game,prior));W=_agxNorm(C&&C.wMap);}catch(e){}}
+  if(!W)W=_auHavuzW(game,prior,'fuzyon');
+  return W;
+}
+function _auAiDemet(game,prior,havuz,K,hedefNet,wMap){
+  // 1) Uygulamanın en geniş uzlaşı üreteci — tüm analizleri gözden geçirir
+  let ham=[];
+  try{ham=_qtCombinedBundle(game,prior,K)||[];}catch(e){}
+  if(!ham.length){try{ham=_cbGenBundle(game,prior,K)||[];}catch(e){}}
+  const gor=new Set(),tk=[];
+  ham.forEach(t=>{
+    const m=[...new Set(t.main||[])].sort((a,b)=>a-b);
+    if(m.length!==game.count)return;
+    const key=m.join(',');if(gor.has(key))return;gor.add(key);
+    tk.push(m);
+  });
+  // 2) Eksik kalırsa AI uzlaşı havuzu üzerine kapsayan sistemle tamamla
+  if(tk.length<K&&havuz.length>=game.count){
+    const ek=_auKapsayan(havuz,game.count,K*2,hedefNet,wMap);
+    for(const t of ek.tickets){
+      if(tk.length>=K)break;
+      const key=t.join(',');if(gor.has(key))continue;gor.add(key);tk.push(t);
+    }
+  }
+  return {tickets:tk.slice(0,K),kapsam:0,toplam:0,tamSayim:false};
+}
 // Banko + rotasyon: en güçlü B sayı HER bilette sabit, kalan sıralar kapsayan sistemle
 function _auBankoDemet(havuz,cnt,K,bankoAdet,hedefNet,wMap){
   const B=Math.max(0,Math.min(bankoAdet,cnt-1));
@@ -25590,14 +25638,18 @@ function _auUret(game,prior,actual){
   // çift havuz: h4'ün üst yarısı çekirdek, alt yarısı kanat
   const kes=Math.max(_auCekirdek+1,Math.ceil(h4.length*0.4));
   const c4=_auCiftHavuz(h4.slice(0,kes),h4.slice(kes),cnt,_auCekirdek,_auK[4],w);
+  const wAi=_auAiHavuzW(game,prior);
+  const h5=_auTopN(wAi,P(5),game.max);
+  const c5=_auAiDemet(game,prior,h5,_auK[5],H.ust.net,wAi);
   const bonus=_auBonus(game,prior,game.bonusCount>0?3:0);
   const bloklar={
     1:{havuz:h1,tickets:c1.tickets,hedef:H.ust,meta:c1},
     2:{havuz:h2,tickets:c2.tickets,hedef:H.tam,meta:c2},
     3:{havuz:h3,tickets:c3.tickets,hedef:H.ust,meta:c3,banko:c3.banko},
     4:{havuz:h4,tickets:c4.tickets,hedef:H.ust,meta:c4},
+    5:{havuz:h5,tickets:c5.tickets,hedef:H.ust,meta:c5},
   };
-  return {game,actual:actual||null,w,bloklar,havuz1:h1,havuz2:h2,c1,c2,c3,c4,bonus,hedef:H,
+  return {game,actual:actual||null,w,wAi,bloklar,havuz1:h1,havuz2:h2,c1,c2,c3,c4,c5,bonus,hedef:H,
           tarih:actual?actual.date:null};
 }
 
@@ -25779,7 +25831,9 @@ function _auRender(){
   const b3=document.getElementById('auC3Baslik'),b4=document.getElementById('auC4Baslik');
   if(b3)b3.textContent='🔒 Container 3 — Banko + Rotasyon: '+_auHedefMetin(g,'ust');
   if(b4)b4.textContent='🧬 Container 4 — Çift Havuz: '+_auHedefMetin(g,'ust');
-  [1,2,3,4].forEach(_auRenderSlot);
+  const b5=document.getElementById('auC5Baslik');
+  if(b5)b5.textContent='🧠 Container 5 — AI Bilet (tüm analizler): '+_auHedefMetin(g,'ust');
+  [1,2,3,4,5].forEach(_auRenderSlot);
   _auCopyHazirla();
 }
 function _auCopyHazirla(){
@@ -25788,8 +25842,9 @@ function _auCopyHazirla(){
   const bAd=D.bonus||[];
   const jk=i=>bAd.length?(' + '+bAd[i%bAd.length]):'';
   const AD={1:'🎯 Container 1 — Kapsayan Sistem',2:'💎 Container 2 — Tam Sistem',
-            3:'🔒 Container 3 — Banko + Rotasyon',4:'🧬 Container 4 — Çift Havuz'};
-  [1,2,3,4].forEach(sl=>{
+            3:'🔒 Container 3 — Banko + Rotasyon',4:'🧬 Container 4 — Çift Havuz',
+            5:'🧠 Container 5 — AI Bilet (tüm analizler)'};
+  [1,2,3,4,5].forEach(sl=>{
     const B=(D.bloklar||{})[sl];
     window['_auTxt'+sl]=B?(AD[sl]+' ('+g.name+')\nHavuz: '+B.havuz.join(' ')+'\n'
       +B.tickets.map((t,i)=>t.join(' ')+jk(i)).join('\n')):'';
@@ -25798,7 +25853,7 @@ function _auCopyHazirla(){
 function _auCopy(slot){_auCopyHazirla();_caCopy(window['_auTxt'+slot]||'');
   if(typeof showToast==='function')showToast('📋 Kopyalandı');}
 function _auCopyAll(){_auCopyHazirla();
-  _caCopy([1,2,3,4].map(i=>window['_auTxt'+i]||'').filter(Boolean).join('\n\n'));
+  _caCopy([1,2,3,4,5].map(i=>window['_auTxt'+i]||'').filter(Boolean).join('\n\n'));
   if(typeof showToast==='function')showToast('📋 Kopyalandı');}
 
 // ── Kontroller ──
@@ -25807,7 +25862,7 @@ function _auSetP(slot,v){_auP[slot]=+v||null;_auData={live:null,t1:null,t2:null,
 function _auSetK(slot,v){_auK[slot]=+v||20;_auData={live:null,t1:null,t2:null,t3:null};_auRender();}
 function _auPOptions(){
   const g=getGame(_auOyun());if(!g)return;
-  [1,2,3,4].forEach(slot=>{
+  [1,2,3,4,5].forEach(slot=>{
     const el=document.getElementById('auP'+slot);if(!el)return;
     const varsayilan=_auVarP(g,slot);
     const lo=slot===2?g.count:g.count+2;
@@ -25961,8 +26016,8 @@ function _oyunYay(gid,kaynak){
     // Yalnızca gerçekten BAŞKA bir oyunun sonuçları duruyorsa temizle — geç boşalan
     // kuyruk, bu arada üretilmiş taze sonuçları silmesin.
     const mevcut=(_auData&&_auData.live&&_auData.live.game)?_auData.live.game.id:null;
-    if(mevcut&&mevcut!==gid){_auData={live:null,t1:null,t2:null,t3:null};_auP={1:null,2:null,3:null,4:null};}
-    else if(!mevcut)_auP={1:null,2:null,3:null,4:null};
+    if(mevcut&&mevcut!==gid){_auData={live:null,t1:null,t2:null,t3:null};_auP={1:null,2:null,3:null,4:null,5:null};}
+    else if(!mevcut)_auP={1:null,2:null,3:null,4:null,5:null};
     if(_curPage==='agresifust')_auInit();
   }catch(e){}});
   isler.push(()=>{if(typeof _listelerGame!=='undefined'&&_listelerGame!==gid){
