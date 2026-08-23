@@ -25506,7 +25506,7 @@ function _auCip(n,aSet,vurgu,yakSet,ti,pi){
   const renk=net?'var(--green)':yak?'#c2410c':'var(--text)';
   const kenar=net?'rgba(0,200,100,.55)':yak?'rgba(244,114,63,.5)':'var(--border)';
   const zemin=net?'rgba(0,230,118,.1)':yak?'rgba(244,114,63,.09)':(vurgu?'rgba(190,24,93,.09)':'var(--surface2)');
-  const konum=(ti!=null&&pi!=null)?` data-ti="${ti}" data-pi="${pi}" data-net="${net?1:0}"`:'';
+  const konum=(ti!=null&&pi!=null)?` data-ti="${ti}" data-pi="${pi}" data-net="${net?1:0}" data-hit="${(net||yak)?1:0}"`:'';
   return `<span${konum} style="font-family:monospace;font-size:.78rem;font-weight:${net||yak?800:600};color:${renk};background:${zemin};border:1px solid ${kenar};border-radius:6px;padding:1px 7px">${n}${net?'✓':yak?'~':''}</span>`;
 }
 // Joker/süperstar çipi — biletin kendi bonusu
@@ -25516,7 +25516,7 @@ function _auJokerCip(j,bSet,yakB,ti,pi){
   const yak=!net&&yakB&&yakB.has(j);
   const renk=net?'var(--green)':yak?'#c2410c':'#2563eb';
   const kenar=net?'rgba(0,200,100,.6)':yak?'rgba(244,114,63,.5)':'rgba(37,99,235,.45)';
-  const konum=(ti!=null&&pi!=null)?` data-ti="${ti}" data-pi="${pi}" data-net="${net?1:0}"`:'';
+  const konum=(ti!=null&&pi!=null)?` data-ti="${ti}" data-pi="${pi}" data-net="${net?1:0}" data-hit="${(net||yak)?1:0}"`:'';
   return `<span style="font-size:.55rem;color:var(--muted);margin:0 1px">+</span>`
     +`<span${konum} style="font-family:monospace;font-size:.78rem;font-weight:800;color:${renk};background:${net?'rgba(0,230,118,.12)':yak?'rgba(244,114,63,.09)':'rgba(37,99,235,.08)'};border:1px solid ${kenar};border-radius:6px;padding:1px 7px">${j}${net?'✓':yak?'~':''}</span>`;
 }
@@ -25590,12 +25590,16 @@ function _auKonumEsle(out){
   Object.keys(yeni).forEach(k=>{
     const hucreler=testler.map(t=>t[k]);
     if(hucreler.some(x=>!x))return;
-    if(!hucreler.every(x=>x.dataset.net==='1'))return;
+    // NET ya da ±1 YAKIN — ikisi de tutma sayılır
+    if(!hucreler.every(x=>x.dataset.hit==='1'))return;
+    const hepsiNet=hucreler.every(x=>x.dataset.net==='1');
     [yeni[k],...hucreler].forEach(el=>{
       el.style.border='2px solid #111';el.style.borderRadius='6px';
       el.style.boxShadow='0 0 0 1px rgba(0,0,0,.12)';el.style.fontWeight='800';
     });
-    yeni[k].title='Açık geçmiş testlerin hepsinde aynı bilette, aynı sırada NET tuttu';
+    yeni[k].title=hepsiNet
+      ?'Açık geçmiş testlerin hepsinde aynı bilette, aynı sırada NET tuttu'
+      :'Açık geçmiş testlerin hepsinde aynı bilette, aynı sırada net ya da ±1 yakın tuttu';
     n++;
   });
   return n;
