@@ -372,6 +372,10 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   #qtHdrRow,#btsHdrRow{display:none !important}
 }
 @media(max-width:600px){#mrGrid{grid-template-columns:minmax(0,1fr) !important;}}
+/* Oyun seçimi artık menü altındaki tek global satırdan yapılır —
+   sayfa içindeki eski oyun seçici satırları gizlenir (kronoloji FİLTRESİ hariç). */
+#fmGameRow,#nnGameRow,#npGameRow,#caGameRow,#cbGameRow,#niGameRow,#g0GameRow,
+#agGameRow,#hyGameRow,#btsGameRow,#qtGameRow,#mrGameRow,#snGameRow,#f2GameRow{display:none!important}
 </style>
 </head>
 <body>
@@ -401,9 +405,12 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
 </nav>
 
-<div id="tarih3Bar" style="max-width:1700px;margin:0 auto;padding:4px 12px 0;display:flex;justify-content:flex-end">
+<div id="globalOyunBar" style="max-width:1700px;margin:0 auto;padding:5px 12px 0;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+  <div id="globalOyunRow" style="display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0"></div>
+  <button onclick="_globalVeriKontrol()" id="globalVeriBtn" title="Seçili oyunun çekiliş verileri güncel mi? Kaynaktan kontrol et"
+    style="font-size:.8rem;line-height:1;padding:5px 10px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;flex-shrink:0">🔄</button>
   <button onclick="_t3Doldur()" title="Bu sayfadaki geçmiş test tarihlerini son 3 çekilişle (yeniden eskiye) doldurur"
-    style="font-size:.66rem;font-weight:700;padding:4px 12px;border-radius:7px;border:1px solid rgba(0,150,58,.35);background:rgba(0,150,58,.09);color:var(--text);cursor:pointer">📅 Son 3 çekilişi doldur</button>
+    style="font-size:.66rem;font-weight:700;padding:5px 12px;border-radius:7px;border:1px solid rgba(0,150,58,.35);background:rgba(0,150,58,.09);color:var(--text);cursor:pointer;flex-shrink:0">📅 Son 3 çekilişi doldur</button>
 </div>
 
 <div class="app">
@@ -822,10 +829,10 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <!-- Yeni Tahmin sütunu (sabit, her zaman görünür) -->
     <div class="listeler-col listeler-col-new" style="min-width:150px;position:sticky;left:0;z-index:2">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:4px">
-        <span style="font-size:.68rem;font-weight:700;color:var(--accent);white-space:nowrap">🎯 Yeni Tahmin</span>
+        <span id="listelerNewPredTitle" style="font-size:.68rem;font-weight:700;color:var(--accent);white-space:nowrap">🎯 Yeni Tahmin</span>
         <button onclick="listelerKontrol()" style="font-size:.62rem;padding:3px 8px;border-radius:6px;border:1px solid rgba(229,57,53,.4);background:rgba(229,57,53,.1);color:#ef9a9a;cursor:pointer;white-space:nowrap">🔍 Kontrol</button>
       </div>
-      <div style="font-size:.58rem;margin-bottom:5px;visibility:hidden">—</div>
+      <div id="listelerBazBar" style="font-size:.55rem;margin-bottom:5px;line-height:1.4;color:var(--muted)">—</div>
       <div id="listelerNewPredTickets" class="listeler-tickets" style="min-height:60px">
         <div style="font-size:.65rem;color:var(--muted);padding:16px 0;text-align:center;line-height:1.6">Yeni tahmin için<br>butona basın.</div>
       </div>
@@ -13703,6 +13710,10 @@ let _listelerGame=null;
 let _listelerNewPred=null;
 let _listelerHistory=[];
 let _listelerRedKeys=new Set();
+// Geçmiş test bazı: bir geçmiş sütununun 🔍 Kontrol'üne basılınca o tarih
+// "en güncel" kabul edilir; üstteki Yeni Tahmin sütunu o tarihten ÖNCEKİ verilerle
+// yeniden kurulur ve o tarihin gerçek sonucuna göre işaretlenir.
+let _listelerBazDate=null,_listelerBazActual=null,_listelerGreenKeys=new Set();
 let _lScrollLock=false;
 function _listelerAttachScrollSync(){
   document.querySelectorAll('.listeler-tickets').forEach(el=>{
@@ -13849,15 +13860,20 @@ function listelerVeriDurumu(){
   configCard.insertAdjacentHTML('beforeend',html);
 }
 
-function _listelerNewPredCore(gameId,algoId,win,n){
+function _listelerNewPredCore(gameId,algoId,win,n,bazDate){
   const game=getGame(gameId);if(!game)return null;
   const draws=_scanGetDraws(gameId);
   if(!draws.length)return null;
-  const prior=win==='all'?draws:draws.slice(0,Math.min(parseInt(win),draws.length));
+  // bazDate verilirse o tarih "en güncel çekiliş" kabul edilir: tahmin YALNIZCA
+  // o tarihten ÖNCEKİ verilerle kurulur (lookahead yok).
+  let kaynak=draws;
+  if(bazDate)kaynak=draws.filter(d=>d.date<bazDate);
+  if(!kaynak.length)return null;
+  const prior=win==='all'?kaynak:kaynak.slice(0,Math.min(parseInt(win),kaynak.length));
   const freq=buildFreq(prior);
   const tickets=Array.from({length:n},()=>generateNumbers(game,algoId,freq,prior));
   tickets.sort((a,b)=>calcTicketScore(b,game)-calcTicketScore(a,game));
-  _listelerNewPred={tickets,game,algoId};
+  _listelerNewPred={tickets,game,algoId,bazDate:bazDate||null};
   _listelerRedKeys=new Set();
   return _listelerNewPred;
 }
@@ -13873,7 +13889,8 @@ function listelerRunNewPred(){
 }
 
 function _listelerRecompute(){
-  const checked=_listelerHistory.filter(h=>h.checked);
+  // Baz tarih seçiliyse, o tarihten SONRAKİ sütunlar bilgi sızdırır — dışarıda bırakılır.
+  const checked=_listelerHistory.filter(h=>h.checked&&(!_listelerBazDate||h.date<_listelerBazDate));
   if(checked.length<2){_listelerRedKeys=new Set();return;}
   // Count how many checked columns each POSITION ti-pi was green (matched actual)
   const cnt={};
@@ -13894,8 +13911,38 @@ function listelerRemoveCol(id){
   _renderListelerCols();
 }
 
+// Geçmiş sütunun 🔍 Kontrol'ü: o tarihi "en güncel" kabul et, üstteki tahmini
+// yalnızca ondan ÖNCEKİ verilerle yeniden kur ve gerçek sonucuna göre işaretle.
+function listelerKontrolTarih(id){
+  const col=_listelerHistory.find(h=>h.id===id);
+  if(!col){showToast('⚠️ Sütun bulunamadı');return;}
+  const algoId=document.getElementById('listelerAlgo')?.value||col.algoId||state.selectedAlgo;
+  const win=document.getElementById('listelerWindow')?.value||'30';
+  const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||2000));
+  const res=_listelerNewPredCore(col.game.id,algoId,win,n,col.date);
+  if(!res){showToast('⚠️ Bu tarihten önce yeterli veri yok');return;}
+  _listelerBazDate=col.date;_listelerBazActual=col.actual||null;
+  showToast('📌 Baz: '+col.date+' — tahmin bu tarihten önceki verilerle kuruldu');
+  listelerKontrol();
+}
+function listelerBazTemizle(){
+  _listelerBazDate=null;_listelerBazActual=null;_listelerGreenKeys=new Set();
+  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
+  const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
+  const win=document.getElementById('listelerWindow')?.value||'30';
+  const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||2000));
+  if(_listelerNewPred)_listelerNewPredCore(gameId,algoId,win,n,null);
+  listelerKontrol();
+}
 function listelerKontrol(){
   if(!_listelerNewPred){showToast('⚠️ Önce yeni tahmin yapın');return;}
+  // Baz tarih seçiliyse üstteki tahmin o çekilişin gerçek sonucuna göre işaretlenir
+  _listelerGreenKeys=new Set();
+  if(_listelerBazActual){
+    const aSet=new Set([...(_listelerBazActual.nums||[]),...(_listelerBazActual.bonus||[])]);
+    _listelerNewPred.tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
+      if(aSet.has(num))_listelerGreenKeys.add(`${ti}-${pi}`);}));
+  }
   _listelerRecompute();
   _renderListelerNewPred();
   // Bulunan sayılar — sol: kırmızı hücrelerden sayılar
@@ -13909,14 +13956,13 @@ function listelerKontrol(){
       if(!_seen.has(num)){_seen.add(num);numOrder.push(num);}
     }
   }));
-  const sorted=numOrder.map(n=>[String(n),numCnt[n]]);
   let leftHtml='';
-  if(!sorted.length){
+  if(!numOrder.length){
     leftHtml='<div style="font-size:.72rem;color:var(--muted)">Kırmızı hücre bulunamadı — önce geçmiş sütunları ekleyin ve checkbox işaretleyin.</div>';
   } else {
     leftHtml='<div style="display:flex;flex-wrap:wrap;gap:6px">';
-    sorted.forEach(([num,cnt])=>{
-      leftHtml+=`<span style="font-size:.78rem;font-weight:700;color:var(--text);background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.35);padding:4px 10px;border-radius:8px">${num}${cnt>1?` <span style="font-size:.6rem;color:var(--muted);font-weight:400">(${cnt}×)</span>`:''}</span>`;
+    numOrder.forEach(num=>{
+      leftHtml+=`<span style="font-size:.78rem;font-weight:700;color:var(--text);background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.35);padding:4px 10px;border-radius:8px">${num}</span>`;
     });
     leftHtml+='</div>';
   }
@@ -13963,12 +14009,34 @@ function _renderListelerNewPred(){
     const nums=[...t.main,...t.bonus];
     html+=`<div class="lrow"><div class="lrow-num">${ti+1}</div>`;
     nums.forEach((n,pi)=>{
-      const cls=_listelerRedKeys.has(`${ti}-${pi}`)?'lcell l-red':'lcell';
+      const key=`${ti}-${pi}`;
+      const isRed=_listelerRedKeys.has(key);
+      const isGreen=_listelerGreenKeys.has(key);
+      const cls='lcell'+(isRed?' l-red':isGreen?' l-green':'');
       html+=`<div class="${cls}">${n}</div>`;
     });
     html+='</div>';
   });
   container.innerHTML=html;
+  // Baz tarih bilgisi + o tarihin tutma durumu
+  const bar=document.getElementById('listelerBazBar');
+  const ttl=document.getElementById('listelerNewPredTitle');
+  if(ttl)ttl.textContent=_listelerBazDate?('🎯 Tahmin — baz '+_listelerBazDate):'🎯 Yeni Tahmin';
+  if(bar){
+    if(_listelerBazDate){
+      let ozet='';
+      if(_listelerBazActual){
+        const aNums=[...(_listelerBazActual.nums||[]),...(_listelerBazActual.bonus||[])];
+        const satirNet=tickets.map((t,ti)=>[...t.main,...t.bonus]
+          .reduce((c,_,pi)=>c+(_listelerGreenKeys.has(`${ti}-${pi}`)?1:0),0));
+        const enIyi=satirNet.length?Math.max(...satirNet):0;
+        const tutan=satirNet.filter(x=>x>0).length;
+        ozet=`<div style="color:var(--green);font-weight:700">🎯 ${_listelerBazDate}: ${aNums.join(' ')}</div>`
+            +`<div>en iyi bilet <strong style="color:var(--green)">${enIyi} net</strong> · ${tutan}/${satirNet.length} bilette en az 1 net</div>`;
+      }else ozet='<div>Bu tarihin gerçek sonucu yok.</div>';
+      bar.innerHTML=ozet+`<button onclick="listelerBazTemizle()" style="margin-top:3px;font-size:.55rem;padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">↩ En güncele dön</button>`;
+    }else bar.innerHTML='<span style="visibility:hidden">—</span>';
+  }
   _listelerAttachScrollSync();
 }
 
@@ -13984,6 +14052,8 @@ function _renderListelerCols(){
     let hdr=`<div style="display:flex;align-items:center;gap:4px;margin-bottom:6px">`;
     hdr+=`<input type="checkbox" ${col.checked?'checked':''} onchange="listelerToggleCheck('${col.id}')" style="cursor:pointer;flex-shrink:0">`;
     hdr+=`<span style="font-size:.62rem;color:var(--text);font-weight:700;flex:1">${col.date}</span>`;
+    const bazAktif=_listelerBazDate===col.date;
+    hdr+=`<button onclick="listelerKontrolTarih('${col.id}')" title="Bu tarihi 'en güncel' kabul et — üstteki tahmini bu tarihten önceki verilerle yeniden kur ve sonucuna göre işaretle" style="font-size:.55rem;padding:2px 6px;border-radius:5px;border:1px solid ${bazAktif?'rgba(0,230,118,.55)':'rgba(229,57,53,.4)'};background:${bazAktif?'rgba(0,230,118,.14)':'rgba(229,57,53,.1)'};color:${bazAktif?'var(--green)':'#ef9a9a'};cursor:pointer;flex-shrink:0;white-space:nowrap">🔍</button>`;
     hdr+=`<button onclick="listelerRemoveCol('${col.id}')" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:.82rem;padding:0 2px;line-height:1;flex-shrink:0">✕</button>`;
     hdr+=`</div>`;
     if(actualNums.length){
@@ -14007,6 +14077,7 @@ function _renderListelerCols(){
       });
       tickHtml+='</div>';
     });
+    if(_listelerBazDate&&col.date>=_listelerBazDate&&col.date!==_listelerBazDate)div.style.opacity='.45';
     div.innerHTML=hdr+`<div class="listeler-tickets">${tickHtml}</div>`;
     container.appendChild(div);
   });
@@ -14019,6 +14090,7 @@ function listelerClearAll(){
   _listelerHistory=[];
   _listelerNewPred=null;
   _listelerRedKeys=new Set();
+  _listelerBazDate=null;_listelerBazActual=null;_listelerGreenKeys=new Set();
   document.getElementById('listelerBulundu').style.display='none';
   _renderListelerCols();
   _renderListelerNewPred();
@@ -14164,7 +14236,7 @@ function listelerCopyBulundu(){
         if(!_s2.has(num)){_s2.add(num);redNums.push(num);}
       }
     }));
-    lines.push(`🔴 Kırmızı Hücreler: ${redNums.length?redNums.map(n=>n+(numCnt[n]>1?`(${numCnt[n]}×)`:'')).join(' '):'—'}`);
+    lines.push(`🔴 Kırmızı Hücreler: ${redNums.length?redNums.join(' '):'—'}`);
   }
   // Ortak sayılar
   if(window._ortakCopyText){
@@ -14184,7 +14256,7 @@ function listelerCopyKirmizi(){
       if(!_s2.has(num)){_s2.add(num);redNums.push(num);}
     }
   }));
-  const text=redNums.length?redNums.map(n=>n+(numCnt[n]>1?`(${numCnt[n]}×)`:'')).join(' '):'—';
+  const text=redNums.length?redNums.join(' '):'—';
   navigator.clipboard.writeText(text).then(()=>showToast('📋 Kopyalandı')).catch(()=>showToast('Kopyalanamadı'));
 }
 
@@ -21620,9 +21692,6 @@ function _a3Init(pfx){
   const kok=document.getElementById(pfx+'Root');if(!kok)return;
   const B=_A3_BLOKLAR[pfx];if(!B)return;
   const gid=_a3Oyun(pfx);
-  const row=document.getElementById(pfx+'GameRow');
-  if(row)row.innerHTML=GAMES.map(g=>{const a=g.id===gid;
-    return `<button onclick="_a3SetOyun('${pfx}','${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(16,185,129,.7)':'var(--border)'};background:${a?'rgba(16,185,129,.14)':'var(--surface2)'};color:${a?'#0a9a6a':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
   _a3Dates(pfx);
   _a3Run(pfx);
 }
@@ -21775,7 +21844,6 @@ function _a3Mount(pfx,kind,baslik,aciklama){
     <br><strong style="color:var(--text)">Nasıl kurulur:</strong> önce kaynaklar tek ağırlığa indirgenir, sonra <strong>insan mantığı katmanı</strong> devreye girer — onluk profili, tek/çift dengesi, toplam bandı, ardışık ikili, uç/orta dağılımı ve son çekilişten tekrar. Bu kurallar uydurma değil, son çekilişlerden ölçülür. Üç bilet birbirinin kopyası değildir: <strong>uzlaşı çekirdeği</strong>, <strong>yapı/denge</strong> ve <strong>gecikme/aykırı</strong>. Her biletin altında "🧠 Neden bu sayılar?" ile gerekçeler tek tek yazılır.
     <br><span style="color:#8a6200">⚠️ Hedef 3+ net; ama hiçbir yöntem bunu garanti edemez. Aşağıdaki <strong>ölçüm</strong> düğmesi gerçekte ne olduğunu şans tabanıyla yan yana gösterir.</span>
    </div>
-   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="${pfx}GameRow"></div>
    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
     <button onclick="_a3Run('${pfx}')" style="flex:1;min-width:180px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(16,185,129,.92),rgba(5,150,105,.8));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:800">🎯 3 Bilet Üret</button>
     <button onclick="_caCopy(window['_a3Txt_${pfx}']||'')" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Kopyala</button>
@@ -25263,6 +25331,22 @@ const _OYUN_SETTERS=['selectGame','_kbSetGame','_hbSetGame','_niSetGame','_caSet
   '_nnSetGame','_cbSetGame','_mpRSetGame','_kazananSetGame','_soSetGame','_mrSetGame','_snSetGame',
   '_qtSetGame','_agSetGame','_hySetGame','_fmSetGame','_f2SetGame','_htSetGame','_gsSetGame',
   '_g0SetGame','_gizliSetGame'];
+// ── Menü altı global oyun çubuğu ──
+function _globalOyunRender(){
+  const row=document.getElementById('globalOyunRow');if(!row)return;
+  const gid=(state&&state.selectedGame)||GAMES[0].id;
+  row.innerHTML=GAMES.map(g=>{const a=g.id===gid;
+    return `<button onclick="_globalOyunSec('${g.id}')" style="font-size:.7rem;padding:4px 11px;border-radius:8px;border:1px solid ${a?'rgba(16,185,129,.7)':'var(--border)'};background:${a?'rgba(16,185,129,.14)':'var(--surface2)'};color:${a?'#0a9a6a':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
+}
+function _globalOyunSec(gid){
+  if(!_oyunGecerli(gid))return;
+  try{state.selectedGame=gid;}catch(e){}
+  _globalOyunRender();
+  _oyunYay(gid,null);
+}
+function _globalVeriKontrol(){
+  try{loadBtHistory(true);}catch(e){if(typeof showToast==='function')showToast('⚠️ Veri kontrolü başlatılamadı');}
+}
 let _oyunYayilim=false,_oyunToken=0;
 function _oyunGecerli(gid){return !!(gid&&typeof GAMES!=='undefined'&&GAMES.some(g=>g.id===gid));}
 function _oyunYay(gid,kaynak){
@@ -25271,6 +25355,7 @@ function _oyunYay(gid,kaynak){
   const tk=++_oyunToken;
   try{state.selectedGame=gid;}catch(e){}
   try{localStorage.setItem('_oyunSecimGlobal',gid);}catch(e){}
+  try{_globalOyunRender();}catch(e){}
   // Kaynak sayfa zaten güncellendi; kalan seçiciler UI'yı kilitlememek için
   // 25 ms'lik dilimler halinde, sırayla çalıştırılır.
   const isler=[];
@@ -25293,6 +25378,8 @@ function _oyunYay(gid,kaynak){
   setTimeout(calis,0);
 }
 // Seçici fonksiyonları sarmala (function bildirimleri global olduğundan yeniden atanabilir)
+try{_globalOyunRender();}catch(e){}
+setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
 (function _oyunSarmala(){
   _OYUN_SETTERS.forEach(ad=>{
     const f=window[ad];
