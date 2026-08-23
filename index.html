@@ -25471,44 +25471,78 @@ function _auUret(game,prior,actual){
 }
 
 // ── Bir demetin gerçek sonuca göre ölçümü ──
-function _auOlcDemet(tickets,aSet,bSet,bonusAdaylar,hedef){
-  let enIyi=0,tutan=0;
-  tickets.forEach(t=>{
+// ±1 yakın küme: çekilen sayıların komşuları (çekilenlerin kendisi hariç)
+function _auYakinSet(aSet,max){
+  const y=new Set();
+  if(!aSet)return y;
+  aSet.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=max&&!aSet.has(x))y.add(x);});});
+  return y;
+}
+function _auOlcDemet(tickets,aSet,bSet,bonusAdaylar,hedef,yakSet,jokerFn){
+  let enIyi=0,enIyiYak=0,tutan=0,yakTop=0,jokerTutan=0;
+  tickets.forEach((t,i)=>{
     const net=t.filter(n=>aSet.has(n)).length;
-    if(net>enIyi)enIyi=net;
-    if(net>=hedef.net)tutan++;
+    const yak=yakSet?t.filter(n=>yakSet.has(n)).length:0;
+    yakTop+=yak;
+    if(net>enIyi||(net===enIyi&&yak>enIyiYak)){enIyi=net;enIyiYak=yak;}
+    const jk=jokerFn?jokerFn(i):null;
+    const jkTut=hedef.bonus?(jk!=null&&bSet&&bSet.has(jk)):true;
+    if(jkTut&&hedef.bonus)jokerTutan++;
+    if(net>=hedef.net&&jkTut)tutan++;
   });
   const bonusTut=hedef.bonus?(bonusAdaylar||[]).some(n=>bSet&&bSet.has(n)):true;
-  return {enIyi,tutan,bonusTut,hedefTut:tutan>0&&bonusTut};
+  return {enIyi,enIyiYak,tutan,yakTop,jokerTutan,bonusTut,hedefTut:tutan>0};
 }
-function _auHavuzOlc(havuz,aSet,cnt){
+function _auHavuzOlc(havuz,aSet,cnt,yakSet){
   const icinde=havuz.filter(n=>aSet.has(n)).length;
-  return {icinde,yeterli:icinde>=cnt};
+  const yakin=yakSet?havuz.filter(n=>yakSet.has(n)).length:0;
+  return {icinde,yakin,yeterli:icinde>=cnt};
 }
 
 // ── Render ──
-function _auCip(n,aSet,vurgu){
+function _auCip(n,aSet,vurgu,yakSet){
   const net=aSet&&aSet.has(n);
-  return `<span style="font-family:monospace;font-size:.78rem;font-weight:${net?800:600};color:${net?'var(--green)':'var(--text)'};background:${vurgu?'rgba(190,24,93,.09)':'var(--surface2)'};border:1px solid ${net?'rgba(0,200,100,.55)':'var(--border)'};border-radius:6px;padding:1px 7px">${n}${net?'✓':''}</span>`;
+  const yak=!net&&yakSet&&yakSet.has(n);
+  const renk=net?'var(--green)':yak?'#c2410c':'var(--text)';
+  const kenar=net?'rgba(0,200,100,.55)':yak?'rgba(244,114,63,.5)':'var(--border)';
+  const zemin=net?'rgba(0,230,118,.1)':yak?'rgba(244,114,63,.09)':(vurgu?'rgba(190,24,93,.09)':'var(--surface2)');
+  return `<span style="font-family:monospace;font-size:.78rem;font-weight:${net||yak?800:600};color:${renk};background:${zemin};border:1px solid ${kenar};border-radius:6px;padding:1px 7px">${n}${net?'✓':yak?'~':''}</span>`;
 }
-function _auBiletHtml(t,aSet,hedef,i){
+// Joker/süperstar çipi — biletin kendi bonusu
+function _auJokerCip(j,bSet,yakB){
+  if(j==null)return '';
+  const net=bSet&&bSet.has(j);
+  const yak=!net&&yakB&&yakB.has(j);
+  const renk=net?'var(--green)':yak?'#c2410c':'#2563eb';
+  const kenar=net?'rgba(0,200,100,.6)':yak?'rgba(244,114,63,.5)':'rgba(37,99,235,.45)';
+  return `<span style="font-size:.55rem;color:var(--muted);margin:0 1px">+</span>`
+    +`<span style="font-family:monospace;font-size:.78rem;font-weight:800;color:${renk};background:${net?'rgba(0,230,118,.12)':yak?'rgba(244,114,63,.09)':'rgba(37,99,235,.08)'};border:1px solid ${kenar};border-radius:6px;padding:1px 7px">${j}${net?'✓':yak?'~':''}</span>`;
+}
+function _auBiletHtml(t,aSet,hedef,i,yakSet,j,bSet,yakB){
   const net=t.filter(n=>aSet&&aSet.has(n)).length;
-  const tut=aSet&&net>=hedef.net;
+  const yak=yakSet?t.filter(n=>yakSet.has(n)).length:0;
+  const jTut=hedef.bonus?(j!=null&&bSet&&bSet.has(j)):true;
+  const tut=aSet&&net>=hedef.net&&jTut;
   return `<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:3px 5px;border-radius:7px;${tut?'background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.45)':''}">`
     +`<span style="font-size:.55rem;color:var(--muted);min-width:22px">#${i+1}</span>`
-    +t.map(n=>_auCip(n,aSet)).join('')
-    +(aSet?`<span style="font-size:.58rem;font-weight:800;color:${tut?'var(--green)':'var(--muted)'};margin-left:auto">${net} net${tut?' ✅':''}</span>`:'')
+    +t.map(n=>_auCip(n,aSet,false,yakSet)).join('')
+    +_auJokerCip(j,bSet,yakB)
+    +(aSet?`<span style="font-size:.58rem;font-weight:800;color:${tut?'var(--green)':net?'var(--text)':'var(--muted)'};margin-left:auto">${net} net${yak?` · <span style="color:#c2410c">${yak} yakın</span>`:''}${hedef.bonus?(jTut?' · <span style="color:var(--green)">joker✓</span>':''):''}${tut?' ✅':''}</span>`:'')
     +`</div>`;
 }
 function _auSutun(D,slot){
   if(!D)return '<div style="font-size:.7rem;color:var(--muted)">—</div>';
   const g=D.game,aSet=D.actual?new Set([...(D.actual.nums||[])]):null;
   const bSet=D.actual?new Set([...(D.actual.bonus||[])]):null;
+  const yakSet=aSet?_auYakinSet(aSet,g.max):null;
+  const yakB=bSet?_auYakinSet(bSet,g.bonusMax||g.max):null;
   const H=D.hedef,hedef=slot===1?H.ust:H.tam;
   const tk=slot===1?D.c1.tickets:D.c2.tickets;
   const havuz=slot===1?D.havuz1:D.havuz2;
-  const hOlc=aSet?_auHavuzOlc(havuz,aSet,g.count):null;
-  const dOlc=aSet?_auOlcDemet(tk,aSet,bSet,D.bonus,hedef):null;
+  const bAd=D.bonus||[];
+  const jokerFn=i=>(H.ust.bonus&&bAd.length)?bAd[i%bAd.length]:null;
+  const hOlc=aSet?_auHavuzOlc(havuz,aSet,g.count,yakSet):null;
+  const dOlc=aSet?_auOlcDemet(tk,aSet,bSet,bAd,hedef,yakSet,jokerFn):null;
   let h='';
   h+=`<div style="font-size:.62rem;font-weight:800;color:${D.actual?'var(--green)':'var(--accent)'};margin-bottom:5px">`
     +(D.actual?`🎯 ${D.actual.date} — ${[...(D.actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(D.actual.bonus&&D.actual.bonus.length)?' + '+D.actual.bonus.join(' '):''}`
@@ -25516,26 +25550,26 @@ function _auSutun(D,slot){
   // havuz
   h+=`<div style="padding:6px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">`
     +`<div style="font-size:.55rem;color:var(--muted);margin-bottom:4px">Havuz (${havuz.length} sayı)`
-    +(hOlc?` — <strong style="color:${hOlc.yeterli?'var(--green)':'var(--muted)'}">${hOlc.icinde} net içerdi</strong>${hOlc.yeterli?' ✅ hedef için yeterliydi':` (hedef için ${g.count} gerekiyordu)`}`:'')
-    +`</div><div style="display:flex;gap:3px;flex-wrap:wrap">`+havuz.map(n=>_auCip(n,aSet,true)).join('')+`</div></div>`;
+    +(hOlc?` — <strong style="color:${hOlc.yeterli?'var(--green)':'var(--muted)'}">${hOlc.icinde} net</strong>${hOlc.yakin?` · <strong style="color:#c2410c">${hOlc.yakin} yakın</strong>`:''}${hOlc.yeterli?' ✅':` (hedef için ${g.count} gerekiyordu)`}`:'')
+    +`</div><div style="display:flex;gap:3px;flex-wrap:wrap">`+havuz.map(n=>_auCip(n,aSet,true,yakSet)).join('')+`</div></div>`;
   // bonus
   if(H.ust.bonus){
-    const bAd=D.bonus||[];
     const bTut=bSet&&bAd.some(n=>bSet.has(n));
     h+=`<div style="font-size:.56rem;margin-bottom:6px;color:var(--muted)">${g.id==='sans'?'Joker':'Süperstar'} adayları: `
-      +bAd.map(n=>`<strong style="color:${bSet&&bSet.has(n)?'var(--green)':'var(--text)'}">${n}${bSet&&bSet.has(n)?'✓':''}</strong>`).join(' ')
+      +bAd.map(n=>{const nt=bSet&&bSet.has(n),yk=!nt&&yakB&&yakB.has(n);
+        return `<strong style="color:${nt?'var(--green)':yk?'#c2410c':'var(--text)'}">${n}${nt?'✓':yk?'~':''}</strong>`;}).join(' ')
       +(bSet?` — ${bTut?'<span style="color:var(--green);font-weight:800">tuttu ✅</span>':'tutmadı'}`:'')+`</div>`;
   }
   // biletler
   if(!tk.length)h+=`<div style="font-size:.66rem;color:var(--muted)">Bilet üretilemedi (havuz oyunun sayı adedinden küçük).</div>`;
   else{
     h+=`<div style="display:flex;flex-direction:column;gap:2px;max-height:340px;overflow-y:auto">`
-      +tk.map((t,i)=>_auBiletHtml(t,aSet,hedef,i)).join('')+`</div>`;
+      +tk.map((t,i)=>_auBiletHtml(t,aSet,hedef,i,yakSet,jokerFn(i),bSet,yakB)).join('')+`</div>`;
   }
   if(dOlc){
     h+=`<div style="margin-top:6px;padding:6px 8px;border-radius:8px;background:${dOlc.hedefTut?'rgba(0,230,118,.14)':'var(--surface2)'};border:1px solid ${dOlc.hedefTut?'rgba(0,230,118,.5)':'var(--border)'};font-size:.58rem;font-weight:700;color:${dOlc.hedefTut?'var(--green)':'var(--muted)'}">`
-      +`En iyi bilet: ${dOlc.enIyi} net · hedefi (${hedef.net} net) tutturan bilet: ${dOlc.tutan}`
-      +(hedef.bonus?` · ${g.id==='sans'?'joker':'süperstar'}: ${dOlc.bonusTut?'tuttu':'tutmadı'}`:'')
+      +`En iyi bilet: ${dOlc.enIyi} net${dOlc.enIyiYak?` · ${dOlc.enIyiYak} yakın`:''} · hedefi (${_auHedefMetin(g,slot===1?'ust':'tam')}) tutturan bilet: ${dOlc.tutan}`
+      +(hedef.bonus?` · ${g.id==='sans'?'joker':'süperstar'} tutturan bilet: ${dOlc.jokerTutan}/${tk.length}`:'')
       +`<br>${dOlc.hedefTut?'🎉 HEDEF TUTTU':'hedef tutmadı'}</div>`;
   }
   return h;
@@ -25564,12 +25598,12 @@ function _auRender(){
 function _auCopyHazirla(){
   const D=_auData.live;if(!D)return;
   const g=D.game;
+  const bAd=D.bonus||[];
+  const jk=i=>bAd.length?(' + '+bAd[i%bAd.length]):'';
   window._auTxt1='🎯 Agresif Üst — Container 1 ('+g.name+' · hedef '+_auHedefMetin(g,'ust')+')\n'
-    +'Havuz: '+D.havuz1.join(' ')+'\n'+D.c1.tickets.map(t=>t.join(' ')).join('\n')
-    +(D.bonus.length?'\n'+(g.id==='sans'?'Joker':'Süperstar')+' adayları: '+D.bonus.join(' '):'');
+    +'Havuz: '+D.havuz1.join(' ')+'\n'+D.c1.tickets.map((t,i)=>t.join(' ')+jk(i)).join('\n');
   window._auTxt2='💎 Agresif Üst — Container 2 ('+g.name+' · hedef '+_auHedefMetin(g,'tam')+')\n'
-    +'Havuz: '+D.havuz2.join(' ')+'\n'+D.c2.tickets.map(t=>t.join(' ')).join('\n')
-    +(D.bonus.length?'\n'+(g.id==='sans'?'Joker':'Süperstar')+' adayları: '+D.bonus.join(' '):'');
+    +'Havuz: '+D.havuz2.join(' ')+'\n'+D.c2.tickets.map((t,i)=>t.join(' ')+jk(i)).join('\n');
 }
 function _auCopy(slot){_auCopyHazirla();_caCopy(window['_auTxt'+slot]||'');
   if(typeof showToast==='function')showToast('📋 Kopyalandı');}
@@ -25654,7 +25688,8 @@ function _auOlc(){
       const r1=_auHavuzOlc(rnd(P1),aSet,g.count),r2=_auHavuzOlc(rnd(P2),aSet,g.count);
       const c1=_auKapsayan(h1,g.count,_auK[1],H.ust.net,w);
       const bAd=_auBonus(g,prior,3);
-      const d1=_auOlcDemet(c1.tickets,aSet,bSet,bAd,H.ust);
+      const yak=_auYakinSet(aSet,g.max);
+      const d1=_auOlcDemet(c1.tickets,aSet,bSet,bAd,H.ust,yak,i=>bAd.length?bAd[i%bAd.length]:null);
       R.n++;R.h1+=o1.icinde;R.h2+=o2.icinde;
       if(o1.yeterli)R.h1Yeterli++;if(o2.yeterli)R.h2Yeterli++;
       R.r1+=r1.icinde;if(r1.yeterli)R.r1Yeterli++;if(r2.yeterli)R.r2Yeterli++;
@@ -25725,7 +25760,14 @@ function _oyunYay(gid,kaynak){
   try{Object.keys(_A3_BLOKLAR||{}).forEach(pfx=>{
     if(_A3_BLOKLAR[pfx].oyunSec===false)return;
     isler.push(()=>{if(!_a3Data[pfx]||_a3Data[pfx].oyun!==gid)_a3SetOyunTemel(pfx,gid);});});}catch(e){}
-  isler.push(()=>{try{if(_curPage==='agresifust'){_auData={live:null,t1:null,t2:null,t3:null};_auInit();}else _auP={1:null,2:null};}catch(e){}});
+  isler.push(()=>{try{
+    // Yalnızca gerçekten BAŞKA bir oyunun sonuçları duruyorsa temizle — geç boşalan
+    // kuyruk, bu arada üretilmiş taze sonuçları silmesin.
+    const mevcut=(_auData&&_auData.live&&_auData.live.game)?_auData.live.game.id:null;
+    if(mevcut&&mevcut!==gid){_auData={live:null,t1:null,t2:null,t3:null};_auP={1:null,2:null};}
+    else if(!mevcut)_auP={1:null,2:null};
+    if(_curPage==='agresifust')_auInit();
+  }catch(e){}});
   isler.push(()=>{if(typeof _listelerGame!=='undefined'&&_listelerGame!==gid){
     _listelerGame=gid;_listelerHighlightGame(gid);_listelerPopulateDates();}});
   const calis=()=>{
