@@ -19966,10 +19966,9 @@ function _posMatchApply(grid){
     const key=blk?blk.dataset.k:'';
     for(let i=0;i<a.length;i++){
       if(tests.every(t=>/✓/.test(t[i].textContent))){
-        [a[i],...tests.map(t=>t[i])].forEach(el=>{
-          el.style.border='2px solid #111';el.style.borderRadius='5px';
-          el.style.padding='0 4px';el.style.background='rgba(0,0,0,.05)';el.style.fontWeight='800';
-        });
+        // Yalnızca yeni tahmin sütunu işaretlenir; geçmiş testler olduğu gibi kalır
+        a[i].style.border='2px solid #111';a[i].style.borderRadius='5px';
+        a[i].style.padding='0 4px';a[i].style.background='rgba(0,0,0,.05)';a[i].style.fontWeight='800';
         a[i].title='İki geçmiş testte de aynı blokta, aynı sırada NET tuttu';
         const v=parseInt(a[i].textContent,10);
         if(v>=1&&v<=90){out.list.push({n:v,k:key,i:i+1});out.n++;}
@@ -20276,7 +20275,8 @@ function _agRenderGrid(){
   const pm=_agPosMarks();
   _agPosPanel(pm);
   const build=(d,useMarks)=>d?_agBuild(d.game,d.tickets,d.aSet,d.title,d.sub,d.ai,useMarks?pm.marks:null,d.bSet):null;
-  const cols=[build(_agData.live,true),build(_agData.t1,true),build(_agData.t2,true),build(_agData.t3,true)];
+  // Kutu işareti yalnızca yeni tahmin sütununda; geçmiş testler olduğu gibi kalır.
+  const cols=[build(_agData.live,true),build(_agData.t1,false),build(_agData.t2,false),build(_agData.t3,false)];
   const has2=!!_agData.t2,has3=!!_agData.t3;
   const use=[0,1].concat(has2?[2]:[]).concat(has3?[3]:[]);
   const tpl='repeat('+use.length+',1fr)';
@@ -25777,12 +25777,11 @@ function _auKonumEsle(out,slot){
     // NET ya da ±1 YAKIN — ikisi de tutma sayılır
     if(!hucreler.every(x=>x.dataset.hit==='1'))return;
     const hepsiNet=hucreler.every(x=>x.dataset.net==='1');
-    // Belirgin SİYAH KUTU — çevresindeki yeşil/turuncu çiplerden net ayrışsın
-    [yeni[k],...hucreler].forEach(el=>{
-      el.style.background='#111';el.style.color='#fff';
-      el.style.border='2px solid #111';el.style.borderRadius='6px';
-      el.style.boxShadow='0 0 0 2px rgba(0,0,0,.22)';el.style.fontWeight='900';
-    });
+    // Belirgin SİYAH KUTU — YALNIZCA yeni tahmin sütununda; geçmiş testler olduğu gibi kalır
+    const el=yeni[k];
+    el.style.background='#111';el.style.color='#fff';
+    el.style.border='2px solid #111';el.style.borderRadius='6px';
+    el.style.boxShadow='0 0 0 2px rgba(0,0,0,.22)';el.style.fontWeight='900';
     yeni[k].title=hepsiNet
       ?'Açık geçmiş testlerin hepsinde aynı bilette, aynı sırada NET tuttu'
       :'Açık geçmiş testlerin hepsinde aynı bilette, aynı sırada net ya da ±1 yakın tuttu';
