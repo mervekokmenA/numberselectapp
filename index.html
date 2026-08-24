@@ -26069,19 +26069,15 @@ function _fbTemiz(arr,max){
 // Yöntemler ölçülen sıraya göre dizilidir (250 çekiliş × 4 oyun geriye dönük test).
 // a = son çekilişin sayıları, b = ondan önceki çekilişin sayıları.
 const _FB_YONTEMLER=[
-  {id:'gecikmeFib',ad:'⏳ Fibonacci Gecikmesi', fn:(a,b,mx,pr)=>{
-     // Son görülme uzaklığı bir Fibonacci sayısı olan sayılar
-     if(!pr||pr.length<5)return [];
-     const son={};
-     pr.forEach((d,i)=>{[...(d.nums||[])].forEach(n=>{if(son[n]==null)son[n]=i;});});
-     const o=[];
-     for(let n=1;n<=mx;n++){const g=son[n];if(g!=null&&_FB_SAYI.includes(g+1))o.push(n);}
+  {id:'modfib',ad:'🔟 Mod-Fibonacci (n mod 8 · 13 · 21)', fn:(a,b,mx)=>{
+     const o=[];a.forEach(n=>[8,13,21].forEach(f=>o.push(_fbSar(n%f||f,mx))));return o;}},
+  {id:'ardisik',ad:'➕ Ardışık Çiftler (aᵢ + aᵢ₊₁)', fn:(a,b,mx)=>{
+     const o=[],s=[...a].sort((x,y)=>x-y);
+     for(let i=1;i<s.length;i++)o.push(_fbSar(s[i]+s[i-1],mx));
      return o;}},
-  {id:'tekrarFib',ad:'🔁 F Çekiliş Önce Çıkanlar', fn:(a,b,mx,pr)=>{
-     if(!pr||pr.length<5)return [];
-     const o=[];
-     _FB_SAYI.filter(f=>f<pr.length).slice(0,6).forEach(f=>{
-       (pr[f-1]&&pr[f-1].nums||[]).forEach(n=>o.push(n));});
+  {id:'carpZincir',ad:'✳️ Çarpım Zinciri (aᵢ × aᵢ₊₁)', fn:(a,b,mx)=>{
+     const o=[],s=[...a].sort((x,y)=>x-y);
+     for(let i=1;i<s.length;i++)o.push(_fbSar(s[i]*s[i-1],mx));
      return o;}},
   {id:'piramit',ad:'🔺 Fibonacci Piramidi', fn:(a,b,mx)=>{
      // Komşu toplamları piramidi: her kat bir kısalır, tüm katlar aday
@@ -26092,37 +26088,21 @@ const _FB_YONTEMLER=[
        yeni.forEach(n=>o.push(n));kat=yeni;
      }
      return o;}},
-  {id:'fibIsi',ad:'🌡️ Fibonacci Isısı', fn:(a,b,mx,pr)=>{
-     // Son 10 çekilişte bir sayıya fib uzaklıkta duran sayıların en sık işaret ettikleri
-     if(!pr||pr.length<10)return [];
-     const skor={};
-     pr.slice(0,10).forEach(d=>{(d.nums||[]).forEach(n=>{
-       _FB_SAYI.slice(0,5).forEach(f=>{
-         const u=_fbSar(n+f,mx),v=_fbSar(n-f,mx);
-         skor[u]=(skor[u]||0)+1;skor[v]=(skor[v]||0)+1;});});});
-     return Object.keys(skor).map(Number).sort((x,y)=>skor[y]-skor[x]||x-y).slice(0,Math.max(8,Math.round(mx/6)));}},
-  {id:'carpZincir',ad:'✳️ Çarpım Zinciri (aᵢ × aᵢ₊₁)', fn:(a,b,mx)=>{
-     const o=[],s=[...a].sort((x,y)=>x-y);
-     for(let i=1;i<s.length;i++)o.push(_fbSar(s[i]*s[i-1],mx));
-     return o;}},
-  {id:'ardisik',ad:'➕ Ardışık Çiftler (aᵢ + aᵢ₊₁)', fn:(a,b,mx)=>{
-     const o=[],s=[...a].sort((x,y)=>x-y);
-     for(let i=1;i<s.length;i++)o.push(_fbSar(s[i]+s[i-1],mx));
-     return o;}},
-  {id:'modfib',ad:'🔟 Mod-Fibonacci (n mod 8 · 13 · 21)', fn:(a,b,mx)=>{
-     const o=[];a.forEach(n=>[8,13,21].forEach(f=>o.push(_fbSar(n%f||f,mx))));return o;}},
-  {id:'indeks',ad:'#️⃣ Fibonacci İndeksleri', fn:(a,b,mx)=>{
-     const s=[...a].sort((x,y)=>x-y);
-     return _FB_SAYI.filter(f=>f<=s.length).map(f=>s[f-1]);}},
-  {id:'saf',   ad:'🌀 Saf Fibonacci', fn:(a,b,mx)=>_FB_SAYI.filter(f=>f<=mx)},
   {id:'fark',  ad:'➖ Fibonacci Farkları', fn:(a,b,mx)=>{
      const o=[],s=[...a].sort((x,y)=>x-y);
      for(let i=1;i<s.length;i++){const d=s[i]-s[i-1];
        if(_FB_SAYI.includes(d)){o.push(_fbSar(s[i]+d,mx));o.push(_fbSar(s[i-1]-d,mx));}}
      return o;}},
-  {id:'konum', ad:'📍 Konum + Fibonacci (i. sıra + Fᵢ)', fn:(a,b,mx)=>{
+  {id:'ikili', ad:'🔗 İki Oyun Fibonacci', fn:(a,b,mx)=>{
+     const o=[];if(!b||!b.length)return o;
+     a.forEach((n,i)=>{const m=b[i%b.length],d=Math.abs(n-m);
+       if(_FB_SAYI.includes(d)){o.push(_fbSar(n+d,mx));o.push(_fbSar(m-d,mx));}
+       o.push(_fbSar(n+m,mx));});
+     return o;}},
+  {id:'indeks',ad:'#️⃣ Fibonacci İndeksleri', fn:(a,b,mx)=>{
      const s=[...a].sort((x,y)=>x-y);
-     return s.map((n,i)=>_fbSar(n+_FB_SAYI[i%_FB_SAYI.length],mx));}},
+     return _FB_SAYI.filter(f=>f<=s.length).map(f=>s[f-1]);}},
+  {id:'saf',   ad:'🌀 Saf Fibonacci', fn:(a,b,mx)=>_FB_SAYI.filter(f=>f<=mx)},
   {id:'ikifark',ad:'🔀 İki Oyun Fark Yakınlığı', fn:(a,b,mx)=>{
      const o=[];if(!b||!b.length)return o;
      const s=[...a].sort((x,y)=>x-y),t=[...b].sort((x,y)=>x-y);
@@ -26134,26 +26114,20 @@ const _FB_YONTEMLER=[
      const s=[...a].sort((x,y)=>x-y),t=[...b].sort((x,y)=>x-y);
      s.forEach((n,i)=>{const pv=t[i]!=null?t[i]:t[0];o.push(_fbSar(n+(n-pv),mx));o.push(_fbSar(2*n-pv,mx));});
      return o;}},
-  {id:'ikili', ad:'🔗 İki Oyun Fibonacci', fn:(a,b,mx)=>{
-     const o=[];if(!b||!b.length)return o;
-     a.forEach((n,i)=>{const m=b[i%b.length],d=Math.abs(n-m);
-       if(_FB_SAYI.includes(d)){o.push(_fbSar(n+d,mx));o.push(_fbSar(m-d,mx));}
-       o.push(_fbSar(n+m,mx));});
-     return o;}},
-  {id:'bol',   ad:'🔱 Altın Orana Bölme (n ÷ φ)', fn:(a,b,mx)=>a.map(n=>_fbSar(n/_FB_PHI,mx))},
+  {id:'konum', ad:'📍 Konum + Fibonacci (i. sıra + Fᵢ)', fn:(a,b,mx)=>{
+     const s=[...a].sort((x,y)=>x-y);
+     return s.map((n,i)=>_fbSar(n+_FB_SAYI[i%_FB_SAYI.length],mx));}},
   {id:'carp',  ad:'✖️ Fibonacci Çarpımı (×2 ×3 ×5)', fn:(a,b,mx)=>{
      const o=[];a.forEach(n=>[2,3,5].forEach(f=>o.push(_fbSar(n*f,mx))));return o;}},
-  {id:'oran',  ad:'🔺 Altın Oranla Çarpma (n × φ)', fn:(a,b,mx)=>a.map(n=>_fbSar(n*_FB_PHI,mx))},
   {id:'toplam',ad:'∑ Toplam ± Fibonacci', fn:(a,b,mx)=>{
      const T=a.reduce((x,y)=>x+y,0);
      return _FB_SAYI.map(f=>_fbSar(T+f,mx)).concat(_FB_SAYI.map(f=>_fbSar(T-f,mx)));}},
+  {id:'oran',  ad:'🔺 Altın Oranla Çarpma (n × φ)', fn:(a,b,mx)=>a.map(n=>_fbSar(n*_FB_PHI,mx))},
   {id:'komsu', ad:'± Fibonacci Komşuluğu (n ± 1,2,3,5,8)', fn:(a,b,mx)=>{
      const o=[];a.forEach(n=>[1,2,3,5,8].forEach(f=>{o.push(_fbSar(n+f,mx));o.push(_fbSar(n-f,mx));}));return o;}},
+  {id:'bol',   ad:'🔱 Altın Orana Bölme (n ÷ φ)', fn:(a,b,mx)=>a.map(n=>_fbSar(n/_FB_PHI,mx))},
   {id:'lucas', ad:'🅛 Lucas Sayıları', fn:(a,b,mx)=>{
      const o=[];a.forEach(n=>_FB_LUCAS.slice(0,5).forEach(f=>{o.push(_fbSar(n+f,mx));o.push(_fbSar(n-f,mx));}));return o;}},
-  {id:'zeck',  ad:'🧮 Zeckendorf Kaydırması', fn:(a,b,mx)=>a.map(n=>{
-     let r=n,c=0;for(let i=_FB_SAYI.length-1;i>=0;i--)if(_FB_SAYI[i]<=r){r-=_FB_SAYI[i];c++;}
-     return _fbSar(n+c*3,mx);})},
 ];
 
 let _fbP=null,_fbK=0,_fbGaranti=3,_fbSel=new Set();
