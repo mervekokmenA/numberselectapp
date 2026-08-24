@@ -26052,15 +26052,35 @@ function _fbTemiz(arr,max){
 // Yöntemler ölçülen sıraya göre dizilidir (250 çekiliş × 4 oyun geriye dönük test).
 // a = son çekilişin sayıları, b = ondan önceki çekilişin sayıları.
 const _FB_YONTEMLER=[
+  {id:'ardisik',ad:'➕ Ardışık Çiftler (aᵢ + aᵢ₊₁)', fn:(a,b,mx)=>{
+     const o=[],s=[...a].sort((x,y)=>x-y);
+     for(let i=1;i<s.length;i++)o.push(_fbSar(s[i]+s[i-1],mx));
+     return o;}},
+  {id:'modfib',ad:'🔟 Mod-Fibonacci (n mod 8 · 13 · 21)', fn:(a,b,mx)=>{
+     const o=[];a.forEach(n=>[8,13,21].forEach(f=>o.push(_fbSar(n%f||f,mx))));return o;}},
+  {id:'indeks',ad:'#️⃣ Fibonacci İndeksleri', fn:(a,b,mx)=>{
+     const s=[...a].sort((x,y)=>x-y);
+     return _FB_SAYI.filter(f=>f<=s.length).map(f=>s[f-1]);}},
   {id:'saf',   ad:'🌀 Saf Fibonacci', fn:(a,b,mx)=>_FB_SAYI.filter(f=>f<=mx)},
   {id:'fark',  ad:'➖ Fibonacci Farkları', fn:(a,b,mx)=>{
      const o=[],s=[...a].sort((x,y)=>x-y);
      for(let i=1;i<s.length;i++){const d=s[i]-s[i-1];
        if(_FB_SAYI.includes(d)){o.push(_fbSar(s[i]+d,mx));o.push(_fbSar(s[i-1]-d,mx));}}
      return o;}},
-  {id:'indeks',ad:'#️⃣ Fibonacci İndeksleri', fn:(a,b,mx)=>{
+  {id:'konum', ad:'📍 Konum + Fibonacci (i. sıra + Fᵢ)', fn:(a,b,mx)=>{
      const s=[...a].sort((x,y)=>x-y);
-     return _FB_SAYI.filter(f=>f<=s.length).map(f=>s[f-1]);}},
+     return s.map((n,i)=>_fbSar(n+_FB_SAYI[i%_FB_SAYI.length],mx));}},
+  {id:'ikifark',ad:'🔀 İki Oyun Fark Yakınlığı', fn:(a,b,mx)=>{
+     const o=[];if(!b||!b.length)return o;
+     const s=[...a].sort((x,y)=>x-y),t=[...b].sort((x,y)=>x-y);
+     s.forEach((n,i)=>{const d=Math.abs(n-(t[i]!=null?t[i]:t[t.length-1]));
+       [1,2,3,5,8].forEach(f=>{if(Math.abs(d-f)<=1){o.push(_fbSar(n+f,mx));o.push(_fbSar(n-f,mx));}});});
+     return o;}},
+  {id:'zincir',ad:'⛓️ Fibonacci Zinciri (2n − önceki)', fn:(a,b,mx)=>{
+     const o=[];if(!b||!b.length)return o;
+     const s=[...a].sort((x,y)=>x-y),t=[...b].sort((x,y)=>x-y);
+     s.forEach((n,i)=>{const pv=t[i]!=null?t[i]:t[0];o.push(_fbSar(n+(n-pv),mx));o.push(_fbSar(2*n-pv,mx));});
+     return o;}},
   {id:'ikili', ad:'🔗 İki Oyun Fibonacci', fn:(a,b,mx)=>{
      const o=[];if(!b||!b.length)return o;
      a.forEach((n,i)=>{const m=b[i%b.length],d=Math.abs(n-m);
