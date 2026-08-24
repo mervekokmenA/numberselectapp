@@ -26308,7 +26308,7 @@ function _fbKatlar(D){
   }
   return out;
 }
-function _fbGrupKart(baslik,renk,icerikFn){
+function _fbGrupKart(baslik,renk,icerikFn,tumuTxt){
   const cols=[_fbData.live,_fbData.t1,_fbData.t2,_fbData.t3].filter(Boolean);
   if(!cols.length)return '';
   const govdeler=cols.map((c,ci)=>{
@@ -26318,8 +26318,10 @@ function _fbGrupKart(baslik,renk,icerikFn){
   });
   if(govdeler.every(x=>!x))return '';
   const tpl='repeat('+cols.length+',minmax(0,1fr))';
+  const btn=tumuTxt?`<button onclick="_cpDo('${_cpKey(baslik.replace(/<[^>]*>/g,''),tumuTxt)}')" class="copy-btn" style="font-size:.6rem;padding:2px 9px;flex-shrink:0">📋 Tümünü Kopyala</button>`:'';
   return `<div class="card" style="margin:0 0 8px;border:2px solid ${renk}">
-    <div style="font-size:.7rem;font-weight:800;margin-bottom:6px">${baslik}</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+     <span style="font-size:.7rem;font-weight:800">${baslik}</span>${btn}</div>
     <div class="fb-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
     +cols.map((c,ci)=>`<div>${_fbBaslikHtml(c)}${govdeler[ci]||''}</div>`).join('')
     +`</div></div>`;
@@ -26346,6 +26348,8 @@ function _fbPanels(){
     });
   }
   // Kesişim katmanları — her sütun kendi verisiyle
+  const katlarLive=_fbKatlar(_fbData.live);
+  const tumKatTxt=katlarLive.map(K=>K.k+'+ yöntem ortak ('+K.nums.length+' sayı)\n'+K.nums.join(' ')).join('\n\n');
   h+=_fbGrupKart('🎯 Kesişim Katmanları','rgba(190,24,93,.45)',(c,ci,aSet,yak)=>{
     const katlar=_fbKatlar(c);
     if(!katlar.length)return '<div style="font-size:.6rem;color:var(--muted)">—</div>';
@@ -26357,7 +26361,7 @@ function _fbPanels(){
          ${ci===0?`<button onclick="_cpDo('${_cpKey('Fibonacci — '+K.k+'+ yöntem ortak',K.nums.join(' '))}')" class="copy-btn" style="font-size:.52rem;padding:1px 6px">📋</button>`:''}</div>
         <div data-lp="${K.nums.join(' ')}" style="display:flex;gap:3px;flex-wrap:wrap">${K.nums.map(n=>_fbCip(n,aSet,yak)).join('')}</div></div>`;
     }).join('');
-  });
+  },tumKatTxt);
   // Uzlaşı havuzu — her sütun kendi verisiyle
   h+=_fbGrupKart('🤝 Uzlaşı Havuzu','rgba(16,185,129,.45)',(c,ci,aSet,yak)=>{
     const hv=c.havuz||[],say=c.say||{};
@@ -26371,7 +26375,7 @@ function _fbPanels(){
         const isN=aSet&&aSet.has(n),isY=!isN&&yak&&yak.has(n);
         return `<span style="display:inline-flex;flex-direction:column;align-items:center;font-family:monospace;font-size:.72rem;font-weight:${isN||isY?800:700};color:${isN?'var(--green)':isY?'#c2410c':'var(--text)'};background:${isN?'rgba(0,230,118,.1)':isY?'rgba(244,114,63,.09)':'var(--surface2)'};border:1px solid ${isN?'rgba(0,200,100,.55)':isY?'rgba(244,114,63,.5)':'var(--border)'};border-radius:6px;padding:1px 6px">${n}${isN?'✓':isY?'~':''}<span style="font-size:.42rem;color:var(--muted)">${say[n]||0}</span></span>`;
       }).join('')+`</div>`;
-  });
+  },(_fbData.live.havuz||[]).join(' '));
   el.innerHTML=h;
 }
 function _fbBiletHtml(t,aSet,yakSet,i,gar){
