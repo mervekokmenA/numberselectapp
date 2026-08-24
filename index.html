@@ -1620,6 +1620,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_fbCopy('bilet')" class="copy-btn" style="font-size:.64rem;padding:3px 10px">📋 Kopyala</button>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <select id="fbTopN" onchange="_fbSetTop(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
    <span style="font-size:.66rem;color:var(--muted)">Havuz:</span>
    <select id="fbP" onchange="_fbSetP(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
    <select id="fbGaranti" onchange="_fbSetGaranti(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
@@ -26066,6 +26067,17 @@ function _fbTemiz(arr,max){
   (arr||[]).forEach(n=>{n=Math.round(n);if(n>=1&&n<=max&&!g.has(n)){g.add(n);o.push(n);}});
   return o;
 }
+// Bir yöntemin ürettiği sayıları ÇOKLUĞUNA göre sıralar ve en güçlü K tanesini alır.
+// Böylece 50 sayı üreten yöntem, 5 sayı üretenle aynı ağırlıkta oy kullanır.
+function _fbEnGuclu(arr,max,K){
+  const say={},sira=[];
+  (arr||[]).forEach(n=>{n=Math.round(n);if(n<1||n>max)return;
+    if(say[n]==null){say[n]=0;sira.push(n);}say[n]++;});
+  if(!K||K>=sira.length)return {nums:sira,say};
+  const secim=sira.slice().sort((a,b)=>say[b]-say[a]||sira.indexOf(a)-sira.indexOf(b)).slice(0,K);
+  const set=new Set(secim);
+  return {nums:sira.filter(n=>set.has(n)),say};
+}
 // Yöntemler ölçülen sıraya göre dizilidir (250 çekiliş × 4 oyun geriye dönük test).
 // a = son çekilişin sayıları, b = ondan önceki çekilişin sayıları.
 const _FB_YONTEMLER=[
@@ -26132,18 +26144,23 @@ const _FB_YONTEMLER=[
 
 let _fbP=null,_fbK=0,_fbGaranti=3,_fbSel=new Set();
 let _fbAgP=null,_fbAgK=0,_fbAgGaranti=4;
+let _fbTopN=0;                          // yöntem başına sayı adedi (0 = otomatik)
 let _fbData={live:null,t1:null,t2:null,t3:null};
 function _fbOyun(){return (state&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))?state.selectedGame:GAMES[0].id;}
 function _fbVarP(g){return g.id==='onnumara'?16:Math.min(g.max,g.count+7);}
+function _fbVarTop(g){return g.count+3;}
 
 // ── Sütun verisi: yöntemler + uzlaşı + biletler ──
 function _fbKolon(game,prior,actual){
   if(!prior||prior.length<2)return null;
+  if(!_fbTopN)_fbTopN=_fbVarTop(game);
   const a=[...(prior[0].nums||[])],b=[...((prior[1]||{}).nums||[])],mx=game.max;
   const map={},say={};
+  const K=_fbTopN>0?_fbTopN:0;          // 0/-1 = kırpma yok
   _FB_YONTEMLER.forEach(Y=>{
-    let nums=[];try{nums=_fbTemiz(Y.fn(a,b,mx,prior,game),mx);}catch(e){}
-    map[Y.id]={ad:Y.ad,nums};
+    let ham=[];try{ham=Y.fn(a,b,mx,prior,game)||[];}catch(e){}
+    const {nums}=_fbEnGuclu(ham,mx,K);
+    map[Y.id]={ad:Y.ad,nums,hamAdet:_fbTemiz(ham,mx).length};
     nums.forEach(n=>{say[n]=(say[n]||0)+1;});
   });
   const uzlasi=Object.keys(say).map(Number).sort((x,y)=>say[y]-say[x]||x-y);
@@ -26466,6 +26483,7 @@ function _fbCopyAll(){_fbCopyHazirla();
   _caCopy([window._fbTxtYontem||'',window._fbTxtBilet||'',window._fbTxtAgresif||''].filter(Boolean).join('\n\n'));
   if(typeof showToast==='function')showToast('📋 Kopyalandı');}
 function _fbSetP(v){_fbP=+v||null;_fbYenidenUret();}
+function _fbSetTop(v){_fbTopN=(v==='tum')?-1:(+v||0);_fbYenidenUret();}
 function _fbSetAgP(v){_fbAgP=+v||null;_fbYenidenUret();}
 function _fbSetAgK(v){_fbAgK=(v==='oto')?0:(+v||20);_fbYenidenUret();}
 function _fbSetAgGaranti(v){_fbAgGaranti=+v||4;_fbYenidenUret();}
@@ -26489,6 +26507,10 @@ function _fbOptions(){
   if(el){const v=_fbP||_fbVarP(g);let h='';
     for(let P=g.count+2;P<=Math.min(g.max,g.count+16);P++)h+=`<option value="${P}"${P===v?' selected':''}>${P} sayı</option>`;
     el.innerHTML=h;}
+  const tp=document.getElementById('fbTopN');
+  if(tp){const v=_fbTopN||_fbVarTop(g);let h='<option value="tum"'+(_fbTopN<0?' selected':'')+'>yöntem başına: tümü</option>';
+    [5,6,8,10,12,15,20].forEach(k=>{h+=`<option value="${k}"${k===v?' selected':''}>yöntem başına: ${k} sayı</option>`;});
+    tp.innerHTML=h;}
   const gr=document.getElementById('fbGaranti');
   if(gr){let h='';for(let i=2;i<=Math.min(5,g.count);i++)h+=`<option value="${i}"${i===_fbGaranti?' selected':''}>garanti ${i} net</option>`;gr.innerHTML=h;}
   const ap=document.getElementById('fbAgP');
