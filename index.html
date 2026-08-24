@@ -1502,9 +1502,10 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
    <span style="font-size:.66rem;color:var(--muted)">Havuz:</span>
    <select id="auP1" onchange="_auSetP(1,this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+   <select id="auGaranti" onchange="_auSetGaranti(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
    <span style="font-size:.66rem;color:var(--muted)">Bilet:</span>
    <select id="auK1" onchange="_auSetK(1,this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-    <option value="6">6</option><option value="12">12</option><option value="20" selected>20</option><option value="40">40</option><option value="80">80</option><option value="150">150</option>
+    <option value="oto" selected>tam garanti (otomatik)</option><option value="6">6</option><option value="12">12</option><option value="20">20</option><option value="40">40</option><option value="80">80</option><option value="150">150</option>
    </select>
   </div>
   <div id="auC1Out"></div>
@@ -25398,8 +25399,8 @@ const _AU_KAYNAKLAR=[
   {id:'uzlasi', ad:'🤝 Uzlaşı — tüm kaynakların füzyonu'},
 ];
 let _auKaynak='fuzyon';
-let _auP={1:null,2:null,3:null,4:null,5:null},_auK={1:20,2:60,3:20,4:20,5:20};
-let _auBanko=2,_auCekirdek=3;
+let _auP={1:null,2:null,3:null,4:null,5:null},_auK={1:0,2:60,3:20,4:20,5:20};
+let _auBanko=2,_auCekirdek=3,_auGaranti=3;
 let _auData={live:null,t1:null,t2:null,t3:null};
 let _auOlcData=null;
 
@@ -25497,40 +25498,49 @@ function _auComb(P,k,cap){
 }
 // Açgözlü kapsama: K bileti, hedefNet eşiğini tutturduğu (ağırlıklı) çekiliş
 // kombinasyonlarını en çok kapsayacak şekilde seç.
-function _auKapsayan(havuz,cnt,K,hedefNet,wMap){
+// KAPSAYAN SİSTEM (covering design C(P,cnt,t))
+// Hedef: havuzun HER t'li altkümesi en az bir bilette birlikte bulunsun.
+// Böylece çekilişin t sayısı havuza düştüğü an, en az bir bilet t NET tutturur — bu
+// bir olasılık değil, kombinatoryal garantidir. t=3 varsayılan: "en az 3 net".
+function _auKapsayan(havuz,cnt,K,t,wMap){
   const P=havuz.length;
-  if(P<cnt)return {tickets:[],kapsam:0,tamSayim:false,toplam:0};
-  const CAP=900;
-  const hedefler=_auComb(P,cnt,CAP);
-  const adaylar=_auComb(P,cnt,CAP);
+  const gar=Math.max(1,Math.min(t||3,cnt));
+  const oto=!(K>0);                              // K<=0 → tam garanti sağlanana kadar bilet üret
+  if(oto)K=600;
+  if(P<cnt)return {tickets:[],kapsam:0,tamSayim:false,toplam:0,garanti:gar,tamKapsandi:false};
+  const hedefler=_auComb(P,gar,4000);            // t'li altkümeler — kapsanacak hedefler
+  const adaylar=_auComb(P,cnt,1200);             // aday biletler
   const agirlik=hedefler.list.map(m=>{
-    let s=0;for(let i=0;i<P;i++)if(m&(1<<i))s+=(wMap[havuz[i]]||0);
-    return s+1e-3;
+    let sk=0;for(let i=0;i<P;i++)if(m&(1<<i))sk+=(wMap[havuz[i]]||0);
+    return sk+1e-3;
   });
   const toplamAg=agirlik.reduce((a,b)=>a+b,0)||1;
   const kapali=new Uint8Array(hedefler.list.length);
-  const secilen=[];let kapananAg=0;
-  for(let r=0;r<K&&r<adaylar.list.length;r++){
+  const secilen=[];let kapananAg=0,kapananSay=0;
+  for(let r=0;r<K&&adaylar.list.length;r++){
     let enIyi=-1,enIyiSk=-1;
     for(let c=0;c<adaylar.list.length;c++){
       const a=adaylar.list[c];let sk=0;
-      for(let t=0;t<hedefler.list.length;t++){
-        if(kapali[t])continue;
-        if(_auPop(a&hedefler.list[t])>=hedefNet)sk+=agirlik[t];
+      for(let x=0;x<hedefler.list.length;x++){
+        if(kapali[x])continue;
+        const h=hedefler.list[x];
+        if((a&h)===h)sk+=agirlik[x];             // hedef altküme bilete TAM giriyor mu
       }
       if(sk>enIyiSk){enIyiSk=sk;enIyi=c;}
     }
     if(enIyi<0||enIyiSk<=0)break;
     const a=adaylar.list[enIyi];
-    for(let t=0;t<hedefler.list.length;t++)
-      if(!kapali[t]&&_auPop(a&hedefler.list[t])>=hedefNet){kapali[t]=1;kapananAg+=agirlik[t];}
+    for(let x=0;x<hedefler.list.length;x++){
+      const h=hedefler.list[x];
+      if(!kapali[x]&&(a&h)===h){kapali[x]=1;kapananAg+=agirlik[x];kapananSay++;}
+    }
     const nums=[];for(let i=0;i<P;i++)if(a&(1<<i))nums.push(havuz[i]);
     secilen.push(nums.sort((x,y)=>x-y));
     adaylar.list.splice(enIyi,1);
   }
   // Kapsama tamamlandıysa greedy durur; istenen bilet sayısına ağırlığı en yüksek
-  // kalan kombinasyonlarla tamamla (fazladan bilet garantiyi düşürmez, şansı artırır).
-  if(secilen.length<K&&adaylar.list.length){
+  // kalan kombinasyonlarla tamamla (otomatik modda tamamlama yok).
+  if(!oto&&secilen.length<K&&adaylar.list.length){
     const kalan=adaylar.list.map(m=>{
       let sk=0;const nums=[];
       for(let i=0;i<P;i++)if(m&(1<<i)){sk+=(wMap[havuz[i]]||0);nums.push(havuz[i]);}
@@ -25538,7 +25548,9 @@ function _auKapsayan(havuz,cnt,K,hedefNet,wMap){
     }).sort((x,y)=>y.sk-x.sk);
     for(const k of kalan){if(secilen.length>=K)break;secilen.push(k.nums);}
   }
-  return {tickets:secilen,kapsam:kapananAg/toplamAg,tamSayim:hedefler.tam,toplam:hedefler.toplam};
+  return {tickets:secilen,kapsam:kapananAg/toplamAg,tamSayim:hedefler.tam,
+          toplam:hedefler.toplam,garanti:gar,
+          tamKapsandi:hedefler.tam&&kapananSay>=hedefler.list.length};
 }
 // Tam hedef: havuzdan mümkün olan tüm cnt'li kombinasyonlar (bilet tavanına kadar,
 // en yüksek ağırlıklı olanlar önce).
@@ -25575,7 +25587,7 @@ function _auAiDemet(game,prior,havuz,K,hedefNet,wMap){
   });
   // 2) Eksik kalırsa AI uzlaşı havuzu üzerine kapsayan sistemle tamamla
   if(tk.length<K&&havuz.length>=game.count){
-    const ek=_auKapsayan(havuz,game.count,K*2,hedefNet,wMap);
+    const ek=_auKapsayan(havuz,game.count,K*2,_auGaranti,wMap);
     for(const t of ek.tickets){
       if(tk.length>=K)break;
       const key=t.join(',');if(gor.has(key))continue;gor.add(key);tk.push(t);
@@ -25591,7 +25603,7 @@ function _auBankoDemet(havuz,cnt,K,bankoAdet,hedefNet,wMap){
   const kalan=havuz.slice(B);
   const kalanCnt=cnt-B;
   if(kalan.length<kalanCnt)return {tickets:[],banko,kapsam:0,toplam:0,tamSayim:false};
-  const alt=_auKapsayan(kalan,kalanCnt,K,Math.max(1,hedefNet-B),wMap);
+  const alt=_auKapsayan(kalan,kalanCnt,K,Math.max(1,Math.min(_auGaranti-B,kalanCnt)),wMap);
   return {tickets:alt.tickets.map(t=>[...banko,...t].sort((a,b)=>a-b)),
           banko,kapsam:alt.kapsam,toplam:alt.toplam,tamSayim:alt.tamSayim};
 }
@@ -25599,8 +25611,8 @@ function _auBankoDemet(havuz,cnt,K,bankoAdet,hedefNet,wMap){
 function _auCiftHavuz(cekirdek,kanat,cnt,kC,K,wMap){
   const k1=Math.max(1,Math.min(kC,cnt-1)),k2=cnt-k1;
   if(cekirdek.length<k1||kanat.length<k2)return {tickets:[],kapsam:0,toplam:0,tamSayim:false};
-  const a=_auKapsayan(cekirdek,k1,K,Math.max(1,k1-1),wMap);
-  const b=_auKapsayan(kanat,k2,K,Math.max(1,k2-1),wMap);
+  const a=_auKapsayan(cekirdek,k1,K,Math.max(1,Math.min(2,k1)),wMap);
+  const b=_auKapsayan(kanat,k2,K,Math.max(1,Math.min(2,k2)),wMap);
   if(!a.tickets.length||!b.tickets.length)return {tickets:[],kapsam:0,toplam:0,tamSayim:false};
   // Çekirdek × kanat çaprazını tarayarak K farklı bilete ulaş
   const tk=[],gor=new Set();
@@ -25635,7 +25647,7 @@ function _auUret(game,prior,actual){
   const P=k=>_auP[k]||_auVarP(game,k);
   const h1=_auTopN(w,P(1),game.max),h2=_auTopN(w,P(2),game.max);
   const h3=_auTopN(w,P(3),game.max),h4=_auTopN(w,P(4),game.max);
-  const c1=_auKapsayan(h1,cnt,_auK[1],H.ust.net,w);
+  const c1=_auKapsayan(h1,cnt,_auK[1],_auGaranti,w);
   const c2=_auTamDemet(h2,cnt,_auK[2],w);
   const c3=_auBankoDemet(h3,cnt,_auK[3],_auBanko,H.ust.net,w);
   // çift havuz: h4'ün üst yarısı çekirdek, alt yarısı kanat
@@ -25646,11 +25658,11 @@ function _auUret(game,prior,actual){
   const c5=_auAiDemet(game,prior,h5,_auK[5],H.ust.net,wAi);
   const bonus=_auBonus(game,prior,game.bonusCount>0?3:0);
   const bloklar={
-    1:{havuz:h1,tickets:c1.tickets,hedef:H.ust,meta:c1},
+    1:{havuz:h1,tickets:c1.tickets,hedef:{net:_auGaranti,bonus:false},meta:c1},
     2:{havuz:h2,tickets:c2.tickets,hedef:H.tam,meta:c2},
-    3:{havuz:h3,tickets:c3.tickets,hedef:H.ust,meta:c3,banko:c3.banko},
-    4:{havuz:h4,tickets:c4.tickets,hedef:H.ust,meta:c4},
-    5:{havuz:h5,tickets:c5.tickets,hedef:H.ust,meta:c5},
+    3:{havuz:h3,tickets:c3.tickets,hedef:{net:_auGaranti,bonus:false},meta:c3,banko:c3.banko},
+    4:{havuz:h4,tickets:c4.tickets,hedef:{net:_auGaranti,bonus:false},meta:c4},
+    5:{havuz:h5,tickets:c5.tickets,hedef:{net:_auGaranti,bonus:false},meta:c5},
   };
   return {game,actual:actual||null,w,wAi,bloklar,havuz1:h1,havuz2:h2,c1,c2,c3,c4,c5,bonus,hedef:H,
           tarih:actual?actual.date:null};
@@ -25834,13 +25846,13 @@ function _auRender(){
     +`<span style="color:#be185d;font-weight:700">Container 1:</span> ${_auHedefMetin(g,'ust')} · `
     +`<span style="color:#b45309;font-weight:700">Container 2:</span> ${_auHedefMetin(g,'tam')}`;
   const b1=document.getElementById('auC1Baslik'),b2=document.getElementById('auC2Baslik');
-  if(b1)b1.textContent='🎯 Container 1 — Üst Hedef: '+_auHedefMetin(g,'ust');
+  if(b1)b1.textContent='🎯 Container 1 — Kapsayan Sistem · garanti '+_auGaranti+' net';
   if(b2)b2.textContent='💎 Container 2 — Tam Hedef: '+_auHedefMetin(g,'tam');
   const b3=document.getElementById('auC3Baslik'),b4=document.getElementById('auC4Baslik');
-  if(b3)b3.textContent='🔒 Container 3 — Banko + Rotasyon: '+_auHedefMetin(g,'ust');
-  if(b4)b4.textContent='🧬 Container 4 — Çift Havuz: '+_auHedefMetin(g,'ust');
+  if(b3)b3.textContent='🔒 Container 3 — Banko + Rotasyon · garanti '+_auGaranti+' net';
+  if(b4)b4.textContent='🧬 Container 4 — Çift Havuz · garanti '+_auGaranti+' net';
   const b5=document.getElementById('auC5Baslik');
-  if(b5)b5.textContent='🧠 Container 5 — AI Bilet (tüm analizler): '+_auHedefMetin(g,'ust');
+  if(b5)b5.textContent='🧠 Container 5 — AI Bilet (tüm analizler) · '+_auGaranti+' net';
   [1,2,3,4,5].forEach(_auRenderSlot);
   _auCopyHazirla();
 }
@@ -25867,7 +25879,7 @@ function _auCopyAll(){_auCopyHazirla();
 // ── Kontroller ──
 function _auSetKaynak(v){_auKaynak=v;_auData={live:null,t1:null,t2:null,t3:null};_auRender();}
 function _auSetP(slot,v){_auP[slot]=+v||null;_auData={live:null,t1:null,t2:null,t3:null};_auRender();}
-function _auSetK(slot,v){_auK[slot]=+v||20;_auData={live:null,t1:null,t2:null,t3:null};_auRender();}
+function _auSetK(slot,v){_auK[slot]=(v==='oto')?0:(+v||20);_auData={live:null,t1:null,t2:null,t3:null};_auRender();}
 function _auPOptions(){
   const g=getGame(_auOyun());if(!g)return;
   [1,2,3,4,5].forEach(slot=>{
@@ -25878,12 +25890,15 @@ function _auPOptions(){
     let h='';for(let P=lo;P<=hi;P++)h+=`<option value="${P}"${P===(_auP[slot]||varsayilan)?' selected':''}>${P} sayı</option>`;
     el.innerHTML=h;
   });
+  const gr=document.getElementById('auGaranti');
+  if(gr){let h='';for(let i=2;i<=Math.min(5,g.count);i++)h+=`<option value="${i}"${i===_auGaranti?' selected':''}>garanti ${i} net</option>`;gr.innerHTML=h;}
   const b=document.getElementById('auBanko');
   if(b){let h='';for(let i=1;i<=Math.min(4,g.count-2);i++)h+=`<option value="${i}"${i===_auBanko?' selected':''}>${i} banko</option>`;b.innerHTML=h;}
   const c=document.getElementById('auCekirdek');
   if(c){let h='';for(let i=1;i<=g.count-1;i++)h+=`<option value="${i}"${i===_auCekirdek?' selected':''}>çekirdekten ${i}</option>`;c.innerHTML=h;}
 }
 function _auSetBanko(v){_auBanko=+v||2;_auData={live:null,t1:null,t2:null,t3:null};_auRender();}
+function _auSetGaranti(v){_auGaranti=+v||3;_auData={live:null,t1:null,t2:null,t3:null};_auRender();}
 function _auSetCekirdek(v){_auCekirdek=+v||3;_auData={live:null,t1:null,t2:null,t3:null};_auRender();}
 function _auDates(){
   const draws=_kbGetDraws(_auOyun());
@@ -25946,7 +25961,7 @@ function _auOlc(){
       // rastgele taban — aynı büyüklükte havuz
       const rnd=k=>{const s=new Set();while(s.size<k)s.add(1+Math.floor(Math.random()*g.max));return [...s];};
       const r1=_auHavuzOlc(rnd(P1),aSet,g.count),r2=_auHavuzOlc(rnd(P2),aSet,g.count);
-      const c1=_auKapsayan(h1,g.count,_auK[1],H.ust.net,w);
+      const c1=_auKapsayan(h1,g.count,_auK[1],_auGaranti,w);
       const bAd=_auBonus(g,prior,3);
       const yak=_auYakinSet(aSet,g.max);
       const d1=_auOlcDemet(c1.tickets,aSet,bSet,bAd,H.ust,yak,i=>bAd.length?bAd[i%bAd.length]:null);
