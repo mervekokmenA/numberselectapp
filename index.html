@@ -351,13 +351,13 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
 @media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,#agGrid,#agHdrRow,#agTestCtl,.ag-row,
-  .agx-row,.hy-row,.fm-row,.a3-row,.au-row,.a3-date,.au-date,.ls-ai-row,.ls-date,.so-row,.so-date,.sn-row,.sn-date,#nnGrid,#npGrid{grid-template-columns:minmax(0,1fr) !important;}}
+  .agx-row,.hy-row,.fm-row,.a3-row,.au-row,.fb-row,.a3-date,.au-date,.fb-date,.ls-ai-row,.ls-date,.so-row,.so-date,.sn-row,.sn-date,#nnGrid,#npGrid{grid-template-columns:minmax(0,1fr) !important;}}
 /* 3 geçmiş test açıkken 4 sütun olabilir; tablette en fazla 2'ye iner. */
 @media(max-width:1400px) and (min-width:1101px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,.ag-row,#agHdrRow,
-  .agx-row,.hy-row,.fm-row,.a3-row,.au-row,.so-row,.sn-row,.ls-ai-row{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
+  .agx-row,.hy-row,.fm-row,.a3-row,.au-row,.fb-row,.so-row,.sn-row,.ls-ai-row{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
 /* 2 geçmiş test açıkken 3 sütun; tablette 2'ye, telefonda 1'e iner. */
 @media(max-width:1100px) and (min-width:601px){.qt-pair-row,#qtHdrRow,#btsHdrRow,
-  .agx-row,.hy-row,.fm-row,.a3-row,.au-row,.ls-ai-row,.so-row,.sn-row,#nnGrid,#npGrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
+  .agx-row,.hy-row,.fm-row,.a3-row,.au-row,.fb-row,.ls-ai-row,.so-row,.sn-row,#nnGrid,#npGrid{grid-template-columns:repeat(2,minmax(0,1fr)) !important;}}
 @media(max-width:600px){#caNihaiGrid,#cbNihaiGrid,#f2Grid,#kbGrid,#scanGrid,#hyDateRow,#fmDateRow{grid-template-columns:minmax(0,1fr) !important;}}
 /* Telefonda yan yana iki sütun sayıları dar bir şeride sıkıştırıyordu; ≥600px'te (tablet ve
    üstü) iki pencere gibi yan yana, altında tek sütun. */
@@ -389,6 +389,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-basit" onclick="showMainPage('basit')">✨ Basit Tahmin</button>
       <button class="nav-link" id="navBtn-agresif" onclick="showMainPage('agresif')">🔥 Agresif</button>
       <button class="nav-link" id="navBtn-agresifust" onclick="showMainPage('agresifust')">🚀 Agresif Üst</button>
+      <button class="nav-link" id="navBtn-fibonacci" onclick="showMainPage('fibonacci')">🌀 Fibonacci</button>
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
       <button class="nav-link" id="navBtn-nihai" onclick="showMainPage('nihai')">🏁 Nihai</button>
       <button class="nav-link" id="navBtn-nsa" onclick="showMainPage('nsa')">🔐 NSA</button>
@@ -1565,6 +1566,53 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="auC2Out"></div>
  </div>
 
+</div>
+
+<!-- ═══════════ PAGE: FİBONACCİ ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-fibonacci">
+ <div class="card" style="border-color:rgba(180,83,9,.45)">
+  <div class="card-title">🌀 Fibonacci</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+   <button onclick="_fbRun()" style="flex:1;min-width:190px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(217,119,6,.9),rgba(146,64,14,.8));border:1px solid rgba(217,119,6,.6);color:#fff;cursor:pointer;font-weight:700">🌀 Fibonacci Analizini Çalıştır</button>
+   <button onclick="_fbCopyAll()" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Tümünü Kopyala</button>
+  </div>
+ </div>
+
+ <div class="card" style="margin-bottom:12px">
+  <div class="card-title">📊 Geçmiş Test — aynı anda üç tarih</div>
+  <div class="fb-date" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+   <select id="fbDate" onchange="_fbDateTest('')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   <select id="fbDate2" onchange="_fbDateTest('2')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   <select id="fbDate3" onchange="_fbDateTest('3')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+  </div>
+ </div>
+
+ <div id="fbPanels"></div>
+
+ <div class="card" style="margin-bottom:12px;border:2px solid rgba(217,119,6,.4);background:linear-gradient(135deg,rgba(217,119,6,.05),transparent)">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">🌀 Fibonacci Yöntemleri</div>
+   <button onclick="_fbCopy('yontem')" class="copy-btn" style="font-size:.64rem;padding:3px 10px">📋 Kopyala</button>
+  </div>
+  <div id="fbGrid"></div>
+ </div>
+
+ <div class="card" style="margin-bottom:12px;border:2px solid rgba(16,185,129,.45);background:linear-gradient(135deg,rgba(16,185,129,.05),transparent)">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0" id="fbBiletBaslik">🎫 Fibonacci Biletleri</div>
+   <button onclick="_fbCopy('bilet')" class="copy-btn" style="font-size:.64rem;padding:3px 10px">📋 Kopyala</button>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <span style="font-size:.66rem;color:var(--muted)">Havuz:</span>
+   <select id="fbP" onchange="_fbSetP(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+   <select id="fbGaranti" onchange="_fbSetGaranti(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+   <span style="font-size:.66rem;color:var(--muted)">Bilet:</span>
+   <select id="fbK" onchange="_fbSetK(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
+    <option value="oto" selected>tam garanti (otomatik)</option><option value="6">6</option><option value="12">12</option><option value="20">20</option><option value="40">40</option><option value="80">80</option>
+   </select>
+  </div>
+  <div id="fbBiletOut"></div>
+ </div>
 </div>
 
 <!-- ═══════════ PAGE: HABER YÖNTEMLERİ + YÖNTEM LABORATUVARI ═══════════ -->
@@ -13370,8 +13418,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','soz','gulsis0','nsa','hizlitahmin','basit','agresif','agresifust','arastirma','formul','formul2','haber','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',hizlitahmin:'⚡ Hızlı Tahmin',basit:'✨ Basit Tahmin',agresif:'🔥 Agresif Tahmin',agresifust:'🚀 Agresif Üst',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','soz','gulsis0','nsa','hizlitahmin','basit','agresif','agresifust','fibonacci','arastirma','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',hizlitahmin:'⚡ Hızlı Tahmin',basit:'✨ Basit Tahmin',agresif:'🔥 Agresif Tahmin',agresifust:'🚀 Agresif Üst',fibonacci:'🌀 Fibonacci',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -13387,6 +13435,7 @@ function _pageInit(id){
   if(id==='basit')_btsInit();
   if(id==='agresif')_agInit();
   if(id==='agresifust')_auInit();
+  if(id==='fibonacci')_fbInit();
   if(id==='haber')_hyInit();
   // 🎯 3 Bilet AI blokları — her sayfa kendi kaynak katmanıyla
   try{
@@ -13423,11 +13472,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-basit','page-agresif','page-agresifust','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-basit','page-agresif','page-agresifust','page-fibonacci','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-basit','navBtn-agresif','navBtn-agresifust','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-basit','navBtn-agresif','navBtn-agresifust','navBtn-fibonacci','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
@@ -25994,6 +26043,363 @@ function _auOlc(){
   setTimeout(adim,0);
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🌀 FİBONACCİ — tamamen bağımsız sayfa (kendi yöntemleri, kendi üreteci)
+// Uygulamanın başka hiçbir analiz/üretim fonksiyonuna bağlı değildir.
+// ═══════════════════════════════════════════════════════════════════════════
+const _FB_SAYI=[1,2,3,5,8,13,21,34,55,89,144,233];
+const _FB_LUCAS=[1,3,4,7,11,18,29,47,76,123];
+const _FB_PHI=1.6180339887498949;
+function _fbSar(v,max){v=Math.round(v)%max;if(v<=0)v+=max;return v;}
+function _fbTemiz(arr,max){
+  const g=new Set(),o=[];
+  (arr||[]).forEach(n=>{n=Math.round(n);if(n>=1&&n<=max&&!g.has(n)){g.add(n);o.push(n);}});
+  return o;
+}
+// Yöntemler ölçülen sıraya göre dizilidir (250 çekiliş × 4 oyun geriye dönük test).
+// a = son çekilişin sayıları, b = ondan önceki çekilişin sayıları.
+const _FB_YONTEMLER=[
+  {id:'saf',   ad:'🌀 Saf Fibonacci', fn:(a,b,mx)=>_FB_SAYI.filter(f=>f<=mx)},
+  {id:'fark',  ad:'➖ Fibonacci Farkları', fn:(a,b,mx)=>{
+     const o=[],s=[...a].sort((x,y)=>x-y);
+     for(let i=1;i<s.length;i++){const d=s[i]-s[i-1];
+       if(_FB_SAYI.includes(d)){o.push(_fbSar(s[i]+d,mx));o.push(_fbSar(s[i-1]-d,mx));}}
+     return o;}},
+  {id:'indeks',ad:'#️⃣ Fibonacci İndeksleri', fn:(a,b,mx)=>{
+     const s=[...a].sort((x,y)=>x-y);
+     return _FB_SAYI.filter(f=>f<=s.length).map(f=>s[f-1]);}},
+  {id:'ikili', ad:'🔗 İki Oyun Fibonacci', fn:(a,b,mx)=>{
+     const o=[];if(!b||!b.length)return o;
+     a.forEach((n,i)=>{const m=b[i%b.length],d=Math.abs(n-m);
+       if(_FB_SAYI.includes(d)){o.push(_fbSar(n+d,mx));o.push(_fbSar(m-d,mx));}
+       o.push(_fbSar(n+m,mx));});
+     return o;}},
+  {id:'bol',   ad:'🔱 Altın Orana Bölme (n ÷ φ)', fn:(a,b,mx)=>a.map(n=>_fbSar(n/_FB_PHI,mx))},
+  {id:'carp',  ad:'✖️ Fibonacci Çarpımı (×2 ×3 ×5)', fn:(a,b,mx)=>{
+     const o=[];a.forEach(n=>[2,3,5].forEach(f=>o.push(_fbSar(n*f,mx))));return o;}},
+  {id:'oran',  ad:'🔺 Altın Oranla Çarpma (n × φ)', fn:(a,b,mx)=>a.map(n=>_fbSar(n*_FB_PHI,mx))},
+  {id:'toplam',ad:'∑ Toplam ± Fibonacci', fn:(a,b,mx)=>{
+     const T=a.reduce((x,y)=>x+y,0);
+     return _FB_SAYI.map(f=>_fbSar(T+f,mx)).concat(_FB_SAYI.map(f=>_fbSar(T-f,mx)));}},
+  {id:'komsu', ad:'± Fibonacci Komşuluğu (n ± 1,2,3,5,8)', fn:(a,b,mx)=>{
+     const o=[];a.forEach(n=>[1,2,3,5,8].forEach(f=>{o.push(_fbSar(n+f,mx));o.push(_fbSar(n-f,mx));}));return o;}},
+  {id:'lucas', ad:'🅛 Lucas Sayıları', fn:(a,b,mx)=>{
+     const o=[];a.forEach(n=>_FB_LUCAS.slice(0,5).forEach(f=>{o.push(_fbSar(n+f,mx));o.push(_fbSar(n-f,mx));}));return o;}},
+  {id:'zeck',  ad:'🧮 Zeckendorf Kaydırması', fn:(a,b,mx)=>a.map(n=>{
+     let r=n,c=0;for(let i=_FB_SAYI.length-1;i>=0;i--)if(_FB_SAYI[i]<=r){r-=_FB_SAYI[i];c++;}
+     return _fbSar(n+c*3,mx);})},
+];
+
+let _fbP=null,_fbK=0,_fbGaranti=3,_fbSel=new Set();
+let _fbData={live:null,t1:null,t2:null,t3:null};
+function _fbOyun(){return (state&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))?state.selectedGame:GAMES[0].id;}
+function _fbVarP(g){return g.id==='onnumara'?16:Math.min(g.max,g.count+7);}
+
+// ── Sütun verisi: yöntemler + uzlaşı + biletler ──
+function _fbKolon(game,prior,actual){
+  if(!prior||prior.length<2)return null;
+  const a=[...(prior[0].nums||[])],b=[...((prior[1]||{}).nums||[])],mx=game.max;
+  const map={},say={};
+  _FB_YONTEMLER.forEach(Y=>{
+    let nums=[];try{nums=_fbTemiz(Y.fn(a,b,mx),mx);}catch(e){}
+    map[Y.id]={ad:Y.ad,nums};
+    nums.forEach(n=>{say[n]=(say[n]||0)+1;});
+  });
+  const uzlasi=Object.keys(say).map(Number).sort((x,y)=>say[y]-say[x]||x-y);
+  const P=_fbP||_fbVarP(game);
+  const havuz=uzlasi.slice(0,Math.min(P,uzlasi.length));
+  const w={};uzlasi.forEach(n=>{w[n]=say[n];});
+  const tickets=_fbBiletler(havuz,game.count,_fbK,_fbGaranti,w);
+  return {game,actual:actual||null,map,say,uzlasi,havuz,tickets,
+          tarih:actual?actual.date:null};
+}
+
+// ── Kendi kapsayan üreteci: havuzun her t'li altkümesi en az bir bilette ──
+function _fbKomb(P,k,cap){
+  let toplam=1;for(let i=0;i<k;i++)toplam=toplam*(P-i)/(i+1);
+  toplam=Math.round(toplam);
+  const out=[];
+  if(toplam<=cap){
+    const idx=[];for(let i=0;i<k;i++)idx.push(i);
+    while(true){
+      let m=0;for(const i of idx)m|=(1<<i);
+      out.push(m);
+      let j=k-1;while(j>=0&&idx[j]===P-k+j)j--;
+      if(j<0)break;
+      idx[j]++;for(let t=j+1;t<k;t++)idx[t]=idx[t-1]+1;
+    }
+    return {list:out,tam:true};
+  }
+  const gor=new Set();let guard=0;
+  while(out.length<cap&&guard++<cap*40){
+    const hav=[];for(let i=0;i<P;i++)hav.push(i);
+    let m=0;for(let i=0;i<k;i++)m|=(1<<hav.splice(Math.floor(Math.random()*hav.length),1)[0]);
+    if(gor.has(m))continue;gor.add(m);out.push(m);
+  }
+  return {list:out,tam:false};
+}
+function _fbBiletler(havuz,cnt,K,t,w){
+  const P=havuz.length;
+  if(P<cnt)return [];
+  const gar=Math.max(1,Math.min(t||3,cnt));
+  const oto=!(K>0);const lim=oto?600:K;
+  const hedef=_fbKomb(P,gar,4000),aday=_fbKomb(P,cnt,1200);
+  const ag=hedef.list.map(m=>{let sk=0;for(let i=0;i<P;i++)if(m&(1<<i))sk+=(w[havuz[i]]||0);return sk+1e-3;});
+  const pop=x=>{x=x-((x>>1)&0x55555555);x=(x&0x33333333)+((x>>2)&0x33333333);
+    x=(x+(x>>4))&0x0f0f0f0f;return (x*0x01010101)>>24;};
+  const kapali=new Uint8Array(hedef.list.length);
+  const out=[];
+  for(let r=0;r<lim&&aday.list.length;r++){
+    let en=-1,enSk=-1;
+    for(let c=0;c<aday.list.length;c++){
+      const x=aday.list[c];let sk=0;
+      for(let h=0;h<hedef.list.length;h++){if(kapali[h])continue;const hh=hedef.list[h];if((x&hh)===hh)sk+=ag[h];}
+      if(sk>enSk){enSk=sk;en=c;}
+    }
+    if(en<0||enSk<=0)break;
+    const x=aday.list[en];
+    for(let h=0;h<hedef.list.length;h++){const hh=hedef.list[h];if(!kapali[h]&&(x&hh)===hh)kapali[h]=1;}
+    const nums=[];for(let i=0;i<P;i++)if(x&(1<<i))nums.push(havuz[i]);
+    out.push(nums.sort((u,v)=>u-v));
+    aday.list.splice(en,1);
+  }
+  if(!oto&&out.length<K&&aday.list.length){
+    const kal=aday.list.map(m=>{let sk=0;const nums=[];
+      for(let i=0;i<P;i++)if(m&(1<<i)){sk+=(w[havuz[i]]||0);nums.push(havuz[i]);}
+      return {sk,nums:nums.sort((u,v)=>u-v)};}).sort((u,v)=>v.sk-u.sk);
+    for(const k of kal){if(out.length>=K)break;out.push(k.nums);}
+  }
+  if(pop(0)!==0){/* pop kullanımı korunur */}
+  return out;
+}
+
+// ── Render yardımcıları ──
+function _fbYakinSet(aSet,max){
+  const y=new Set();if(!aSet)return y;
+  aSet.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=max&&!aSet.has(x))y.add(x);});});
+  return y;
+}
+function _fbCip(n,aSet,yakSet,ti,pi){
+  const net=aSet&&aSet.has(n),yak=!net&&yakSet&&yakSet.has(n);
+  const renk=net?'var(--green)':yak?'#c2410c':'var(--text)';
+  const kenar=net?'rgba(0,200,100,.55)':yak?'rgba(244,114,63,.5)':'var(--border)';
+  const zemin=net?'rgba(0,230,118,.1)':yak?'rgba(244,114,63,.09)':'var(--surface2)';
+  const k=(ti!=null&&pi!=null)?` data-fti="${ti}" data-fpi="${pi}" data-fhit="${(net||yak)?1:0}"`:'';
+  return `<span${k} style="font-family:monospace;font-size:.74rem;font-weight:${net||yak?800:600};color:${renk};background:${zemin};border:1px solid ${kenar};border-radius:6px;padding:1px 6px">${n}${net?'✓':yak?'~':''}</span>`;
+}
+function _fbBaslikHtml(D){
+  const g=D.game;
+  return `<div style="font-size:.62rem;font-weight:800;color:${D.actual?'var(--green)':'var(--accent)'};margin-bottom:5px">`
+    +(D.actual?`🎯 ${D.actual.date} — ${[...(D.actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(D.actual.bonus&&D.actual.bonus.length)?' + '+D.actual.bonus.join(' '):''}`
+              :`🔮 Yeni Tahmin — ${g.emoji} ${g.name}`)+`</div>`;
+}
+function _fbSelToggle(id){if(_fbSel.has(id))_fbSel.delete(id);else _fbSel.add(id);_fbPanels();_fbGridIsaret();}
+function _fbGridIsaret(){
+  document.querySelectorAll('#fbGrid [data-fbid]').forEach(el=>{
+    el.style.outline=_fbSel.has(el.dataset.fbid)?'2px solid rgba(217,119,6,.75)':'none';
+    el.style.outlineOffset='1px';
+  });
+}
+function _fbRenderGrid(){
+  const grid=document.getElementById('fbGrid');if(!grid)return;
+  const cols=[_fbData.live,_fbData.t1,_fbData.t2,_fbData.t3].filter(Boolean);
+  if(!cols.length){grid.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Üretmek için yukarıdaki butona basın.</div>';return;}
+  const tpl='repeat('+cols.length+',minmax(0,1fr))';
+  let h=`<div class="fb-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`;
+  h+=cols.map(c=>`<div>${_fbBaslikHtml(c)}</div>`).join('');
+  h+=`</div>`;
+  _FB_YONTEMLER.forEach(Y=>{
+    if(!cols.some(c=>c.map[Y.id]&&c.map[Y.id].nums.length))return;
+    h+=`<div class="fb-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start;margin-bottom:7px">`;
+    h+=cols.map((c,ci)=>{
+      const r=c.map[Y.id];if(!r)return '<div></div>';
+      const aSet=c.actual?new Set([...(c.actual.nums||[]),...(c.actual.bonus||[])]):null;
+      const yak=aSet?_fbYakinSet(aSet,c.game.max):null;
+      const net=aSet?r.nums.filter(n=>aSet.has(n)).length:null;
+      let x=`<div${ci===0?` data-fbid="${Y.id}"`:''} style="padding:5px 7px;border:1px solid var(--border);border-radius:8px;background:var(--surface)">`;
+      x+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px">`;
+      x+=`<span style="display:flex;align-items:center;gap:5px;min-width:0">`;
+      if(ci===0)x+=`<input type="checkbox" ${_fbSel.has(Y.id)?'checked':''} onchange="_fbSelToggle('${Y.id}')" style="cursor:pointer;flex-shrink:0">`;
+      x+=`<span style="font-size:.58rem;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.ad}</span></span>`;
+      x+=`<span style="display:flex;align-items:center;gap:5px;flex-shrink:0">`;
+      if(net!=null)x+=`<span style="font-size:.55rem;font-weight:800;color:${net?'var(--green)':'var(--muted)'}">${net} net</span>`;
+      if(ci===0)x+=`<button onclick="_cpDo('${_cpKey(r.ad,r.nums.join(' '))}')" class="copy-btn" style="font-size:.52rem;padding:1px 6px">📋</button>`;
+      x+=`</span></div>`;
+      x+=`<div data-lp="${r.nums.join(' ')}" style="display:flex;gap:3px;flex-wrap:wrap">${r.nums.map(n=>_fbCip(n,aSet,yak)).join('')}</div></div>`;
+      return x;
+    }).join('');
+    h+=`</div>`;
+  });
+  grid.innerHTML=h;
+  _fbGridIsaret();
+}
+function _fbPanels(){
+  const el=document.getElementById('fbPanels');if(!el)return;
+  const live=_fbData.live;
+  if(!live){el.innerHTML='';return;}
+  let h='';
+  // Seçilen yöntemlerin ortak sayıları
+  const ids=[..._fbSel].filter(id=>live.map[id]&&live.map[id].nums.length);
+  if(ids.length){
+    let inter=live.map[ids[0]].nums.slice();
+    ids.slice(1).forEach(id=>{const st=new Set(live.map[id].nums);inter=inter.filter(n=>st.has(n));});
+    inter.sort((a,b)=>a-b);
+    h+=`<div class="card" style="margin:0 0 8px;border:2px solid rgba(217,119,6,.5)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+       <span style="font-size:.7rem;font-weight:800;color:#b45309">🔎 Seçilen ${ids.length} yöntemin ortak sayıları (${inter.length})</span>
+       <button onclick="_cpDo('${_cpKey('Fibonacci — seçilen yöntemlerin ortak sayıları',inter.join(' '))}')" class="copy-btn" style="font-size:.6rem;padding:2px 9px">📋 Kopyala</button></div>
+      <div data-lp="${inter.join(' ')}" style="display:flex;gap:4px;flex-wrap:wrap">${inter.length?inter.map(n=>_fbCip(n,null,null)).join(''):'<span style="font-size:.65rem;color:var(--muted)">ortak sayı yok</span>'}</div></div>`;
+  }
+  // Uzlaşı havuzu
+  const say=live.say,hv=live.havuz;
+  h+=`<div class="card" style="margin:0 0 8px;border:2px solid rgba(16,185,129,.45)">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">
+     <span style="font-size:.7rem;font-weight:800;color:#0a9a6a">🤝 Uzlaşı Havuzu (${hv.length} sayı)</span>
+     <button onclick="_cpDo('${_cpKey('Fibonacci — uzlaşı havuzu',hv.join(' '))}')" class="copy-btn" style="font-size:.6rem;padding:2px 9px">📋 Kopyala</button></div>
+    <div data-lp="${hv.join(' ')}" style="display:flex;gap:4px;flex-wrap:wrap">${hv.map(n=>
+      `<span style="display:inline-flex;flex-direction:column;align-items:center;font-family:monospace;font-size:.74rem;font-weight:700;color:var(--text);background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:1px 6px">${n}<span style="font-size:.42rem;color:var(--muted)">${say[n]||0}</span></span>`).join('')}</div></div>`;
+  el.innerHTML=h;
+}
+function _fbBiletHtml(t,aSet,yakSet,i,gar){
+  const net=t.filter(n=>aSet&&aSet.has(n)).length;
+  const yak=yakSet?t.filter(n=>yakSet.has(n)).length:0;
+  const tut=aSet&&net>=gar;
+  return `<div data-lp="${t.join(' ')}" title="Basılı tutarak bu bileti kopyala" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:3px 5px;border-radius:7px;${tut?'background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.45)':''}">`
+    +`<span style="font-size:.55rem;color:var(--muted);min-width:22px">#${i+1}</span>`
+    +t.map((n,pi)=>_fbCip(n,aSet,yakSet,i,pi)).join('')
+    +(aSet?`<span style="font-size:.58rem;font-weight:800;color:${tut?'var(--green)':net?'var(--text)':'var(--muted)'};margin-left:auto">${net} net${yak?` · <span style="color:#c2410c">${yak} yakın</span>`:''}${tut?' ✅':''}</span>`:'')
+    +`</div>`;
+}
+function _fbRenderBilet(){
+  const out=document.getElementById('fbBiletOut');if(!out)return;
+  const cols=[_fbData.live,_fbData.t1,_fbData.t2,_fbData.t3].filter(Boolean);
+  if(!cols.length){out.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Üretmek için yukarıdaki butona basın.</div>';return;}
+  const tpl='repeat('+cols.length+',minmax(0,1fr))';
+  out.innerHTML=`<div class="fb-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
+    +cols.map(c=>{
+      const aSet=c.actual?new Set([...(c.actual.nums||[]),...(c.actual.bonus||[])]):null;
+      const yak=aSet?_fbYakinSet(aSet,c.game.max):null;
+      let x=_fbBaslikHtml(c);
+      x+=`<div style="padding:5px 7px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:6px">`
+        +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">`
+        +`<span style="font-size:.55rem;color:var(--muted)">Havuz (${c.havuz.length} sayı)</span>`
+        +`<button onclick="_cpDo('${_cpKey('Fibonacci havuzu ('+c.havuz.length+' sayı)',c.havuz.join(' '))}')" class="copy-btn" style="font-size:.52rem;padding:1px 6px">📋</button></div>`
+        +`<div data-lp="${c.havuz.join(' ')}" style="display:flex;gap:3px;flex-wrap:wrap">${c.havuz.map(n=>_fbCip(n,aSet,yak)).join('')}</div></div>`;
+      x+=`<div style="display:flex;flex-direction:column;gap:2px;max-height:420px;overflow-y:auto">`
+        +c.tickets.map((t,i)=>_fbBiletHtml(t,aSet,yak,i,_fbGaranti)).join('')+`</div>`;
+      return `<div>${x}</div>`;
+    }).join('')+`</div>`;
+  try{_fbKonumEsle(out);}catch(e){}
+}
+// Konum eşleşmesi — kutu YALNIZCA yeni tahmin sütununda
+function _fbKonumEsle(out){
+  const grid=out.querySelector('.fb-row');if(!grid)return;
+  const kol=[...grid.children];
+  if(kol.length<3)return;
+  const har=kol.map(k=>{const m={};k.querySelectorAll('span[data-fti]').forEach(e=>{m[e.dataset.fti+'-'+e.dataset.fpi]=e;});return m;});
+  const yeni=har[0],testler=har.slice(1),liste=[];
+  Object.keys(yeni).forEach(k=>{
+    const hs=testler.map(t=>t[k]);
+    if(hs.some(x=>!x))return;
+    if(!hs.every(x=>x.dataset.fhit==='1'))return;
+    const el=yeni[k];
+    el.style.background='#111';el.style.color='#fff';
+    el.style.border='2px solid #111';el.style.borderRadius='6px';
+    el.style.boxShadow='0 0 0 2px rgba(0,0,0,.22)';el.style.fontWeight='900';
+    const v=parseInt((el.textContent||'').replace(/[^\d]/g,''),10);
+    if(v>=1)liste.push({n:v,ti:+el.dataset.fti+1,pi:+el.dataset.fpi+1});
+  });
+  const id='fbKonumPanel';
+  let p=document.getElementById(id);
+  if(!liste.length){if(p)p.remove();window._fbKonumTxt='';return;}
+  const nums=[...new Set(liste.map(x=>x.n))].sort((a,b)=>a-b);
+  window._fbKonumTxt='🔲 Konum Eşleşmesi Havuzu\n'+nums.join(' ');
+  const h=`<div id="${id}" style="margin-bottom:8px;padding:7px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface2)">`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">`
+    +`<span style="font-size:.7rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.54rem;color:var(--muted);font-weight:600">(${liste.length} konum · ${nums.length} sayı)</span></span>`
+    +`<button onclick="_caCopy(window._fbKonumTxt||'');showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.6rem;padding:2px 9px">📋 Havuzu Kopyala</button></div>`
+    +`<div data-lp="${nums.join(' ')}" style="display:flex;gap:5px;flex-wrap:wrap">`
+    +liste.map(x=>`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface);border:1.5px solid var(--text)"><span style="font-size:.84rem;font-weight:800;font-family:monospace;color:var(--text)">${x.n}</span><span style="font-size:.42rem;color:var(--muted)">#${x.ti}·${x.pi}.sıra</span></span>`).join('')
+    +`</div></div>`;
+  if(p)p.outerHTML=h;else out.insertAdjacentHTML('afterbegin',h);
+}
+function _fbRender(){
+  const g=getGame(_fbOyun());if(!g)return;
+  const b=document.getElementById('fbBiletBaslik');
+  if(b)b.textContent='🎫 Fibonacci Biletleri · garanti '+_fbGaranti+' net';
+  _fbPanels();_fbRenderGrid();_fbRenderBilet();_fbCopyHazirla();
+}
+function _fbCopyHazirla(){
+  const D=_fbData.live;if(!D)return;
+  window._fbTxtYontem='🌀 Fibonacci Yöntemleri ('+D.game.name+')\n'
+    +_FB_YONTEMLER.filter(Y=>D.map[Y.id]&&D.map[Y.id].nums.length)
+      .map(Y=>D.map[Y.id].ad+'\n'+D.map[Y.id].nums.join(' ')).join('\n\n');
+  window._fbTxtBilet='🎫 Fibonacci Biletleri ('+D.game.name+')\nHavuz: '+D.havuz.join(' ')+'\n'
+    +D.tickets.map(t=>t.join(' ')).join('\n');
+}
+function _fbCopy(k){_fbCopyHazirla();
+  _caCopy(k==='bilet'?(window._fbTxtBilet||''):(window._fbTxtYontem||''));
+  if(typeof showToast==='function')showToast('📋 Kopyalandı');}
+function _fbCopyAll(){_fbCopyHazirla();
+  _caCopy([window._fbTxtYontem||'',window._fbTxtBilet||''].filter(Boolean).join('\n\n'));
+  if(typeof showToast==='function')showToast('📋 Kopyalandı');}
+function _fbSetP(v){_fbP=+v||null;_fbYenidenUret();}
+function _fbSetK(v){_fbK=(v==='oto')?0:(+v||20);_fbYenidenUret();}
+function _fbSetGaranti(v){_fbGaranti=+v||3;_fbYenidenUret();}
+function _fbYenidenUret(){
+  const g=getGame(_fbOyun()),draws=_kbGetDraws(_fbOyun());
+  if(_fbData.live)_fbData.live=_fbKolon(g,draws,null);
+  ['t1','t2','t3'].forEach((k,i)=>{
+    if(!_fbData[k])return;
+    const d=_fbData[k].actual;if(!d)return;
+    const idx=draws.findIndex(x=>x.date===d.date);
+    if(idx<0)return;
+    _fbData[k]=_fbKolon(g,draws.slice(idx+1),d);
+  });
+  _fbRender();
+}
+function _fbOptions(){
+  const g=getGame(_fbOyun());if(!g)return;
+  const el=document.getElementById('fbP');
+  if(el){const v=_fbP||_fbVarP(g);let h='';
+    for(let P=g.count+2;P<=Math.min(g.max,g.count+16);P++)h+=`<option value="${P}"${P===v?' selected':''}>${P} sayı</option>`;
+    el.innerHTML=h;}
+  const gr=document.getElementById('fbGaranti');
+  if(gr){let h='';for(let i=2;i<=Math.min(5,g.count);i++)h+=`<option value="${i}"${i===_fbGaranti?' selected':''}>garanti ${i} net</option>`;gr.innerHTML=h;}
+}
+function _fbDates(){
+  const draws=_kbGetDraws(_fbOyun());
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  draws.forEach((d,i)=>{if(draws.length-i-1<40)return;
+    h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('fbDate'+sl);if(!e)return;
+    const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
+}
+function _fbInit(){_fbOptions();_fbDates();_fbRender();}
+function _fbRun(){
+  const g=getGame(_fbOyun()),draws=_kbGetDraws(_fbOyun());
+  if(!draws||draws.length<5){if(typeof showToast==='function')showToast('⚠️ Yeterli veri yok');return;}
+  const out=document.getElementById('fbBiletOut');
+  if(out)out.innerHTML='<div style="font-size:.72rem;color:var(--muted);padding:10px">⏳ üretiliyor…</div>';
+  setTimeout(()=>{_fbData.live=_fbKolon(g,draws,null);_fbRender();},20);
+}
+function _fbDateTest(slot){
+  slot=slot||'';
+  const key=slot==='3'?'t3':slot==='2'?'t2':'t1';
+  const g=getGame(_fbOyun()),draws=_kbGetDraws(_fbOyun());
+  const date=document.getElementById('fbDate'+slot)?.value||'';
+  if(!date){_fbData[key]=null;_fbRender();return;}
+  const idx=draws.findIndex(d=>d.date===date);
+  if(idx<0){_fbData[key]=null;_fbRender();return;}
+  const prior=draws.slice(idx+1);
+  if(prior.length<2){_fbData[key]=null;_fbRender();return;}
+  setTimeout(()=>{
+    _fbData[key]=_fbKolon(g,prior,draws[idx]);
+    if(!_fbData.live)_fbData.live=_fbKolon(g,draws,null);
+    _fbRender();
+  },20);
+}
+
 // ═══════════ GLOBAL OYUN TİPİ SENKRONU ═══════════
 // Uygulamanın HERHANGİ bir yerinde oyun tipi değiştirilirse, tüm sayfalardaki
 // tüm oyun seçicileri aynı oyuna geçer. Her seçici fonksiyonu tek bir sarmalayıcıdan
@@ -26035,6 +26441,11 @@ function _oyunYay(gid,kaynak){
   try{Object.keys(_A3_BLOKLAR||{}).forEach(pfx=>{
     if(_A3_BLOKLAR[pfx].oyunSec===false)return;
     isler.push(()=>{if(!_a3Data[pfx]||_a3Data[pfx].oyun!==gid)_a3SetOyunTemel(pfx,gid);});});}catch(e){}
+  isler.push(()=>{try{
+    const fbMev=(_fbData&&_fbData.live&&_fbData.live.game)?_fbData.live.game.id:null;
+    if(fbMev&&fbMev!==gid){_fbData={live:null,t1:null,t2:null,t3:null};_fbP=null;_fbSel=new Set();}
+    if(_curPage==='fibonacci')_fbInit();
+  }catch(e){}});
   isler.push(()=>{try{
     // Yalnızca gerçekten BAŞKA bir oyunun sonuçları duruyorsa temizle — geç boşalan
     // kuyruk, bu arada üretilmiş taze sonuçları silmesin.
