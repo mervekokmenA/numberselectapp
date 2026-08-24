@@ -26330,23 +26330,6 @@ function _fbPanels(){
   const el=document.getElementById('fbPanels');if(!el)return;
   if(!_fbData.live){el.innerHTML='';return;}
   let h='';
-  // Seçilen yöntemlerin ortak sayıları — her sütun kendi verisiyle
-  const secili=[..._fbSel];
-  if(secili.length){
-    h+=_fbGrupKart('🔎 Seçilen '+secili.length+' yöntemin ortak sayıları','rgba(217,119,6,.5)',(c,ci,aSet,yak)=>{
-      const ids=secili.filter(id=>c.map[id]&&c.map[id].nums.length);
-      if(!ids.length)return '<div style="font-size:.6rem;color:var(--muted)">—</div>';
-      let inter=c.map[ids[0]].nums.slice();
-      ids.slice(1).forEach(id=>{const st=new Set(c.map[id].nums);inter=inter.filter(n=>st.has(n));});
-      inter.sort((a,b)=>a-b);
-      const net=aSet?inter.filter(n=>aSet.has(n)).length:null;
-      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px">`
-        +`<span style="font-size:.55rem;color:var(--muted)">${inter.length} ortak sayı${net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>`:''}</span>`
-        +(ci===0?`<button onclick="_cpDo('${_cpKey('Fibonacci — seçilen yöntemlerin ortak sayıları',inter.join(' '))}')" class="copy-btn" style="font-size:.52rem;padding:1px 6px">📋</button>`:'')
-        +`</div><div data-lp="${inter.join(' ')}" style="display:flex;gap:4px;flex-wrap:wrap">`
-        +(inter.length?inter.map(n=>_fbCip(n,aSet,yak)).join(''):'<span style="font-size:.6rem;color:var(--muted)">ortak sayı yok</span>')+`</div>`;
-    });
-  }
   // Kesişim katmanları — her sütun kendi verisiyle
   const katlarLive=_fbKatlar(_fbData.live);
   const tumKatTxt=katlarLive.map(K=>K.k+'+ yöntem ortak ('+K.nums.length+' sayı)\n'+K.nums.join(' ')).join('\n\n');
@@ -26376,6 +26359,23 @@ function _fbPanels(){
         return `<span style="display:inline-flex;flex-direction:column;align-items:center;font-family:monospace;font-size:.72rem;font-weight:${isN||isY?800:700};color:${isN?'var(--green)':isY?'#c2410c':'var(--text)'};background:${isN?'rgba(0,230,118,.1)':isY?'rgba(244,114,63,.09)':'var(--surface2)'};border:1px solid ${isN?'rgba(0,200,100,.55)':isY?'rgba(244,114,63,.5)':'var(--border)'};border-radius:6px;padding:1px 6px">${n}${isN?'✓':isY?'~':''}<span style="font-size:.42rem;color:var(--muted)">${say[n]||0}</span></span>`;
       }).join('')+`</div>`;
   },(_fbData.live.havuz||[]).join(' '));
+  // Seçilen yöntemlerin ortak sayıları — her sütun kendi verisiyle
+  const secili=[..._fbSel];
+  if(secili.length){
+    h+=_fbGrupKart('🔎 Seçilen '+secili.length+' yöntemin ortak sayıları','rgba(217,119,6,.5)',(c,ci,aSet,yak)=>{
+      const ids=secili.filter(id=>c.map[id]&&c.map[id].nums.length);
+      if(!ids.length)return '<div style="font-size:.6rem;color:var(--muted)">—</div>';
+      let inter=c.map[ids[0]].nums.slice();
+      ids.slice(1).forEach(id=>{const st=new Set(c.map[id].nums);inter=inter.filter(n=>st.has(n));});
+      inter.sort((a,b)=>a-b);
+      const net=aSet?inter.filter(n=>aSet.has(n)).length:null;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px">`
+        +`<span style="font-size:.55rem;color:var(--muted)">${inter.length} ortak sayı${net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>`:''}</span>`
+        +(ci===0?`<button onclick="_cpDo('${_cpKey('Fibonacci — seçilen yöntemlerin ortak sayıları',inter.join(' '))}')" class="copy-btn" style="font-size:.52rem;padding:1px 6px">📋</button>`:'')
+        +`</div><div data-lp="${inter.join(' ')}" style="display:flex;gap:4px;flex-wrap:wrap">`
+        +(inter.length?inter.map(n=>_fbCip(n,aSet,yak)).join(''):'<span style="font-size:.6rem;color:var(--muted)">ortak sayı yok</span>')+`</div>`;
+    });
+  }
   el.innerHTML=h;
 }
 function _fbBiletHtml(t,aSet,yakSet,i,gar){
