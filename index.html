@@ -26597,7 +26597,7 @@ function _exVeriKol(g){
     const d=_kbGetDraws(g.id)||[];
     for(let i=0;i<Math.min(30,d.length);i++)adet=Math.max(adet,(d[i].nums||[]).length);
   }catch(e){}
-  const out=[{h:'A',b:'',tip:'serbest'},{h:'B',b:'Tarih',tip:'tarih'}];
+  const out=[{h:'B',b:'Tarih',tip:'tarih'}];
   for(let i=0;i<adet;i++)out.push({h:_exHarf(2+i),b:(i+1)+'.',tip:'sayi',ix:i});
   if(g.bonusCount>0)out.push({h:_exHarf(2+adet),b:'+',tip:'bonus'});
   return out;
@@ -26805,45 +26805,57 @@ function _exRender(){
   if(!_exKol)_exKol=_exYukle(_exGame);
   const g=getGame(_exGame),ctx=_exCtx();
   const sayiSet=r=>{const st=ctx.satirlar[r];return st&&!st.gelecek?new Set([...(st.nums||[]),...(st.bonus||[])]):null;};
+  const yakinSet=aSet=>{if(!aSet)return null;const y=new Set();
+    aSet.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!aSet.has(x))y.add(x);});});return y;};
   let h='<div style="overflow:auto;max-height:70vh;border:1px solid var(--border);border-radius:8px">';
-  h+='<table style="border-collapse:separate;border-spacing:0;font-size:.62rem;font-family:monospace;white-space:nowrap">';
+  h+='<table style="border-collapse:separate;border-spacing:0;font-size:.62rem;font-family:monospace;white-space:nowrap;table-layout:auto;width:auto">';
   // 1) sütun harfi + sil
   h+='<thead><tr>';
   _exKol.forEach(k=>{
     const veri=k.tip==='tarih'||k.tip==='sayi'||k.tip==='bonus';
-    h+=`<th style="position:sticky;top:0;z-index:3;background:var(--surface2);border:1px solid var(--border);padding:2px 5px;font-weight:800;color:var(--muted)">`
+    h+=`<th style="position:sticky;top:0;height:20px;box-sizing:border-box;z-index:5;background:var(--surface2);border:1px solid var(--border);padding:1px 4px;font-weight:800;color:var(--muted)">`
       +`${k.h}${veri?'':`<button onclick="_exSil('${k.h}')" title="Sütunu sil" style="margin-left:4px;border:none;background:none;color:#ef5350;cursor:pointer;font-size:.7rem;line-height:1;padding:0">✕</button>`}</th>`;
   });
   h+='</tr>';
   // 2) başlık (düzenlenebilir)
   h+='<tr>';
   _exKol.forEach(k=>{
-    h+=`<th style="position:sticky;top:20px;z-index:3;background:var(--surface);border:1px solid var(--border);padding:1px 3px">`
-      +`<input value="${(k.b||'').replace(/"/g,'&quot;')}" onchange="_exBaslikDegis('${k.h}',this.value)" style="width:74px;font-size:.58rem;font-family:inherit;background:transparent;border:none;color:var(--text);font-weight:700"></th>`;
+    h+=`<th style="position:sticky;top:20px;height:22px;box-sizing:border-box;z-index:5;background:var(--surface);border:1px solid var(--border);padding:1px 3px">`
+      +`<input value="${(k.b||'').replace(/"/g,'&quot;')}" onchange="_exBaslikDegis('${k.h}',this.value)"
+         onfocus="this.style.width='16ch'" onblur="this.style.width=Math.max(3,Math.min(this.value.length||3,10))+'ch'"
+         style="width:${Math.max(3,Math.min((k.b||'').length||3,10))}ch;font-size:.58rem;font-family:inherit;background:transparent;border:none;color:var(--text);font-weight:700"></th>`;
   });
   h+='</tr>';
   // 3) formül satırı (düzenlenebilir)
   h+='<tr>';
   _exKol.forEach(k=>{
     const veri=k.tip==='tarih'||k.tip==='sayi'||k.tip==='bonus';
-    h+=`<th style="position:sticky;top:40px;z-index:3;background:var(--surface2);border:1px solid var(--border);padding:1px 3px">`
+    h+=`<th style="position:sticky;top:42px;height:24px;box-sizing:border-box;z-index:5;background:var(--surface2);border:1px solid var(--border);padding:1px 3px">`
       +(veri?`<span style="font-size:.52rem;color:var(--muted)">veri</span>`
-            :`<input value="${(k.f||'').replace(/"/g,'&quot;')}" onchange="_exFormulDegis('${k.h}',this.value)" placeholder="=MOD(C{+1}+5,${g.max})" style="width:120px;font-size:.54rem;font-family:inherit;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:#0a7ea4;padding:1px 3px">`)
+            :`<input value="${(k.f||'').replace(/"/g,'&quot;')}" onchange="_exFormulDegis('${k.h}',this.value)" title="${(k.f||'').replace(/"/g,'&quot;')}"
+                onfocus="this.style.width='34ch';this.style.position='relative';this.style.zIndex=9"
+                onblur="this.style.width=Math.max(4,Math.min(this.value.length||4,9))+'ch';this.style.zIndex=''"
+                placeholder="=MOD(…)" style="width:${Math.max(4,Math.min((k.f||'').length||4,9))}ch;font-size:.54rem;font-family:inherit;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:#0a7ea4;padding:1px 2px">`)
       +`</th>`;
   });
   h+='</tr></thead><tbody>';
   ctx.satirlar.forEach((st,r)=>{
-    const aSet=sayiSet(r);
-    h+=`<tr${st.gelecek?' style="background:rgba(129,140,248,.10)"':''}>`;
+    const aSet=sayiSet(r),yak=yakinSet(aSet);
+    h+=`<tr${st.gelecek?' style="background:rgba(129,140,248,.12)"':''}>`;
     _exKol.forEach(k=>{
       let v=(k.tip==='formul'&&k.f)?_exDeger(k.h,r,ctx):_exTaban(k,st);
       let gos=v==null?'':(typeof v==='number'?String(Math.round(v*1000)/1000):String(v));
-      const tut=k.tip==='formul'&&aSet&&typeof v==='number'&&aSet.has(Math.round(v));
+      if(k.tip==='tarih'&&st.gelecek)gos='🔮 Yeni Tahmin';
+      const yuvarlak=typeof v==='number'?Math.round(v):null;
+      const tut=k.tip==='formul'&&aSet&&yuvarlak!=null&&aSet.has(yuvarlak);
+      const yk=!tut&&k.tip==='formul'&&yak&&yuvarlak!=null&&yak.has(yuvarlak);
       const veri=k.tip==='sayi'||k.tip==='bonus';
-      h+=`<td style="border:1px solid var(--border);padding:1px 5px;text-align:${k.tip==='tarih'?'left':'right'};`
-        +(tut?'background:rgba(0,230,118,.22);color:var(--green);font-weight:800;':'')
+      h+=`<td style="border:1px solid var(--border);padding:1px 4px;text-align:${k.tip==='tarih'?'left':'right'};`
+        +(tut?'background:rgba(0,230,118,.22);color:var(--green);font-weight:800;'
+             :yk?'background:rgba(244,114,63,.20);color:#c2410c;font-weight:800;':'')
         +(veri?'font-weight:700;color:var(--text);':'')
-        +`">${gos}${tut?'✓':''}</td>`;
+        +(k.tip==='tarih'&&st.gelecek?'color:var(--accent);font-weight:800;white-space:nowrap;':'')
+        +`">${gos}${tut?'✓':yk?'~':''}</td>`;
     });
     h+='</tr>';
   });
