@@ -390,6 +390,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-agresif" onclick="showMainPage('agresif')">🔥 Agresif</button>
       <button class="nav-link" id="navBtn-agresifust" onclick="showMainPage('agresifust')">🚀 Agresif Üst</button>
       <button class="nav-link" id="navBtn-fibonacci" onclick="showMainPage('fibonacci')">🌀 Fibonacci</button>
+      <button class="nav-link" id="navBtn-excel" onclick="showMainPage('excel')">📊 Excel</button>
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
       <button class="nav-link" id="navBtn-nihai" onclick="showMainPage('nihai')">🏁 Nihai</button>
       <button class="nav-link" id="navBtn-nsa" onclick="showMainPage('nsa')">🔐 NSA</button>
@@ -1566,6 +1567,23 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div id="auC2Out"></div>
  </div>
 
+</div>
+
+<!-- ═══════════ PAGE: EXCEL ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-excel">
+ <div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">📊 Excel</div>
+   <span id="exBilgi" style="font-size:.62rem;color:var(--muted)"></span>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+   <select id="exSatir" onchange="_exSetSatir(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
+   <button onclick="_exEkle()" style="font-size:.72rem;padding:6px 13px;border-radius:8px;border:1px solid rgba(16,185,129,.5);background:rgba(16,185,129,.1);color:#0a9a6a;cursor:pointer;font-weight:700">➕ Sütun Ekle</button>
+   <button onclick="_exSifirla()" style="font-size:.72rem;padding:6px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">↩ Excel'deki Haline Dön</button>
+   <button onclick="_exKopyala()" class="copy-btn" style="font-size:.72rem;padding:6px 13px;font-weight:700">📋 Tabloyu Kopyala</button>
+  </div>
+ </div>
+ <div id="exGrid"></div>
 </div>
 
 <!-- ═══════════ PAGE: FİBONACCİ ═══════════ -->
@@ -13437,8 +13455,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','soz','gulsis0','nsa','hizlitahmin','basit','agresif','agresifust','fibonacci','arastirma','formul','formul2','haber','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',hizlitahmin:'⚡ Hızlı Tahmin',basit:'✨ Basit Tahmin',agresif:'🔥 Agresif Tahmin',agresifust:'🚀 Agresif Üst',fibonacci:'🌀 Fibonacci',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','soz','gulsis0','nsa','hizlitahmin','basit','agresif','agresifust','fibonacci','excel','arastirma','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',hizlitahmin:'⚡ Hızlı Tahmin',basit:'✨ Basit Tahmin',agresif:'🔥 Agresif Tahmin',agresifust:'🚀 Agresif Üst',fibonacci:'🌀 Fibonacci',excel:'📊 Excel',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -13455,6 +13473,7 @@ function _pageInit(id){
   if(id==='agresif')_agInit();
   if(id==='agresifust')_auInit();
   if(id==='fibonacci')_fbInit();
+  if(id==='excel')_exInit();
   if(id==='haber')_hyInit();
   // 🎯 3 Bilet AI blokları — her sayfa kendi kaynak katmanıyla
   try{
@@ -13491,11 +13510,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-basit','page-agresif','page-agresifust','page-fibonacci','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-hizlitahmin','page-basit','page-agresif','page-agresifust','page-fibonacci','page-excel','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-basit','navBtn-agresif','navBtn-agresifust','navBtn-fibonacci','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-hizlitahmin','navBtn-basit','navBtn-agresif','navBtn-agresifust','navBtn-fibonacci','navBtn-excel','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
@@ -26565,6 +26584,293 @@ function _fbDateTest(slot){
   },20);
 }
 
+const _EX_SABLON={"sayisal":{"ad":"says. lt","kol":[{"h":"A","b":"","f":null},{"h":"B","b":"her ayın 16sında sistem formülü değişiyor önceki ayın aynı gündeki çıkanlarına da bak, günde 1 fark varsa sayı da değişiyor","f":null},{"h":"C","b":"","f":null},{"h":"D","b":"*","f":null},{"h":"E","b":"","f":null},{"h":"F","b":"","f":null},{"h":"G","b":"","f":null},{"h":"H","b":"","f":null},{"h":"I","b":"","f":null},{"h":"J","b":"","f":null},{"h":"K","b":"Tahmin","f":null},{"h":"L","b":"*","f":"=Mod((C{+2}+C{+1})-7,90)"},{"h":"M","b":"*","f":"=Mod((D{+2}+D{+1})-7,90)"},{"h":"N","b":"*","f":"=Mod((E{+2}+E{+1})-7,90)"},{"h":"O","b":"","f":"=Mod((F{+2}+F{+1})-7,90)"},{"h":"P","b":"","f":"=Mod((G{+2}+G{+1})-7,90)"},{"h":"Q","b":"","f":"=Mod((H{+2}+H{+1})-7,90)"},{"h":"R","b":"*","f":"=Mod((I{+2}+I{+1})-7,90)"},{"h":"S","b":"","f":null},{"h":"T","b":"","f":"=ABS(Mod(C{+2}+6,90))"},{"h":"U","b":"","f":"=ABS(Mod(D{+2}+6,90))"},{"h":"V","b":"","f":"=ABS(Mod(E{+2}+6,90))"},{"h":"W","b":"","f":"=ABS(Mod(F{+2}+6,90))"},{"h":"X","b":"","f":"=ABS(Mod(G{+2}+6,90))"},{"h":"Y","b":"","f":"=ABS(Mod(H{+2}+6,90))"},{"h":"Z","b":"","f":"=ABS(Mod(I{+2}+6,90))"},{"h":"AA","b":"","f":"=ABS(Mod(J{+2}+6,90))"},{"h":"AB","b":"","f":null},{"h":"AC","b":"","f":"=ABS(Mod(D{+2}+33+2,90))"},{"h":"AD","b":"","f":"=ABS(Mod(E{+2}+33+2,90))"},{"h":"AE","b":"","f":"=ABS(Mod(F{+2}+33+2,90))"},{"h":"AF","b":"","f":"=ABS(Mod(G{+2}+33+2,90))"},{"h":"AG","b":"","f":"=ABS(Mod(H{+2}+33+2,90))"},{"h":"AH","b":"","f":"=ABS(Mod(I{+2}+33+2,90))"},{"h":"AI","b":"","f":"=ABS(Mod(J{+2}+33+2,90))"},{"h":"AJ","b":"","f":null},{"h":"AK","b":"","f":"=ABS(Mod(C{+1}+DAY(B{+0})*3+19,90))"},{"h":"AL","b":"","f":"=ABS(Mod(E{+1}+DAY(B{+0})*3+19,90))"},{"h":"AM","b":"","f":"=ABS(Mod(F{+1}+DAY(B{+0})*3+19,90))"},{"h":"AN","b":"","f":"=ABS(Mod(G{+1}+DAY(B{+0})*3+19,90))"},{"h":"AO","b":"","f":"=ABS(Mod(H{+1}+DAY(B{+0})*3+19,90))"},{"h":"AP","b":"","f":"=ABS(Mod(I{+1}+DAY(B{+0})*3+19,90))"},{"h":"AQ","b":"","f":null},{"h":"AR","b":"","f":null},{"h":"AS","b":"","f":"=ABS(Mod(C{+1}+13,90))"},{"h":"AT","b":"","f":"=ABS(Mod(D{+1}+13+20-1,90))"},{"h":"AU","b":"","f":"=ABS(Mod(E{+1}+13+20*2,90))"},{"h":"AV","b":"","f":"=ABS(Mod(F{+1}+13+20*4-1,90))"},{"h":"AW","b":"","f":"=ABS(Mod(H{+1}+13+20*8,90))"},{"h":"AX","b":"","f":"=ABS(Mod(I{+1}+13+20*10,90))"},{"h":"AY","b":"","f":"=ABS(Mod(J{+1}+13+20*12,90))"},{"h":"AZ","b":"","f":null},{"h":"BA","b":"","f":"=ABS(Mod(E{+1}+E{+3}+14,90))"},{"h":"BB","b":"","f":"=ABS(Mod(I{+1}+I{+2}+DAY(B{+0}),90))"},{"h":"BC","b":"","f":"=ABS(Mod(F{+1}+F{+2}+31-1,90))"},{"h":"BD","b":"","f":"=ABS(Mod(I{+1}+A{+0},90))"},{"h":"BE","b":"","f":"=ABS(Mod(C{+1}+A{+0}+DAY(B{+0})-1,90))"},{"h":"BF","b":"","f":"=ABS(Mod(F{+1}+3*3*3+12,90))"},{"h":"BG","b":"","f":"=ABS(Mod(J{+1}+3*3*3+22,90))"},{"h":"BH","b":"","f":null},{"h":"BI","b":"","f":null},{"h":"BJ","b":"","f":null},{"h":"BK","b":"","f":null},{"h":"BL","b":"","f":"=ABS(Mod(C{+2}+33+2,90))"},{"h":"BM","b":"","f":null},{"h":"BN","b":"","f":null},{"h":"BO","b":"Gap","f":"=D{+1}-C{+1}"},{"h":"BP","b":"","f":"=E{+1}-D{+1}"},{"h":"BQ","b":"","f":"=F{+1}-E{+1}"},{"h":"BR","b":"","f":"=G{+1}-F{+1}"},{"h":"BS","b":"","f":"=H{+1}-G{+1}"},{"h":"BT","b":"","f":"=I{+1}-H{+1}"},{"h":"BU","b":"","f":"=SUM(BO{+0}:BT{+0})"},{"h":"BV","b":"","f":null},{"h":"BW","b":"","f":"=C{+1}-BO{+1}"},{"h":"BX","b":"","f":"=D{+1}-BP{+1}"},{"h":"BY","b":"","f":"=E{+1}-BQ{+1}"},{"h":"BZ","b":"","f":"=F{+1}-BR{+1}"},{"h":"CA","b":"","f":"=G{+1}-BS{+1}"},{"h":"CB","b":"","f":"=H{+1}-BT{+1}"},{"h":"CC","b":"","f":null},{"h":"CD","b":"","f":"=C{+1}+BO{+1}"},{"h":"CE","b":"","f":"=D{+1}+BP{+1}"},{"h":"CF","b":"","f":"=E{+1}+BQ{+1}"},{"h":"CG","b":"","f":"=F{+1}+BR{+1}"},{"h":"CH","b":"","f":"=G{+1}+BS{+1}"},{"h":"CI","b":"","f":"=H{+1}+BT{+1}"}]},"super":{"ad":"superlt","kol":[{"h":"A","b":"","f":null},{"h":"B","b":"","f":null},{"h":"C","b":"","f":null},{"h":"D","b":"","f":null},{"h":"E","b":"","f":null},{"h":"F","b":"","f":null},{"h":"G","b":"","f":null},{"h":"H","b":"","f":null},{"h":"I","b":"","f":null},{"h":"J","b":"","f":null},{"h":"K","b":"","f":"=ABS(Mod(C{+2}+6,60))"},{"h":"L","b":"","f":"=ABS(Mod(D{+2}+6,60))"},{"h":"M","b":"","f":"=ABS(Mod(E{+2}+6,60))"},{"h":"N","b":"","f":"=ABS(Mod(F{+2}+6,60))"},{"h":"O","b":"","f":"=ABS(Mod(G{+2}+6,60))"},{"h":"P","b":"","f":"=ABS(Mod(H{+2}+6,60))"},{"h":"Q","b":"","f":null},{"h":"R","b":"","f":"=ABS(Mod(C{+1}+DAY(B{+0})*3+19,60))"},{"h":"S","b":"","f":"=ABS(Mod(D{+1}+DAY(C{+0})*3+19,60))"},{"h":"T","b":"","f":"=ABS(Mod(E{+1}+DAY(D{+0})*3+19,60))"},{"h":"U","b":"","f":"=ABS(Mod(F{+1}+DAY(E{+0})*3+19,60))"},{"h":"V","b":"","f":"=ABS(Mod(G{+1}+DAY(F{+0})*3+19,60))"},{"h":"W","b":"","f":"=ABS(Mod(H{+1}+DAY(G{+0})*3+19,60))"},{"h":"X","b":"","f":null},{"h":"Y","b":"","f":"=ABS(Mod(C{+1}+DAY(B{+0})+9,60))"},{"h":"Z","b":"","f":"=ABS(Mod(D{+1}+DAY(C{+0})+9,60))"},{"h":"AA","b":"","f":"=ABS(Mod(E{+1}+DAY(D{+0})+9,60))"},{"h":"AB","b":"","f":"=ABS(Mod(F{+1}+DAY(E{+0})+9,60))"},{"h":"AC","b":"","f":"=ABS(Mod(G{+1}+DAY(F{+0})+9,60))"},{"h":"AD","b":"","f":"=ABS(Mod(H{+1}+DAY(G{+0})+9,60))"},{"h":"AE","b":"","f":null},{"h":"AF","b":"","f":"=ABS(Mod(D{+1}+DAY(B{+0})+E{+2}+C{+2}+10,60))"},{"h":"AG","b":"","f":"=ABS(Mod(E{+1}+DAY(B{+0})+F{+2}+D{+2}+10,60))"},{"h":"AH","b":"","f":"=ABS(Mod(F{+1}+DAY(B{+0})+G{+2}+E{+2}+10,60))"},{"h":"AI","b":"","f":"=ABS(Mod(G{+1}+DAY(B{+0})+H{+2}+F{+2}+10,60))"},{"h":"AJ","b":"","f":null},{"h":"AK","b":"","f":"=ABS(Mod(C{+1}+D{+2}+E{+1}+A{+0},60))"},{"h":"AL","b":"","f":"=ABS(Mod(D{+1}+E{+2}+F{+1}+A{+0},60))"},{"h":"AM","b":"","f":"=ABS(Mod(E{+1}+F{+2}+G{+1}+A{+0},60))"},{"h":"AN","b":"","f":"=ABS(Mod(F{+1}+G{+2}+H{+1}+A{+0},60))"},{"h":"AO","b":"","f":"=ABS(Mod(G{+1}+H{+2}+A{+0},60))"},{"h":"AP","b":"","f":"=ABS(Mod(H{+1}+A{+0},60))"},{"h":"AQ","b":"","f":null},{"h":"AR","b":"","f":null},{"h":"AS","b":"","f":"=MOD((C{+1}+D{+2}+E{+3})*2,60)"},{"h":"AT","b":"","f":"=MOD(C{+1}+D{+2}+E{+3},60)"},{"h":"AU","b":"","f":"=MOD(E{+1}+F{+2}+G{+3},60)"},{"h":"AV","b":"","f":"=MOD(F{+1}+G{+2}+H{+3},60)"},{"h":"AW","b":"","f":"=MOD(H{+1}+C{+2}+D{+3},60)"},{"h":"AX","b":"","f":"=MOD(H{+1}+G{+2}+F{+3},60)"},{"h":"AY","b":"","f":"=MOD(G{+1}+F{+2}+E{+3},60)"},{"h":"AZ","b":"","f":"=MOD(D{+1}+C{+2}+H{+3},60)"},{"h":"BA","b":"","f":"=MOD(C{+1}+H{+2}+G{+3},60)"},{"h":"BB","b":"","f":null},{"h":"BC","b":"","f":null},{"h":"BD","b":"","f":"=MOD(C{+1}+D{+2}+C{+2}+DAY(B{+0})+MONTH(B{+0}),60)"},{"h":"BE","b":"","f":"=MOD(D{+1}+E{+2}+D{+2}+DAY(B{+0})+MONTH(B{+0}),60)"},{"h":"BF","b":"","f":"=MOD(E{+1}+F{+2}+E{+2}+DAY(B{+0})+MONTH(B{+0}),60)"},{"h":"BG","b":"","f":"=MOD(F{+1}+G{+2}+F{+2}+DAY(B{+0})+MONTH(B{+0}),60)"},{"h":"BH","b":"","f":"=MOD(G{+1}+H{+2}+G{+2}+DAY(B{+0})+MONTH(B{+0}),60)"}]},"sans":{"ad":"Şans Topu","kol":[{"h":"A","b":"Ht","f":null},{"h":"B","b":"Şans Topu Tarih  Çarşamba  Pazar","f":null},{"h":"C","b":"1.","f":null},{"h":"D","b":"2.","f":null},{"h":"E","b":"3.","f":null},{"h":"F","b":"4.","f":null},{"h":"G","b":"5.","f":null},{"h":"H","b":"6.","f":null},{"h":"I","b":"zodyak","f":null},{"h":"J","b":"sonrakinin en altın 1 eksiği,  sonrakinin 3.sü ya da 1 eksiği:","f":null},{"h":"K","b":"","f":null},{"h":"L","b":"","f":"=MOD(C{+1}+33,34)"},{"h":"M","b":"","f":"=MOD(D{+1}+33,34)"},{"h":"N","b":"","f":"=MOD(E{+1}+33,34)"},{"h":"O","b":"*","f":"=MOD(F{+1}+33,34)"},{"h":"P","b":"","f":"=MOD(G{+1}+33,34)"},{"h":"Q","b":"*","f":"=MOD(H{+1}+33,34)"},{"h":"R","b":"","f":null},{"h":"S","b":"*","f":"=Mod(34-(ABS(C{+1}+C{+2})),34)"},{"h":"T","b":"","f":"=Mod(34-(ABS(D{+1}+D{+2})),34)"},{"h":"U","b":"","f":"=Mod(34-(ABS(E{+1}+E{+2})),34)"},{"h":"V","b":"","f":"=Mod(34-(ABS(F{+1}+F{+2})),34)"},{"h":"W","b":"***","f":"=Mod(34-(ABS(G{+1}+G{+2})),34)"},{"h":"X","b":"","f":"=Mod(34-(ABS(H{+1}+H{+2})),34)"},{"h":"Y","b":"","f":null},{"h":"Z","b":"","f":"=MOD(FACT(C{+1}),34)"},{"h":"AA","b":"*","f":"=MOD((D{+1}*1.432*(1.1317157)),34)"},{"h":"AB","b":"","f":"=MOD((E{+1}*1.432*(1.1317157)-1),34)"},{"h":"AC","b":"","f":"=MOD((F{+1}*1.432*(1.1317157)-1),34)"},{"h":"AD","b":"*","f":"=MOD((G{+1}*1.432*(1.1317157)-1),34)"},{"h":"AE","b":"","f":"=MOD((H{+1}*1.432*(1.1317157)-1),34)"}]},"onnumara":{"ad":"on nmr","kol":[{"h":"A","b":"","f":null},{"h":"B","b":"her ayın 16sında sistem formülü değişiyor önceki ayın aynı gündeki çıkanlarına da bak, günde 1 fark varsa sayı da değişiyor","f":null},{"h":"C","b":"","f":null},{"h":"D","b":"*","f":null},{"h":"E","b":"","f":null},{"h":"F","b":"","f":null},{"h":"G","b":"","f":null},{"h":"H","b":"","f":null},{"h":"I","b":"","f":null},{"h":"J","b":"","f":null},{"h":"K","b":"","f":null},{"h":"L","b":"","f":null},{"h":"M","b":"","f":null},{"h":"N","b":"","f":null},{"h":"O","b":"","f":null},{"h":"P","b":"","f":null},{"h":"Q","b":"","f":null},{"h":"R","b":"","f":null},{"h":"S","b":"","f":null},{"h":"T","b":"","f":null},{"h":"U","b":"","f":null},{"h":"V","b":"","f":null},{"h":"W","b":"","f":null},{"h":"X","b":"","f":null},{"h":"Y","b":"","f":null},{"h":"Z","b":"","f":"=Mod((C{+2}+C{+1}),80)"},{"h":"AA","b":"","f":"=Mod((D{+2}+D{+1}),80)"},{"h":"AB","b":"","f":"=Mod((E{+2}+E{+1}),80)"},{"h":"AC","b":"","f":"=Mod((F{+2}+F{+1}),80)"},{"h":"AD","b":"","f":"=Mod((G{+2}+G{+1}),80)"},{"h":"AE","b":"","f":"=Mod((H{+2}+H{+1}),80)"},{"h":"AF","b":"","f":"=Mod((I{+2}+I{+1}),80)"},{"h":"AG","b":"","f":"=Mod((J{+2}+J{+1}),80)"},{"h":"AH","b":"","f":"=Mod((K{+2}+K{+1}),80)"},{"h":"AI","b":"","f":"=Mod((L{+2}+L{+1}),80)"},{"h":"AJ","b":"","f":"=Mod((M{+2}+M{+1}),80)"},{"h":"AK","b":"","f":"=Mod((N{+2}+N{+1}),80)"},{"h":"AL","b":"","f":"=Mod((O{+2}+O{+1}),80)"},{"h":"AM","b":"","f":"=Mod((P{+2}+P{+1}),80)"},{"h":"AN","b":"","f":"=Mod((Q{+2}+Q{+1}),80)"},{"h":"AO","b":"","f":"=Mod((R{+2}+R{+1}),80)"},{"h":"AP","b":"","f":"=Mod((S{+2}+S{+1}),80)"},{"h":"AQ","b":"","f":"=Mod((T{+2}+T{+1}),80)"},{"h":"AR","b":"","f":"=Mod((U{+2}+U{+1}),80)"},{"h":"AS","b":"","f":"=Mod((V{+2}+V{+1}),80)"},{"h":"AT","b":"","f":"=Mod((W{+2}+W{+1}),80)"},{"h":"AU","b":"","f":"=Mod((X{+2}+X{+1}),80)"}]}};
+// ═══════════════════════════════════════════════════════════════════════════
+// 📊 EXCEL — kullanıcının kendi çalışma kitabının birebir kopyası
+// Satırlar yeniden eskiye. Bir satırın formülleri ALTINDAKİ (daha eski) satırların
+// sayılarını kullanır; en üstteki satır henüz oynanmamış çekiliş içindir.
+// Sütun silinebilir, formülü değiştirilebilir, yeni formül sütunu eklenebilir.
+// ═══════════════════════════════════════════════════════════════════════════
+let _exGame=null,_exKol=null,_exSatir=40,_exSecKol=null;
+const _EX_KEY=g=>'_exKolon_'+g;
+
+function _exHarf(i){let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=((i-1)/26)|0;}return s;}
+function _exIdx(h){let n=0;for(const c of h)n=n*26+(c.charCodeAt(0)-64);return n-1;}
+
+// Oyunun veri sütunları: A serbest · B tarih · C… sayılar · sonra bonus
+function _exVeriKol(g){
+  // Sütun adedi ÇEKİLEN sayı adedine göre (On Numara'da 22), oynanan adede göre değil
+  let adet=g.count;
+  try{
+    const d=_kbGetDraws(g.id)||[];
+    for(let i=0;i<Math.min(30,d.length);i++)adet=Math.max(adet,(d[i].nums||[]).length);
+  }catch(e){}
+  const out=[{h:'A',b:'',tip:'serbest'},{h:'B',b:'Tarih',tip:'tarih'}];
+  for(let i=0;i<adet;i++)out.push({h:_exHarf(2+i),b:(i+1)+'.',tip:'sayi',ix:i});
+  if(g.bonusCount>0)out.push({h:_exHarf(2+adet),b:'+',tip:'bonus'});
+  return out;
+}
+// Varsayılan sütun düzeni: veri sütunları + Excel'den gelen formül sütunları
+function _exVarsayilan(gid){
+  const g=getGame(gid),veri=_exVeriKol(g);
+  const kul=new Set(veri.map(k=>k.h));
+  const sab=(_EX_SABLON[gid]||{kol:[]}).kol;
+  const out=veri.slice();
+  sab.forEach(k=>{
+    if(kul.has(k.h))return;
+    if(!k.f&&!k.b)return;
+    out.push({h:k.h,b:k.b||'',tip:k.f?'formul':'serbest',f:k.f||''});
+  });
+  return out;
+}
+function _exYukle(gid){
+  try{const s=localStorage.getItem(_EX_KEY(gid));if(s){const j=JSON.parse(s);if(Array.isArray(j)&&j.length)return j;}}catch(e){}
+  return _exVarsayilan(gid);
+}
+function _exKaydet(){try{localStorage.setItem(_EX_KEY(_exGame),JSON.stringify(_exKol));}catch(e){}}
+function _exSifirla(){
+  if(!confirm('Sütun düzeni Excel dosyasındaki haline geri dönsün mü?'))return;
+  try{localStorage.removeItem(_EX_KEY(_exGame));}catch(e){}
+  _exKol=_exVarsayilan(_exGame);_exRender();
+}
+
+// ── Izgara verisi: en üstte 1 gelecek satırı, altında çekilişler (yeniden eskiye)
+function _exSatirlar(gid){
+  const g=getGame(gid),draws=_kbGetDraws(gid)||[];
+  const n=Math.min(_exSatir,draws.length);
+  const out=[{gelecek:true,date:'',nums:[],bonus:[]}];
+  for(let i=0;i<n;i++){
+    const d=draws[i];
+    out.push({gelecek:false,date:d.date,nums:[...(d.nums||[])].sort((a,b)=>a-b),bonus:d.bonus||[]});
+  }
+  return out;
+}
+// Bir hücrenin ham değeri (formül değil, taban veri)
+function _exTaban(kol,satir){
+  if(!satir)return null;
+  if(kol.tip==='tarih')return satir.date||null;
+  if(kol.tip==='sayi'){const v=satir.nums[kol.ix];return v==null?null:v;}
+  if(kol.tip==='bonus'){const v=(satir.bonus||[])[0];return v==null?null:v;}
+  if(kol.tip==='serbest')return (kol.deger&&kol.deger[satir.date])!=null?kol.deger[satir.date]:null;
+  return null;
+}
+
+// ── Excel formül değerlendirici (ABS · MOD · DAY · MONTH · FACT · SUM) ──
+function _exDeger(harf,r,ctx){
+  const kol=ctx.harfMap[harf];
+  if(!kol)return 0;
+  if(r<0||r>=ctx.satirlar.length)return 0;
+  const anahtar=harf+'|'+r;
+  if(ctx.cache[anahtar]!==undefined)return ctx.cache[anahtar];
+  if(ctx.calisan[anahtar])return 0;                 // döngü koruması
+  ctx.calisan[anahtar]=1;
+  let v;
+  if(kol.tip==='formul'&&kol.f){
+    try{v=_exHesapla(kol.f,r,ctx);}catch(e){v=null;}
+  }else{
+    v=_exTaban(kol,ctx.satirlar[r]);
+  }
+  delete ctx.calisan[anahtar];
+  ctx.cache[anahtar]=v;
+  return v;
+}
+function _exSayi(v){
+  if(v==null||v==='')return 0;
+  if(typeof v==='number')return v;
+  const m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(m)return Date.UTC(+m[1],+m[2]-1,+m[3])/86400000+25569;   // Excel seri tarihi
+  const n=parseFloat(v);return isNaN(n)?0:n;
+}
+function _exHesapla(formul,r,ctx){
+  let s=String(formul).replace(/^=/,'');
+  let i=0;
+  const bosluk=()=>{while(i<s.length&&/\s/.test(s[i]))i++;};
+  function ifade(){
+    let v=terim();
+    for(;;){bosluk();
+      if(s[i]==='+'){i++;v+=terim();}
+      else if(s[i]==='-'){i++;v-=terim();}
+      else break;}
+    return v;
+  }
+  function terim(){
+    let v=carpan();
+    for(;;){bosluk();
+      if(s[i]==='*'){i++;v*=carpan();}
+      else if(s[i]==='/'){i++;const d=carpan();v=d?v/d:0;}
+      else break;}
+    return v;
+  }
+  function carpan(){
+    bosluk();
+    if(s[i]==='-'){i++;return -carpan();}
+    if(s[i]==='+'){i++;return carpan();}
+    if(s[i]==='('){i++;const v=ifade();bosluk();if(s[i]===')')i++;return v;}
+    // fonksiyon
+    const fm=/^([A-Za-z]+)\s*\(/.exec(s.slice(i));
+    if(fm){
+      const ad=fm[1].toUpperCase();
+      i+=fm[0].length;
+      const arg=[];
+      for(;;){
+        bosluk();
+        if(s[i]===')'){i++;break;}
+        arg.push(ifadeVeyaAralik());
+        bosluk();
+        if(s[i]===','||s[i]===';'){i++;continue;}
+        if(s[i]===')'){i++;break;}
+        if(i>=s.length)break;
+      }
+      return _exFn(ad,arg);
+    }
+    // hücre referansı: C{+2} veya C12
+    const cm=/^([A-Z]{1,2})\{([+-]?\d+)\}/.exec(s.slice(i));
+    if(cm){i+=cm[0].length;return _exSayi(_exDeger(cm[1],r+parseInt(cm[2],10),ctx));}
+    const cm2=/^([A-Z]{1,2})(\d{1,5})/.exec(s.slice(i));
+    if(cm2){i+=cm2[0].length;return _exSayi(_exDeger(cm2[1],r,ctx));}
+    // sayı
+    const nm=/^\d+(\.\d+)?/.exec(s.slice(i));
+    if(nm){i+=nm[0].length;return parseFloat(nm[0]);}
+    i++;return 0;
+  }
+  function ifadeVeyaAralik(){
+    const bas=i;
+    const am=/^([A-Z]{1,2})\{([+-]?\d+)\}\s*:\s*([A-Z]{1,2})\{([+-]?\d+)\}/.exec(s.slice(i));
+    if(am){
+      i+=am[0].length;
+      const a=_exIdx(am[1]),b=_exIdx(am[3]);
+      const r1=r+parseInt(am[2],10),r2=r+parseInt(am[4],10);
+      const liste=[];
+      for(let c=Math.min(a,b);c<=Math.max(a,b);c++)
+        for(let rr=Math.min(r1,r2);rr<=Math.max(r1,r2);rr++)
+          liste.push(_exSayi(_exDeger(_exHarf(c),rr,ctx)));
+      return {aralik:liste};
+    }
+    i=bas;return ifade();
+  }
+  const sonuc=ifade();
+  return sonuc;
+}
+function _exFn(ad,arg){
+  const d=x=>(x&&x.aralik)?x.aralik.reduce((a,b)=>a+b,0):(+x||0);
+  const a0=arg[0],a1=arg[1];
+  switch(ad){
+    case 'ABS':return Math.abs(d(a0));
+    case 'MOD':{const n=d(a0),m=d(a1);if(!m)return 0;return ((n%m)+m)%m;}
+    case 'SUM':return arg.reduce((t,x)=>t+((x&&x.aralik)?x.aralik.reduce((p,q)=>p+q,0):(+x||0)),0);
+    case 'DAY':{const v=d(a0);if(!v)return 0;const ms=(v-25569)*86400000;return new Date(ms).getUTCDate();}
+    case 'MONTH':{const v=d(a0);if(!v)return 0;const ms=(v-25569)*86400000;return new Date(ms).getUTCMonth()+1;}
+    case 'FACT':{let n=Math.floor(d(a0));if(n<0)return 0;if(n>20)n=20;let f=1;for(let k=2;k<=n;k++)f*=k;return f;}
+    case 'INT':return Math.floor(d(a0));
+    case 'ROUND':{const p=Math.pow(10,Math.floor(d(a1)||0));return Math.round(d(a0)*p)/p;}
+    case 'MAX':return Math.max(...arg.map(x=>(x&&x.aralik)?Math.max(...x.aralik):(+x||0)));
+    case 'MIN':return Math.min(...arg.map(x=>(x&&x.aralik)?Math.min(...x.aralik):(+x||0)));
+    default:return d(a0);
+  }
+}
+
+// ── Sütun işlemleri ──
+function _exSil(h){
+  const k=_exKol.find(x=>x.h===h);
+  if(!k)return;
+  if(k.tip==='tarih'||k.tip==='sayi'||k.tip==='bonus'){showToast('⚠️ Veri sütunu silinemez');return;}
+  _exKol=_exKol.filter(x=>x.h!==h);_exKaydet();_exRender();
+}
+function _exEkle(){
+  const kul=new Set(_exKol.map(k=>k.h));
+  let i=0;while(kul.has(_exHarf(i)))i++;
+  _exKol.push({h:_exHarf(i),b:'yeni',tip:'formul',f:'=MOD(C{+1}+C{+2},'+getGame(_exGame).max+')'});
+  _exKaydet();_exRender();
+}
+function _exFormulDegis(h,v){
+  const k=_exKol.find(x=>x.h===h);if(!k)return;
+  k.f=v.trim();k.tip=k.f?'formul':(k.tip==='formul'?'serbest':k.tip);
+  _exKaydet();_exRender();
+}
+function _exBaslikDegis(h,v){
+  const k=_exKol.find(x=>x.h===h);if(!k)return;
+  k.b=v;_exKaydet();
+}
+function _exSetSatir(v){_exSatir=+v||40;_exRender();}
+function _exKopyala(){
+  const ctx=_exCtx();
+  const bas=_exKol.map(k=>k.h+(k.b?' '+k.b:'')).join('\t');
+  const satirlar=ctx.satirlar.map((st,r)=>_exKol.map(k=>{
+    const v=(k.tip==='formul'&&k.f)?_exDeger(k.h,r,ctx):_exTaban(k,st);
+    return v==null?'':(typeof v==='number'?(Math.round(v*1000)/1000):v);
+  }).join('\t')).join('\n');
+  _caCopy('Excel — '+getGame(_exGame).name+'\n'+bas+'\n'+satirlar);
+  showToast('📋 Tablo kopyalandı');
+}
+function _exCtx(){
+  const satirlar=_exSatirlar(_exGame);
+  const harfMap={};_exKol.forEach(k=>harfMap[k.h]=k);
+  return {satirlar,harfMap,cache:{},calisan:{}};
+}
+function _exRender(){
+  const el=document.getElementById('exGrid');if(!el)return;
+  if(!_exGame)_exGame=(state&&state.selectedGame)||GAMES[0].id;
+  if(!_exKol)_exKol=_exYukle(_exGame);
+  const g=getGame(_exGame),ctx=_exCtx();
+  const sayiSet=r=>{const st=ctx.satirlar[r];return st&&!st.gelecek?new Set([...(st.nums||[]),...(st.bonus||[])]):null;};
+  let h='<div style="overflow:auto;max-height:70vh;border:1px solid var(--border);border-radius:8px">';
+  h+='<table style="border-collapse:separate;border-spacing:0;font-size:.62rem;font-family:monospace;white-space:nowrap">';
+  // 1) sütun harfi + sil
+  h+='<thead><tr>';
+  _exKol.forEach(k=>{
+    const veri=k.tip==='tarih'||k.tip==='sayi'||k.tip==='bonus';
+    h+=`<th style="position:sticky;top:0;z-index:3;background:var(--surface2);border:1px solid var(--border);padding:2px 5px;font-weight:800;color:var(--muted)">`
+      +`${k.h}${veri?'':`<button onclick="_exSil('${k.h}')" title="Sütunu sil" style="margin-left:4px;border:none;background:none;color:#ef5350;cursor:pointer;font-size:.7rem;line-height:1;padding:0">✕</button>`}</th>`;
+  });
+  h+='</tr>';
+  // 2) başlık (düzenlenebilir)
+  h+='<tr>';
+  _exKol.forEach(k=>{
+    h+=`<th style="position:sticky;top:20px;z-index:3;background:var(--surface);border:1px solid var(--border);padding:1px 3px">`
+      +`<input value="${(k.b||'').replace(/"/g,'&quot;')}" onchange="_exBaslikDegis('${k.h}',this.value)" style="width:74px;font-size:.58rem;font-family:inherit;background:transparent;border:none;color:var(--text);font-weight:700"></th>`;
+  });
+  h+='</tr>';
+  // 3) formül satırı (düzenlenebilir)
+  h+='<tr>';
+  _exKol.forEach(k=>{
+    const veri=k.tip==='tarih'||k.tip==='sayi'||k.tip==='bonus';
+    h+=`<th style="position:sticky;top:40px;z-index:3;background:var(--surface2);border:1px solid var(--border);padding:1px 3px">`
+      +(veri?`<span style="font-size:.52rem;color:var(--muted)">veri</span>`
+            :`<input value="${(k.f||'').replace(/"/g,'&quot;')}" onchange="_exFormulDegis('${k.h}',this.value)" placeholder="=MOD(C{+1}+5,${g.max})" style="width:120px;font-size:.54rem;font-family:inherit;background:var(--surface);border:1px solid var(--border);border-radius:4px;color:#0a7ea4;padding:1px 3px">`)
+      +`</th>`;
+  });
+  h+='</tr></thead><tbody>';
+  ctx.satirlar.forEach((st,r)=>{
+    const aSet=sayiSet(r);
+    h+=`<tr${st.gelecek?' style="background:rgba(129,140,248,.10)"':''}>`;
+    _exKol.forEach(k=>{
+      let v=(k.tip==='formul'&&k.f)?_exDeger(k.h,r,ctx):_exTaban(k,st);
+      let gos=v==null?'':(typeof v==='number'?String(Math.round(v*1000)/1000):String(v));
+      const tut=k.tip==='formul'&&aSet&&typeof v==='number'&&aSet.has(Math.round(v));
+      const veri=k.tip==='sayi'||k.tip==='bonus';
+      h+=`<td style="border:1px solid var(--border);padding:1px 5px;text-align:${k.tip==='tarih'?'left':'right'};`
+        +(tut?'background:rgba(0,230,118,.22);color:var(--green);font-weight:800;':'')
+        +(veri?'font-weight:700;color:var(--text);':'')
+        +`">${gos}${tut?'✓':''}</td>`;
+    });
+    h+='</tr>';
+  });
+  h+='</tbody></table></div>';
+  el.innerHTML=h;
+  const bilgi=document.getElementById('exBilgi');
+  if(bilgi)bilgi.textContent=g.emoji+' '+g.name+' · '+_exKol.length+' sütun · '+ctx.satirlar.length+' satır';
+}
+function _exInit(){
+  const gid=(state&&state.selectedGame)||GAMES[0].id;
+  if(_exGame!==gid){_exGame=gid;_exKol=_exYukle(gid);}
+  if(!_exKol)_exKol=_exYukle(_exGame);
+  const sel=document.getElementById('exSatir');
+  if(sel&&!sel.options.length){
+    sel.innerHTML=[20,40,80,150,300].map(n=>`<option value="${n}"${n===_exSatir?' selected':''}>${n} satır</option>`).join('');
+  }
+  _exRender();
+}
+
 // ═══════════ GLOBAL OYUN TİPİ SENKRONU ═══════════
 // Uygulamanın HERHANGİ bir yerinde oyun tipi değiştirilirse, tüm sayfalardaki
 // tüm oyun seçicileri aynı oyuna geçer. Her seçici fonksiyonu tek bir sarmalayıcıdan
@@ -26606,6 +26912,10 @@ function _oyunYay(gid,kaynak){
   try{Object.keys(_A3_BLOKLAR||{}).forEach(pfx=>{
     if(_A3_BLOKLAR[pfx].oyunSec===false)return;
     isler.push(()=>{if(!_a3Data[pfx]||_a3Data[pfx].oyun!==gid)_a3SetOyunTemel(pfx,gid);});});}catch(e){}
+  isler.push(()=>{try{
+    if(_exGame&&_exGame!==gid){_exGame=gid;_exKol=_exYukle(gid);}
+    if(_curPage==='excel')_exInit();
+  }catch(e){}});
   isler.push(()=>{try{
     const fbMev=(_fbData&&_fbData.live&&_fbData.live.game)?_fbData.live.game.id:null;
     if(fbMev&&fbMev!==gid){_fbData={live:null,t1:null,t2:null,t3:null};_fbP=null;_fbSel=new Set();}
