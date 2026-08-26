@@ -20358,8 +20358,9 @@ function _agPosPanel(pm){
   h+=`<button onclick="_caCopy(window._agPosTxt)" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋 Kopyala</button></div>`;
   h+=``;
   if(!nums.length)h+=`<div style="font-size:.62rem;color:var(--muted)">Eşleşen konum var ama yeni tahmin henüz üretilmedi.</div>`;
-  else h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${pm.list.map(x=>
-    `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:2px solid #111"><span style="font-size:.88rem;font-weight:800;font-family:monospace;color:var(--text)">${x.n}</span><span style="font-size:.44rem;color:var(--muted)">${x.t?'AI':''}#${x.i}·${x.j}.sıra</span></span>`).join('')}</div>`;
+  else h+=`<div style="display:flex;gap:5px;flex-wrap:wrap">${nums.map(n=>{
+    const yer=pm.list.filter(x=>x.n===n).map(x=>(x.t?'AI':'')+'#'+x.i+'·'+x.j);
+    return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:2px solid #111"><span style="font-size:.88rem;font-weight:800;font-family:monospace;color:var(--text)">${n}</span><span style="font-size:.44rem;color:var(--muted)">${yer.slice(0,3).join(' ')}${yer.length>3?' +'+(yer.length-3):''}</span></span>`;}).join('')}</div>`;
   h+=`</div>`;
   el.innerHTML=h;
 }
@@ -21242,8 +21243,9 @@ function _hyPosPanel(pm){
     <span style="font-size:.7rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.54rem;color:var(--muted);font-weight:600">(${pm.list.length} konum · ${nums.length} sayı)</span></span>
     ${_hyCopyBtn('pos_match',txt)}</div>
    
-   <div style="display:flex;gap:5px;flex-wrap:wrap">${pm.list.map(x=>
-     `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:2px solid #111"><span style="font-size:.86rem;font-weight:800;font-family:monospace;color:var(--text)">${x.n}</span><span style="font-size:.42rem;color:var(--muted)">${x.sira}. sıra</span></span>`).join('')}</div>
+   <div style="display:flex;gap:5px;flex-wrap:wrap">${nums.map(n=>{
+     const yer=pm.list.filter(x=>x.n===n).map(x=>x.sira+'.');
+     return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:2px solid #111"><span style="font-size:.86rem;font-weight:800;font-family:monospace;color:var(--text)">${n}</span><span style="font-size:.42rem;color:var(--muted)">${yer.slice(0,3).join(' ')}${yer.length>3?' +'+(yer.length-3):''} sıra</span></span>`;}).join('')}</div>
   </div>`;
 }
 function _hyRender(){
@@ -25908,13 +25910,15 @@ function _auKonumPanel(out,slot,liste){
   let el=document.getElementById(id);
   if(!liste.length){if(el)el.remove();window['_auKonumTxt'+slot]='';return;}
   const nums=[...new Set(liste.map(x=>x.n))].sort((a,b)=>a-b);
+  // Aynı sayı birden çok konumda eşleşse bile TEK çip
+  const grup=nums.map(n=>({n,yer:liste.filter(x=>x.n===n).map(x=>'#'+x.ti+'·'+x.pi)}));
   window['_auKonumTxt'+slot]='🔲 Konum Eşleşmesi Havuzu\n'+nums.join(' ');
   const h=`<div id="${id}" style="margin-bottom:8px;padding:7px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface2)">`
     +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">`
     +`<span style="font-size:.7rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.54rem;color:var(--muted);font-weight:600">(${liste.length} konum · ${nums.length} sayı)</span></span>`
     +`<button onclick="_caCopy(window['_auKonumTxt${slot}']||'');showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.62rem;padding:3px 9px">📋 Havuzu Kopyala</button></div>`
     +`<div data-lp="${nums.join(' ')}" style="display:flex;gap:5px;flex-wrap:wrap">`
-    +liste.map(x=>`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface);border:1.5px solid var(--text)"><span style="font-size:.86rem;font-weight:800;font-family:monospace;color:var(--text)">${x.n}</span><span style="font-size:.42rem;color:var(--muted)">#${x.ti}·${x.pi}.sıra</span></span>`).join('')
+    +grup.map(x=>`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface);border:1.5px solid var(--text)"><span style="font-size:.86rem;font-weight:800;font-family:monospace;color:var(--text)">${x.n}</span><span style="font-size:.42rem;color:var(--muted)">${x.yer.slice(0,3).join(' ')}${x.yer.length>3?' +'+(x.yer.length-3):''}</span></span>`).join('')
     +`</div></div>`;
   if(el)el.outerHTML=h; else out.insertAdjacentHTML('afterbegin',h);
 }
@@ -26459,36 +26463,67 @@ function _fbRenderBilet(){
     }).join('')+`</div>`;
   try{_fbKonumEsle(out);}catch(e){}
 }
-// Konum eşleşmesi — kutu YALNIZCA yeni tahmin sütununda
+// Konum eşleşmesi — her sütun kendi ALTINDAKİ (daha eski) test sütunlarıyla eşleştirilir.
+// Kutu işareti yalnızca yeni tahmin sütununda; geçmiş sütunlar panelde sonuçlarıyla listelenir.
 function _fbKonumEsle(out){
   const grid=out.querySelector('.fb-row');if(!grid)return;
   const kol=[...grid.children];
-  if(kol.length<3)return;
   const har=kol.map(k=>{const m={};k.querySelectorAll('span[data-fti]').forEach(e=>{m[e.dataset.fti+'-'+e.dataset.fpi]=e;});return m;});
-  const yeni=har[0],testler=har.slice(1),liste=[];
-  Object.keys(yeni).forEach(k=>{
-    const hs=testler.map(t=>t[k]);
-    if(hs.some(x=>!x))return;
-    if(!hs.every(x=>x.dataset.fhit==='1'))return;
-    const el=yeni[k];
-    el.style.background='#111';el.style.color='#fff';
-    el.style.border='2px solid #111';el.style.borderRadius='6px';
-    el.style.boxShadow='0 0 0 2px rgba(0,0,0,.22)';el.style.fontWeight='900';
-    const v=parseInt((el.textContent||'').replace(/[^\d]/g,''),10);
-    if(v>=1)liste.push({n:v,ti:+el.dataset.fti+1,pi:+el.dataset.fpi+1});
+  const cols=[_fbData.live,_fbData.t1,_fbData.t2,_fbData.t3].filter(Boolean);
+  const sonuc=har.map((h0,ci)=>{
+    const testler=har.slice(ci+1);
+    if(testler.length<2)return null;               // en az 2 geçmiş test gerekli
+    const liste=[];
+    Object.keys(h0).forEach(k=>{
+      const hs=testler.map(t=>t[k]);
+      if(hs.some(x=>!x))return;
+      if(!hs.every(x=>x.dataset.fhit==='1'))return;
+      const el=h0[k];
+      if(ci===0){                                   // kutu yalnızca yeni tahminde
+        el.style.background='#111';el.style.color='#fff';
+        el.style.border='2px solid #111';el.style.borderRadius='6px';
+        el.style.boxShadow='0 0 0 2px rgba(0,0,0,.22)';el.style.fontWeight='900';
+      }
+      const v=parseInt((el.textContent||'').replace(/[^\d]/g,''),10);
+      if(v>=1)liste.push({n:v,ti:+el.dataset.fti+1,pi:+el.dataset.fpi+1});
+    });
+    return liste;
   });
   const id='fbKonumPanel';
   let p=document.getElementById(id);
-  if(!liste.length){if(p)p.remove();window._fbKonumTxt='';return;}
-  const nums=[...new Set(liste.map(x=>x.n))].sort((a,b)=>a-b);
-  window._fbKonumTxt='🔲 Konum Eşleşmesi Havuzu\n'+nums.join(' ');
+  if(!sonuc.some(x=>x&&x.length)){if(p)p.remove();window._fbKonumTxt='';return;}
+  const canliNums=[...new Set((sonuc[0]||[]).map(x=>x.n))].sort((a,b)=>a-b);
+  window._fbKonumTxt='🔲 Konum Eşleşmesi Havuzu\n'+canliNums.join(' ');
+  const tpl='repeat('+cols.length+',minmax(0,1fr))';
+  const govde=cols.map((c,ci)=>{
+    const liste=sonuc[ci];
+    if(!liste||!liste.length)return `<div><div style="font-size:.6rem;color:var(--muted)">${ci>=har.length-2?'yeterli geçmiş test yok':'eşleşme yok'}</div></div>`;
+    const aSet=c.actual?new Set([...(c.actual.nums||[]),...(c.actual.bonus||[])]):null;
+    const yak=aSet?_fbYakinSet(aSet,c.game.max):null;
+    const nums=[...new Set(liste.map(x=>x.n))].sort((a,b)=>a-b);
+    const net=aSet?nums.filter(n=>aSet.has(n)).length:null;
+    const yknt=yak?nums.filter(n=>!aSet.has(n)&&yak.has(n)).length:0;
+    return `<div>`
+      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px">`
+      +`<span style="font-size:.55rem;color:var(--muted)">${liste.length} konum · ${nums.length} sayı`
+      +(net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yknt?` · <strong style="color:#c2410c">${yknt} yakın</strong>`:''}`:'')+`</span>`
+      +(ci===0?`<button onclick="_cpDo('${_cpKey('Fibonacci — konum eşleşmesi havuzu',nums.join(' '))}')" class="copy-btn" style="font-size:.52rem;padding:1px 6px">📋</button>`:'')
+      +`</div><div data-lp="${nums.join(' ')}" style="display:flex;gap:5px;flex-wrap:wrap">`
+      +nums.map(n=>{
+        const yer=liste.filter(x=>x.n===n).map(x=>'#'+x.ti+'·'+x.pi);
+        const isN=aSet&&aSet.has(n),isY=!isN&&yak&&yak.has(n);
+        return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:${isN?'rgba(0,230,118,.12)':isY?'rgba(244,114,63,.10)':'var(--surface)'};border:1.5px solid ${isN?'rgba(0,200,100,.6)':isY?'rgba(244,114,63,.55)':'var(--text)'}"><span style="font-size:.84rem;font-weight:800;font-family:monospace;color:${isN?'var(--green)':isY?'#c2410c':'var(--text)'}">${n}${isN?'✓':isY?'~':''}</span><span style="font-size:.42rem;color:var(--muted)">${yer.slice(0,3).join(' ')}${yer.length>3?' +'+(yer.length-3):''}</span></span>`;
+      }).join('')+`</div></div>`;
+  }).join('');
   const h=`<div id="${id}" style="margin-bottom:8px;padding:7px 10px;border:1px solid var(--border);border-radius:9px;background:var(--surface2)">`
-    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">`
-    +`<span style="font-size:.7rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi <span style="font-size:.54rem;color:var(--muted);font-weight:600">(${liste.length} konum · ${nums.length} sayı)</span></span>`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`
+    +`<span style="font-size:.7rem;font-weight:800;color:var(--text)">🔲 Konum Eşleşmesi</span>`
     +`<button onclick="_caCopy(window._fbKonumTxt||'');showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.6rem;padding:2px 9px">📋 Havuzu Kopyala</button></div>`
-    +`<div data-lp="${nums.join(' ')}" style="display:flex;gap:5px;flex-wrap:wrap">`
-    +liste.map(x=>`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface);border:1.5px solid var(--text)"><span style="font-size:.84rem;font-weight:800;font-family:monospace;color:var(--text)">${x.n}</span><span style="font-size:.42rem;color:var(--muted)">#${x.ti}·${x.pi}.sıra</span></span>`).join('')
-    +`</div></div>`;
+    +`<div class="fb-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
+    +cols.map((c,ci)=>`<div>${_fbBaslikHtml(c)}</div>`).join('').replace(/<\/div>$/,'</div>')
+    +`</div>`
+    +`<div class="fb-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start;margin-top:3px">${govde}</div>`
+    +`</div>`;
   if(p)p.outerHTML=h;else out.insertAdjacentHTML('afterbegin',h);
 }
 function _fbRender(){
