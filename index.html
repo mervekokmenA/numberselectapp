@@ -1597,6 +1597,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <button onclick="_dbTumCekilisGonder()" style="font-size:.74rem;padding:7px 14px;border-radius:8px;border:1px solid rgba(190,24,93,.45);background:rgba(190,24,93,.1);color:#be185d;cursor:pointer;font-weight:700">📤 Tüm Çekilişleri Yükle</button>
    </div>
    <div style="font-size:.64rem;color:var(--muted)">Veritabanındaki çekilişler: <span id="dbOyunlar">—</span></div>
+   <div style="font-size:.62rem;color:var(--muted);padding:7px 10px;background:var(--surface2);border-radius:7px;line-height:1.7">
+    Senkron açıkken her şey <strong style="color:var(--text)">otomatik</strong>: yaptığınız değişiklikler anında veritabanına yazılır,
+    veritabanı dakikada bir ve sekmeye her dönüşünüzde okunur, bulunan yeni çekilişler doğrudan veritabanına kaydedilir.
+    Aşağıdaki butonlar yalnızca elle zorlamak istediğinizde gerekir.
+   </div>
   </div>
  </div>
 </div>
@@ -10790,6 +10795,8 @@ function toggleExcludeLast(val){
 // ── Draw cache helpers ────────────────────────────────────────
 function saveDrawCache(gameId){
   try{ if(DRAW_DATA[gameId]) localStorage.setItem('drawCache_'+gameId, DRAW_DATA[gameId]); }catch(e){}
+  // Yeni çekilişler doğrudan veritabanına da yazılır (senkron açıksa)
+  try{ if(typeof _dbCekilisOtoYaz==='function')_dbCekilisOtoYaz(gameId); }catch(e){}
 }
 function loadDrawCaches(){
   Object.keys(DRAW_DATA).forEach(gameId=>{
@@ -27084,7 +27091,9 @@ async function _dbTest(){
 }
 function _dbAc(v){
   _dbAyar.acik=!!v;_dbAyarKaydet();
-  if(_dbAyar.acik){_dbTest().then(()=>_dbCek()).then(()=>_dbPanelTazele());}
+  if(_dbAyar.acik){_dbOtoBaslat();_dbTest().then(()=>_dbCek()).then(()=>{
+    try{GAMES.forEach(g=>_dbCekilisOtoYaz(g.id));}catch(e){}
+    _dbPanelTazele();});}
   else{_dbDurum.bagli=false;_dbDurum.mesaj='kapalı';_dbPanelTazele();}
 }
 async function _dbSimdiCek(){
@@ -27111,6 +27120,42 @@ async function _dbSimdiGonder(){
   }catch(e){showToast('⚠️ '+e.message);}
   _dbPanelTazele();
 }
+// ── Yeni çekilişleri sessizce veritabanına yaz (en yeni 60 satır yeter; upsert) ──
+let _dbCekZaman={};
+function _dbCekilisOtoYaz(gid){
+  if(!_dbAcikMi()||!gid)return;
+  clearTimeout(_dbCekZaman[gid]);
+  _dbCekZaman[gid]=setTimeout(async()=>{
+    try{
+      const ham=DRAW_DATA[gid]||'';
+      const cek=[];
+      ham.split('\n').forEach(l=>{
+        const m=l.match(/^(\d{4}-\d{2}-\d{2})/);if(!m)return;
+        const k=l.slice(m[1].length).split('|');
+        const nums=(k[0].match(/\d+/g)||[]).map(Number);
+        const bonus=k[1]?(k[1].match(/\d+/g)||[]).map(Number):[];
+        if(nums.length)cek.push({date:m[1],nums,bonus});
+      });
+      cek.sort((a,b)=>a.date<b.date?1:-1);
+      const paket=cek.slice(0,60);
+      if(!paket.length)return;
+      await _dbIstek('/api/draws',{method:'POST',body:JSON.stringify({game:gid,cekilisler:paket})});
+      _dbDurum.sonSenk=new Date().toLocaleTimeString('tr-TR');_dbPanelTazele();
+    }catch(e){}
+  },1200);
+}
+// ── Otomatik çift yönlü senkron: düzenli okuma + sekmeye dönünce okuma ──
+let _dbOtoKuruldu=false;
+function _dbOtoBaslat(){
+  if(_dbOtoKuruldu)return;_dbOtoKuruldu=true;
+  setInterval(()=>{ if(_dbAcikMi()&&document.visibilityState==='visible')_dbCek().then(()=>_dbPanelTazele()); },60000);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'&&_dbAcikMi())_dbCek().then(()=>_dbPanelTazele());
+  });
+  window.addEventListener('online',()=>{ if(_dbAcikMi())_dbCek().then(()=>_dbPanelTazele()); });
+  // sayfa kapanırken bekleyen yazmaları hemen gönder
+  window.addEventListener('pagehide',()=>{ try{ if(Object.keys(_dbBekleyen).length)_dbGonder(); }catch(e){} });
+}
 function _dbInit(){
   _dbAyarYukle();
   const u=document.getElementById('dbUrl'),k=document.getElementById('dbKey'),a=document.getElementById('dbAcik');
@@ -27120,7 +27165,12 @@ function _dbInit(){
   _dbPanelTazele();
   if(_dbAcikMi()&&!_dbDurum.bagli)_dbTest();
 }
-try{_dbAyarYukle();if(_dbAcikMi())setTimeout(()=>{_dbTest().then(()=>_dbCek());},1500);}catch(e){}
+try{_dbAyarYukle();_dbOtoBaslat();
+  if(_dbAcikMi())setTimeout(()=>{_dbTest().then(()=>_dbCek()).then(()=>{
+    // açılışta tüm oyunların en yeni çekilişlerini de veritabanıyla eşitle
+    try{GAMES.forEach(g=>_dbCekilisOtoYaz(g.id));}catch(e){}
+  });},1500);
+}catch(e){}
 
 // ═══════════ GLOBAL OYUN TİPİ SENKRONU ═══════════
 // Uygulamanın HERHANGİ bir yerinde oyun tipi değiştirilirse, tüm sayfalardaki
