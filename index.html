@@ -27206,12 +27206,31 @@ function _exYildizTazele(gid){
   _exYildizSet={gid,net:r.net,yakin:r.yakin};
   _exYildizUygula();
 }
-// Bir düğüm geçmiş test sütununda mı? (başlığında 🎯 tarih varsa geçmiştir)
+// Bir düğüm geçmiş test/geçmiş sütununda mı?
+// Yıldız YALNIZCA yeni tahmin alanlarına konur; aşağıdaki durumların herhangi biri
+// geçmişi işaret ediyorsa hücre atlanır.
+const _EX_GECMIS_KAP='#listelerHistoryCols,#agTestOut,#agTestOut2,#qtTestOut,#btsTestOut,'
+  +'[id$="BtOut"],[id$="BtOut2"],[id$="BtOut3"],[id$="TestOut"],[id$="TestOut2"],[id$="TestOut3"],'
+  +'[id^="lcol-"],[data-lscol]';
+const _EX_IZGARA='.au-row,.fb-row,.a3-row,.ag-row,.hy-row,.fm-row,.ls-ai-row,.so-row,.sn-row,.qt-row';
 function _exGecmisMi(el){
+  // 1) Bilinen geçmiş kapsayıcılarının içindeyse
+  if(el.closest&&el.closest(_EX_GECMIS_KAP))return true;
+  // 2) Çok sütunlu ızgarada: ilk sütun = yeni tahmin, diğerleri geçmiş.
+  //    Karar burada KESİNDİR — üst katmanlara çıkılmaz (komşu sütunların tarihi karışmasın).
+  if(el.closest){
+    const satir=el.closest(_EX_IZGARA);
+    if(satir){
+      let c=el;
+      while(c&&c.parentElement!==satir)c=c.parentElement;
+      return !!(c&&satir.firstElementChild&&c!==satir.firstElementChild);
+    }
+  }
+  // 3) Izgara yoksa: yakın üst kapsayıcının başlığında tarih varsa geçmiştir
   let n=el;
-  for(let i=0;i<7&&n&&n!==document.body;i++){
-    const t=n.textContent||'';
-    if(/🎯\s*\d{4}-\d{2}-\d{2}/.test(t)&&t.length<4000)return true;
+  for(let i=0;i<4&&n&&n!==document.body;i++){
+    const t=(n.textContent||'');
+    if(t.length<600&&(/🎯\s*\d{4}-\d{2}-\d{2}/.test(t)||/^\s*\d{4}-\d{2}-\d{2}\b/.test(t.trim())))return true;
     n=n.parentElement;
   }
   return false;
@@ -27222,7 +27241,7 @@ function _exYildizUygula(){
   if(_curPage==='excel')return;
   const kok=(_curPage==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+_curPage))
             ||document.querySelector('.app')||document.body;
-  const adaylar=kok.querySelectorAll('span:not([data-ex-yildiz]),td:not([data-ex-yildiz])');
+  const adaylar=kok.querySelectorAll('span:not([data-ex-yildiz]),td:not([data-ex-yildiz]),div.lcell:not([data-ex-yildiz]),div.num-cell:not([data-ex-yildiz])');
   let isaretli=0,bakilan=0;
   const gecmisOnbellek=new Map();
   adaylar.forEach(el=>{
