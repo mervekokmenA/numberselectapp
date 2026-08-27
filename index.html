@@ -27172,6 +27172,93 @@ try{_dbAyarYukle();_dbOtoBaslat();
   });},1500);
 }catch(e){}
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ EXCEL YILDIZI — Excel sayfasının "🔮 Yeni Tahmin" satırında çıkan sayılar,
+// uygulamadaki TÜM yeni tahmin alanlarında sayının soluna * konarak işaretlenir.
+// (±1 yakınlar da işaretlenir.) Geçmiş test sütunları işaretlenmez.
+// ═══════════════════════════════════════════════════════════════════════════
+let _exYildizSet={gid:null,net:new Set(),yakin:new Set()};
+// Excel'in gelecek satırındaki formül sonuçlarını topla
+function _exYeniTahminSayilari(gid){
+  try{
+    gid=gid||((state&&state.selectedGame)||GAMES[0].id);
+    const g=getGame(gid);if(!g)return {net:new Set(),yakin:new Set()};
+    const eskiG=_exGame,eskiK=_exKol;
+    _exGame=gid;_exKol=_exYukle(gid);
+    const ctx=_exCtx();
+    const net=new Set();
+    _exKol.forEach(k=>{
+      if(k.tip!=='formul'||!k.f)return;
+      const v=_exDeger(k.h,0,ctx);                       // satır 0 = 🔮 Yeni Tahmin
+      if(typeof v!=='number'||!isFinite(v))return;
+      const n=Math.round(v);
+      if(n>=1&&n<=g.max)net.add(n);
+    });
+    _exGame=eskiG;_exKol=eskiK;
+    const yakin=new Set();
+    net.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!net.has(x))yakin.add(x);});});
+    return {net,yakin};
+  }catch(e){return {net:new Set(),yakin:new Set()};}
+}
+function _exYildizTazele(gid){
+  gid=gid||((state&&state.selectedGame)||GAMES[0].id);
+  const r=_exYeniTahminSayilari(gid);
+  _exYildizSet={gid,net:r.net,yakin:r.yakin};
+  _exYildizUygula();
+}
+// Bir düğüm geçmiş test sütununda mı? (başlığında 🎯 tarih varsa geçmiştir)
+function _exGecmisMi(el){
+  let n=el;
+  for(let i=0;i<7&&n&&n!==document.body;i++){
+    const t=n.textContent||'';
+    if(/🎯\s*\d{4}-\d{2}-\d{2}/.test(t)&&t.length<4000)return true;
+    n=n.parentElement;
+  }
+  return false;
+}
+function _exYildizUygula(){
+  if(!_exYildizSet.net.size)return;
+  // Yalnızca GÖRÜNÜR sayfayı tara; Excel sayfası kaynak olduğu için atlanır
+  if(_curPage==='excel')return;
+  const kok=(_curPage==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+_curPage))
+            ||document.querySelector('.app')||document.body;
+  const adaylar=kok.querySelectorAll('span:not([data-ex-yildiz]),td:not([data-ex-yildiz])');
+  let isaretli=0,bakilan=0;
+  const gecmisOnbellek=new Map();
+  adaylar.forEach(el=>{
+    if(++bakilan>6000)return;                            // güvenlik tavanı
+    if(el.children.length)return;
+    if(el.dataset&&el.dataset.exYildiz)return;
+    const ham=(el.textContent||'').trim();
+    const m=/^(\d{1,2})\s*([✓~●★])?$/.exec(ham);
+    if(!m)return;
+    const n=+m[1];
+    const net=_exYildizSet.net.has(n),yak=!net&&_exYildizSet.yakin.has(n);
+    if(!net&&!yak)return;
+    const kap=el.parentElement;
+    let gec=gecmisOnbellek.get(kap);
+    if(gec===undefined){gec=_exGecmisMi(el);gecmisOnbellek.set(kap,gec);}
+    if(gec)return;                                       // geçmiş test sütunu → işaretleme
+    el.dataset.exYildiz='1';
+    el.textContent='*'+ham;
+    el.title=(el.title?el.title+' · ':'')+(net?'Excel yeni tahmininde var':'Excel yeni tahminine ±1 yakın');
+    el.style.position='relative';
+    isaretli++;
+  });
+  return isaretli;
+}
+// Ekran değiştikçe otomatik uygula
+let _exYildizZaman=null;
+function _exYildizPlanla(){clearTimeout(_exYildizZaman);_exYildizZaman=setTimeout(_exYildizUygula,350);}
+try{
+  const gozlemci=new MutationObserver(()=>_exYildizPlanla());
+  document.addEventListener('DOMContentLoaded',()=>{
+    setTimeout(()=>{try{_exYildizTazele();}catch(e){}},2500);
+    const kok=document.querySelector('.app');
+    if(kok)gozlemci.observe(kok,{childList:true,subtree:true});
+  });
+}catch(e){}
+
 // ═══════════ GLOBAL OYUN TİPİ SENKRONU ═══════════
 // Uygulamanın HERHANGİ bir yerinde oyun tipi değiştirilirse, tüm sayfalardaki
 // tüm oyun seçicileri aynı oyuna geçer. Her seçici fonksiyonu tek bir sarmalayıcıdan
@@ -27216,6 +27303,7 @@ function _oyunYay(gid,kaynak){
   isler.push(()=>{try{
     if(_exGame&&_exGame!==gid){_exGame=gid;_exKol=_exYukle(gid);}
     if(_curPage==='excel')_exInit();
+    _exYildizTazele(gid);
   }catch(e){}});
   isler.push(()=>{try{
     const fbMev=(_fbData&&_fbData.live&&_fbData.live.game)?_fbData.live.game.id:null;
