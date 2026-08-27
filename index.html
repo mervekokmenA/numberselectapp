@@ -39,6 +39,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .lcell.l-red{background:#e53935;color:#fff;border-color:#b71c1c}
 .lcell.l-pink{background:#ffd6e0;color:#c2185b;border-color:#f48fb1}
 .lcell.l-yakin{background:#fb8c00;color:#fff;border-color:#e65100}
+/* ⭐ Excel yıldızı — sayının soluna * koyar, metni DEĞİŞTİRMEZ */
+[data-ex-yildiz]::before{content:'*';font-weight:800;opacity:.85;margin-right:1px}
 .lrow{display:flex;gap:1px;margin-bottom:1px;height:18px;min-height:18px;max-height:18px;align-items:center;overflow:hidden}
 .lrow-num{width:18px;height:18px;min-height:18px;max-height:18px;font-size:.58rem;color:var(--accent);display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;padding-right:2px;line-height:1;font-weight:600;opacity:.75;box-sizing:border-box;overflow:hidden}
 .listeler-col{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px;flex-shrink:0;min-width:0}
@@ -27255,17 +27257,31 @@ function _exGecmisMi(el){
   }
   return false;
 }
+let _exYildizIsBasi=null;
 function _exYildizUygula(){
   if(!_exYildizSet.net.size)return;
   // Yalnızca GÖRÜNÜR sayfayı tara; Excel sayfası kaynak olduğu için atlanır
   if(_curPage==='excel')return;
   const kok=(_curPage==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+_curPage))
             ||document.querySelector('.app')||document.body;
-  const adaylar=kok.querySelectorAll('span:not([data-ex-yildiz]),td:not([data-ex-yildiz]),div.lcell:not([data-ex-yildiz]),div.num-cell:not([data-ex-yildiz])');
+  // Sayı hücreleri uygulamada span / td / div.ball / div.lcell gibi farklı biçimlerde basılıyor
+  const adaylar=kok.querySelectorAll('span:not([data-ex-yildiz]),td:not([data-ex-yildiz]),div:not([data-ex-yildiz])');
   let isaretli=0,bakilan=0;
   const gecmisOnbellek=new Map();
+  // Çok hücreli sayfalarda (Listeler gibi) tarama dilimlere bölünür: arayüz donmaz
+  if(adaylar.length>2500){
+    const liste=[...adaylar];let i=0;
+    clearTimeout(_exYildizIsBasi);
+    const dilim=()=>{
+      const t0=performance.now();
+      while(i<liste.length&&performance.now()-t0<25)_exYildizTek(liste[i++],gecmisOnbellek);
+      if(i<liste.length)_exYildizIsBasi=setTimeout(dilim,0);
+    };
+    dilim();
+    return liste.length;
+  }
   adaylar.forEach(el=>{
-    if(++bakilan>6000)return;                            // güvenlik tavanı
+    if(++bakilan>40000)return;                           // güvenlik tavanı
     if(el.children.length)return;
     if(el.dataset&&el.dataset.exYildiz)return;
     const ham=(el.textContent||'').trim();
@@ -27278,13 +27294,27 @@ function _exYildizUygula(){
     let gec=gecmisOnbellek.get(kap);
     if(gec===undefined){gec=_exGecmisMi(el);gecmisOnbellek.set(kap,gec);}
     if(gec)return;                                       // geçmiş test sütunu → işaretleme
-    el.dataset.exYildiz='1';
-    el.textContent='*'+ham;
+    el.dataset.exYildiz=net?'1':'2';
     el.title=(el.title?el.title+' · ':'')+(net?'Excel yeni tahmininde var':'Excel yeni tahminine ±1 yakın');
-    el.style.position='relative';
     isaretli++;
   });
   return isaretli;
+}
+function _exYildizTek(el,onbellek){
+  if(el.children.length)return;
+  if(el.dataset&&el.dataset.exYildiz)return;
+  const ham=(el.textContent||'').trim();
+  const m=/^(\d{1,2})\s*([✓~●★])?$/.exec(ham);
+  if(!m)return;
+  const n=+m[1];
+  const net=_exYildizSet.net.has(n),yak=!net&&_exYildizSet.yakin.has(n);
+  if(!net&&!yak)return;
+  const kap=el.parentElement;
+  let gec=onbellek?onbellek.get(kap):undefined;
+  if(gec===undefined){gec=_exGecmisMi(el);if(onbellek)onbellek.set(kap,gec);}
+  if(gec)return;
+  el.dataset.exYildiz=net?'1':'2';
+  el.title=(el.title?el.title+' · ':'')+(net?'Excel yeni tahmininde var':'Excel yeni tahminine ±1 yakın');
 }
 // Ekran değiştikçe otomatik uygula
 let _exYildizZaman=null;
