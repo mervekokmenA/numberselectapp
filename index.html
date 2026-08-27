@@ -38,6 +38,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .lcell.l-green{background:#43a047;color:#fff;border-color:#2e7d32}
 .lcell.l-red{background:#e53935;color:#fff;border-color:#b71c1c}
 .lcell.l-pink{background:#ffd6e0;color:#c2185b;border-color:#f48fb1}
+.lcell.l-yakin{background:#fb8c00;color:#fff;border-color:#e65100}
 .lrow{display:flex;gap:1px;margin-bottom:1px;height:18px;min-height:18px;max-height:18px;align-items:center;overflow:hidden}
 .lrow-num{width:18px;height:18px;min-height:18px;max-height:18px;font-size:.58rem;color:var(--accent);display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;padding-right:2px;line-height:1;font-weight:600;opacity:.75;box-sizing:border-box;overflow:hidden}
 .listeler-col{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px;flex-shrink:0;min-width:0}
@@ -13892,7 +13893,7 @@ let _listelerRedKeys=new Set();
 // Geçmiş test bazı: bir geçmiş sütununun 🔍 Kontrol'üne basılınca o tarih
 // "en güncel" kabul edilir; üstteki Yeni Tahmin sütunu o tarihten ÖNCEKİ verilerle
 // yeniden kurulur ve o tarihin gerçek sonucuna göre işaretlenir.
-let _listelerBazDate=null,_listelerBazActual=null,_listelerGreenKeys=new Set();
+let _listelerBazDate=null,_listelerBazActual=null,_listelerGreenKeys=new Set(),_listelerYakinKeys=new Set();
 let _lScrollLock=false;
 function _listelerAttachScrollSync(){
   document.querySelectorAll('.listeler-tickets').forEach(el=>{
@@ -14105,7 +14106,7 @@ function listelerKontrolTarih(id){
   listelerKontrol();
 }
 function listelerBazTemizle(){
-  _listelerBazDate=null;_listelerBazActual=null;_listelerGreenKeys=new Set();
+  _listelerBazDate=null;_listelerBazActual=null;_listelerGreenKeys=new Set();_listelerYakinKeys=new Set();
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
   const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
   const win=document.getElementById('listelerWindow')?.value||'30';
@@ -14116,11 +14117,15 @@ function listelerBazTemizle(){
 function listelerKontrol(){
   if(!_listelerNewPred){showToast('⚠️ Önce yeni tahmin yapın');return;}
   // Baz tarih seçiliyse üstteki tahmin o çekilişin gerçek sonucuna göre işaretlenir
-  _listelerGreenKeys=new Set();
+  _listelerGreenKeys=new Set();_listelerYakinKeys=new Set();
   if(_listelerBazActual){
+    const g0=getGame(_listelerNewPred.game.id||_listelerGame)||_listelerNewPred.game;
     const aSet=new Set([...(_listelerBazActual.nums||[]),...(_listelerBazActual.bonus||[])]);
+    const ySet=new Set();
+    aSet.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=(g0.max||90)&&!aSet.has(x))ySet.add(x);});});
     _listelerNewPred.tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
-      if(aSet.has(num))_listelerGreenKeys.add(`${ti}-${pi}`);}));
+      if(aSet.has(num))_listelerGreenKeys.add(`${ti}-${pi}`);
+      else if(ySet.has(num))_listelerYakinKeys.add(`${ti}-${pi}`);}));
   }
   _listelerRecompute();
   _renderListelerNewPred();
@@ -14129,6 +14134,14 @@ function listelerKontrol(){
   const numCnt={};
   const numOrder=[];
   const _seen=new Set();
+  // Baz tarih seçiliyse bulunan sayılar da o çekilişe göre yeşil/turuncu işaretlenir
+  let _lsBazSet=null,_lsBazYakin=null;
+  if(_listelerBazActual){
+    const _g=getGame(_listelerGame||state.selectedGame)||{max:90};
+    _lsBazSet=new Set([...(_listelerBazActual.nums||[]),...(_listelerBazActual.bonus||[])]);
+    _lsBazYakin=new Set();
+    _lsBazSet.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=(_g.max||90)&&!_lsBazSet.has(x))_lsBazYakin.add(x);});});
+  }
   tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
     if(_listelerRedKeys.has(`${ti}-${pi}`)){
       numCnt[num]=(numCnt[num]||0)+1;
@@ -14141,7 +14154,13 @@ function listelerKontrol(){
   } else {
     leftHtml='<div style="display:flex;flex-wrap:wrap;gap:6px">';
     numOrder.forEach(num=>{
-      leftHtml+=`<span style="font-size:.78rem;font-weight:700;color:var(--text);background:rgba(229,57,53,.15);border:1px solid rgba(229,57,53,.35);padding:4px 10px;border-radius:8px">${num}</span>`;
+      const _n=+num;
+      const _net=_lsBazSet&&_lsBazSet.has(_n);
+      const _yak=!_net&&_lsBazYakin&&_lsBazYakin.has(_n);
+      const _zemin=_net?'rgba(0,230,118,.22)':_yak?'rgba(251,140,0,.22)':'rgba(229,57,53,.15)';
+      const _kenar=_net?'rgba(0,200,100,.6)':_yak?'rgba(230,81,0,.55)':'rgba(229,57,53,.35)';
+      const _renk=_net?'var(--green)':_yak?'#e65100':'var(--text)';
+      leftHtml+=`<span style="font-size:.78rem;font-weight:700;color:${_renk};background:${_zemin};border:1px solid ${_kenar};padding:4px 10px;border-radius:8px">${num}${_net?'✓':_yak?'~':''}</span>`;
     });
     leftHtml+='</div>';
   }
@@ -14191,7 +14210,8 @@ function _renderListelerNewPred(){
       const key=`${ti}-${pi}`;
       const isRed=_listelerRedKeys.has(key);
       const isGreen=_listelerGreenKeys.has(key);
-      const cls='lcell'+(isRed?' l-red':isGreen?' l-green':'');
+      const isYakin=!isGreen&&_listelerYakinKeys.has(key);
+      const cls='lcell'+(isRed?' l-red':isGreen?' l-green':isYakin?' l-yakin':'');
       html+=`<div class="${cls}">${n}</div>`;
     });
     html+='</div>';
@@ -14269,7 +14289,7 @@ function listelerClearAll(){
   _listelerHistory=[];
   _listelerNewPred=null;
   _listelerRedKeys=new Set();
-  _listelerBazDate=null;_listelerBazActual=null;_listelerGreenKeys=new Set();
+  _listelerBazDate=null;_listelerBazActual=null;_listelerGreenKeys=new Set();_listelerYakinKeys=new Set();
   document.getElementById('listelerBulundu').style.display='none';
   _renderListelerCols();
   _renderListelerNewPred();
