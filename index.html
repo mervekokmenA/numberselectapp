@@ -846,6 +846,25 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 </div>
 
+<!-- ═══════════ ORTAK SAYI BULUCU — tahminlerin hemen altında ═══════════ -->
+<div id="okSection" style="grid-column:1/-1;margin-top:0;min-width:0">
+ <div class="card" style="border:2px solid rgba(139,92,246,.45);background:linear-gradient(135deg,rgba(139,92,246,.05),transparent)">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">🔀 Ortak Sayı Bulucu</div>
+   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    <span id="okBilgi" style="font-size:.6rem;color:var(--muted)"></span>
+    <button onclick="_okTemizle()" style="font-size:.64rem;padding:3px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">✕ Temizle</button>
+    <button onclick="_okCopy()" class="copy-btn" style="font-size:.64rem;padding:3px 10px">📋 Kopyala</button>
+   </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:7px">
+   <textarea id="okUst" oninput="_okPlanla()" placeholder="Üst liste — sayıları yapıştır (örn. 3 8 12 19 24 27)" style="width:100%;min-height:52px;font-size:.74rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 9px;resize:vertical;box-sizing:border-box"></textarea>
+   <textarea id="okAlt" oninput="_okPlanla()" placeholder="Alt liste — sayıları yapıştır" style="width:100%;min-height:52px;font-size:.74rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 9px;resize:vertical;box-sizing:border-box"></textarea>
+  </div>
+  <div id="okOut" style="margin-top:9px"></div>
+ </div>
+</div>
+
 <!-- ═══════════ TESPİT — Bilet Testi & Anomali Analizi'nin hemen altında ═══════════ -->
 <div id="tsSection" style="grid-column:1/-1;margin-top:0;min-width:0">
  <div class="card">
@@ -13469,7 +13488,7 @@ function _kbRenderKazanan(){
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
 // Anasayfa bölüm sırası — 🧾 Tespit, 🎫 Bilet Testi & Anomali Analizi'nin hemen altında.
-const _HOME_IDS=['page-generator','page-backtest','tsSection','a3Section','fmSection','nnSection','npSection','candSection','cbSection','onaSection'];
+const _HOME_IDS=['page-generator','page-backtest','okSection','tsSection','a3Section','fmSection','nnSection','npSection','candSection','cbSection','onaSection'];
 let _scanGame=null;
 
 // Anasayfaya özel ağır hesaplar, o sayfa AÇIK DEĞİLKEN yapılmasın: oyun değiştirmek
@@ -16209,6 +16228,63 @@ function _cpFix(text){
   }
   return out.join('\n');
 }
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔀 Ortak Sayı Bulucu — iki listeye yapıştırılan sayıların kesişimi
+// Girilenler tarayıcıda saklanır; sayfa yenilenince kaybolmaz.
+// ═══════════════════════════════════════════════════════════════════════════
+let _okZaman=null;
+function _okSayilar(t){
+  const mx=(getGame((state&&state.selectedGame)||GAMES[0].id)||{}).max||99;
+  return [...new Set((String(t||'').match(/\d{1,3}/g)||[]).map(Number).filter(n=>n>=1&&n<=mx))];
+}
+function _okPlanla(){clearTimeout(_okZaman);_okZaman=setTimeout(_okHesapla,180);}
+function _okTemizle(){
+  const u=document.getElementById('okUst'),a=document.getElementById('okAlt');
+  if(u)u.value='';if(a)a.value='';
+  _okHesapla();
+}
+function _okCopy(){
+  const t=window._okTxt||'';
+  if(!t){showToast('⚠️ Ortak sayı yok');return;}
+  _caCopy(t);showToast('📋 Kopyalandı');
+}
+function _okCip(n){
+  return `<span style="font-family:monospace;font-size:.86rem;font-weight:800;color:#fff;background:#7c3aed;border:1.5px solid #6d28d9;border-radius:8px;padding:2px 10px">${n}</span>`;
+}
+function _okHesapla(){
+  const uEl=document.getElementById('okUst'),aEl=document.getElementById('okAlt'),out=document.getElementById('okOut');
+  if(!out)return;
+  const uT=uEl?uEl.value:'',aT=aEl?aEl.value:'';
+  try{localStorage.setItem('_okUst',uT);localStorage.setItem('_okAlt',aT);}catch(e){}
+  const u=_okSayilar(uT),a=_okSayilar(aT);
+  const bilgi=document.getElementById('okBilgi');
+  if(bilgi)bilgi.textContent=(u.length||a.length)?`üst ${u.length} · alt ${a.length} sayı`:'';
+  if(!u.length||!a.length){
+    out.innerHTML='<div style="font-size:.68rem;color:var(--muted)">İki alana da sayı girin — ortak olanlar burada listelenir.</div>';
+    window._okTxt='';return;
+  }
+  const aSet=new Set(a);
+  const ortak=u.filter(n=>aSet.has(n)).sort((x,y)=>x-y);
+  window._okTxt=ortak.length?ortak.join(' '):'';
+  if(!ortak.length){
+    out.innerHTML='<div style="font-size:.68rem;color:#c2410c;font-weight:700">Ortak sayı yok.</div>';
+    return;
+  }
+  out.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:5px">`
+    +`<span style="font-size:.7rem;font-weight:800;color:#7c3aed">✅ Ortak ${ortak.length} sayı</span></div>`
+    +`<div data-lp="${ortak.join(' ')}" style="display:flex;gap:5px;flex-wrap:wrap">${ortak.map(_okCip).join('')}</div>`;
+}
+function _okInit(){
+  try{
+    const u=document.getElementById('okUst'),a=document.getElementById('okAlt');
+    if(u&&!u.value)u.value=localStorage.getItem('_okUst')||'';
+    if(a&&!a.value)a.value=localStorage.getItem('_okAlt')||'';
+  }catch(e){}
+  _okHesapla();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(_okInit,300));
+else setTimeout(_okInit,300);
+
 // 🗄️ Veritabanı sekmesi menüde HER ZAMAN en sonda dursun
 function _navDbSona(){
   try{
