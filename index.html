@@ -26095,7 +26095,19 @@ const _OZ_KAYNAK=[
   {id:'sicak',   ad:'🔥 Yakın Dönem Frekansı', w:(g,pr)=>{const f=buildFreq(pr.slice(0,40)),m={};for(let n=1;n<=g.max;n++)m[n]=(f&&f[n])||0;return m;}},
   {id:'sicakU',  ad:'📊 Uzun Dönem Frekansı', w:(g,pr)=>{const f=buildFreq(pr),m={};for(let n=1;n<=g.max;n++)m[n]=(f&&f[n])||0;return m;}},
   {id:'gecikme', ad:'⏳ Gecikme (Sırası Gelenler)', w:(g,pr)=>{const son={},m={};pr.forEach((d,i)=>{(d.nums||[]).forEach(n=>{if(son[n]==null)son[n]=i;});});for(let n=1;n<=g.max;n++)m[n]=(son[n]==null?pr.length:son[n]);return m;}},
+  {id:'cbAi',    ad:'🤖 AI Bilet Üretici', w:(g,pr)=>{try{const C=_cbCompute(g,pr);return C&&C.wMap;}catch(e){return null;}}},
+  {id:'fmSon2',  ad:'🔢 Son 2 Çekiliş Formülleri', w:(g,pr)=>{try{return _ozSiraAgirlik((_fmCompute(g,pr)||{}).ranked);}catch(e){return null;}}},
+  {id:'haber',   ad:'📰 Haber Yöntemleri Uzlaşısı', w:(g,pr)=>{try{const K=_a3Kaynak(g,pr,'haber');return K&&K.W;}catch(e){return null;}}},
+  {id:'gulay',   ad:'🔮 Gülay Fark-Analizi', w:(g,pr)=>{try{const ga=_soGapAnalysisCompute(pr[0],g),m={};
+     (ga&&ga.gulayCands||[]).forEach(c=>{if(c.n>=1&&c.n<=g.max)m[c.n]=c.cnt;});
+     return Object.keys(m).length?m:null;}catch(e){return null;}}},
+  {id:'sislcg',  ad:'🎯 Gülsis / Sisal-LCG Sinyali', w:(g,pr)=>{try{const s=_kbSignals(pr,g);return (s&&s.sislcg)||null;}catch(e){return null;}}},
 ];
+// Sıralı listeyi ağırlık haritasına çevirir (ilk sıra en yüksek)
+function _ozSiraAgirlik(r){
+  if(!r||!r.length)return null;
+  const m={};r.forEach((n,i)=>{m[n]=(r.length-i)/r.length;});return m;
+}
 // Ağırlık haritasını "en güçlü K sayı" listesine çevirir
 function _ozListe(w,K,mx){
   if(!w)return [];
@@ -26112,7 +26124,7 @@ function _ozKarneKaydet(o){
   try{localStorage.setItem(_OZ_KARNE_KEY(o.gid,o.K,o.N,o.son),JSON.stringify(o));}catch(e){}
 }
 let _ozData={live:null,t1:null,t2:null,t3:null};
-window._ozTxt={karne:'',havuz:'',kesisim:'',konum:''};
+window._ozTxt={karne:'',havuz:'',kesisim:'',konum:'',secim:''};
 
 function _ozOyun(){return (state&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))?state.selectedGame:GAMES[0].id;}
 function _ozVarP(g){return g.id==='onnumara'?16:Math.min(g.max,g.count+7);}
@@ -26279,6 +26291,80 @@ function _ozOzet(nums,aSet,yak){
   return `<span style="font-size:.55rem;color:var(--muted)">${nums.length} sayı · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yk?` · <strong style="color:#c2410c">${yk} yakın</strong>`:''}</span>`;
 }
 
+// ── Ortak analiz kartı: [seçim kutusu] başlık · net/yakın · kopyala ──
+let _ozSel=new Set();
+function _ozSelToggle(id){
+  if(_ozSel.has(id))_ozSel.delete(id);else _ozSel.add(id);
+  _ozRenderHavuz();_ozRenderKesisim();
+}
+function _ozKart(o){
+  // o: {id,ad,nums,aSet,yak,ci,ek,kopyaTxt,ti}
+  const sec=_ozSel.has(o.id);
+  const net=o.aSet?o.nums.filter(n=>o.aSet.has(n)).length:null;
+  const yk=o.yak?o.nums.filter(n=>!o.aSet.has(n)&&o.yak.has(n)).length:0;
+  const chk=o.ci===0?`<input type="checkbox" onchange="_ozSelToggle('${o.id}')"${sec?' checked':''} style="width:14px;height:14px;accent-color:var(--accent);cursor:pointer;flex-shrink:0" title="Bu analizi seçilenlerin kesişimine kat">`:'';
+  const kop=o.ci===0?`<button onclick="_ozCopyId('${o.id}')" class="copy-btn" style="font-size:.52rem;padding:1px 7px;flex-shrink:0">📋</button>`:'';
+  const zemin=net?'rgba(0,230,118,.06)':sec?'rgba(139,92,246,.08)':'var(--surface)';
+  const kenar=net?'rgba(0,200,100,.35)':sec?'rgba(139,92,246,.55)':'var(--border)';
+  return `<div style="padding:6px 8px;border-radius:8px;background:${zemin};border:1px solid ${kenar};height:100%;box-sizing:border-box">`
+    +`<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:4px">`
+    +chk+`<span style="font-size:.6rem;font-weight:800;color:var(--text);flex:1;min-width:0">${o.ad}</span>`
+    +(o.ek||'')
+    +`<span style="font-size:.54rem;font-weight:800;white-space:nowrap;color:var(--muted)">${o.nums.length} sayı`
+    +(net!=null?` · <span style="color:${net?'var(--green)':'var(--muted)'}">${net} net</span>${yk?` · <span style="color:#c2410c">${yk} yakın</span>`:''}`:'')+`</span>`
+    +kop+`</div>`
+    +`<div data-lp="${o.nums.slice().sort((a,b)=>a-b).join(' ')}" style="display:flex;gap:3px;flex-wrap:wrap">`
+    +o.nums.map((n,pi)=>_ozCip(n,o.aSet,o.yak,o.ti,o.ti!=null?pi:null)).join('')+`</div></div>`;
+}
+function _ozListeId(id,c){
+  if(!c)return null;
+  if(id.slice(0,4)==='src:'){const K=(c.kaynaklar||[]).find(x=>x.id===id.slice(4));return K?{ad:K.ad,nums:K.nums}:null;}
+  if(id.slice(0,4)==='kat:'){
+    const k=+id.slice(4);
+    const nums=Object.keys(c.say||{}).map(Number).filter(n=>c.say[n]>=k).sort((a,b)=>a-b);
+    return nums.length?{ad:'≥'+k+' kaynak',nums}:null;
+  }
+  return null;
+}
+function _ozCopyId(id){
+  const L=_ozListeId(id,_ozData.live);if(!L)return;
+  _caCopy(L.ad+'\n'+L.nums.slice().sort((a,b)=>a-b).join(' '));showToast('📋 Kopyalandı');
+}
+
+// ── Seçilenlerin kesişimi ──
+function _ozSecimNums(c){
+  const listeler=[..._ozSel].map(id=>_ozListeId(id,c)).filter(Boolean);
+  if(listeler.length<2)return null;
+  const say={};listeler.forEach(L=>{new Set(L.nums).forEach(n=>{say[n]=(say[n]||0)+1;});});
+  const tam=Object.keys(say).map(Number).filter(n=>say[n]===listeler.length).sort((a,b)=>a-b);
+  const eksi1=Object.keys(say).map(Number).filter(n=>say[n]===listeler.length-1).sort((a,b)=>a-b);
+  return {adet:listeler.length,tam,eksi1};
+}
+function _ozSecimHtml(cols,tpl){
+  const S=_ozSecimNums(cols[0]);
+  if(!S)return '';
+  window._ozTxt.secim='🎯 Seçilenlerin Kesişimi ('+S.adet+' analiz)\n'+S.tam.join(' ')
+    +(S.eksi1.length?'\n\nBir eksiğiyle ('+(S.adet-1)+'/'+S.adet+')\n'+S.eksi1.join(' '):'');
+  return `<div style="margin:10px 0 4px;padding:8px 10px;border-radius:10px;border:2px solid rgba(139,92,246,.5);background:linear-gradient(135deg,rgba(139,92,246,.07),transparent)">`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`
+    +`<span style="font-size:.7rem;font-weight:800">🎯 Seçilenlerin Kesişimi — ${S.adet} analiz</span>`
+    +`<button onclick="_ozCopy('secim')" class="copy-btn" style="font-size:.58rem;padding:2px 9px">📋 Kopyala</button></div>`
+    +`<div class="oz-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
+    +cols.map((c,ci)=>{
+      const R=_ozSecimNums(c);
+      const aSet=_ozSet(c),yak=aSet?_ozYakinSet(aSet,c.game.max):null;
+      if(!R||!R.tam.length&&!R.eksi1.length)return '<div><div style="font-size:.58rem;color:var(--muted)">—</div></div>';
+      const blok=(bas,nums)=>nums.length?`<div style="margin-bottom:5px"><div style="font-size:.54rem;color:var(--muted);margin-bottom:2px">${bas} · ${_ozOzetMetin(nums,aSet,yak)}</div>`
+        +`<div data-lp="${nums.join(' ')}" style="display:flex;gap:3px;flex-wrap:wrap">${nums.map(n=>_ozCip(n,aSet,yak)).join('')}</div></div>`:'';
+      return `<div>${blok('hepsinde',R.tam)}${blok('bir eksiğiyle',R.eksi1)}</div>`;
+    }).join('')+`</div></div>`;
+}
+function _ozOzetMetin(nums,aSet,yak){
+  if(!aSet)return nums.length+' sayı';
+  const net=nums.filter(n=>aSet.has(n)).length,yk=yak?nums.filter(n=>!aSet.has(n)&&yak.has(n)).length:0;
+  return nums.length+' sayı · '+net+' net'+(yk?' · '+yk+' yakın':'');
+}
+
 // ── Havuzlar: her kaynak bir satır, sütunlar yeni tahmin + geçmiş testler ──
 function _ozRenderHavuz(){
   const out=document.getElementById('ozHavuzOut');if(!out)return;
@@ -26286,27 +26372,21 @@ function _ozRenderHavuz(){
   if(!cols.length){out.innerHTML='';window._ozTxt.havuz='';return;}
   const tpl='repeat('+cols.length+',minmax(0,1fr))';
   const sira=_ozKarneSira();
-  const puan={};if(sira&&_ozKarne&&_ozKarne.gid===_ozOyun())sira.forEach((r,i)=>{puan[r.id]={sira:i+1,fark:r.fark,net:r.net};});
+  const puan={};if(sira&&_ozKarne&&_ozKarne.gid===_ozOyun())sira.forEach((r,i)=>{puan[r.id]={sira:i+1,fark:r.fark};});
   let liste=(cols[0].kaynaklar||[]).slice();
   if(Object.keys(puan).length)liste.sort((a,b)=>((puan[b.id]&&puan[b.id].fark)||-9)-((puan[a.id]&&puan[a.id].fark)||-9));
   const kopya=[];
   const govde=liste.map((S,si)=>{
     const p=puan[S.id];
-    const bas=`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin:9px 0 4px">`
-      +`<span style="font-size:.68rem;font-weight:800">${p?`<span style="color:var(--muted)">#${p.sira}</span> `:''}${S.ad}`
-      +(p?` <span style="font-size:.55rem;font-weight:700;color:${p.fark>0.02?'var(--green)':p.fark<-0.02?'#c2410c':'var(--muted)'}">${p.fark>=0?'+':''}${p.fark.toFixed(3)}</span>`:'')+`</span>`
-      +`<button onclick="_ozCopyKaynak('${S.id}')" class="copy-btn" style="font-size:.52rem;padding:1px 8px">📋</button></div>`;
-    const satir=cols.map((c,ci)=>{
-      const K=(c.kaynaklar||[]).find(x=>x.id===S.id);
-      if(!K)return `<div><div style="font-size:.58rem;color:var(--muted)">—</div></div>`;
-      const aSet=_ozSet(c),yak=aSet?_ozYakinSet(aSet,c.game.max):null;
-      const nums=K.nums.slice().sort((a,b)=>a-b);
-      return `<div><div style="margin-bottom:3px">${_ozOzet(nums,aSet,yak)}</div>`
-        +`<div data-lp="${nums.join(' ')}" style="display:flex;gap:3px;flex-wrap:wrap">`
-        +K.nums.map((n,pi)=>_ozCip(n,aSet,yak,si,pi)).join('')+`</div></div>`;
-    }).join('');
-    kopya.push(S.ad+'\n'+cols[0].kaynaklar.find(x=>x.id===S.id).nums.slice().sort((a,b)=>a-b).join(' '));
-    return bas+`<div class="oz-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">${satir}</div>`;
+    const ek=p?`<span style="font-size:.52rem;font-weight:800;white-space:nowrap;color:${p.fark>0.02?'var(--green)':p.fark<-0.02?'#c2410c':'var(--muted)'}">#${p.sira} ${p.fark>=0?'+':''}${p.fark.toFixed(3)}</span>`:'';
+    kopya.push(S.ad+'\n'+S.nums.slice().sort((a,b)=>a-b).join(' '));
+    return `<div class="oz-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:stretch;margin-bottom:5px">`
+      +cols.map((c,ci)=>{
+        const K=(c.kaynaklar||[]).find(x=>x.id===S.id);
+        if(!K)return `<div style="font-size:.58rem;color:var(--muted)">—</div>`;
+        const aSet=_ozSet(c),yak=aSet?_ozYakinSet(aSet,c.game.max):null;
+        return `<div>${_ozKart({id:'src:'+S.id,ad:S.ad,nums:K.nums,aSet,yak,ci,ek,ti:si})}</div>`;
+      }).join('')+`</div>`;
   }).join('');
   window._ozTxt.havuz='🎱 Havuzlar ('+cols[0].K+' sayı)\n\n'+kopya.join('\n\n');
   out.innerHTML=`<div class="card" style="margin-bottom:12px;border:2px solid rgba(16,185,129,.45);background:linear-gradient(135deg,rgba(16,185,129,.05),transparent)">`
@@ -26315,13 +26395,9 @@ function _ozRenderHavuz(){
    +`<button onclick="_ozCopy('havuz')" class="copy-btn" style="font-size:.64rem;padding:3px 10px">📋 Kopyala</button></div>`
    +`<div class="oz-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
    +cols.map(c=>`<div>${_ozBaslikHtml(c)}</div>`).join('')+`</div>`
+   +_ozSecimHtml(cols,tpl)
    +govde+`</div>`;
   _ozKonumEsle(out);
-}
-function _ozCopyKaynak(id){
-  const c=_ozData.live;if(!c)return;
-  const K=(c.kaynaklar||[]).find(x=>x.id===id);if(!K)return;
-  _caCopy(K.ad+'\n'+K.nums.slice().sort((a,b)=>a-b).join(' '));showToast('📋 Kopyalandı');
 }
 
 // ── Kesişim katmanları ──
@@ -26336,32 +26412,20 @@ function _ozRenderKesisim(){
   const govde=(cols[0].katmanlar||[]).map(L=>{
     const O=olc&&olc[L.k]&&olc[L.k].n?olc[L.k]:null;
     const oBoy=O?O.boy/O.n:null,oNet=O?O.net/O.n:null,oSans=O?_ozSans(oBoy,g):null;
-    const bas=`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin:9px 0 4px">`
-      +`<span style="font-size:.68rem;font-weight:800">≥${L.k} kaynak · ${L.nums.length} sayı`
-      +(O?` <span style="font-size:.55rem;font-weight:700;color:var(--muted)">ölçüm: ort ${oNet.toFixed(3)} net / şans ${oSans.toFixed(3)} · <span style="color:${oNet-oSans>0.02?'var(--green)':oNet-oSans<-0.02?'#c2410c':'var(--muted)'}">${oNet-oSans>=0?'+':''}${(oNet-oSans).toFixed(3)}</span></span>`:'')+`</span>`
-      +`<button onclick="_ozCopyKatman(${L.k})" class="copy-btn" style="font-size:.52rem;padding:1px 8px">📋</button></div>`;
-    const satir=cols.map(c=>{
-      const KL=(c.katmanlar||[]).find(x=>x.k===L.k);
-      const nums=KL?KL.nums:Object.keys(c.say||{}).map(Number).filter(n=>c.say[n]>=L.k).sort((a,b)=>a-b);
-      if(!nums.length)return `<div><div style="font-size:.58rem;color:var(--muted)">—</div></div>`;
-      const aSet=_ozSet(c),yak=aSet?_ozYakinSet(aSet,c.game.max):null;
-      return `<div><div style="margin-bottom:3px">${_ozOzet(nums,aSet,yak)}</div>`
-        +`<div data-lp="${nums.join(' ')}" style="display:flex;gap:3px;flex-wrap:wrap">`
-        +nums.map(n=>_ozCip(n,aSet,yak)).join('')+`</div></div>`;
-    }).join('');
+    const ek=O?`<span style="font-size:.52rem;font-weight:700;white-space:nowrap;color:${oNet-oSans>0.02?'var(--green)':oNet-oSans<-0.02?'#c2410c':'var(--muted)'}">ölçüm ${oNet.toFixed(2)}/${oSans.toFixed(2)}</span>`:'';
     kopya.push('≥'+L.k+' kaynak ('+L.nums.length+' sayı)\n'+L.nums.join(' '));
-    return bas+`<div class="oz-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">${satir}</div>`;
+    return `<div class="oz-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:stretch;margin-bottom:5px">`
+      +cols.map((c,ci)=>{
+        const nums=Object.keys(c.say||{}).map(Number).filter(n=>c.say[n]>=L.k).sort((a,b)=>a-b);
+        if(!nums.length)return `<div style="font-size:.58rem;color:var(--muted)">—</div>`;
+        const aSet=_ozSet(c),yak=aSet?_ozYakinSet(aSet,c.game.max):null;
+        return `<div>${_ozKart({id:'kat:'+L.k,ad:'≥'+L.k+' kaynak',nums,aSet,yak,ci,ek})}</div>`;
+      }).join('')+`</div>`;
   }).join('');
   window._ozTxt.kesisim='🔗 Kesişim Katmanları\n\n'+kopya.join('\n\n');
   out.innerHTML=`<div class="oz-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
     +cols.map(c=>`<div>${_ozBaslikHtml(c)}</div>`).join('')+`</div>`+govde;
 }
-function _ozCopyKatman(k){
-  const c=_ozData.live;if(!c)return;
-  const L=(c.katmanlar||[]).find(x=>x.k===k);if(!L)return;
-  _caCopy('≥'+k+' kaynak ('+L.nums.length+' sayı)\n'+L.nums.join(' '));showToast('📋 Kopyalandı');
-}
-
 // ── Konum eşleşmesi: aynı kaynak/konumda geçmiş testlerin hepsinde tutan sayılar ──
 function _ozKonumEsle(out){
   const grids=[...out.querySelectorAll('.oz-row')].filter(r=>r.querySelector('span[data-oti]'));
@@ -26437,7 +26501,7 @@ function _ozCopy(k){
 }
 function _ozCopyAll(){
   const T=window._ozTxt||{};
-  const p=[T.karne,T.konum,T.havuz,T.kesisim].filter(Boolean);
+  const p=[T.karne,T.konum,T.secim,T.havuz,T.kesisim].filter(Boolean);
   if(!p.length){showToast('⚠️ Önce üretin');return;}
   _caCopy('🎯 Özel Analizler\n\n'+p.join('\n\n'));showToast('📋 Kopyalandı');
 }
@@ -27032,10 +27096,10 @@ try{_dbAyarYukle();_dbOtoBaslat();
 // Birebir aynı ise *, Excel'de bir fazlası varsa +, bir eksiği varsa -, ikisi de
 // varsa ± konur. Geçmiş test sütunları işaretlenmez.
 // ═══════════════════════════════════════════════════════════════════════════
-let _exYildizSet={gid:null,net:new Set(),yakin:new Set()};
+let _exYildizSet={gid:null,net:new Set(),yakin:new Set(),gecmis:new Set(),sonTarih:null};
 // Bir sayının işareti: * birebir aynı · + Excel'de bir fazlası var · - bir eksiği var · ± ikisi de
-function _exIsaret(n){
-  const S=_exYildizSet.net;if(!S||!S.size)return '';
+function _exIsaret(n,S){
+  S=S||_exYildizSet.net;if(!S||!S.size)return '';
   if(S.has(n))return '*';
   const ust=S.has(n+1),alt=S.has(n-1);
   if(ust&&alt)return '±';
@@ -27043,38 +27107,42 @@ function _exIsaret(n){
   if(alt)return '-';
   return '';
 }
-function _exIsaretBaslik(i){
-  return i==='*'?'Excel yeni tahmininde birebir var'
-        :i==='+'?'Excel yeni tahmininde bir fazlası var'
-        :i==='-'?'Excel yeni tahmininde bir eksiği var'
-        :i==='±'?'Excel yeni tahmininde bir fazlası ve bir eksiği var':'';
+function _exIsaretBaslik(i,tip){
+  const yer=tip==='son'?'Excel son geçmiş satırında':'Excel yeni tahmininde';
+  return i==='*'?yer+' birebir var'
+        :i==='+'?yer+' bir fazlası var'
+        :i==='-'?yer+' bir eksiği var'
+        :i==='±'?yer+' bir fazlası ve bir eksiği var':'';
 }
 // Excel'in gelecek satırındaki formül sonuçlarını topla
 function _exYeniTahminSayilari(gid){
   try{
     gid=gid||((state&&state.selectedGame)||GAMES[0].id);
-    const g=getGame(gid);if(!g)return {net:new Set(),yakin:new Set()};
+    const g=getGame(gid);if(!g)return {net:new Set(),yakin:new Set(),gecmis:new Set()};
     const eskiG=_exGame,eskiK=_exKol;
     _exGame=gid;_exKol=_exYukle(gid);
     const ctx=_exCtx();
-    const net=new Set();
+    const net=new Set(),gecmis=new Set();
     _exKol.forEach(k=>{
       if(k.tip!=='formul'||!k.f)return;
-      const v=_exDeger(k.h,0,ctx);                       // satır 0 = 🔮 Yeni Tahmin
-      if(typeof v!=='number'||!isFinite(v))return;
-      const n=Math.round(v);
-      if(n>=1&&n<=g.max)net.add(n);
+      [0,1].forEach(satir=>{                             // 0 = 🔮 Yeni Tahmin · 1 = son geçmiş çekiliş
+        const v=_exDeger(k.h,satir,ctx);
+        if(typeof v!=='number'||!isFinite(v))return;
+        const n=Math.round(v);
+        if(n>=1&&n<=g.max)(satir?gecmis:net).add(n);
+      });
     });
     _exGame=eskiG;_exKol=eskiK;
     const yakin=new Set();
     net.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!net.has(x))yakin.add(x);});});
-    return {net,yakin};
-  }catch(e){return {net:new Set(),yakin:new Set()};}
+    return {net,yakin,gecmis};
+  }catch(e){return {net:new Set(),yakin:new Set(),gecmis:new Set()};}
 }
 function _exYildizTazele(gid){
   gid=gid||((state&&state.selectedGame)||GAMES[0].id);
   const r=_exYeniTahminSayilari(gid);
-  _exYildizSet={gid,net:r.net,yakin:r.yakin};
+  let sonTarih=null;try{const d=_kbGetDraws(gid);sonTarih=(d&&d[0]&&d[0].date)||null;}catch(e){}
+  _exYildizSet={gid,net:r.net,yakin:r.yakin,gecmis:r.gecmis||new Set(),sonTarih};
   _exYildizUygula();
 }
 // Bir düğüm geçmiş test/geçmiş sütununda mı?
@@ -27084,31 +27152,67 @@ const _EX_GECMIS_KAP='#listelerHistoryCols,#agTestOut,#agTestOut2,#qtTestOut,#bt
   +'[id$="BtOut"],[id$="BtOut2"],[id$="BtOut3"],[id$="TestOut"],[id$="TestOut2"],[id$="TestOut3"],'
   +'[id^="lcol-"],[data-lscol]';
 const _EX_IZGARA='.au-row,.oz-row,.a3-row,.ag-row,.hy-row,.fm-row,.ls-ai-row,.so-row,.sn-row,.qt-row';
-function _exGecmisMi(el){
-  // 1) Bilinen geçmiş kapsayıcılarının içindeyse
-  if(el.closest&&el.closest(_EX_GECMIS_KAP))return true;
-  // 2) Çok sütunlu ızgarada: ilk sütun = yeni tahmin, diğerleri geçmiş.
-  //    Karar burada KESİNDİR — üst katmanlara çıkılmaz (komşu sütunların tarihi karışmasın).
-  if(el.closest){
+function _exTarihBul(t){const m=/(\d{4}-\d{2}-\d{2})/.exec(t||'');return m?m[1]:null;}
+// Hücrenin ait olduğu sütunun tarihi (bulunabiliyorsa)
+function _exSutunTarih(el){
+  const satir=el.closest&&el.closest(_EX_IZGARA);
+  if(satir){
+    let c=el;while(c&&c.parentElement!==satir)c=c.parentElement;
+    if(!c)return null;
+    const ci=[...satir.children].indexOf(c);
+    const kt=c.textContent||'';
+    if(kt.length<800){const d=_exTarihBul(kt);if(d)return d;}
+    const kap=satir.parentElement;
+    if(kap&&ci>=0){
+      const satirlar=kap.querySelectorAll(_EX_IZGARA);
+      for(const s of satirlar){
+        const ch=s.children[ci];if(!ch)continue;
+        const t=ch.textContent||'';
+        if(t.length<800){const d=_exTarihBul(t);if(d)return d;}
+      }
+    }
+    return null;
+  }
+  let n=el;
+  for(let i=0;i<6&&n&&n!==document.body;i++){
+    const t=n.textContent||'';
+    if(t.length<800){const d=_exTarihBul(t);if(d)return d;}
+    n=n.parentElement;
+  }
+  return null;
+}
+// Hücre hangi Excel satırıyla işaretlenmeli?
+//  'yeni'   → Excel'in 🔮 yeni tahmin satırı
+//  'son'    → ekrandaki EN SON geçmiş çekiliş sütunu → Excel'in son geçmiş satırı
+//  'atla'   → daha eski geçmiş sütunu, işaretlenmez
+function _exHucreTipi(el){
+  let gecmis=false;
+  if(el.closest&&el.closest(_EX_GECMIS_KAP))gecmis=true;
+  if(!gecmis&&el.closest){
     const satir=el.closest(_EX_IZGARA);
     if(satir){
       let c=el;
       while(c&&c.parentElement!==satir)c=c.parentElement;
-      return !!(c&&satir.firstElementChild&&c!==satir.firstElementChild);
+      // Karar burada KESİNDİR — üst katmanlara çıkılmaz (komşu sütunların tarihi karışmasın)
+      if(c&&satir.firstElementChild&&c!==satir.firstElementChild)gecmis=true;
+      else if(c)return 'yeni';
     }
   }
-  // 3) Izgara yoksa: yakın üst kapsayıcının başlığında tarih varsa geçmiştir
-  let n=el;
-  for(let i=0;i<4&&n&&n!==document.body;i++){
-    const t=(n.textContent||'');
-    if(t.length<600&&(/🎯\s*\d{4}-\d{2}-\d{2}/.test(t)||/^\s*\d{4}-\d{2}-\d{2}\b/.test(t.trim())))return true;
-    n=n.parentElement;
+  if(!gecmis){
+    let n=el;
+    for(let i=0;i<4&&n&&n!==document.body;i++){
+      const t=(n.textContent||'');
+      if(t.length<600&&(/🎯\s*\d{4}-\d{2}-\d{2}/.test(t)||/^\s*\d{4}-\d{2}-\d{2}\b/.test(t.trim()))){gecmis=true;break;}
+      n=n.parentElement;
+    }
   }
-  return false;
+  if(!gecmis)return 'yeni';
+  if(!_exYildizSet.sonTarih||!_exYildizSet.gecmis||!_exYildizSet.gecmis.size)return 'atla';
+  return _exSutunTarih(el)===_exYildizSet.sonTarih?'son':'atla';
 }
 let _exYildizIsBasi=null;
 function _exYildizUygula(){
-  if(!_exYildizSet.net.size)return;
+  if(!_exYildizSet.net.size&&!(_exYildizSet.gecmis&&_exYildizSet.gecmis.size))return;
   // Yalnızca GÖRÜNÜR sayfayı tara; Excel sayfası kaynak olduğu için atlanır
   if(_curPage==='excel')return;
   const kok=(_curPage==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+_curPage))
@@ -27137,14 +27241,14 @@ function _exYildizUygula(){
     const m=/^(\d{1,2})\s*([✓~●★])?$/.exec(ham);
     if(!m)return;
     const n=+m[1];
-    const isaret=_exIsaret(n);
-    if(!isaret)return;
     const kap=el.parentElement;
-    let gec=gecmisOnbellek.get(kap);
-    if(gec===undefined){gec=_exGecmisMi(el);gecmisOnbellek.set(kap,gec);}
-    if(gec)return;                                       // geçmiş test sütunu → işaretleme
+    let tip=gecmisOnbellek.get(kap);
+    if(tip===undefined){tip=_exHucreTipi(el);gecmisOnbellek.set(kap,tip);}
+    if(tip==='atla')return;                              // daha eski geçmiş sütunu → işaretleme
+    const isaret=_exIsaret(n,tip==='son'?_exYildizSet.gecmis:_exYildizSet.net);
+    if(!isaret)return;
     el.dataset.exYildiz=isaret;
-    el.title=(el.title?el.title+' · ':'')+_exIsaretBaslik(isaret);
+    el.title=(el.title?el.title+' · ':'')+_exIsaretBaslik(isaret,tip);
     isaretli++;
   });
   return isaretli;
@@ -27156,14 +27260,14 @@ function _exYildizTek(el,onbellek){
   const m=/^(\d{1,2})\s*([✓~●★])?$/.exec(ham);
   if(!m)return;
   const n=+m[1];
-  const isaret=_exIsaret(n);
-  if(!isaret)return;
   const kap=el.parentElement;
-  let gec=onbellek?onbellek.get(kap):undefined;
-  if(gec===undefined){gec=_exGecmisMi(el);if(onbellek)onbellek.set(kap,gec);}
-  if(gec)return;
+  let tip=onbellek?onbellek.get(kap):undefined;
+  if(tip===undefined){tip=_exHucreTipi(el);if(onbellek)onbellek.set(kap,tip);}
+  if(tip==='atla')return;
+  const isaret=_exIsaret(n,tip==='son'?_exYildizSet.gecmis:_exYildizSet.net);
+  if(!isaret)return;
   el.dataset.exYildiz=isaret;
-  el.title=(el.title?el.title+' · ':'')+_exIsaretBaslik(isaret);
+  el.title=(el.title?el.title+' · ':'')+_exIsaretBaslik(isaret,tip);
 }
 // Ekran değiştikçe otomatik uygula
 let _exYildizZaman=null;
@@ -27225,7 +27329,7 @@ function _oyunYay(gid,kaynak){
   }catch(e){}});
   isler.push(()=>{try{
     const ozMev=(_ozData&&_ozData.live&&_ozData.live.game)?_ozData.live.game.id:null;
-    if(ozMev&&ozMev!==gid){_ozData={live:null,t1:null,t2:null,t3:null};_ozP=null;_ozKarne=null;}
+    if(ozMev&&ozMev!==gid){_ozData={live:null,t1:null,t2:null,t3:null};_ozP=null;_ozKarne=null;_ozSel=new Set();}
     if(_curPage==='fibonacci')_ozInit();
   }catch(e){}});
   isler.push(()=>{try{
