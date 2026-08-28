@@ -27019,10 +27019,10 @@ try{_dbAyarYukle();_dbOtoBaslat();
 // Birebir aynı ise *, Excel'de bir fazlası varsa +, bir eksiği varsa -, ikisi de
 // varsa ± konur. Geçmiş test sütunları işaretlenmez.
 // ═══════════════════════════════════════════════════════════════════════════
-let _exYildizSet={gid:null,net:new Set(),yakin:new Set()};
+let _exYildizSet={gid:null,net:new Set(),yakin:new Set(),gecmis:new Set(),sonTarih:null};
 // Bir sayının işareti: * birebir aynı · + Excel'de bir fazlası var · - bir eksiği var · ± ikisi de
-function _exIsaret(n){
-  const S=_exYildizSet.net;if(!S||!S.size)return '';
+function _exIsaret(n,S){
+  S=S||_exYildizSet.net;if(!S||!S.size)return '';
   if(S.has(n))return '*';
   const ust=S.has(n+1),alt=S.has(n-1);
   if(ust&&alt)return '±';
@@ -27030,38 +27030,42 @@ function _exIsaret(n){
   if(alt)return '-';
   return '';
 }
-function _exIsaretBaslik(i){
-  return i==='*'?'Excel yeni tahmininde birebir var'
-        :i==='+'?'Excel yeni tahmininde bir fazlası var'
-        :i==='-'?'Excel yeni tahmininde bir eksiği var'
-        :i==='±'?'Excel yeni tahmininde bir fazlası ve bir eksiği var':'';
+function _exIsaretBaslik(i,tip){
+  const yer=tip==='son'?'Excel son geçmiş satırında':'Excel yeni tahmininde';
+  return i==='*'?yer+' birebir var'
+        :i==='+'?yer+' bir fazlası var'
+        :i==='-'?yer+' bir eksiği var'
+        :i==='±'?yer+' bir fazlası ve bir eksiği var':'';
 }
 // Excel'in gelecek satırındaki formül sonuçlarını topla
 function _exYeniTahminSayilari(gid){
   try{
     gid=gid||((state&&state.selectedGame)||GAMES[0].id);
-    const g=getGame(gid);if(!g)return {net:new Set(),yakin:new Set()};
+    const g=getGame(gid);if(!g)return {net:new Set(),yakin:new Set(),gecmis:new Set()};
     const eskiG=_exGame,eskiK=_exKol;
     _exGame=gid;_exKol=_exYukle(gid);
     const ctx=_exCtx();
-    const net=new Set();
+    const net=new Set(),gecmis=new Set();
     _exKol.forEach(k=>{
       if(k.tip!=='formul'||!k.f)return;
-      const v=_exDeger(k.h,0,ctx);                       // satır 0 = 🔮 Yeni Tahmin
-      if(typeof v!=='number'||!isFinite(v))return;
-      const n=Math.round(v);
-      if(n>=1&&n<=g.max)net.add(n);
+      [0,1].forEach(satir=>{                             // 0 = 🔮 Yeni Tahmin · 1 = son geçmiş çekiliş
+        const v=_exDeger(k.h,satir,ctx);
+        if(typeof v!=='number'||!isFinite(v))return;
+        const n=Math.round(v);
+        if(n>=1&&n<=g.max)(satir?gecmis:net).add(n);
+      });
     });
     _exGame=eskiG;_exKol=eskiK;
     const yakin=new Set();
     net.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!net.has(x))yakin.add(x);});});
-    return {net,yakin};
-  }catch(e){return {net:new Set(),yakin:new Set()};}
+    return {net,yakin,gecmis};
+  }catch(e){return {net:new Set(),yakin:new Set(),gecmis:new Set()};}
 }
 function _exYildizTazele(gid){
   gid=gid||((state&&state.selectedGame)||GAMES[0].id);
   const r=_exYeniTahminSayilari(gid);
-  _exYildizSet={gid,net:r.net,yakin:r.yakin};
+  let sonTarih=null;try{const d=_kbGetDraws(gid);sonTarih=(d&&d[0]&&d[0].date)||null;}catch(e){}
+  _exYildizSet={gid,net:r.net,yakin:r.yakin,gecmis:r.gecmis||new Set(),sonTarih};
   _exYildizUygula();
 }
 // Bir düğüm geçmiş test/geçmiş sütununda mı?
@@ -27071,31 +27075,67 @@ const _EX_GECMIS_KAP='#listelerHistoryCols,#agTestOut,#agTestOut2,#qtTestOut,#bt
   +'[id$="BtOut"],[id$="BtOut2"],[id$="BtOut3"],[id$="TestOut"],[id$="TestOut2"],[id$="TestOut3"],'
   +'[id^="lcol-"],[data-lscol]';
 const _EX_IZGARA='.au-row,.oz-row,.a3-row,.ag-row,.hy-row,.fm-row,.ls-ai-row,.so-row,.sn-row,.qt-row';
-function _exGecmisMi(el){
-  // 1) Bilinen geçmiş kapsayıcılarının içindeyse
-  if(el.closest&&el.closest(_EX_GECMIS_KAP))return true;
-  // 2) Çok sütunlu ızgarada: ilk sütun = yeni tahmin, diğerleri geçmiş.
-  //    Karar burada KESİNDİR — üst katmanlara çıkılmaz (komşu sütunların tarihi karışmasın).
-  if(el.closest){
+function _exTarihBul(t){const m=/(\d{4}-\d{2}-\d{2})/.exec(t||'');return m?m[1]:null;}
+// Hücrenin ait olduğu sütunun tarihi (bulunabiliyorsa)
+function _exSutunTarih(el){
+  const satir=el.closest&&el.closest(_EX_IZGARA);
+  if(satir){
+    let c=el;while(c&&c.parentElement!==satir)c=c.parentElement;
+    if(!c)return null;
+    const ci=[...satir.children].indexOf(c);
+    const kt=c.textContent||'';
+    if(kt.length<800){const d=_exTarihBul(kt);if(d)return d;}
+    const kap=satir.parentElement;
+    if(kap&&ci>=0){
+      const satirlar=kap.querySelectorAll(_EX_IZGARA);
+      for(const s of satirlar){
+        const ch=s.children[ci];if(!ch)continue;
+        const t=ch.textContent||'';
+        if(t.length<800){const d=_exTarihBul(t);if(d)return d;}
+      }
+    }
+    return null;
+  }
+  let n=el;
+  for(let i=0;i<6&&n&&n!==document.body;i++){
+    const t=n.textContent||'';
+    if(t.length<800){const d=_exTarihBul(t);if(d)return d;}
+    n=n.parentElement;
+  }
+  return null;
+}
+// Hücre hangi Excel satırıyla işaretlenmeli?
+//  'yeni'   → Excel'in 🔮 yeni tahmin satırı
+//  'son'    → ekrandaki EN SON geçmiş çekiliş sütunu → Excel'in son geçmiş satırı
+//  'atla'   → daha eski geçmiş sütunu, işaretlenmez
+function _exHucreTipi(el){
+  let gecmis=false;
+  if(el.closest&&el.closest(_EX_GECMIS_KAP))gecmis=true;
+  if(!gecmis&&el.closest){
     const satir=el.closest(_EX_IZGARA);
     if(satir){
       let c=el;
       while(c&&c.parentElement!==satir)c=c.parentElement;
-      return !!(c&&satir.firstElementChild&&c!==satir.firstElementChild);
+      // Karar burada KESİNDİR — üst katmanlara çıkılmaz (komşu sütunların tarihi karışmasın)
+      if(c&&satir.firstElementChild&&c!==satir.firstElementChild)gecmis=true;
+      else if(c)return 'yeni';
     }
   }
-  // 3) Izgara yoksa: yakın üst kapsayıcının başlığında tarih varsa geçmiştir
-  let n=el;
-  for(let i=0;i<4&&n&&n!==document.body;i++){
-    const t=(n.textContent||'');
-    if(t.length<600&&(/🎯\s*\d{4}-\d{2}-\d{2}/.test(t)||/^\s*\d{4}-\d{2}-\d{2}\b/.test(t.trim())))return true;
-    n=n.parentElement;
+  if(!gecmis){
+    let n=el;
+    for(let i=0;i<4&&n&&n!==document.body;i++){
+      const t=(n.textContent||'');
+      if(t.length<600&&(/🎯\s*\d{4}-\d{2}-\d{2}/.test(t)||/^\s*\d{4}-\d{2}-\d{2}\b/.test(t.trim()))){gecmis=true;break;}
+      n=n.parentElement;
+    }
   }
-  return false;
+  if(!gecmis)return 'yeni';
+  if(!_exYildizSet.sonTarih||!_exYildizSet.gecmis||!_exYildizSet.gecmis.size)return 'atla';
+  return _exSutunTarih(el)===_exYildizSet.sonTarih?'son':'atla';
 }
 let _exYildizIsBasi=null;
 function _exYildizUygula(){
-  if(!_exYildizSet.net.size)return;
+  if(!_exYildizSet.net.size&&!(_exYildizSet.gecmis&&_exYildizSet.gecmis.size))return;
   // Yalnızca GÖRÜNÜR sayfayı tara; Excel sayfası kaynak olduğu için atlanır
   if(_curPage==='excel')return;
   const kok=(_curPage==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+_curPage))
@@ -27124,14 +27164,14 @@ function _exYildizUygula(){
     const m=/^(\d{1,2})\s*([✓~●★])?$/.exec(ham);
     if(!m)return;
     const n=+m[1];
-    const isaret=_exIsaret(n);
-    if(!isaret)return;
     const kap=el.parentElement;
-    let gec=gecmisOnbellek.get(kap);
-    if(gec===undefined){gec=_exGecmisMi(el);gecmisOnbellek.set(kap,gec);}
-    if(gec)return;                                       // geçmiş test sütunu → işaretleme
+    let tip=gecmisOnbellek.get(kap);
+    if(tip===undefined){tip=_exHucreTipi(el);gecmisOnbellek.set(kap,tip);}
+    if(tip==='atla')return;                              // daha eski geçmiş sütunu → işaretleme
+    const isaret=_exIsaret(n,tip==='son'?_exYildizSet.gecmis:_exYildizSet.net);
+    if(!isaret)return;
     el.dataset.exYildiz=isaret;
-    el.title=(el.title?el.title+' · ':'')+_exIsaretBaslik(isaret);
+    el.title=(el.title?el.title+' · ':'')+_exIsaretBaslik(isaret,tip);
     isaretli++;
   });
   return isaretli;
@@ -27143,14 +27183,14 @@ function _exYildizTek(el,onbellek){
   const m=/^(\d{1,2})\s*([✓~●★])?$/.exec(ham);
   if(!m)return;
   const n=+m[1];
-  const isaret=_exIsaret(n);
-  if(!isaret)return;
   const kap=el.parentElement;
-  let gec=onbellek?onbellek.get(kap):undefined;
-  if(gec===undefined){gec=_exGecmisMi(el);if(onbellek)onbellek.set(kap,gec);}
-  if(gec)return;
+  let tip=onbellek?onbellek.get(kap):undefined;
+  if(tip===undefined){tip=_exHucreTipi(el);if(onbellek)onbellek.set(kap,tip);}
+  if(tip==='atla')return;
+  const isaret=_exIsaret(n,tip==='son'?_exYildizSet.gecmis:_exYildizSet.net);
+  if(!isaret)return;
   el.dataset.exYildiz=isaret;
-  el.title=(el.title?el.title+' · ':'')+_exIsaretBaslik(isaret);
+  el.title=(el.title?el.title+' · ':'')+_exIsaretBaslik(isaret,tip);
 }
 // Ekran değiştikçe otomatik uygula
 let _exYildizZaman=null;
