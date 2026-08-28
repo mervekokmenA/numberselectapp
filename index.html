@@ -1943,6 +1943,70 @@ const GAMES = [
   { id:'sayisal',  name:'Sayısal Loto', emoji:'🔵', count:7,  max:90, bonusCount:1, bonusMax:90, mainColor:'blue',  bonusColor:'red',  range:'7/90 + Süperstar', drawCount:8  },
   { id:'onnumara', name:'On Numara',    emoji:'🟢', count:10, max:80, bonusCount:0, bonusMax:0,  mainColor:'white', bonusColor:'',     range:'10 / 80',      drawCount:22 },
 ];
+// ═══════════════════════════════════════════════════════════════════════════
+// 🎯 Oyun hedefleri — ödül sınırı ve hedeflenen net
+//   On Numara: 6 net ödül verir, HEDEF 8 net ve üstü
+//   Şans Topu: joker sayı mutlaka tahmin edilir (bonus zorunlu)
+//   Sayısal Loto: süperstar da tahmin edilir
+// ═══════════════════════════════════════════════════════════════════════════
+function _oyunEsik(g){
+  const id=g&&g.id;
+  if(id==='onnumara')return {odul:6,hedef:8,joker:false,jokerAd:''};
+  if(id==='sans')    return {odul:3,hedef:4,joker:true, jokerAd:'joker'};
+  if(id==='sayisal') return {odul:3,hedef:5,joker:true, jokerAd:'süperstar'};
+  return {odul:3,hedef:Math.max(3,(g&&g.count||6)-2),joker:false,jokerAd:''};
+}
+// Joker / süperstar adayları — ölçülmüş _naJokerScores motoru, yedeği frekans
+function _jokerAdaylari(game,prior,adet){
+  if(!game||!(game.bonusCount>0)||!adet)return [];
+  const mx=game.bonusMax||game.max;
+  try{
+    const r=_naJokerScores(prior,mx);
+    if(r&&r.scored&&r.scored.length)return r.scored.slice(0,adet).map(x=>x.n);
+  }catch(e){}
+  const say={};
+  (prior||[]).forEach(d=>(d.bonus||[]).forEach(n=>{if(n>=1&&n<=mx)say[n]=(say[n]||0)+1;}));
+  const out=Object.keys(say).map(Number).sort((a,b)=>say[b]-say[a]||a-b).slice(0,adet);
+  for(let n=1;out.length<adet&&n<=mx;n++)if(!out.includes(n))out.push(n);
+  return out;
+}
+// Joker panelinin gösterileceği sayfalar (yeni tahmin üreten sayfalar)
+const _JOKER_SAYFA=['nihai','fibonacci','formul','formul2','gulsis0','kapsamli','haber','nsa','listeler','scan','agresifust','hizlitahmin','basit','soz','home'];
+function _jokerPanelYaz(){
+  try{
+    const eski=document.getElementById('jokerPanel');
+    if(eski)eski.remove();
+    if(_JOKER_SAYFA.indexOf(_curPage)<0)return;
+    const gid=(state&&state.selectedGame)||GAMES[0].id,g=getGame(gid);
+    if(!g||!(g.bonusCount>0))return;
+    const kok=(_curPage==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+_curPage));
+    if(!kok)return;
+    const draws=_kbGetDraws(gid)||[];
+    if(draws.length<10)return;
+    const ad=_jokerAdaylari(g,draws,5);
+    if(!ad.length)return;
+    const isim=g.id==='sans'?'Joker':'Süperstar';
+    const son=draws.slice(0,6).map(d=>(d.bonus&&d.bonus[0])).filter(v=>v!=null);
+    window._jokerTxt=isim+' adayları ('+g.name+')\n'+ad.join(' ');
+    const cip=(n,i)=>`<span style="font-family:monospace;font-size:.82rem;font-weight:800;color:${i===0?'#fff':'#2563eb'};background:${i===0?'#2563eb':'rgba(37,99,235,.10)'};border:1.5px solid rgba(37,99,235,.5);border-radius:7px;padding:2px 9px">${n}</span>`;
+    kok.insertAdjacentHTML('afterbegin',
+      `<div id="jokerPanel" class="card" style="margin-bottom:10px;border:2px solid rgba(37,99,235,.45);background:linear-gradient(135deg,rgba(37,99,235,.06),transparent)">`
+      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`
+      +`<div class="card-title" style="margin:0">🎱 ${isim} Adayları — ${g.emoji} ${g.name}</div>`
+      +`<button onclick="_caCopy(window._jokerTxt||'');showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.62rem;padding:3px 10px">📋 Kopyala</button></div>`
+      +`<div data-lp="${ad.join(' ')}" style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">`
+      +ad.map(cip).join('')
+      +(son.length?`<span style="font-size:.55rem;color:var(--muted);margin-left:8px">son ${son.length}: ${son.join(' ')}</span>`:'')
+      +`</div></div>`);
+  }catch(e){}
+}
+// Bir bilet/havuz sonucunun rozet metni: 💰 ödül · 🎯 hedef
+function _esikRozet(net,g){
+  const E=_oyunEsik(g);
+  if(net>=E.hedef)return '<span style="font-size:.54rem;font-weight:800;color:var(--green)">🎯 hedef</span>';
+  if(net>=E.odul) return '<span style="font-size:.54rem;font-weight:800;color:#b8860b">💰 ödül</span>';
+  return '';
+}
 
 // ── Analiz tipleri ────────────────────────────────────────────
 // Kullanıcı isteğiyle sadeleştirildi: korunan 6 tip (Sisal, Smart, Gülsis, Entropi, Tarih Ofset,
@@ -13436,6 +13500,7 @@ function _pageInit(id){
   if(id==='basit')_btsInit();
   if(id==='agresifust')_auInit();
   if(id==='fibonacci')_ozInit();
+  setTimeout(_jokerPanelYaz,0);
   if(id==='excel')_exInit();
   if(id==='db')_dbInit();
   if(id==='haber')_hyInit();
@@ -25683,8 +25748,9 @@ let _auOlcData=null;
 // Oyun başına hedefler. Genel kural: üst hedef = count−1, tam hedef = count;
 // bonuslu oyunlarda (Şans Topu joker, Sayısal süperstar) bonus da hedefe dahildir.
 function _auHedef(game){
-  const c=game.count,b=game.bonusCount>0;
-  return {ust:{net:Math.max(1,c-1),bonus:b},tam:{net:c,bonus:b}};
+  const c=game.count,b=game.bonusCount>0,E=_oyunEsik(game);
+  // Üst hedef oyunun gerçek hedefi (On Numara'da 8 net), tam hedef bütün kolon
+  return {ust:{net:Math.min(c,Math.max(1,E.hedef)),bonus:b},tam:{net:c,bonus:b}};
 }
 function _auHedefMetin(game,tip){
   const h=_auHedef(game)[tip];
@@ -25908,12 +25974,7 @@ function _auCiftHavuz(cekirdek,kanat,cnt,kC,K,wMap){
 
 // ── Joker/süperstar adayları (bonus hedefi için) ──
 function _auBonus(game,prior,adet){
-  if(!(game.bonusCount>0))return [];
-  const say={};
-  prior.forEach(d=>(d.bonus||[]).forEach(n=>{say[n]=(say[n]||0)+1;}));
-  const out=Object.keys(say).map(Number).sort((a,b)=>say[b]-say[a]||a-b).slice(0,adet);
-  while(out.length<adet){const n=1+Math.floor(Math.random()*game.bonusMax);if(!out.includes(n))out.push(n);}
-  return out;
+  return _jokerAdaylari(game,prior,adet);
 }
 
 // ── Tek bir "kolon" (yeni tahmin veya bir geçmiş test) üret ──
@@ -25952,8 +26013,9 @@ function _auYakinSet(aSet,max){
   aSet.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=max&&!aSet.has(x))y.add(x);});});
   return y;
 }
-function _auOlcDemet(tickets,aSet,bSet,bonusAdaylar,hedef,yakSet,jokerFn){
-  let enIyi=0,enIyiYak=0,tutan=0,yakTop=0,jokerTutan=0;
+function _auOlcDemet(tickets,aSet,bSet,bonusAdaylar,hedef,yakSet,jokerFn,game){
+  const E=_oyunEsik(game||{});
+  let enIyi=0,enIyiYak=0,tutan=0,yakTop=0,jokerTutan=0,odullu=0,hedefli=0;
   tickets.forEach((t,i)=>{
     const net=t.filter(n=>aSet.has(n)).length;
     const yak=yakSet?t.filter(n=>yakSet.has(n)).length:0;
@@ -25962,10 +26024,12 @@ function _auOlcDemet(tickets,aSet,bSet,bonusAdaylar,hedef,yakSet,jokerFn){
     const jk=jokerFn?jokerFn(i):null;
     const jkTut=hedef.bonus?(jk!=null&&bSet&&bSet.has(jk)):true;
     if(jkTut&&hedef.bonus)jokerTutan++;
+    if(net>=E.odul)odullu++;
+    if(net>=E.hedef)hedefli++;
     if(net>=hedef.net&&jkTut)tutan++;
   });
   const bonusTut=hedef.bonus?(bonusAdaylar||[]).some(n=>bSet&&bSet.has(n)):true;
-  return {enIyi,enIyiYak,tutan,yakTop,jokerTutan,bonusTut,hedefTut:tutan>0};
+  return {enIyi,enIyiYak,tutan,yakTop,jokerTutan,odullu,hedefli,esik:E,bonusTut,hedefTut:tutan>0};
 }
 function _auHavuzOlc(havuz,aSet,cnt,yakSet){
   const icinde=havuz.filter(n=>aSet.has(n)).length;
@@ -25994,17 +26058,18 @@ function _auJokerCip(j,bSet,yakB,ti,pi){
   return `<span style="font-size:.55rem;color:var(--muted);margin:0 1px">+</span>`
     +`<span${konum} style="font-family:monospace;font-size:.78rem;font-weight:800;color:${renk};background:${net?'rgba(0,230,118,.12)':yak?'rgba(244,114,63,.09)':'rgba(37,99,235,.08)'};border:1px solid ${kenar};border-radius:6px;padding:1px 7px">${j}${net?'✓':yak?'~':''}</span>`;
 }
-function _auBiletHtml(t,aSet,hedef,i,yakSet,j,bSet,yakB){
+function _auBiletHtml(t,aSet,hedef,i,yakSet,j,bSet,yakB,g){
   const lp=t.join(' ')+(j!=null?' + '+j:'');
   const net=t.filter(n=>aSet&&aSet.has(n)).length;
   const yak=yakSet?t.filter(n=>yakSet.has(n)).length:0;
   const jTut=hedef.bonus?(j!=null&&bSet&&bSet.has(j)):true;
   const tut=aSet&&net>=hedef.net&&jTut;
+  const rozet=aSet?_esikRozet(net,g||getGame(_auOyun())):'';
   return `<div data-lp="${lp}" title="Basılı tutarak bu bileti kopyala" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;padding:3px 5px;border-radius:7px;${tut?'background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.45)':''}">`
     +`<span style="font-size:.55rem;color:var(--muted);min-width:22px">#${i+1}</span>`
     +t.map((n,pi)=>_auCip(n,aSet,false,yakSet,i,pi)).join('')
     +_auJokerCip(j,bSet,yakB,i,t.length)
-    +(aSet?`<span style="font-size:.58rem;font-weight:800;color:${tut?'var(--green)':net?'var(--text)':'var(--muted)'};margin-left:auto">${net} net${yak?` · <span style="color:#c2410c">${yak} yakın</span>`:''}${hedef.bonus?(jTut?' · <span style="color:var(--green)">joker✓</span>':''):''}${tut?' ✅':''}</span>`:'')
+    +(aSet?`<span style="font-size:.58rem;font-weight:800;color:${tut?'var(--green)':net?'var(--text)':'var(--muted)'};margin-left:auto">${net} net${yak?` · <span style="color:#c2410c">${yak} yakın</span>`:''}${hedef.bonus?(jTut?' · <span style="color:var(--green)">joker✓</span>':''):''}${rozet?' · '+rozet:''}${tut?' ✅':''}</span>`:'')
     +`</div>`;
 }
 function _auSutun(D,slot){
@@ -26019,7 +26084,7 @@ function _auSutun(D,slot){
   const bAd=D.bonus||[];
   const jokerFn=i=>(H.ust.bonus&&bAd.length)?bAd[i%bAd.length]:null;
   const hOlc=aSet?_auHavuzOlc(havuz,aSet,g.count,yakSet):null;
-  const dOlc=aSet?_auOlcDemet(tk,aSet,bSet,bAd,hedef,yakSet,jokerFn):null;
+  const dOlc=aSet?_auOlcDemet(tk,aSet,bSet,bAd,hedef,yakSet,jokerFn,g):null;
   let h='';
   h+=`<div style="font-size:.62rem;font-weight:800;color:${D.actual?'var(--green)':'var(--accent)'};margin-bottom:5px">`
     +(D.actual?`🎯 ${D.actual.date} — ${[...(D.actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(D.actual.bonus&&D.actual.bonus.length)?' + '+D.actual.bonus.join(' '):''}`
@@ -26047,11 +26112,12 @@ function _auSutun(D,slot){
   if(!tk.length)h+=`<div style="font-size:.66rem;color:var(--muted)">Bilet üretilemedi (havuz oyunun sayı adedinden küçük).</div>`;
   else{
     h+=`<div style="display:flex;flex-direction:column;gap:2px;max-height:340px;overflow-y:auto">`
-      +tk.map((t,i)=>_auBiletHtml(t,aSet,hedef,i,yakSet,jokerFn(i),bSet,yakB)).join('')+`</div>`;
+      +tk.map((t,i)=>_auBiletHtml(t,aSet,hedef,i,yakSet,jokerFn(i),bSet,yakB,g)).join('')+`</div>`;
   }
   if(dOlc){
     h+=`<div style="margin-top:6px;padding:6px 8px;border-radius:8px;background:${dOlc.hedefTut?'rgba(0,230,118,.14)':'var(--surface2)'};border:1px solid ${dOlc.hedefTut?'rgba(0,230,118,.5)':'var(--border)'};font-size:.58rem;font-weight:700;color:${dOlc.hedefTut?'var(--green)':'var(--muted)'}">`
       +`En iyi bilet: ${dOlc.enIyi} net${dOlc.enIyiYak?` · ${dOlc.enIyiYak} yakın`:''} · hedefi (${hedef.net} net${hedef.bonus?(' + '+(g.id==='sans'?'joker':'süperstar')):''}) tutturan bilet: ${dOlc.tutan}`
+      +(dOlc.esik?` · 💰 ödül (${dOlc.esik.odul} net+): ${dOlc.odullu}/${tk.length} · 🎯 hedef (${dOlc.esik.hedef} net+): ${dOlc.hedefli}/${tk.length}`:'')
       +(hedef.bonus?` · ${g.id==='sans'?'joker':'süperstar'} tutturan bilet: ${dOlc.jokerTutan}/${tk.length}`:'')
       +`<br>${dOlc.hedefTut?'🎉 HEDEF TUTTU':'hedef tutmadı'}</div>`;
   }
@@ -26242,7 +26308,7 @@ function _auOlc(){
       const c1=_auKapsayan(h1,g.count,_auK[1],_auGaranti,w);
       const bAd=_auBonus(g,prior,3);
       const yak=_auYakinSet(aSet,g.max);
-      const d1=_auOlcDemet(c1.tickets,aSet,bSet,bAd,H.ust,yak,i=>bAd.length?bAd[i%bAd.length]:null);
+      const d1=_auOlcDemet(c1.tickets,aSet,bSet,bAd,H.ust,yak,i=>bAd.length?bAd[i%bAd.length]:null,g);
       R.n++;R.h1+=o1.icinde;R.h2+=o2.icinde;
       if(o1.yeterli)R.h1Yeterli++;if(o2.yeterli)R.h2Yeterli++;
       R.r1+=r1.icinde;if(r1.yeterli)R.r1Yeterli++;if(r2.yeterli)R.r2Yeterli++;
@@ -26524,7 +26590,7 @@ function _ozBaslikHtml(D){
               :`🔮 Yeni Tahmin — ${g.emoji} ${g.name}`)+`</div>`;
 }
 function _ozSet(c){return c.actual?new Set([...(c.actual.nums||[]),...(c.actual.bonus||[])]):null;}
-function _ozOzet(nums,aSet,yak){
+function _ozOzet(nums,aSet,yak,g){
   if(!aSet)return `<span style="font-size:.55rem;color:var(--muted)">${nums.length} sayı</span>`;
   const net=nums.filter(n=>aSet.has(n)).length,yk=yak?nums.filter(n=>!aSet.has(n)&&yak.has(n)).length:0;
   return `<span style="font-size:.55rem;color:var(--muted)">${nums.length} sayı · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yk?` · <strong style="color:#c2410c">${yk} yakın</strong>`:''}</span>`;
@@ -27632,6 +27698,7 @@ function _oyunYay(gid,kaynak){
   isler.push(()=>{try{
     const ozMev=(_ozData&&_ozData.live&&_ozData.live.game)?_ozData.live.game.id:null;
     if(ozMev&&ozMev!==gid){_ozData={live:null,t1:null,t2:null,t3:null};_ozP=null;_ozKarne=null;_ozSel=new Set();}
+    setTimeout(_jokerPanelYaz,0);
     if(_curPage==='fibonacci')_ozInit();
   }catch(e){}});
   isler.push(()=>{try{
