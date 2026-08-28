@@ -16104,6 +16104,37 @@ function _cpFix(text){
     else{flush();out.push(ln);}
   }
   flush();
+  // Aynı sayılar iki ayrı satırda tekrarlanmasın: "14 (2) 16 (2)…" gibi sayaçlı bir
+  // satır, aynı sayıları düz veren bir satır varken gereksizdir — sayaçlı olan atılır.
+  const sayiKume=t=>{
+    const m=(t||'').match(/\d{1,3}/g);
+    return m?[...new Set(m.map(Number))].sort((a,b)=>a-b).join(' '):'';
+  };
+  const sayacli=/^\s*\d{1,3}\s*\(\d+\)(\s*[·,]?\s*\d{1,3}\s*\(\d+\))*\s*$/;
+  const sayacliKume=t=>{                                  // parantez içindeki adetler sayılmaz
+    const m=(t||'').match(/\d{1,3}\s*\(\d+\)/g);
+    if(!m)return '';
+    const ns=m.map(x=>parseInt(x,10));
+    return [...new Set(ns)].sort((a,b)=>a-b).join(' ');
+  };
+  for(let i=out.length-1;i>=0;i--){
+    if(!sayacli.test(out[i]))continue;
+    const k=sayacliKume(out[i]);
+    if(!k)continue;
+    const ayni=out.some((o,j)=>j!==i&&!sayacli.test(o)&&sayiKume(o)===k);
+    if(ayni)out.splice(i,1);
+  }
+  // Birebir aynı satır iki kez yazılmışsa ikincisi gereksizdir
+  const gorulen=new Set();
+  for(let i=0;i<out.length;i++){
+    const s=out[i].trim();
+    if(!s||!/\d/.test(s))continue;
+    if(gorulen.has(s)){out.splice(i,1);i--;continue;}
+    gorulen.add(s);
+  }
+  for(let i=out.length-1;i>0;i--)if(!out[i].trim()&&!out[i-1].trim())out.splice(i,1);
+  while(out.length&&!out[out.length-1].trim())out.pop();
+  if(out.length>1&&!out[out.length-1].trim())out.pop();
   const sayfa=_aktifSayfaAdi();
   if(sayfa&&out.length){
     const t=out[0];
@@ -23271,7 +23302,7 @@ function _f2PickRefresh(){
   const rep=Object.keys(tal).map(Number).filter(n=>tal[n]>=2).sort((a,b)=>tal[b]-tal[a]||a-b);
   const maxC=Math.max(1,...rep.map(n=>tal[n]));
   window._f2PickTxt='🎯 Seçili '+ids.length+' formülde tekrar eden sayılar\n'+
-    (rep.length?rep.map(n=>n+' ('+tal[n]+')').join(' ')+'\n\nSadece sayılar: '+[...rep].sort((a,b)=>a-b).join(' '):'(tekrar eden sayı yok)');
+    (rep.length?'Sadece sayılar: '+[...rep].sort((a,b)=>a-b).join(' '):'(tekrar eden sayı yok)');
   let h=`<div class="card" style="margin:0;border:1.5px solid rgba(217,119,6,.45);background:linear-gradient(135deg,rgba(217,119,6,.06),transparent)">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`;
   h+=`<span style="font-size:.74rem;font-weight:800;color:#b8860b">🎯 Seçilenlerde Tekrar Eden Sayılar <span style="font-size:.56rem;color:var(--muted);font-weight:600">(${ids.length} formül seçili · ${rep.length} sayı)</span></span>`;
