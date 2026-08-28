@@ -13514,6 +13514,7 @@ function _pageInit(id){
   if(id==='agresifust')_auInit();
   if(id==='fibonacci')_ozInit();
   setTimeout(_jokerPanelYaz,0);
+  setTimeout(_esikIsaretle,400);
   if(id==='excel')_exInit();
   if(id==='db')_dbInit();
   if(id==='haber')_hyInit();
@@ -27652,7 +27653,59 @@ function _exYildizTek(el,onbellek){
 }
 // Ekran değiştikçe otomatik uygula
 let _exYildizZaman=null;
-function _exYildizPlanla(){clearTimeout(_exYildizZaman);_exYildizZaman=setTimeout(_exYildizUygula,350);}
+function _exYildizPlanla(){clearTimeout(_exYildizZaman);_exYildizZaman=setTimeout(()=>{_exYildizUygula();_esikIsaretle();},350);}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 💰 Ödül / 🎯 hedef rozeti — uygulamanın TÜM ekranlarında biletlerin yanına
+// Sadece gerçek biletlere konur (satırdaki sayı adedi oyunun kolon adedine eşitse);
+// havuz/aday listelerine konmaz, orada "n net" havuzun içindeki sayı adedidir.
+// ═══════════════════════════════════════════════════════════════════════════
+function _esikSayiAdedi(n){
+  let k=0;
+  try{n.querySelectorAll('*').forEach(e=>{if(_selNum(e)!=null)k++;});}catch(e){}
+  return k;
+}
+function _esikBiletMi(el,g){
+  const tam=g.count+(g.bonusCount||0);
+  let n=el.parentElement;
+  for(let i=0;i<4&&n&&n!==document.body;i++){
+    if(n.dataset&&n.dataset.lp!=null){
+      const c=(String(n.dataset.lp).match(/\d+/g)||[]).length;
+      return c===g.count||c===tam;
+    }
+    const k=_esikSayiAdedi(n);
+    if(k===g.count||k===tam)return true;
+    if(k>tam+2)return false;                       // havuz/tablo — bilet değil
+    n=n.parentElement;
+  }
+  return false;
+}
+let _esikSayac=0;
+function _esikIsaretle(){
+  try{
+    const g=getGame((state&&state.selectedGame)||GAMES[0].id);if(!g)return;
+    const E=_oyunEsik(g);
+    const kok=(_curPage==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+_curPage));
+    if(!kok)return;
+    let bakilan=0;
+    kok.querySelectorAll('span:not([data-esik]),div:not([data-esik]),td:not([data-esik])').forEach(el=>{
+      if(++bakilan>30000)return;
+      const t=el.textContent||'';
+      if(t.length>90||t.indexOf('net')<0)return;
+      if(t.indexOf('💰')>=0||t.indexOf('🎯')>=0)return;      // rozet zaten var
+      const m=/(?:^|[^\d])(\d{1,2})\s*net(?![a-zçğıöşü])/i.exec(t);
+      if(!m)return;
+      const net=+m[1];
+      if(net<E.odul)return;
+      // daha derin bir düğüm de aynı metni taşıyorsa rozeti ona bırak
+      for(const c of el.children){const ct=c.textContent||'';if(ct.length<=90&&ct.indexOf('net')>=0)return;}
+      if(!_esikBiletMi(el,g))return;
+      el.dataset.esik=net>=E.hedef?'hedef':'odul';
+      el.insertAdjacentHTML('beforeend',' '+_esikRozet(net,g));
+      _esikSayac++;
+    });
+  }catch(e){}
+}
 try{
   const gozlemci=new MutationObserver(()=>_exYildizPlanla());
   document.addEventListener('DOMContentLoaded',()=>{
@@ -27712,6 +27765,7 @@ function _oyunYay(gid,kaynak){
     const ozMev=(_ozData&&_ozData.live&&_ozData.live.game)?_ozData.live.game.id:null;
     if(ozMev&&ozMev!==gid){_ozData={live:null,t1:null,t2:null,t3:null};_ozP=null;_ozKarne=null;_ozSel=new Set();}
     setTimeout(_jokerPanelYaz,0);
+  setTimeout(_esikIsaretle,400);
     if(_curPage==='fibonacci')_ozInit();
   }catch(e){}});
   isler.push(()=>{try{
