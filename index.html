@@ -26184,14 +26184,47 @@ const _OZ_KAYNAK=[
   {id:'sicak',   ad:'🔥 Yakın Dönem Frekansı', w:(g,pr)=>{const f=buildFreq(pr.slice(0,40)),m={};for(let n=1;n<=g.max;n++)m[n]=(f&&f[n])||0;return m;}},
   {id:'sicakU',  ad:'📊 Uzun Dönem Frekansı', w:(g,pr)=>{const f=buildFreq(pr),m={};for(let n=1;n<=g.max;n++)m[n]=(f&&f[n])||0;return m;}},
   {id:'gecikme', ad:'⏳ Gecikme (Sırası Gelenler)', w:(g,pr)=>{const son={},m={};pr.forEach((d,i)=>{(d.nums||[]).forEach(n=>{if(son[n]==null)son[n]=i;});});for(let n=1;n<=g.max;n++)m[n]=(son[n]==null?pr.length:son[n]);return m;}},
-  {id:'cbAi',    ad:'🤖 AI Bilet Üretici', w:(g,pr)=>{try{const C=_cbCompute(g,pr);return C&&C.wMap;}catch(e){return null;}}},
-  {id:'fmSon2',  ad:'🔢 Son 2 Çekiliş Formülleri', w:(g,pr)=>{try{return _ozSiraAgirlik((_fmCompute(g,pr)||{}).ranked);}catch(e){return null;}}},
-  {id:'haber',   ad:'📰 Haber Yöntemleri Uzlaşısı', w:(g,pr)=>{try{const K=_a3Kaynak(g,pr,'haber');return K&&K.W;}catch(e){return null;}}},
-  {id:'gulay',   ad:'🔮 Gülay Fark-Analizi', w:(g,pr)=>{try{const ga=_soGapAnalysisCompute(pr[0],g),m={};
-     (ga&&ga.gulayCands||[]).forEach(c=>{if(c.n>=1&&c.n<=g.max)m[c.n]=c.cnt;});
-     return Object.keys(m).length?m:null;}catch(e){return null;}}},
-  {id:'sislcg',  ad:'🎯 Gülsis / Sisal-LCG Sinyali', w:(g,pr)=>{try{const s=_kbSignals(pr,g);return (s&&s.sislcg)||null;}catch(e){return null;}}},
+  // Aşağıdakiler uygulamadaki sayfaların birebir kopyası DEĞİLDİR: iki sinyalin
+  // normalize edilip ÇARPILMASIYLA üretilir — yalnız iki kaynağın birlikte yüksek
+  // bulduğu sayılar üste çıkar, havuz daralır.
+  {id:'aiKes',   ad:'🤖 AI × Uzlaşı Kesişimi', w:(g,pr)=>_ozCarpim(g,
+     ()=>{const C=_cbCompute(g,pr);return C&&C.wMap;},
+     ()=>{const K=_a3Kaynak(g,pr,'tum');return K&&K.W;})},
+  {id:'formKes', ad:'🧮 Formül × Formül 2 Kesişimi', w:(g,pr,dt)=>_ozCarpim(g,
+     ()=>_agxPoolFormul(g,pr),
+     ()=>_agxPoolF2(g,pr,dt))},
+  {id:'haberKes',ad:'📰 Haber × Nihai Kesişimi', w:(g,pr)=>_ozCarpim(g,
+     ()=>{const K=_a3Kaynak(g,pr,'haber');return K&&K.W;},
+     ()=>_niCompute(g,pr).wMap)},
+  {id:'gulayKes',ad:'🔮 Gülay × Gecikme Kesişimi', w:(g,pr)=>_ozCarpim(g,
+     ()=>{const ga=_soGapAnalysisCompute(pr[0],g),m={};
+          (ga&&ga.gulayCands||[]).forEach(c=>{if(c.n>=1&&c.n<=g.max)m[c.n]=c.cnt;});
+          return Object.keys(m).length?m:null;},
+     ()=>{const son={},m={};pr.forEach((d,i)=>{(d.nums||[]).forEach(n=>{if(son[n]==null)son[n]=i;});});
+          for(let n=1;n<=g.max;n++)m[n]=(son[n]==null?pr.length:son[n]);return m;})},
+  {id:'sisKes',  ad:'🎯 Gülsis × Formül Kesişimi', w:(g,pr)=>_ozCarpim(g,
+     ()=>{const s=_kbSignals(pr,g);return (s&&s.sislcg)||null;},
+     ()=>_agxPoolFormul(g,pr))},
 ];
+// İki ağırlık haritasını 0-1'e ölçekleyip çarpar (ikisinde de güçlü olan sayı kazanır)
+function _ozOlcekle(w,mx){
+  if(!w)return null;
+  const ks=Object.keys(w).map(Number).filter(n=>n>=1&&n<=mx&&isFinite(w[n]));
+  if(!ks.length)return null;
+  let mn=Infinity,mxd=-Infinity;
+  ks.forEach(n=>{mn=Math.min(mn,w[n]);mxd=Math.max(mxd,w[n]);});
+  const m={};for(let n=1;n<=mx;n++)m[n]=0;
+  ks.forEach(n=>{m[n]=mxd>mn?(w[n]-mn)/(mxd-mn):0.5;});
+  return m;
+}
+function _ozCarpim(g,fa,fb){
+  let A=null,B=null;
+  try{A=_ozOlcekle(fa(),g.max);}catch(e){}
+  try{B=_ozOlcekle(fb(),g.max);}catch(e){}
+  if(!A||!B)return A||B||null;
+  const m={};for(let n=1;n<=g.max;n++)m[n]=A[n]*B[n];
+  return m;
+}
 // Sıralı listeyi ağırlık haritasına çevirir (ilk sıra en yüksek)
 function _ozSiraAgirlik(r){
   if(!r||!r.length)return null;
@@ -26305,13 +26338,26 @@ function _ozOlc(){
       +`<button onclick="_ozDur()" style="font-size:.62rem;padding:3px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;font-weight:700">⏹ Durdur</button></div>`;
     if(i<N&&!_ozDurdur){setTimeout(adim,0);return;}
     _ozOlcuyor=false;
-    _ozKarne={gid,K,N:i,son,ist,kat,count:g.count,max:g.max};
+    _ozKarne={gid,K,N:i,son,ist,kat,count:g.count,max:g.max,cekilen:_ozCekilenAdet(gid)};
     if(i>=20)_ozKarneKaydet(_ozKarne);
     _ozRenderKarne();_ozRenderHavuz();_ozRenderKesisim();
   };
   setTimeout(adim,0);
 }
-function _ozSans(boy,g){return boy*g.count/g.max;}
+// Şans beklentisi: havuz boyu × (ÇEKİLEN sayı adedi / toplam sayı).
+// On Numara'da çekilen 22'dir; oynanan 10'a göre hesaplamak sahte üstünlük gösterir.
+function _ozCekilenAdet(gid){
+  try{
+    const d=_kbGetDraws(gid)||[];let t=0,k=0;
+    for(let i=0;i<Math.min(30,d.length);i++){const c=(d[i].nums||[]).length;if(c){t+=c;k++;}}
+    if(k)return t/k;
+  }catch(e){}
+  const g=getGame(gid);return g?g.count:6;
+}
+function _ozSans(boy,g){
+  const c=(_ozKarne&&_ozKarne.gid===g.id&&_ozKarne.cekilen)?_ozKarne.cekilen:_ozCekilenAdet(g.id);
+  return boy*c/g.max;
+}
 function _ozKarneSira(){
   if(!_ozKarne)return null;
   const g=getGame(_ozKarne.gid);
@@ -26338,13 +26384,14 @@ function _ozRenderKarne(){
   out.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:520px">`
    +`<tr style="border-bottom:1px solid var(--border)">`
    +`<th style="${th};text-align:left">Kaynak</th><th style="${th}">Havuz</th><th style="${th}">Ort. net</th>`
-   +`<th style="${th}">Şans</th><th style="${th}">Fark</th><th style="${th}">Ort. yakın</th><th style="${th}">≥1 net</th></tr>`
+   +`<th style="${th}">Şans</th><th style="${th}">Fark</th><th style="${th}">Kat</th><th style="${th}">Ort. yakın</th><th style="${th}">≥1 net</th></tr>`
    +S.map(r=>`<tr style="border-bottom:1px solid var(--border)">`
      +`<td style="${td};text-align:left;font-weight:700">${r.ad}</td>`
      +`<td style="${td};color:var(--muted)">${r.boy.toFixed(0)}</td>`
      +`<td style="${td};font-weight:800">${r.net.toFixed(3)}</td>`
      +`<td style="${td};color:var(--muted)">${r.sans.toFixed(3)}</td>`
      +`<td style="${td};font-weight:800;color:${r.fark>0.02?'var(--green)':r.fark<-0.02?'#c2410c':'var(--muted)'}">${r.fark>=0?'+':''}${r.fark.toFixed(3)}</td>`
+     +`<td style="${td};font-weight:700;color:${r.oran>1.02?'var(--green)':r.oran<0.98?'#c2410c':'var(--muted)'}">${r.oran.toFixed(2)}×</td>`
      +`<td style="${td};color:#c2410c">${r.yakin.toFixed(3)}</td>`
      +`<td style="${td};color:var(--muted)">%${r.en1.toFixed(0)}</td></tr>`).join('')
    +`</table></div>`
