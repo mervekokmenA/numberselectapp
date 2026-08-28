@@ -40,7 +40,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .lcell.l-pink{background:#ffd6e0;color:#c2185b;border-color:#f48fb1}
 .lcell.l-yakin{background:#fb8c00;color:#fff;border-color:#e65100}
 /* ⭐ Excel yıldızı — sayının soluna * koyar, metni DEĞİŞTİRMEZ */
-[data-ex-yildiz]::before{content:'*';font-weight:800;opacity:.85;margin-right:1px}
+[data-ex-yildiz]::before{content:attr(data-ex-yildiz);font-weight:800;opacity:.85;margin-right:1px}
 .lrow{display:flex;gap:1px;margin-bottom:1px;height:18px;min-height:18px;max-height:18px;align-items:center;overflow:hidden}
 .lrow-num{width:18px;height:18px;min-height:18px;max-height:18px;font-size:.58rem;color:var(--accent);display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;padding-right:2px;line-height:1;font-weight:600;opacity:.75;box-sizing:border-box;overflow:hidden}
 .listeler-col{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px;flex-shrink:0;min-width:0}
@@ -27016,9 +27016,26 @@ try{_dbAyarYukle();_dbOtoBaslat();
 // ═══════════════════════════════════════════════════════════════════════════
 // ⭐ EXCEL YILDIZI — Excel sayfasının "🔮 Yeni Tahmin" satırında çıkan sayılar,
 // uygulamadaki TÜM yeni tahmin alanlarında sayının soluna * konarak işaretlenir.
-// (±1 yakınlar da işaretlenir.) Geçmiş test sütunları işaretlenmez.
+// Birebir aynı ise *, Excel'de bir fazlası varsa +, bir eksiği varsa -, ikisi de
+// varsa ± konur. Geçmiş test sütunları işaretlenmez.
 // ═══════════════════════════════════════════════════════════════════════════
 let _exYildizSet={gid:null,net:new Set(),yakin:new Set()};
+// Bir sayının işareti: * birebir aynı · + Excel'de bir fazlası var · - bir eksiği var · ± ikisi de
+function _exIsaret(n){
+  const S=_exYildizSet.net;if(!S||!S.size)return '';
+  if(S.has(n))return '*';
+  const ust=S.has(n+1),alt=S.has(n-1);
+  if(ust&&alt)return '±';
+  if(ust)return '+';
+  if(alt)return '-';
+  return '';
+}
+function _exIsaretBaslik(i){
+  return i==='*'?'Excel yeni tahmininde birebir var'
+        :i==='+'?'Excel yeni tahmininde bir fazlası var'
+        :i==='-'?'Excel yeni tahmininde bir eksiği var'
+        :i==='±'?'Excel yeni tahmininde bir fazlası ve bir eksiği var':'';
+}
 // Excel'in gelecek satırındaki formül sonuçlarını topla
 function _exYeniTahminSayilari(gid){
   try{
@@ -27107,14 +27124,14 @@ function _exYildizUygula(){
     const m=/^(\d{1,2})\s*([✓~●★])?$/.exec(ham);
     if(!m)return;
     const n=+m[1];
-    const net=_exYildizSet.net.has(n),yak=!net&&_exYildizSet.yakin.has(n);
-    if(!net&&!yak)return;
+    const isaret=_exIsaret(n);
+    if(!isaret)return;
     const kap=el.parentElement;
     let gec=gecmisOnbellek.get(kap);
     if(gec===undefined){gec=_exGecmisMi(el);gecmisOnbellek.set(kap,gec);}
     if(gec)return;                                       // geçmiş test sütunu → işaretleme
-    el.dataset.exYildiz=net?'1':'2';
-    el.title=(el.title?el.title+' · ':'')+(net?'Excel yeni tahmininde var':'Excel yeni tahminine ±1 yakın');
+    el.dataset.exYildiz=isaret;
+    el.title=(el.title?el.title+' · ':'')+_exIsaretBaslik(isaret);
     isaretli++;
   });
   return isaretli;
@@ -27126,14 +27143,14 @@ function _exYildizTek(el,onbellek){
   const m=/^(\d{1,2})\s*([✓~●★])?$/.exec(ham);
   if(!m)return;
   const n=+m[1];
-  const net=_exYildizSet.net.has(n),yak=!net&&_exYildizSet.yakin.has(n);
-  if(!net&&!yak)return;
+  const isaret=_exIsaret(n);
+  if(!isaret)return;
   const kap=el.parentElement;
   let gec=onbellek?onbellek.get(kap):undefined;
   if(gec===undefined){gec=_exGecmisMi(el);if(onbellek)onbellek.set(kap,gec);}
   if(gec)return;
-  el.dataset.exYildiz=net?'1':'2';
-  el.title=(el.title?el.title+' · ':'')+(net?'Excel yeni tahmininde var':'Excel yeni tahminine ±1 yakın');
+  el.dataset.exYildiz=isaret;
+  el.title=(el.title?el.title+' · ':'')+_exIsaretBaslik(isaret);
 }
 // Ekran değiştikçe otomatik uygula
 let _exYildizZaman=null;
