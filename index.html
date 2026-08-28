@@ -26257,12 +26257,12 @@ function _ozYakinSet(aSet,max){
   aSet.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=max&&!aSet.has(x))y.add(x);});});
   return y;
 }
-function _ozCip(n,aSet,yakSet,ti,pi){
+function _ozCip(n,aSet,yakSet,ti,pi,sid){
   const net=aSet&&aSet.has(n),yak=!net&&yakSet&&yakSet.has(n);
   const renk=net?'var(--green)':yak?'#c2410c':'var(--text)';
   const kenar=net?'rgba(0,200,100,.55)':yak?'rgba(244,114,63,.5)':'var(--border)';
   const zemin=net?'rgba(0,230,118,.1)':yak?'rgba(244,114,63,.09)':'var(--surface2)';
-  const k=(ti!=null&&pi!=null)?` data-oti="${ti}" data-opi="${pi}" data-ohit="${(net||yak)?1:0}"`:'';
+  const k=(ti!=null&&pi!=null)?` data-oti="${ti}" data-opi="${pi}" data-ohit="${(net||yak)?1:0}"${sid?` data-osrc="${sid}"`:''}`:'';
   return `<span${k} style="font-family:monospace;font-size:.74rem;font-weight:${net||yak?800:600};color:${renk};background:${zemin};border:1px solid ${kenar};border-radius:6px;padding:1px 6px">${n}${net?'✓':yak?'~':''}</span>`;
 }
 function _ozBaslikHtml(D){
@@ -26301,7 +26301,7 @@ function _ozKart(o){
     +(net!=null?` · <span style="color:${net?'var(--green)':'var(--muted)'}">${net} net</span>${yk?` · <span style="color:#c2410c">${yk} yakın</span>`:''}`:'')+`</span>`
     +kop+`</div>`
     +`<div data-lp="${o.nums.slice().sort((a,b)=>a-b).join(' ')}" style="display:flex;gap:3px;flex-wrap:wrap">`
-    +o.nums.map((n,pi)=>_ozCip(n,o.aSet,o.yak,o.ti,o.ti!=null?pi:null)).join('')+`</div></div>`;
+    +o.nums.map((n,pi)=>_ozCip(n,o.aSet,o.yak,o.ti,o.ti!=null?pi:null,o.sid)).join('')+`</div></div>`;
 }
 function _ozListeId(id,c){
   if(!c)return null;
@@ -26372,7 +26372,7 @@ function _ozRenderHavuz(){
         const K=(c.kaynaklar||[]).find(x=>x.id===S.id);
         if(!K)return `<div style="font-size:.58rem;color:var(--muted)">—</div>`;
         const aSet=_ozSet(c),yak=aSet?_ozYakinSet(aSet,c.game.max):null;
-        return `<div>${_ozKart({id:'src:'+S.id,ad:S.ad,nums:K.nums,aSet,yak,ci,ek,ti:si})}</div>`;
+        return `<div>${_ozKart({id:'src:'+S.id,ad:S.ad,nums:K.nums,aSet,yak,ci,ek,ti:si,sid:S.id})}</div>`;
       }).join('')+`</div>`;
   }).join('');
   window._ozTxt.havuz='🎱 Havuzlar ('+cols[0].K+' sayı)\n\n'+kopya.join('\n\n');
@@ -26413,46 +26413,109 @@ function _ozRenderKesisim(){
   out.innerHTML=`<div class="oz-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
     +cols.map(c=>`<div>${_ozBaslikHtml(c)}</div>`).join('')+`</div>`+govde;
 }
-// ── Konum eşleşmesi: aynı kaynak/konumda geçmiş testlerin hepsinde tutan sayılar ──
+// ── Konum eşleşmesi ──
+// Her sütun için referans = O SÜTUNDAN HEMEN ÖNCEKİ iki çekiliş (ileriye bakış yok).
+// Böylece en sağdaki geçmiş sütunlar da boş kalmaz; hepsi aynı kuralla hesaplanır.
+const _OZ_REF_SAY=2;
+let _ozRef={};                                   // 'gid|tarih' → sütun verisi
+let _ozRefCalisiyor=false;
+function _ozRefTarihler(c){
+  const gid=_ozOyun(),draws=_kbGetDraws(gid)||[];
+  let idx=c.actual?draws.findIndex(d=>d.date===c.actual.date):-1;
+  const out=[];
+  for(let k=1;k<=_OZ_REF_SAY;k++){
+    const d=draws[idx+k];
+    if(d)out.push(d.date);
+  }
+  return out;
+}
+function _ozRefHazir(c){
+  const gid=_ozOyun();
+  const t=_ozRefTarihler(c);
+  if(t.length<_OZ_REF_SAY)return null;
+  const r=t.map(x=>_ozRef[gid+'|'+x]);
+  return r.every(Boolean)?r:null;
+}
+// Eksik referans sütunlarını arka planda, dilim dilim hesaplar
+function _ozRefTazele(){
+  if(_ozRefCalisiyor)return;
+  const gid=_ozOyun(),g=getGame(gid),draws=_kbGetDraws(gid)||[];
+  if(!g||draws.length<6)return;
+  const gerek=[];
+  _ozKolonlar().forEach(c=>_ozRefTarihler(c).forEach(t=>{
+    if(!_ozRef[gid+'|'+t]&&gerek.indexOf(t)<0)gerek.push(t);
+  }));
+  if(!gerek.length)return;
+  _ozRefCalisiyor=true;
+  const adim=()=>{
+    if(gid!==_ozOyun()){_ozRefCalisiyor=false;return;}
+    const t=gerek.shift();
+    if(t){
+      const idx=draws.findIndex(d=>d.date===t);
+      if(idx>=0&&draws.length-idx>3){
+        try{_ozRef[gid+'|'+t]=_ozKolon(g,draws.slice(idx+1),draws[idx]);}catch(e){}
+      }
+    }
+    if(gerek.length){setTimeout(adim,0);return;}
+    _ozRefCalisiyor=false;
+    _ozRenderHavuz();
+  };
+  setTimeout(adim,0);
+}
+// Bir sütunun "hangi kaynak/konum tuttu" haritası
+function _ozHitMap(c){
+  if(!c||!c.actual)return null;
+  const aSet=_ozSet(c);if(!aSet)return null;
+  const yak=_ozYakinSet(aSet,c.game.max);
+  const m={};
+  (c.kaynaklar||[]).forEach(S=>{S.nums.forEach((n,pi)=>{m[S.id+'|'+pi]=(aSet.has(n)||yak.has(n));});});
+  return m;
+}
 function _ozKonumEsle(out){
-  const grids=[...out.querySelectorAll('.oz-row')].filter(r=>r.querySelector('span[data-oti]'));
-  if(!grids.length)return;
   const cols=_ozKolonlar();
+  if(!cols.length)return;
+  // Ekrandaki çipleri sütun sütun topla (kaynak kimliği + konum ile)
   const har=cols.map(()=>({}));
-  grids.forEach(g=>{
-    [...g.children].forEach((k,ci)=>{
+  [...out.querySelectorAll('.oz-row')].forEach(r=>{
+    [...r.children].forEach((k,ci)=>{
       if(ci>=har.length)return;
-      k.querySelectorAll('span[data-oti]').forEach(e=>{har[ci][e.dataset.oti+'-'+e.dataset.opi]=e;});
+      k.querySelectorAll('span[data-osrc]').forEach(e=>{har[ci][e.dataset.osrc+'|'+e.dataset.opi]=e;});
     });
   });
-  const sonuc=har.map((h0,ci)=>{
-    const testler=har.slice(ci+1);
-    if(testler.length<2)return null;
+  const sonuc=cols.map((c,ci)=>{
+    const refler=_ozRefHazir(c);
+    if(!refler)return null;
+    const haritalar=refler.map(_ozHitMap).filter(Boolean);
+    if(haritalar.length<_OZ_REF_SAY)return null;
     const liste=[];
-    Object.keys(h0).forEach(k=>{
-      const hs=testler.map(t=>t[k]);
-      if(hs.some(x=>!x))return;
-      if(!hs.every(x=>x.dataset.ohit==='1'))return;
-      const el=h0[k];
-      if(ci===0){
-        el.style.background='#111';el.style.color='#fff';
-        el.style.border='2px solid #111';el.style.borderRadius='6px';
-        el.style.boxShadow='0 0 0 2px rgba(0,0,0,.22)';el.style.fontWeight='900';
-      }
-      const v=parseInt((el.textContent||'').replace(/[^\d]/g,''),10);
-      if(v>=1)liste.push({n:v,ti:+el.dataset.oti+1,pi:+el.dataset.opi+1});
+    (c.kaynaklar||[]).forEach((S,si)=>{
+      S.nums.forEach((n,pi)=>{
+        const k=S.id+'|'+pi;
+        if(!haritalar.every(m=>m[k]===true))return;
+        const el=har[ci][k];
+        if(ci===0&&el){
+          el.style.background='#111';el.style.color='#fff';
+          el.style.border='2px solid #111';el.style.borderRadius='6px';
+          el.style.boxShadow='0 0 0 2px rgba(0,0,0,.22)';el.style.fontWeight='900';
+        }
+        liste.push({n,ti:si+1,pi:pi+1});
+      });
     });
     return liste;
   });
   const id='ozKonumPanel';
   let p=document.getElementById(id);
-  if(!sonuc.some(x=>x&&x.length)){if(p)p.remove();window._ozTxt.konum='';return;}
+  if(!sonuc.some(x=>x&&x.length)){
+    if(p)p.remove();window._ozTxt.konum='';
+    if(!_ozRefCalisiyor)_ozRefTazele();
+    return;
+  }
   const canli=[...new Set((sonuc[0]||[]).map(x=>x.n))].sort((a,b)=>a-b);
   window._ozTxt.konum='🔲 Konum Eşleşmesi Havuzu\n'+canli.join(' ');
   const tpl='repeat('+cols.length+',minmax(0,1fr))';
   const govde=cols.map((c,ci)=>{
     const liste=sonuc[ci];
-    if(!liste||!liste.length)return `<div><div style="font-size:.6rem;color:var(--muted)">${ci>=har.length-2?'yeterli geçmiş test yok':'eşleşme yok'}</div></div>`;
+    if(!liste||!liste.length)return `<div><div style="font-size:.6rem;color:var(--muted)">${_ozRefHazir(c)?'eşleşme yok':(_ozRefCalisiyor?'⏳ hesaplanıyor…':'yeterli geçmiş çekiliş yok')}</div></div>`;
     const aSet=_ozSet(c),yak=aSet?_ozYakinSet(aSet,c.game.max):null;
     const nums=[...new Set(liste.map(x=>x.n))].sort((a,b)=>a-b);
     const net=aSet?nums.filter(n=>aSet.has(n)).length:null;
@@ -26478,8 +26541,8 @@ function _ozKonumEsle(out){
     +`<div class="oz-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start;margin-top:3px">${govde}</div>`
     +`</div>`;
   if(p)p.outerHTML=h;else out.insertAdjacentHTML('afterbegin',h);
+  if(!_ozRefCalisiyor)_ozRefTazele();
 }
-
 // ── Kopyalama ──
 function _ozCopy(k){
   const t=(window._ozTxt&&window._ozTxt[k])||'';
