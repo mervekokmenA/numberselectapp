@@ -8884,6 +8884,7 @@ function staticBall(num,colorCls,extra='',sz=''){
 // ── Render ticket ─────────────────────────────────────────────
 let _lpTimer=null;
 function lpStart(text){
+  if(window._selCtrlAktif)return;            // Ctrl ile sayı seçimi yapılıyor
   lpEnd();
   _lpTimer=setTimeout(()=>{
     _lpTimer=null;
@@ -16189,18 +16190,77 @@ function _selRozet(){
     +'<button onclick="_selKopyala()" style="font-size:.66rem;padding:3px 9px;border-radius:7px;border:1px solid rgba(255,255,255,.5);background:rgba(255,255,255,.16);color:#fff;cursor:pointer;font-weight:800">📋 Ctrl+C</button>'
     +'<button onclick="_selTemizle()" style="font-size:.66rem;padding:3px 8px;border-radius:7px;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;cursor:pointer;font-weight:800">✕</button>';
 }
-document.addEventListener('mousedown',e=>{
-  if(!(e.ctrlKey||e.metaKey))return;
-  if(_selHedef(e.target))e.preventDefault();               // metin seçimi/sürükleme başlamasın
-},true);
-document.addEventListener('click',e=>{
-  if(!(e.ctrlKey||e.metaKey))return;
-  const el=_selHedef(e.target);
-  if(!el)return;
-  e.preventDefault();e.stopPropagation();
+// Tek eleman ekle/çıkar
+function _selTekil(el,mod){
   const i=_selSayilar.findIndex(s=>s.el===el);
+  if(mod==='ekle'&&i>=0)return false;
+  if(mod==='sil'&&i<0)return false;
   if(i>=0){_selIsaretle(el,false);_selSayilar.splice(i,1);}
   else{_selIsaretle(el,true);_selSayilar.push({el,n:_selNum(el)});}
+  return true;
+}
+// Bir kapsayıcının içindeki TÜM sayılar (bilet satırı, havuz çubuğu, tablo satırı…)
+function _selGrup(t){
+  for(let i=0;i<5&&t&&t!==document.body;i++){
+    if(t.dataset&&(t.dataset.lp!=null)){
+      const ad=[...t.querySelectorAll('*')].filter(e=>_selNum(e)!=null);
+      if(ad.length>1)return ad;
+    }
+    if(t.children&&t.children.length>1){
+      const ad=[...t.children].filter(e=>_selNum(e)!=null);
+      if(ad.length>1&&ad.length===t.children.length)return ad;
+    }
+    t=t.parentElement;
+  }
+  return null;
+}
+let _selSurukle=null,_selMdEl=null;                        // {mod, gorulen:Set}
+document.addEventListener('mousedown',e=>{
+  if(!(e.ctrlKey||e.metaKey)||e.button!==0)return;
+  window._selCtrlAktif=true;
+  const el=_selHedef(e.target);
+  if(el){
+    e.preventDefault();
+    const secili=_selSayilar.some(s=>s.el===el);
+    _selSurukle={mod:secili?'sil':'ekle',gorulen:new Set([el])};
+    _selMdEl=el;
+    _selTekil(el,_selSurukle.mod);_selRozet();
+    return;
+  }
+  const grup=_selGrup(e.target);
+  if(grup){
+    e.preventDefault();
+    const hepsiSecili=grup.every(x=>_selSayilar.some(s=>s.el===x));
+    const mod=hepsiSecili?'sil':'ekle';
+    grup.forEach(x=>_selTekil(x,mod));
+    _selSurukle={mod,gorulen:new Set(grup)};
+    _selMdEl=e.target;
+    _selRozet();
+  }
+},true);
+document.addEventListener('mousemove',e=>{
+  if(!_selSurukle)return;
+  if(!(e.buttons&1)){_selSurukle=null;return;}
+  const alt=document.elementFromPoint(e.clientX,e.clientY);
+  const el=_selHedef(alt);
+  if(!el||_selSurukle.gorulen.has(el))return;
+  _selSurukle.gorulen.add(el);
+  _selTekil(el,_selSurukle.mod);_selRozet();
+},true);
+document.addEventListener('mouseup',()=>{
+  if(_selSurukle){_selSurukle=null;setTimeout(()=>{window._selCtrlAktif=false;},50);}
+  else window._selCtrlAktif=false;
+},true);
+// Seçimi normalde mousedown yapar; mousedown görülmediyse (sentetik/tuş kaynaklı
+// tıklama) burada yapılır. Her iki durumda sayfanın kendi işleyicisi durdurulur.
+document.addEventListener('click',e=>{
+  if(!(e.ctrlKey||e.metaKey))return;
+  const el=_selHedef(e.target),grup=el?null:_selGrup(e.target);
+  if(!el&&!grup)return;
+  e.preventDefault();e.stopPropagation();
+  if(_selMdEl){_selMdEl=null;return;}                      // mousedown zaten işledi
+  if(el){_selTekil(el);}
+  else{const hepsi=grup.every(x=>_selSayilar.some(s=>s.el===x));grup.forEach(x=>_selTekil(x,hepsi?'sil':'ekle'));}
   _selRozet();
 },true);
 document.addEventListener('keydown',e=>{
@@ -16283,6 +16343,7 @@ function _lpGenBul(el){
   return null;
 }
 function _lpGenStart(ev){
+  if(ev&&(ev.ctrlKey||ev.metaKey))return;   // Ctrl ile sayı seçimi yapılıyor
   if(_lpTimer)return;                       // elle bağlanmış lpStart zaten çalışıyor
   const el=ev.target;
   if(!el||el.closest('button,input,select,textarea,a'))return;
