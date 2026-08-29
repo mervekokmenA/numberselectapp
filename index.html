@@ -354,7 +354,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
 @media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,#agGrid,#agHdrRow,#agTestCtl,.ag-row,
-  .agx-row,.hy-row,.fm-row,.a3-row,.a3-date,.mr-date,.ls-ai-row,.ls-date,.so-row,.so-date,.sn-row,.sn-date,#nnGrid,#npGrid{grid-template-columns:minmax(0,1fr) !important;}}
+  .agx-row,.hy-row,.fm-row,.a3-row,.a3-date,.mr-date,.xk-date,.ls-ai-row,.ls-date,.so-row,.so-date,.sn-row,.sn-date,#nnGrid,#npGrid{grid-template-columns:minmax(0,1fr) !important;}}
 /* 3 geçmiş test açıkken 4 sütun olabilir; tablette en fazla 2'ye iner. */
 @media(max-width:1400px) and (min-width:1101px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,.ag-row,#agHdrRow,
   .agx-row,.hy-row,.fm-row,.a3-row,.so-row,.sn-row,.ls-ai-row{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
@@ -1493,6 +1493,19 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <textarea id="xkGiris" oninput="_xkPlanla()" placeholder="İncelenecek sayıları yapıştır — örn. 20 23 29 32 34 35 38 39 40 41 46 47 48 49 53 54 57 63 64 68 71 72 75 77 78 84 88" style="width:100%;min-height:70px;font-size:.75rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:8px 10px;resize:vertical;box-sizing:border-box"></textarea>
  </div>
  <div id="xkOut"></div>
+
+ <div class="card" style="margin-bottom:12px">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+   <div class="card-title" style="margin:0">📊 Geçmiş Test — aynı anda üç tarih</div>
+   <button onclick="_xkSon3()" style="font-size:.64rem;padding:4px 10px;border-radius:7px;border:1px solid rgba(16,185,129,.5);background:rgba(16,185,129,.1);color:#0a9a6a;cursor:pointer;font-weight:800">📅 Son 3 çekiliş</button>
+  </div>
+  <div class="xk-date" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px">
+   <select id="xkDate" onchange="_xkDateTest('')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   <select id="xkDate2" onchange="_xkDateTest('2')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   <select id="xkDate3" onchange="_xkDateTest('3')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+  </div>
+ </div>
+ <div id="xkTestOut"></div>
 </div>
 
 <!-- ═══════════ PAGE: HABER YÖNTEMLERİ + YÖNTEM LABORATUVARI ═══════════ -->
@@ -25768,7 +25781,9 @@ function _xkIsaret(n,S){
   if(alt)return '-';
   return '';
 }
-function _xkPlanla(){clearTimeout(_xkZaman);_xkZaman=setTimeout(_xkHesapla,180);}
+function _xkPlanla(){_xkKaynak='elle';clearTimeout(_xkZaman);_xkZaman=setTimeout(()=>{_xkHesapla();_xkTazele();},180);}
+// Açık geçmiş test sütunlarını yeni kaynağa göre yeniden hesaplar
+function _xkTazele(){['','2','3'].forEach(sl=>{const e=document.getElementById('xkDate'+sl);if(e&&e.value)_xkDateTest(sl);});}
 function _xkTemizle(){const e=document.getElementById('xkGiris');if(e)e.value='';_xkHesapla();}
 function _xkKesisimGetir(){
   const gid=_xkOyun(),game=getGame(gid),prior=_kbGetDraws(gid)||[];
@@ -25781,7 +25796,8 @@ function _xkKesisimGetir(){
   const el=document.getElementById('xkGiris');
   if(!inter.length){showToast('⚠️ Kesişim boş çıktı');if(el)el.value='';_xkHesapla();return;}
   if(el)el.value=inter.slice().sort((a,b)=>a-b).join(' ');
-  _xkHesapla();
+  _xkKaynak='kesisim';
+  _xkHesapla();_xkTazele();
   showToast('🔗 '+inter.length+' sayı getirildi');
 }
 function _xkCip(n,i){
@@ -25840,10 +25856,147 @@ function _xkHesapla(){
   out.innerHTML=h;
   try{if(typeof _esikIsaretle==='function')setTimeout(_esikIsaretle,50);}catch(e){}
 }
+// ── Geçmiş test: seçilen tarih için Excel'in O SATIRI + o tarihe kadarki veriyle liste ──
+let _xkKaynak='elle';                                   // 'elle' | 'kesisim'
+let _xkTest={t1:null,t2:null,t3:null};
+// Excel'in belirli bir satırındaki formül sonuçları (0 = yeni tahmin, 1 = son geçmiş, …)
+function _xkExcelSatirNo(gid,satir){
+  const bos=new Set();
+  try{
+    const g=getGame(gid);if(!g)return bos;
+    const eskiG=_exGame,eskiK=_exKol;
+    _exGame=gid;_exKol=_exYukle(gid);
+    const ctx=_exCtx();
+    const out=new Set();
+    _exKol.forEach(k=>{
+      if(k.tip!=='formul'||!k.f)return;
+      const v=_exDeger(k.h,satir,ctx);
+      if(typeof v!=='number'||!isFinite(v))return;
+      const n=Math.round(v);
+      if(n>=1&&n<=g.max)out.add(n);
+    });
+    _exGame=eskiG;_exKol=eskiK;
+    return out;
+  }catch(e){return bos;}
+}
+// Bir tarih için incelenecek liste: elle girilen sabit liste ya da o tarihe kadarki kesişim
+function _xkListeUret(game,prior){
+  if(_xkKaynak!=='kesisim'){
+    const g=getGame(_xkOyun());
+    return _xkSayilar((document.getElementById('xkGiris')||{}).value||'',g.max);
+  }
+  let ni=[],yak=[],ga=null;
+  try{ni=_niGenBundle(game,prior,10,_niCompute(game,prior));}catch(e){}
+  try{yak=_coverageBundle(game,'axrecency',12,buildFreq(prior),prior);}catch(e){}
+  try{ga=_soGapAnalysisCompute(prior[0],game);}catch(e){}
+  let inter=[];try{inter=_qtNihaiYakGulaySet(ni,yak,ga)||[];}catch(e){}
+  return inter.slice().sort((a,b)=>a-b);
+}
+function _xkDates(){
+  const draws=_kbGetDraws(_xkOyun())||[];
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  draws.forEach((d,i)=>{if(draws.length-i-1<20)return;
+    h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('xkDate'+sl);if(!e)return;
+    const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
+}
+function _xkSon3(){
+  const draws=_kbGetDraws(_xkOyun())||[];
+  const uygun=draws.filter((d,i)=>draws.length-i-1>=20).slice(0,3);
+  ['','2','3'].forEach((sl,i)=>{
+    const e=document.getElementById('xkDate'+sl);
+    if(e&&uygun[i])e.value=uygun[i].date;
+  });
+  ['','2','3'].forEach((sl,i)=>setTimeout(()=>_xkDateTest(sl),i*40));
+}
+function _xkDateTest(slot){
+  slot=slot||'';
+  const anahtar=slot==='3'?'t3':slot==='2'?'t2':'t1';
+  const gid=_xkOyun(),game=getGame(gid),draws=_kbGetDraws(gid)||[];
+  const date=(document.getElementById('xkDate'+slot)||{}).value||'';
+  if(!date){_xkTest[anahtar]=null;_xkTestRender();return;}
+  const idx=draws.findIndex(d=>d.date===date);
+  if(idx<0){_xkTest[anahtar]=null;_xkTestRender();return;}
+  const prior=draws.slice(idx+1);
+  if(prior.length<10){_xkTest[anahtar]=null;_xkTestRender();return;}
+  setTimeout(()=>{
+    const liste=_xkListeUret(game,prior);
+    // Excel'in o çekilişe ait satırı: satır 0 yeni tahmin olduğu için idx+1
+    const excel=_xkExcelSatirNo(gid,idx+1);
+    _xkTest[anahtar]={game,date,actual:draws[idx],liste,excel};
+    _xkTestRender();
+  },20);
+}
+// Bir grubun gerçek çekilişte kaç tuttuğu — Excel eşleşmesinin işe yarayıp yaramadığı buradan görülür
+function _xkGrupOlc(nums,aSet,yakSet){
+  let net=0,yak=0;
+  nums.forEach(n=>{if(aSet.has(n))net++;else if(yakSet.has(n))yak++;});
+  return {net,yak,adet:nums.length,oran:nums.length?net/nums.length:0};
+}
+function _xkTestKolon(D){
+  if(!D)return '<div></div>';
+  const g=D.game,aSet=new Set([...(D.actual.nums||[]),...(D.actual.bonus||[])]);
+  const yakSet=new Set();aSet.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!aSet.has(x))yakSet.add(x);});});
+  const isaretli=D.liste.map(n=>({n,i:_xkIsaret(n,D.excel)}));
+  const birebir=isaretli.filter(x=>x.i==='*').map(x=>x.n);
+  const yakinG=isaretli.filter(x=>x.i&&x.i!=='*').map(x=>x.n);
+  const yokG=isaretli.filter(x=>!x.i).map(x=>x.n);
+  const cip=(n,i)=>{
+    const hit=aSet.has(n),yk=!hit&&yakSet.has(n);
+    const renk=hit?'var(--green)':yk?'#c2410c':'var(--text)';
+    const kenar=hit?'rgba(0,200,100,.6)':yk?'rgba(244,114,63,.5)':'var(--border)';
+    const zemin=hit?'rgba(0,230,118,.12)':yk?'rgba(244,114,63,.09)':'var(--surface2)';
+    return `<span style="font-family:monospace;font-size:.76rem;font-weight:800;color:${renk};background:${zemin};border:1px solid ${kenar};border-radius:6px;padding:1px 7px">${i}${n}${hit?'✓':yk?'~':''}</span>`;
+  };
+  const satir=(ad,nums,renk)=>{
+    const o=_xkGrupOlc(nums,aSet,yakSet);
+    return `<div style="margin-bottom:6px">`
+      +`<div style="font-size:.58rem;color:var(--muted);margin-bottom:3px">${ad} — ${o.adet} sayı · `
+      +`<strong style="color:${o.net?'var(--green)':'var(--muted)'}">${o.net} tuttu</strong>${o.yak?` · <strong style="color:#c2410c">${o.yak} yakın</strong>`:''}`
+      +(o.adet?` · <span style="color:${renk};font-weight:800">%${(o.oran*100).toFixed(0)} isabet</span>`:'')+`</div>`
+      +(o.adet?`<div data-lp="${nums.join(' ')}" style="display:flex;gap:4px;flex-wrap:wrap">${nums.map(n=>cip(n,ad.indexOf('birebir')>=0?'*':ad.indexOf('yakın')>=0?'±':'')).join('')}</div>`
+              :`<div style="font-size:.6rem;color:var(--muted)">—</div>`)
+      +`</div>`;
+  };
+  const cek=[...(D.actual.nums||[])].sort((a,b)=>a-b).join(' ');
+  return `<div>`
+    +`<div style="font-size:.62rem;font-weight:800;color:var(--green);margin-bottom:5px">🎯 ${D.date} — ${cek}${(D.actual.bonus&&D.actual.bonus.length)?' + '+D.actual.bonus.join(' '):''}</div>`
+    +`<div style="font-size:.55rem;color:var(--muted);margin-bottom:5px">liste ${D.liste.length} sayı · Excel satırı ${D.excel.size} sayı</div>`
+    +satir('✅ Excel’de birebir',birebir,'#0a9a6a')
+    +satir('🔶 Excel’e ±1 yakın',yakinG,'#c2410c')
+    +satir('⬜ Excel’de yok',yokG,'var(--muted)')
+    +`</div>`;
+}
+function _xkTestRender(){
+  const out=document.getElementById('xkTestOut');if(!out)return;
+  const kol=[_xkTest.t1,_xkTest.t2,_xkTest.t3];
+  if(!kol.some(Boolean)){out.innerHTML='';return;}
+  const tpl='repeat(3,minmax(0,1fr))';
+  // toplam: Excel eşleşmesi isabeti gerçekten artırıyor mu?
+  let tB={net:0,adet:0},tY={net:0,adet:0},tN={net:0,adet:0};
+  kol.filter(Boolean).forEach(D=>{
+    const g=D.game,aSet=new Set([...(D.actual.nums||[]),...(D.actual.bonus||[])]);
+    const yakSet=new Set();aSet.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!aSet.has(x))yakSet.add(x);});});
+    D.liste.forEach(n=>{
+      const i=_xkIsaret(n,D.excel);
+      const hedef=i==='*'?tB:i?tY:tN;
+      hedef.adet++;if(aSet.has(n))hedef.net++;
+    });
+  });
+  const yuz=o=>o.adet?(100*o.net/o.adet).toFixed(0):'—';
+  out.innerHTML=`<div class="card" style="border:2px solid rgba(16,185,129,.4)">`
+    +`<div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:8px">`
+    +`<span style="font-size:.7rem;font-weight:800;color:#0a9a6a">✅ birebir: ${tB.net}/${tB.adet} tuttu (%${yuz(tB)})</span>`
+    +`<span style="font-size:.7rem;font-weight:800;color:#c2410c">🔶 yakın: ${tY.net}/${tY.adet} (%${yuz(tY)})</span>`
+    +`<span style="font-size:.7rem;font-weight:800;color:var(--muted)">⬜ eşleşmeyen: ${tN.net}/${tN.adet} (%${yuz(tN)})</span></div>`
+    +`<div class="xk-date" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
+    +kol.map(D=>_xkTestKolon(D)).join('')+`</div></div>`;
+}
+
 function _xkInit(){
   try{const e=document.getElementById('xkGiris');
     if(e&&!e.value)e.value=localStorage.getItem('_xkGiris')||'';}catch(e){}
-  _xkHesapla();
+  _xkDates();_xkHesapla();_xkTestRender();
 }
 (function(){
   const eski=_xkHesapla;
