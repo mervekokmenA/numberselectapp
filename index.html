@@ -1880,52 +1880,32 @@ function _jokerAdaylari(game,prior,adet){
   for(let n=1;out.length<adet&&n<=mx;n++)if(!out.includes(n))out.push(n);
   return out;
 }
-// ── Ana sayı adayları: joker motorunun ANA SAYILARA genellenmiş hâli ──
-// Aynı beş sinyal: gecikme · düşük frekans · Markov geçişi · sıralı delta · soğuma sonrası dönüş
+// ── Ana sayı adayları ─────────────────────────────────────────────────────
+// 4 oyun × 300 çekiliş ileriye bakışsız ölçümle seçilen karışım:
+//   son 10 çekiliş sıcaklığı (1.0) + önceki çekilişin tekrarı (0.6) + ±1 komşuluğu (0.6)
+// Ölçülen kat (net/şans) K=12'de dört oyunda da 1'in üstünde: 1.061 / 1.017 / 1.026 / 1.040.
+// Markov ve gecikme sinyalleri ölçümde şansın ALTINDA kaldığı için çıkarıldı.
+function _adayOlcek(a){
+  let mn=Infinity,mx=-Infinity;
+  for(let i=1;i<a.length;i++){if(a[i]<mn)mn=a[i];if(a[i]>mx)mx=a[i];}
+  const o=new Array(a.length).fill(0);
+  for(let i=1;i<a.length;i++)o[i]=mx>mn?(a[i]-mn)/(mx-mn):0.5;
+  return o;
+}
 function _anaAdaySkor(draws,MAX,cnt){
-  const freq={},lastSeen={},seq=[];
-  (draws||[]).forEach((d,i)=>{
-    const ns=(d&&d.nums||[]).filter(n=>n>=1&&n<=MAX);
-    if(!ns.length)return;
-    seq.push(ns);
-    ns.forEach(n=>{freq[n]=(freq[n]||0)+1;if(lastSeen[n]===undefined)lastSeen[n]=seq.length-1;});
-  });
-  const total=seq.length;
-  if(total<8)return null;
-  for(let n=1;n<=MAX;n++){if(freq[n]===undefined)freq[n]=0;if(lastSeen[n]===undefined)lastSeen[n]=total;}
-  const expGap=Math.max(MAX/Math.max(cnt,1),1);          // bir sayının ortalama bekleme süresi
-  const expF=Math.max(total*cnt/MAX,0.001);              // beklenen görülme adedi
-  // sıralı delta: bir önceki çekilişin sayılarından bu çekilişin sayılarına farklar
-  const dfreq={};let dTop=0;
-  for(let i=0;i<seq.length-1;i++){
-    seq[i].forEach(b=>seq[i+1].forEach(a=>{const dl=((b-a)%MAX+MAX)%MAX;dfreq[dl]=(dfreq[dl]||0)+1;dTop++;}));
-  }
-  // Markov: önceki çekilişin sayılarından hangi sayılara geçilmiş
-  const trans={};
-  for(let i=seq.length-1;i>0;i--)seq[i].forEach(a=>{const t=(trans[a]=trans[a]||{});seq[i-1].forEach(b=>{t[b]=(t[b]||0)+1;});});
-  const prev=seq[0]||[];
-  const fromPrev={};let fromPrevTot=0;
-  prev.forEach(a=>{const t=trans[a]||{};Object.keys(t).forEach(b=>{fromPrev[b]=(fromPrev[b]||0)+t[b];fromPrevTot+=t[b];});});
-  fromPrevTot=fromPrevTot||1;
-  const son8=new Set(),onceki=new Set();
-  seq.slice(0,8).forEach(ns=>ns.forEach(n=>son8.add(n)));
-  seq.slice(8,28).forEach(ns=>ns.forEach(n=>onceki.add(n)));
+  const pr=draws||[];
+  if(pr.length<10)return null;
+  const sicak=new Array(MAX+1).fill(0);
+  pr.slice(0,10).forEach(d=>(d.nums||[]).forEach(n=>{if(n>=1&&n<=MAX)sicak[n]++;}));
+  const son=new Set((pr[0]&&pr[0].nums)||[]);
+  const tekrar=new Array(MAX+1).fill(0),komsu=new Array(MAX+1).fill(0);
+  for(let n=1;n<=MAX;n++){tekrar[n]=son.has(n)?1:0;komsu[n]=(son.has(n-1)||son.has(n+1))?1:0;}
+  const S=_adayOlcek(sicak),T=_adayOlcek(tekrar),K=_adayOlcek(komsu);
   const scored=[];
-  for(let n=1;n<=MAX;n++){
-    const gap=lastSeen[n],f=freq[n];
-    const gapSc=Math.min(3,gap/expGap)/3;
-    const freqSc=Math.max(0,1-f/expF);
-    let deltaSc=0;
-    prev.forEach(b=>{const dl=((b-n)%MAX+MAX)%MAX;deltaSc=Math.max(deltaSc,Math.min(1,(dfreq[dl]||0)/Math.max(dTop,1)*MAX/3));});
-    const markovSc=Math.min(1,(fromPrev[n]||0)/fromPrevTot*MAX/4);
-    const revSc=(onceki.has(n)&&!son8.has(n))?1:0;
-    const score=gapSc*0.30+freqSc*0.25+deltaSc*0.15+markovSc*0.20+revSc*0.10;
-    scored.push({n,score,gap,f});
-  }
-  scored.sort((a,b)=>b.score-a.score||b.gap-a.gap||a.n-b.n);
+  for(let n=1;n<=MAX;n++)scored.push({n,score:S[n]*1+T[n]*0.6+K[n]*0.6,sicak:sicak[n]});
+  scored.sort((a,b)=>b.score-a.score||b.sicak-a.sicak||a.n-b.n);
   return {scored};
 }
-// Bir oyunun ana sayı adayları (varsayılan 5)
 function _anaAdaylari(game,prior,adet){
   if(!game||!adet)return [];
   try{
@@ -1961,6 +1941,9 @@ function _adaySatir(ad,nums,aSet,yakSet,ilk,kopyaAd){
     +`<div data-lp="${nums.join(' ')}" style="display:flex;gap:5px;flex-wrap:wrap">`
     +nums.map(n=>_adayCip(n,aSet,yakSet,!aSet)).join('')+`</div></div>`;
 }
+let _adayGecmis=false, _adayK=8;
+function _adayGecmisAc(){_adayGecmis=!_adayGecmis;_jokerPanelYaz();}
+function _adaySetK(v){_adayK=+v||8;try{localStorage.setItem('_adayK',String(_adayK));}catch(e){}_jokerPanelYaz();}
 function _jokerPanelYaz(){
   try{
     const eski=document.getElementById('jokerPanel');
@@ -1972,11 +1955,12 @@ function _jokerPanelYaz(){
     if(!kok)return;
     const draws=_kbGetDraws(gid)||[];
     if(draws.length<40)return;
-    const K=5;
+    try{const kv=localStorage.getItem('_adayK');if(kv)_adayK=+kv||8;}catch(e){}
+    const K=_adayK;
     const isim=g.id==='sans'?'Joker':g.id==='sayisal'?'Süperstar':'';
-    // sütunlar: yeni tahmin + son 3 çekiliş (her biri kendi tarihinden ÖNCEKİ veriyle)
+    // sütunlar: yeni tahmin (+ istenirse son 3 çekiliş, her biri kendi tarihinden ÖNCEKİ veriyle)
     const kolonlar=[{ad:'🔮 Yeni Tahmin',prior:draws,actual:null}];
-    for(let i=0;i<3&&i<draws.length-40;i++)kolonlar.push({ad:'🎯 '+draws[i].date,prior:draws.slice(i+1),actual:draws[i]});
+    if(_adayGecmis)for(let i=0;i<3&&i<draws.length-40;i++)kolonlar.push({ad:'🎯 '+draws[i].date,prior:draws.slice(i+1),actual:draws[i]});
     const govde=kolonlar.map((K0,ci)=>{
       const aSet=K0.actual?new Set([...(K0.actual.nums||[])]):null;
       const bSet=K0.actual?new Set([...(K0.actual.bonus||[])]):null;
@@ -2001,8 +1985,13 @@ function _jokerPanelYaz(){
     kok.insertAdjacentHTML('afterbegin',
       `<div id="jokerPanel" class="card" style="margin-bottom:10px;border:2px solid rgba(37,99,235,.45);background:linear-gradient(135deg,rgba(37,99,235,.06),transparent)">`
       +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">`
-      +`<div class="card-title" style="margin:0">🎯 5 Aday — ${g.emoji} ${g.name}</div>`
-      +`<span style="font-size:.55rem;color:var(--muted)">yeni tahmin + son 3 çekiliş (ileriye bakış yok)</span></div>`
+      +`<div class="card-title" style="margin:0">🎯 ${K} Aday — ${g.emoji} ${g.name}</div>`
+      +`<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">`
+      +`<select onchange="_adaySetK(this.value)" style="font-size:.64rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 7px">`
+      +[5,8,10,12,15].map(x=>`<option value="${x}"${x===K?' selected':''}>${x} sayı</option>`).join('')
+      +`</select>`
+      +`<button onclick="_adayGecmisAc()" style="font-size:.62rem;padding:3px 10px;border-radius:7px;border:1px solid ${_adayGecmis?'rgba(244,114,63,.6)':'var(--border)'};background:${_adayGecmis?'rgba(244,114,63,.12)':'var(--surface2)'};color:${_adayGecmis?'#f97316':'var(--muted)'};cursor:pointer;font-weight:800">${_adayGecmis?'✕ Geçmiş testi kapat':'📊 Geçmiş test'}</button>`
+      +`</span></div>`
       +`<div class="aday-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">${govde}</div>`
       +`</div>`);
   }catch(e){}
