@@ -1906,10 +1906,73 @@ function _anaAdaySkor(draws,MAX,cnt){
   scored.sort((a,b)=>b.score-a.score||b.sicak-a.sicak||a.n-b.n);
   return {scored};
 }
-function _anaAdaylari(game,prior,adet){
+// ── Motor 2: gecikme/Markov motoru (joker motorunun ana sayılara genellenmiş hâli) ──
+// Ölçüm: Süper Loto ve On Numara'da karışım motorundan daha iyi (iki yarıda da).
+// Aynı beş sinyal: gecikme · düşük frekans · Markov geçişi · sıralı delta · soğuma sonrası dönüş
+function _adaySkorGecikme(draws,MAX,cnt){
+  const freq={},lastSeen={},seq=[];
+  (draws||[]).forEach((d,i)=>{
+    const ns=(d&&d.nums||[]).filter(n=>n>=1&&n<=MAX);
+    if(!ns.length)return;
+    seq.push(ns);
+    ns.forEach(n=>{freq[n]=(freq[n]||0)+1;if(lastSeen[n]===undefined)lastSeen[n]=seq.length-1;});
+  });
+  const total=seq.length;
+  if(total<8)return null;
+  for(let n=1;n<=MAX;n++){if(freq[n]===undefined)freq[n]=0;if(lastSeen[n]===undefined)lastSeen[n]=total;}
+  const expGap=Math.max(MAX/Math.max(cnt,1),1);          // bir sayının ortalama bekleme süresi
+  const expF=Math.max(total*cnt/MAX,0.001);              // beklenen görülme adedi
+  // sıralı delta: bir önceki çekilişin sayılarından bu çekilişin sayılarına farklar
+  const dfreq={};let dTop=0;
+  for(let i=0;i<seq.length-1;i++){
+    seq[i].forEach(b=>seq[i+1].forEach(a=>{const dl=((b-a)%MAX+MAX)%MAX;dfreq[dl]=(dfreq[dl]||0)+1;dTop++;}));
+  }
+  // Markov: önceki çekilişin sayılarından hangi sayılara geçilmiş
+  const trans={};
+  for(let i=seq.length-1;i>0;i--)seq[i].forEach(a=>{const t=(trans[a]=trans[a]||{});seq[i-1].forEach(b=>{t[b]=(t[b]||0)+1;});});
+  const prev=seq[0]||[];
+  const fromPrev={};let fromPrevTot=0;
+  prev.forEach(a=>{const t=trans[a]||{};Object.keys(t).forEach(b=>{fromPrev[b]=(fromPrev[b]||0)+t[b];fromPrevTot+=t[b];});});
+  fromPrevTot=fromPrevTot||1;
+  const son8=new Set(),onceki=new Set();
+  seq.slice(0,8).forEach(ns=>ns.forEach(n=>son8.add(n)));
+  seq.slice(8,28).forEach(ns=>ns.forEach(n=>onceki.add(n)));
+  const scored=[];
+  for(let n=1;n<=MAX;n++){
+    const gap=lastSeen[n],f=freq[n];
+    const gapSc=Math.min(3,gap/expGap)/3;
+    const freqSc=Math.max(0,1-f/expF);
+    let deltaSc=0;
+    prev.forEach(b=>{const dl=((b-n)%MAX+MAX)%MAX;deltaSc=Math.max(deltaSc,Math.min(1,(dfreq[dl]||0)/Math.max(dTop,1)*MAX/3));});
+    const markovSc=Math.min(1,(fromPrev[n]||0)/fromPrevTot*MAX/4);
+    const revSc=(onceki.has(n)&&!son8.has(n))?1:0;
+    const score=gapSc*0.30+freqSc*0.25+deltaSc*0.15+markovSc*0.20+revSc*0.10;
+    scored.push({n,score,gap,f});
+  }
+  scored.sort((a,b)=>b.score-a.score||b.gap-a.gap||a.n-b.n);
+  return {scored};
+}
+// Hangi motor hangi oyunda daha iyi ölçüldü (400 çekiliş, iki yarı ayrı ayrı doğrulandı)
+//   sayisal: karışım 1.10/1.04  vs gecikme 0.92/0.90  → karışım
+//   super  : karışım 0.98/0.98  vs gecikme 1.04/1.04  → gecikme
+//   onnumara: karışım 0.99/1.01 vs gecikme 1.02/1.12  → gecikme
+//   sans   : karışım 1.01/1.01  vs gecikme 0.94/0.94  → karışım   (K=12)
+const _ADAY_MOTOR_VARSAYILAN={sayisal:'karisim',super:'gecikme',sans:'karisim',onnumara:'gecikme'};
+function _adayMotorSec(gid){
+  try{const v=localStorage.getItem('_adayMotor_'+gid);if(v==='karisim'||v==='gecikme')return v;}catch(e){}
+  return _ADAY_MOTOR_VARSAYILAN[gid]||'karisim';
+}
+function _adaySetMotor(v){
+  const gid=(state&&state.selectedGame)||GAMES[0].id;
+  try{localStorage.setItem('_adayMotor_'+gid,v);}catch(e){}
+  _jokerPanelYaz();
+}
+function _anaAdaylari(game,prior,adet,motor){
   if(!game||!adet)return [];
+  const m=motor||_adayMotorSec(game.id);
   try{
-    const r=_anaAdaySkor(prior,game.max,game.count);
+    const r=(m==='gecikme')?_adaySkorGecikme(prior,game.max,game.count)
+                           :_anaAdaySkor(prior,game.max,game.count);
     if(r&&r.scored&&r.scored.length)return r.scored.slice(0,adet).map(x=>x.n);
   }catch(e){}
   return [];
@@ -1987,6 +2050,9 @@ function _jokerPanelYaz(){
       +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">`
       +`<div class="card-title" style="margin:0">🎯 ${K} Aday — ${g.emoji} ${g.name}</div>`
       +`<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">`
+      +`<select onchange="_adaySetMotor(this.value)" style="font-size:.64rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 7px">`
+      +[['karisim','🔥 Sıcak karışım'],['gecikme','⏳ Gecikme/Markov']].map(([v,t])=>`<option value="${v}"${v===_adayMotorSec(gid)?' selected':''}>${t}</option>`).join('')
+      +`</select>`
       +`<select onchange="_adaySetK(this.value)" style="font-size:.64rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 7px">`
       +[5,8,10,12,15].map(x=>`<option value="${x}"${x===K?' selected':''}>${x} sayı</option>`).join('')
       +`</select>`
