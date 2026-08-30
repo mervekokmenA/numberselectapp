@@ -22121,7 +22121,18 @@ function _a3Yapı(game,prior){
 // Kaynak ağırlıkları — sayfaya göre farklı beslenir, hepsi 0..1'e normalize edilir.
 // Oyun bazında kaynak ağırlığı çarpanı. Boşsa (varsayılan) tüm oyunlarda aynı ağırlık kullanılır.
 // Ölçümle doldurulur: bir kaynak o oyunda şansın altında kalıyorsa ağırlığı düşürülür.
-let _A3_OYUN_AGIRLIK={};
+// Ağırlıklar ESKİ yarının ölçümünden türetildi (üst 2 kaynak ×1.5, alt 2 kaynak ×0.5) ve
+// hiç kullanılmamış YENİ yarıda sınandı (120 çekiliş, kat = net/şans):
+//   sayisal  global 0.814 → oyun bazlı 0.836  (+0.021) ✔
+//   sans     global 1.048 → oyun bazlı 1.070  (+0.021) ✔
+//   onnumara global 0.986 → oyun bazlı 1.009  (+0.023) ✔
+//   super    global 1.074 → oyun bazlı 1.028  (-0.046) ✘  → Süper'de KULLANILMIYOR
+// Süper Loto'da mevcut global ağırlıklar daha iyi ölçüldüğü için o oyun listeye alınmadı.
+let _A3_OYUN_AGIRLIK={
+  sayisal:{'Sıcaklık (son 40)':1.5,'AI Bilet Üretici':1.5,'Formül Sistemi':0.5,'Çok kaynaklı uzlaşı':0.5},
+  sans:{'Son 2 çekiliş formülleri':1.5,'Nihai':1.5,'AI Bilet Üretici':0.5,'Çok kaynaklı uzlaşı':0.5},
+  onnumara:{'AI Bilet Üretici':1.5,'Formül 2':1.5,'Çok kaynaklı uzlaşı':0.5,'Son 2 çekiliş formülleri':0.5},
+};
 function _a3Agirlik(gid,ad){
   const m=_A3_OYUN_AGIRLIK&&_A3_OYUN_AGIRLIK[gid];
   const v=m&&m[ad];
