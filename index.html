@@ -22119,12 +22119,22 @@ function _a3Yapı(game,prior){
   };
 }
 // Kaynak ağırlıkları — sayfaya göre farklı beslenir, hepsi 0..1'e normalize edilir.
+// Oyun bazında kaynak ağırlığı çarpanı. Boşsa (varsayılan) tüm oyunlarda aynı ağırlık kullanılır.
+// Ölçümle doldurulur: bir kaynak o oyunda şansın altında kalıyorsa ağırlığı düşürülür.
+let _A3_OYUN_AGIRLIK={};
+function _a3Agirlik(gid,ad){
+  const m=_A3_OYUN_AGIRLIK&&_A3_OYUN_AGIRLIK[gid];
+  const v=m&&m[ad];
+  return (typeof v==='number'&&isFinite(v)&&v>=0)?v:1;
+}
 function _a3Kaynak(game,prior,kind){
   const max=game.max,W={},kat=[];
   const ekle=(ad,m,agir)=>{
     const nm=_agxNorm(m);if(!nm)return;
+    const ca=_a3Agirlik(game.id,ad);
+    if(!(ca>0))return;                                   // o oyunda kapatılmış kaynak
     kat.push(ad);
-    for(let n=1;n<=max;n++)W[n]=(W[n]||0)+(nm[n]||0)*agir;
+    for(let n=1;n<=max;n++)W[n]=(W[n]||0)+(nm[n]||0)*agir*ca;
   };
   const rankW=r=>{if(!r||!r.length)return null;const m={};r.forEach((n,i)=>m[n]=(r.length-i)/r.length);return m;};
   if(kind==='formul'){
