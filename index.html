@@ -16367,6 +16367,22 @@ const _OR_ILISKI=[
       const s=new Set(),k=_orKume(pr[0],mx);
       k.forEach(v=>{const lo=Math.floor((v-1)/10)*10+1;for(let n=lo;n<lo+10&&n<=mx;n++)if(!k.has(n))s.add(n);});
       return s;}},
+  {id:'p2', ad:'±3/±4 uzak komşu (1 önceki)', fn:(pr,mx)=>{
+      const s=new Set(),k=_orKume(pr[0],mx);
+      k.forEach(v=>{[v-4,v-3,v+3,v+4].forEach(x=>{if(x>=1&&x<=mx&&!k.has(x))s.add(x);});});
+      return s;}},
+  {id:'sc', ad:'sıcak (son 10 çekiliş)', fn:(pr,mx)=>{
+      const c=new Array(mx+1).fill(0);
+      pr.slice(0,10).forEach(d=>(d.nums||[]).forEach(n=>{if(n>=1&&n<=mx)c[n]++;}));
+      const a=[];for(let n=1;n<=mx;n++)a.push(n);
+      a.sort((x,y)=>c[y]-c[x]||x-y);
+      return new Set(a.slice(0,Math.round(mx/3)));}},
+  {id:'gc', ad:'gecikmiş (en uzun süredir yok)', fn:(pr,mx)=>{
+      const g=new Array(mx+1).fill(999);
+      for(let i=0;i<Math.min(60,pr.length);i++)(pr[i].nums||[]).forEach(n=>{if(n>=1&&n<=mx&&g[n]===999)g[n]=i;});
+      const a=[];for(let n=1;n<=mx;n++)a.push(n);
+      a.sort((x,y)=>g[y]-g[x]||x-y);
+      return new Set(a.slice(0,Math.round(mx/3)));}},
 ];
 // Kullanıcı kuralı: BİR ÖNCEKİ çekilişte çıkan sayılar hiçbir aday havuzunda yer almaz.
 function _orSuz(s,pr,mx){
@@ -16418,34 +16434,53 @@ function _orOlc(gid){
   _orOlcumCache[anahtar]=out;
   return out;
 }
-// Ölçülen katlara göre aday üretimi: yalnız kat>1 olan ilişkiler oy verir
+// Ölçülen katlara göre aday üretimi.
+// Önceki çekiliş süzgeci ilişkilerin katlarını aşağı çektiği için "kat>1" şartı bazı
+// oyunlarda hiçbir ilişki bırakmıyordu ve panel boş kalıyordu. Artık şart şu:
+// o oyunda EN İYİ ölçülen ilişkiler her zaman oy verir; ağırlıkları ölçülen kat.
+// Kaç ilişkinin oy vereceği oyun bazında seçildi: eski yarıda öğrenip YENİ yarıda
+// doğrulandı (ileriye bakışsız, 300 çekiliş, iki yarı ayrı ölçüldü).
+//   Şans Topu  M=9 → 1.038 / 1.053    Süper Loto M=9 → 1.060 / 1.060
+//   On Numara  M=9 → 1.015 / 1.032    Sayısal    M=9 → 1.099 / 0.904 (yeni yarıda şansın altında)
+const _OR_M_OYUN={sayisal:9,super:9,sans:9,onnumara:9};
+function _orM(gid){return _OR_M_OYUN[gid]||9;}
 function _orTahmin(game,prior,K,olcum){
   const mx=game.max;
   const puan=new Array(mx+1).fill(0);
-  const katalog={};
-  (olcum&&olcum.sonuc||[]).forEach(r=>{katalog[r.id]=r.kat;});
-  let katkiVar=false;
-  _OR_ILISKI.forEach(R=>{
-    const kat=katalog[R.id];
-    if(!(kat>1))return;                                  // o oyunda şansın altındaysa katılmaz
-    katkiVar=true;
+  const sirali=(olcum&&olcum.sonuc||[]).slice().sort((a,b)=>b.kat-a.kat);
+  const sec=sirali.slice(0,Math.min(_orM(game.id),sirali.length));
+  const sansUstu=sirali.length?sirali[0].kat>1:false;
+  const topKat=sec.reduce((t,r)=>t+(r.kat>0?r.kat:0),0)||1;
+  sec.forEach(r=>{
+    const R=_OR_ILISKI.find(x=>x.id===r.id);if(!R)return;
+    const w=(r.kat>0?r.kat:0)/topKat;                     // göreli ağırlık — hep pozitif
     const s=_orIliskiKume(R,prior,mx);
     if(!s)return;
-    s.forEach(n=>{puan[n]+=(kat-1);});
+    s.forEach(n=>{puan[n]+=w;});
   });
-  if(!katkiVar)return {nums:[],kullanilan:[]};
   // eşitlik bozucu: son 10 çekiliş sıcaklığı
   const sic=new Array(mx+1).fill(0);
   prior.slice(0,10).forEach(d=>(d.nums||[]).forEach(n=>{if(n>=1&&n<=mx)sic[n]++;}));
   const son=_orKume(prior&&prior[0],mx);
   const sira=[];for(let n=1;n<=mx;n++)if(puan[n]>0&&!son.has(n))sira.push(n);
   sira.sort((a,b)=>puan[b]-puan[a]||sic[b]-sic[a]||a-b);
-  return {nums:sira.slice(0,K),kullanilan:(olcum&&olcum.sonuc||[]).filter(r=>r.kat>1).map(r=>({id:r.id,ad:r.ad,kat:r.kat}))};
+  // havuzlar K'yı doldurmuyorsa: önceki çekiliş dışı en sıcak sayılarla tamamla
+  if(sira.length<K){
+    const varSet=new Set(sira);
+    const yedek=[];for(let n=1;n<=mx;n++)if(!varSet.has(n)&&!son.has(n))yedek.push(n);
+    yedek.sort((a,b)=>sic[b]-sic[a]||a-b);
+    while(sira.length<K&&yedek.length)sira.push(yedek.shift());
+  }
+  return {
+    nums:sira.slice(0,K),
+    sansUstu,
+    kullanilan:sec.map(r=>({id:r.id,ad:r.ad,kat:r.kat}))
+  };
 }
 function _orKolon(game,prior,actual,K,olcum){
   if(!prior||prior.length<5)return null;
   const T=_orTahmin(game,prior,K,olcum);
-  return {game,actual:actual||null,prior,nums:T.nums,kullanilan:T.kullanilan};
+  return {game,actual:actual||null,prior,nums:T.nums,kullanilan:T.kullanilan,sansUstu:T.sansUstu};
 }
 function _orCip(n,aSet,yakSet){
   const net=aSet&&aSet.has(n),yak=!net&&yakSet&&yakSet.has(n);
@@ -16507,6 +16542,14 @@ function _orRender(){
     +kol.map((D,i)=>_orKolonHtml(D,i===0)).join('')+`</div>`;
   // Tahmine katılan ilişkilerin havuzları — üstteki gibi sadece sayılar
   const kul=(kol[0]&&kol[0].kullanilan)||[];
+  if(kul.length){
+    const ustu=kol[0]&&kol[0].sansUstu;
+    h+=`<div style="margin-top:10px;font-size:.58rem;color:var(--muted);line-height:1.6">`
+      +`<strong style="color:var(--text)">Oy veren ilişkiler</strong> (ölçülen kat · ${(kol[0].game&&kol[0].game.name)||''}, bir önceki çekilişin sayıları süzülmüş): `
+      +kul.map(u=>`${u.ad} <strong style="color:${u.kat>1?'var(--green)':'var(--muted)'}">${u.kat.toFixed(3)}×</strong>`).join(' · ')
+      +(ustu?'':` <span style="color:#c2410c">— bu oyunda hiçbir ilişki şansın üstünde ölçülmedi; en iyi ölçülenler yine de oy veriyor.</span>`)
+      +`</div>`;
+  }
   kul.forEach(u=>{
     const R=_OR_ILISKI.find(x=>x.id===u.id);
     if(!R)return;
