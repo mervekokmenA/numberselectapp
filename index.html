@@ -16444,18 +16444,26 @@ function _orCip(n,aSet,yakSet){
   return `<span style="display:block;text-align:center;font-family:monospace;font-size:.8rem;font-weight:800;color:${renk};background:${zemin};border:1.5px solid ${kenar};border-radius:7px;padding:2px 3px">${n}${net?'✓':yak?'~':''}</span>`;
 }
 // Bir ilişkinin o sütundaki havuzu — sadece sayılar
-function _orIliskiKolon(D,R){
+function _orIliskiNums(D,R){
+  if(!D)return [];
+  let s=null;try{s=R.fn(D.prior,D.game.max);}catch(e){}
+  return s?[...s].sort((a,b)=>a-b):[];
+}
+function _orIliskiKolon(D,R,ilk){
   if(!D)return '<div></div>';
   const g=D.game;
-  let s=null;try{s=R.fn(D.prior,g.max);}catch(e){}
-  const nums=s?[...s].sort((a,b)=>a-b):[];
+  const nums=_orIliskiNums(D,R);
   const aSet=D.actual?new Set([...(D.actual.nums||[])]):null;
   const yakSet=aSet?(()=>{const y=new Set();aSet.forEach(n=>[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!aSet.has(x))y.add(x);}));return y;})():null;
   const net=aSet?nums.filter(n=>aSet.has(n)).length:null;
   const yak=yakSet?nums.filter(n=>!aSet.has(n)&&yakSet.has(n)).length:0;
+  if(ilk)window['_orTxtR_'+R.id]=R.ad+' ('+g.name+')\n'+nums.join(' ');
   return `<div>`
-    +`<div style="font-size:.55rem;color:var(--muted);margin-bottom:3px">${nums.length} sayı`
-    +(net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yak?` · <strong style="color:#c2410c">${yak} yakın</strong>`:''}`:'')+`</div>`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px">`
+    +`<span style="font-size:.55rem;color:var(--muted)">${nums.length} sayı`
+    +(net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yak?` · <strong style="color:#c2410c">${yak} yakın</strong>`:''}`:'')+`</span>`
+    +(ilk?`<button onclick="_caCopy(window._orTxtR_${R.id}||'');showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.56rem;padding:1px 8px">📋</button>`:'')
+    +`</div>`
     +(nums.length?`<div data-lp="${nums.join(' ')}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:4px">${nums.map(n=>_orCip(n,aSet,yakSet)).join('')}</div>`
                  :`<div style="font-size:.6rem;color:var(--muted)">—</div>`)
     +`</div>`;
@@ -16467,7 +16475,6 @@ function _orKolonHtml(D,ilk){
   const yakSet=aSet?(()=>{const y=new Set();aSet.forEach(n=>[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!aSet.has(x))y.add(x);}));return y;})():null;
   const net=aSet?D.nums.filter(n=>aSet.has(n)).length:null;
   const yak=yakSet?D.nums.filter(n=>!aSet.has(n)&&yakSet.has(n)).length:0;
-  if(ilk)window._orTxt='🔗 Örüntü Tahmini ('+g.name+')\n'+D.nums.slice().sort((a,b)=>a-b).join(' ');
   return `<div>`
     +`<div style="font-size:.62rem;font-weight:800;color:${D.actual?'var(--green)':'var(--accent)'};margin-bottom:4px">`
     +(D.actual?`🎯 ${D.actual.date} — ${[...(D.actual.nums||[])].sort((a,b)=>a-b).join(' ')}`:`🔮 Yeni Tahmin — ${g.emoji} ${g.name}`)+`</div>`
@@ -16494,9 +16501,22 @@ function _orRender(){
     if(!R)return;
     h+=`<div style="font-size:.6rem;font-weight:800;color:var(--text);margin:10px 0 3px">${R.ad}</div>`
       +`<div class="or-date" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
-      +kol.map(D=>_orIliskiKolon(D,R)).join('')+`</div>`;
+      +kol.map((D,i)=>_orIliskiKolon(D,R,i===0)).join('')+`</div>`;
   });
   out.innerHTML=h;
+  // 📋 kopyalama: yeni tahmin sütununun TAMAMI (ana tahmin + katılan ilişki havuzları)
+  try{
+    const D0=kol[0];
+    if(D0){
+      const par=['🔗 Örüntü Tahmini ('+D0.game.name+')','',D0.nums.slice().sort((a,b)=>a-b).join(' ')];
+      kul.forEach(u=>{
+        const R=_OR_ILISKI.find(x=>x.id===u.id);if(!R)return;
+        const ns=_orIliskiNums(D0,R);
+        if(ns.length)par.push('',''+R.ad,ns.join(' '));
+      });
+      window._orTxt=par.join('\n');
+    }
+  }catch(e){}
   try{if(typeof _esikIsaretle==='function')setTimeout(_esikIsaretle,60);}catch(e){}
 }
 function _orSetK(v){_orK=+v||0;_orYenidenUret();}
