@@ -1137,7 +1137,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
      <span id="orBilgi" style="font-size:.6rem;color:var(--muted)"></span>
      <select id="orK" onchange="_orSetK(this.value)" style="font-size:.66rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px"></select>
      <button onclick="_orRun()" style="font-size:.68rem;padding:5px 12px;border-radius:8px;border:1px solid rgba(190,24,93,.5);background:rgba(190,24,93,.12);color:#be185d;cursor:pointer;font-weight:800">🔗 Üret</button>
-     <button onclick="_orCopy()" class="copy-btn" style="font-size:.64rem;padding:3px 10px">📋 Kopyala</button>
     </span>
    </div>
    <div class="or-date" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px">
@@ -1146,7 +1145,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <select id="orDate3" onchange="_orDateTest('3')" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"></select>
    </div>
    <div id="orOut"></div>
-   <div id="orOlcum" style="margin-top:10px"></div>
   </div>
   <div class="card">
    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
@@ -16429,12 +16427,12 @@ function _orTahmin(game,prior,K,olcum){
   prior.slice(0,10).forEach(d=>(d.nums||[]).forEach(n=>{if(n>=1&&n<=mx)sic[n]++;}));
   const sira=[];for(let n=1;n<=mx;n++)if(puan[n]>0)sira.push(n);
   sira.sort((a,b)=>puan[b]-puan[a]||sic[b]-sic[a]||a-b);
-  return {nums:sira.slice(0,K),kullanilan:(olcum&&olcum.sonuc||[]).filter(r=>r.kat>1).map(r=>r.ad)};
+  return {nums:sira.slice(0,K),kullanilan:(olcum&&olcum.sonuc||[]).filter(r=>r.kat>1).map(r=>({id:r.id,ad:r.ad,kat:r.kat}))};
 }
 function _orKolon(game,prior,actual,K,olcum){
   if(!prior||prior.length<5)return null;
   const T=_orTahmin(game,prior,K,olcum);
-  return {game,actual:actual||null,nums:T.nums,kullanilan:T.kullanilan};
+  return {game,actual:actual||null,prior,nums:T.nums,kullanilan:T.kullanilan};
 }
 function _orCip(n,aSet,yakSet){
   const net=aSet&&aSet.has(n),yak=!net&&yakSet&&yakSet.has(n);
@@ -16442,6 +16440,23 @@ function _orCip(n,aSet,yakSet){
   const zemin=net?'var(--green)':yak?'#c2410c':'rgba(190,24,93,.10)';
   const kenar=net?'rgba(0,200,100,.7)':yak?'rgba(244,114,63,.7)':'rgba(190,24,93,.45)';
   return `<span style="font-family:monospace;font-size:.8rem;font-weight:800;color:${renk};background:${zemin};border:1.5px solid ${kenar};border-radius:7px;padding:2px 9px">${n}${net?'✓':yak?'~':''}</span>`;
+}
+// Bir ilişkinin o sütundaki havuzu — sadece sayılar
+function _orIliskiKolon(D,R){
+  if(!D)return '<div></div>';
+  const g=D.game;
+  let s=null;try{s=R.fn(D.prior,g.max);}catch(e){}
+  const nums=s?[...s].sort((a,b)=>a-b):[];
+  const aSet=D.actual?new Set([...(D.actual.nums||[])]):null;
+  const yakSet=aSet?(()=>{const y=new Set();aSet.forEach(n=>[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!aSet.has(x))y.add(x);}));return y;})():null;
+  const net=aSet?nums.filter(n=>aSet.has(n)).length:null;
+  const yak=yakSet?nums.filter(n=>!aSet.has(n)&&yakSet.has(n)).length:0;
+  return `<div>`
+    +`<div style="font-size:.55rem;color:var(--muted);margin-bottom:3px">${nums.length} sayı`
+    +(net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yak?` · <strong style="color:#c2410c">${yak} yakın</strong>`:''}`:'')+`</div>`
+    +(nums.length?`<div data-lp="${nums.join(' ')}" style="display:flex;gap:4px;flex-wrap:wrap">${nums.map(n=>_orCip(n,aSet,yakSet)).join('')}</div>`
+                 :`<div style="font-size:.6rem;color:var(--muted)">—</div>`)
+    +`</div>`;
 }
 function _orKolonHtml(D,ilk){
   if(!D)return '<div></div>';
@@ -16454,8 +16469,11 @@ function _orKolonHtml(D,ilk){
   return `<div>`
     +`<div style="font-size:.62rem;font-weight:800;color:${D.actual?'var(--green)':'var(--accent)'};margin-bottom:4px">`
     +(D.actual?`🎯 ${D.actual.date} — ${[...(D.actual.nums||[])].sort((a,b)=>a-b).join(' ')}`:`🔮 Yeni Tahmin — ${g.emoji} ${g.name}`)+`</div>`
-    +`<div style="font-size:.55rem;color:var(--muted);margin-bottom:4px">${D.nums.length} sayı`
-    +(net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yak?` · <strong style="color:#c2410c">${yak} yakın</strong>`:''}`:'')+`</div>`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">`
+    +`<span style="font-size:.55rem;color:var(--muted)">${D.nums.length} sayı`
+    +(net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yak?` · <strong style="color:#c2410c">${yak} yakın</strong>`:''}`:'')+`</span>`
+    +(ilk?`<button onclick="_orCopy()" class="copy-btn" style="font-size:.56rem;padding:1px 8px">📋</button>`:'')
+    +`</div>`
     +(D.nums.length?`<div data-lp="${D.nums.join(' ')}" style="display:flex;gap:4px;flex-wrap:wrap">${D.nums.map(n=>_orCip(n,aSet,yakSet)).join('')}</div>`
                    :`<div style="font-size:.62rem;color:#c2410c">Bu oyunda şansın üstünde ölçülen ilişki yok.</div>`)
     +`</div>`;
@@ -16465,26 +16483,19 @@ function _orRender(){
   const kol=[_orData.live,_orData.t1,_orData.t2,_orData.t3].filter(Boolean);
   if(!kol.length){out.innerHTML='<div style="font-size:.7rem;color:var(--muted)">🔗 Üret butonuna basın.</div>';return;}
   const tpl='repeat('+kol.length+',minmax(0,1fr))';
-  out.innerHTML=`<div class="or-date" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
+  let h=`<div class="or-date" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
     +kol.map((D,i)=>_orKolonHtml(D,i===0)).join('')+`</div>`;
-  _orOlcumRender();
+  // Tahmine katılan ilişkilerin havuzları — üstteki gibi sadece sayılar
+  const kul=(kol[0]&&kol[0].kullanilan)||[];
+  kul.forEach(u=>{
+    const R=_OR_ILISKI.find(x=>x.id===u.id);
+    if(!R)return;
+    h+=`<div style="font-size:.6rem;font-weight:800;color:var(--text);margin:10px 0 3px">${R.ad}</div>`
+      +`<div class="or-date" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
+      +kol.map(D=>_orIliskiKolon(D,R)).join('')+`</div>`;
+  });
+  out.innerHTML=h;
   try{if(typeof _esikIsaretle==='function')setTimeout(_esikIsaretle,60);}catch(e){}
-}
-function _orOlcumRender(){
-  const el=document.getElementById('orOlcum');if(!el)return;
-  const O=_orOlc(_orOyun());
-  if(!O){el.innerHTML='';return;}
-  const th='padding:3px 6px;font-size:.56rem;color:var(--muted);text-align:right;white-space:nowrap';
-  const td='padding:3px 6px;font-size:.62rem;text-align:right;white-space:nowrap';
-  el.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:340px">`
-    +`<tr style="border-bottom:1px solid var(--border)"><th style="${th};text-align:left">İlişki</th><th style="${th}">Havuz</th><th style="${th}">İsabet</th><th style="${th}">Kat</th></tr>`
-    +O.sonuc.map(r=>`<tr style="border-bottom:1px solid var(--border)">`
-      +`<td style="${td};text-align:left;font-weight:${r.kat>1?800:500};color:${r.kat>1?'var(--text)':'var(--muted)'}">${r.ad}</td>`
-      +`<td style="${td};color:var(--muted)">${r.ortBoy}</td>`
-      +`<td style="${td}">%${(r.oran*100).toFixed(1)}</td>`
-      +`<td style="${td};font-weight:800;color:${r.kat>1.02?'var(--green)':r.kat<0.98?'#c2410c':'var(--muted)'}">${r.kat.toFixed(3)}×</td></tr>`).join('')
-    +`</table></div>`
-    +`<div style="font-size:.55rem;color:var(--muted);margin-top:4px">${O.N} çekiliş · şans %${(O.sans*100).toFixed(1)} · yalnız katı 1'in üstünde olan ilişkiler tahmine katılır</div>`;
 }
 function _orSetK(v){_orK=+v||0;_orYenidenUret();}
 function _orCopy(){
@@ -16542,7 +16553,7 @@ function _orDateTest(slot){
   if(!_orData.live)_orData.live=_orKolon(g,draws,null,K,O);
   _orRender();
 }
-function _orInit(){_orOptions();_orDates();_orOlcumRender();_orRender();}
+function _orInit(){_orOptions();_orDates();_orRender();}
 
 // 🗄️ Veritabanı sekmesi menüde HER ZAMAN en sonda dursun
 function _navDbSona(){
