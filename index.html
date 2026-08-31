@@ -354,7 +354,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    (≤600px) alt alta iner. 600-820px arası tablette iki sütun ~290px'e düşüyor ama sayı satırları
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
 @media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,#agGrid,#agHdrRow,#agTestCtl,.ag-row,
-  .agx-row,.hy-row,.fm-row,.a3-row,.a3-date,.mr-date,.xk-date,.aday-row,.ls-ai-row,.ls-date,.so-row,.so-date,.sn-row,.sn-date,#nnGrid,#npGrid{grid-template-columns:minmax(0,1fr) !important;}}
+  .agx-row,.hy-row,.fm-row,.a3-row,.a3-date,.mr-date,.xk-date,.or-date,.aday-row,.ls-ai-row,.ls-date,.so-row,.so-date,.sn-row,.sn-date,#nnGrid,#npGrid{grid-template-columns:minmax(0,1fr) !important;}}
 /* 3 geçmiş test açıkken 4 sütun olabilir; tablette en fazla 2'ye iner. */
 @media(max-width:1400px) and (min-width:1101px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,.ag-row,#agHdrRow,
   .agx-row,.hy-row,.fm-row,.a3-row,.so-row,.sn-row,.ls-ai-row{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
@@ -1130,6 +1130,24 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
  </div>
  <div class="tab-panel" id="kazTab-kronoloji">
+  <div class="card" style="margin-bottom:12px;border:2px solid rgba(190,24,93,.45);background:linear-gradient(135deg,rgba(190,24,93,.05),transparent)">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+    <div class="card-title" style="margin:0">🔗 Örüntü Tahmini — Ardışık Çekiliş İlişkileri</div>
+    <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+     <span id="orBilgi" style="font-size:.6rem;color:var(--muted)"></span>
+     <select id="orK" onchange="_orSetK(this.value)" style="font-size:.66rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px"></select>
+     <button onclick="_orRun()" style="font-size:.68rem;padding:5px 12px;border-radius:8px;border:1px solid rgba(190,24,93,.5);background:rgba(190,24,93,.12);color:#be185d;cursor:pointer;font-weight:800">🔗 Üret</button>
+     <button onclick="_orCopy()" class="copy-btn" style="font-size:.64rem;padding:3px 10px">📋 Kopyala</button>
+    </span>
+   </div>
+   <div class="or-date" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px">
+    <select id="orDate" onchange="_orDateTest('')" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"></select>
+    <select id="orDate2" onchange="_orDateTest('2')" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"></select>
+    <select id="orDate3" onchange="_orDateTest('3')" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"></select>
+   </div>
+   <div id="orOut"></div>
+   <div id="orOlcum" style="margin-top:10px"></div>
+  </div>
   <div class="card">
    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
     <div class="card-title" style="margin:0">📜 Tüm Çekilişler — Kronolojik Liste</div>
@@ -13570,6 +13588,7 @@ function _pageInit(id){
   if(id==='scan')_initScanPage();
   if(id==='listeler')_initListelerPage();
   if(id==='kazanan')_initKazananPage();
+  if(id==='kazanan')setTimeout(_orInit,60);
   if(id==='kapsamli'){_kbGame=state.selectedGame||_kbGame;_kbInit();}
   if(id==='soz')_soInit();
   if(id==='gulsis0')_g0Init();
@@ -16343,6 +16362,203 @@ function _okInit(){
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(_okInit,300));
 else setTimeout(_okInit,300);
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔗 ÖRÜNTÜ TAHMİNİ — ardışık çekilişler arasındaki ilişkiler
+// Her ilişki (bir önceki çekilişin ±1 komşuları, tekrarları, iki önceki…) o oyunda
+// AYRI ölçülür; yalnızca şansın üstünde ölçülen ilişkiler tahmine katılır.
+// Ölçüm ileriye bakışsızdır ve oyun başına yapılır.
+// ═══════════════════════════════════════════════════════════════════════════
+const _OR_ILISKI=[
+  {id:'k1', ad:'±1 komşu (1 önceki)',  fn:(pr,mx)=>_orKomsu(pr[0],mx,1)},
+  {id:'t1', ad:'tekrar (1 önceki)',    fn:(pr,mx)=>_orKume(pr[0],mx)},
+  {id:'k2', ad:'±1 komşu (2 önceki)',  fn:(pr,mx)=>_orKomsu(pr[1],mx,1)},
+  {id:'t2', ad:'tekrar (2 önceki)',    fn:(pr,mx)=>_orKume(pr[1],mx)},
+  {id:'k3', ad:'±1 komşu (3 önceki)',  fn:(pr,mx)=>_orKomsu(pr[2],mx,1)},
+  {id:'i1', ad:'±2 komşu (1 önceki)',  fn:(pr,mx)=>_orKomsu(pr[0],mx,2)},
+  {id:'h1', ad:'aynı son hane (1 önceki)', fn:(pr,mx)=>{
+      const s=new Set(),k=_orKume(pr[0],mx);
+      k.forEach(v=>{for(let n=1;n<=mx;n++)if(n%10===v%10&&!k.has(n))s.add(n);});
+      return s;}},
+  {id:'o1', ad:'aynı onluk (1 önceki)', fn:(pr,mx)=>{
+      const s=new Set(),k=_orKume(pr[0],mx);
+      k.forEach(v=>{const lo=Math.floor((v-1)/10)*10+1;for(let n=lo;n<lo+10&&n<=mx;n++)if(!k.has(n))s.add(n);});
+      return s;}},
+];
+function _orKume(d,mx){const s=new Set();((d&&d.nums)||[]).forEach(n=>{if(n>=1&&n<=mx)s.add(n);});return s;}
+function _orKomsu(d,mx,adim){
+  const s=new Set(),k=_orKume(d,mx);
+  k.forEach(v=>{[v-adim,v+adim].forEach(x=>{if(x>=1&&x<=mx&&!k.has(x))s.add(x);});});
+  return s;
+}
+let _orK=0,_orData={live:null,t1:null,t2:null,t3:null},_orOlcumCache={};
+function _orOyun(){return (state&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))?state.selectedGame:GAMES[0].id;}
+function _orVarK(g){return g.id==='onnumara'?14:g.count+4;}
+// Oyun bazında ilişki ölçümü — her ilişkinin isabet oranı / şans
+function _orOlc(gid){
+  const g=getGame(gid),draws=_kbGetDraws(gid)||[];
+  const anahtar=gid+'|'+((draws[0]&&draws[0].date)||'')+'|'+draws.length;
+  if(_orOlcumCache[anahtar])return _orOlcumCache[anahtar];
+  if(draws.length<40)return null;
+  const N=Math.min(200,draws.length-10);
+  const cek=(draws[0]&&draws[0].nums||[]).length||g.count;
+  const sans=cek/g.max;
+  const acc={};_OR_ILISKI.forEach(R=>acc[R.id]={hit:0,boy:0});
+  for(let i=0;i<N;i++){
+    const d=draws[i],pr=draws.slice(i+1);
+    if(pr.length<4)break;
+    const aSet=new Set(d.nums||[]);
+    _OR_ILISKI.forEach(R=>{
+      let s=null;try{s=R.fn(pr,g.max);}catch(e){}
+      if(!s||!s.size)return;
+      let h=0;s.forEach(n=>{if(aSet.has(n))h++;});
+      acc[R.id].hit+=h;acc[R.id].boy+=s.size;
+    });
+  }
+  const sonuc=_OR_ILISKI.map(R=>{
+    const a=acc[R.id];
+    const oran=a.boy?a.hit/a.boy:0;
+    return {id:R.id,ad:R.ad,oran:+oran.toFixed(4),kat:+(sans?oran/sans:0).toFixed(3),ortBoy:Math.round(a.boy/Math.max(1,N))};
+  }).sort((x,y)=>y.kat-x.kat);
+  const out={gid,N,sans:+sans.toFixed(4),sonuc};
+  _orOlcumCache[anahtar]=out;
+  return out;
+}
+// Ölçülen katlara göre aday üretimi: yalnız kat>1 olan ilişkiler oy verir
+function _orTahmin(game,prior,K,olcum){
+  const mx=game.max;
+  const puan=new Array(mx+1).fill(0);
+  const katalog={};
+  (olcum&&olcum.sonuc||[]).forEach(r=>{katalog[r.id]=r.kat;});
+  let katkiVar=false;
+  _OR_ILISKI.forEach(R=>{
+    const kat=katalog[R.id];
+    if(!(kat>1))return;                                  // o oyunda şansın altındaysa katılmaz
+    katkiVar=true;
+    let s=null;try{s=R.fn(prior,mx);}catch(e){}
+    if(!s)return;
+    s.forEach(n=>{puan[n]+=(kat-1);});
+  });
+  if(!katkiVar)return {nums:[],kullanilan:[]};
+  // eşitlik bozucu: son 10 çekiliş sıcaklığı
+  const sic=new Array(mx+1).fill(0);
+  prior.slice(0,10).forEach(d=>(d.nums||[]).forEach(n=>{if(n>=1&&n<=mx)sic[n]++;}));
+  const sira=[];for(let n=1;n<=mx;n++)if(puan[n]>0)sira.push(n);
+  sira.sort((a,b)=>puan[b]-puan[a]||sic[b]-sic[a]||a-b);
+  return {nums:sira.slice(0,K),kullanilan:(olcum&&olcum.sonuc||[]).filter(r=>r.kat>1).map(r=>r.ad)};
+}
+function _orKolon(game,prior,actual,K,olcum){
+  if(!prior||prior.length<5)return null;
+  const T=_orTahmin(game,prior,K,olcum);
+  return {game,actual:actual||null,nums:T.nums,kullanilan:T.kullanilan};
+}
+function _orCip(n,aSet,yakSet){
+  const net=aSet&&aSet.has(n),yak=!net&&yakSet&&yakSet.has(n);
+  const renk=net?'#fff':yak?'#fff':'#be185d';
+  const zemin=net?'var(--green)':yak?'#c2410c':'rgba(190,24,93,.10)';
+  const kenar=net?'rgba(0,200,100,.7)':yak?'rgba(244,114,63,.7)':'rgba(190,24,93,.45)';
+  return `<span style="font-family:monospace;font-size:.8rem;font-weight:800;color:${renk};background:${zemin};border:1.5px solid ${kenar};border-radius:7px;padding:2px 9px">${n}${net?'✓':yak?'~':''}</span>`;
+}
+function _orKolonHtml(D,ilk){
+  if(!D)return '<div></div>';
+  const g=D.game;
+  const aSet=D.actual?new Set([...(D.actual.nums||[])]):null;
+  const yakSet=aSet?(()=>{const y=new Set();aSet.forEach(n=>[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!aSet.has(x))y.add(x);}));return y;})():null;
+  const net=aSet?D.nums.filter(n=>aSet.has(n)).length:null;
+  const yak=yakSet?D.nums.filter(n=>!aSet.has(n)&&yakSet.has(n)).length:0;
+  if(ilk)window._orTxt='🔗 Örüntü Tahmini ('+g.name+')\n'+D.nums.slice().sort((a,b)=>a-b).join(' ');
+  return `<div>`
+    +`<div style="font-size:.62rem;font-weight:800;color:${D.actual?'var(--green)':'var(--accent)'};margin-bottom:4px">`
+    +(D.actual?`🎯 ${D.actual.date} — ${[...(D.actual.nums||[])].sort((a,b)=>a-b).join(' ')}`:`🔮 Yeni Tahmin — ${g.emoji} ${g.name}`)+`</div>`
+    +`<div style="font-size:.55rem;color:var(--muted);margin-bottom:4px">${D.nums.length} sayı`
+    +(net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yak?` · <strong style="color:#c2410c">${yak} yakın</strong>`:''}`:'')+`</div>`
+    +(D.nums.length?`<div data-lp="${D.nums.join(' ')}" style="display:flex;gap:4px;flex-wrap:wrap">${D.nums.map(n=>_orCip(n,aSet,yakSet)).join('')}</div>`
+                   :`<div style="font-size:.62rem;color:#c2410c">Bu oyunda şansın üstünde ölçülen ilişki yok.</div>`)
+    +`</div>`;
+}
+function _orRender(){
+  const out=document.getElementById('orOut');if(!out)return;
+  const kol=[_orData.live,_orData.t1,_orData.t2,_orData.t3].filter(Boolean);
+  if(!kol.length){out.innerHTML='<div style="font-size:.7rem;color:var(--muted)">🔗 Üret butonuna basın.</div>';return;}
+  const tpl='repeat('+kol.length+',minmax(0,1fr))';
+  out.innerHTML=`<div class="or-date" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
+    +kol.map((D,i)=>_orKolonHtml(D,i===0)).join('')+`</div>`;
+  _orOlcumRender();
+  try{if(typeof _esikIsaretle==='function')setTimeout(_esikIsaretle,60);}catch(e){}
+}
+function _orOlcumRender(){
+  const el=document.getElementById('orOlcum');if(!el)return;
+  const O=_orOlc(_orOyun());
+  if(!O){el.innerHTML='';return;}
+  const th='padding:3px 6px;font-size:.56rem;color:var(--muted);text-align:right;white-space:nowrap';
+  const td='padding:3px 6px;font-size:.62rem;text-align:right;white-space:nowrap';
+  el.innerHTML=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;min-width:340px">`
+    +`<tr style="border-bottom:1px solid var(--border)"><th style="${th};text-align:left">İlişki</th><th style="${th}">Havuz</th><th style="${th}">İsabet</th><th style="${th}">Kat</th></tr>`
+    +O.sonuc.map(r=>`<tr style="border-bottom:1px solid var(--border)">`
+      +`<td style="${td};text-align:left;font-weight:${r.kat>1?800:500};color:${r.kat>1?'var(--text)':'var(--muted)'}">${r.ad}</td>`
+      +`<td style="${td};color:var(--muted)">${r.ortBoy}</td>`
+      +`<td style="${td}">%${(r.oran*100).toFixed(1)}</td>`
+      +`<td style="${td};font-weight:800;color:${r.kat>1.02?'var(--green)':r.kat<0.98?'#c2410c':'var(--muted)'}">${r.kat.toFixed(3)}×</td></tr>`).join('')
+    +`</table></div>`
+    +`<div style="font-size:.55rem;color:var(--muted);margin-top:4px">${O.N} çekiliş · şans %${(O.sans*100).toFixed(1)} · yalnız katı 1'in üstünde olan ilişkiler tahmine katılır</div>`;
+}
+function _orSetK(v){_orK=+v||0;_orYenidenUret();}
+function _orCopy(){
+  const t=window._orTxt||'';
+  if(!t){showToast('⚠️ Önce üretin');return;}
+  _caCopy(t);showToast('📋 Kopyalandı');
+}
+function _orOptions(){
+  const g=getGame(_orOyun());if(!g)return;
+  const e=document.getElementById('orK');if(!e)return;
+  const v=_orK||_orVarK(g);let h='';
+  for(let k=g.count;k<=Math.min(g.max,g.count+12);k++)h+=`<option value="${k}"${k===v?' selected':''}>${k} sayı</option>`;
+  e.innerHTML=h;
+  const b=document.getElementById('orBilgi');
+  if(b)b.textContent=g.emoji+' '+g.name;
+}
+function _orDates(){
+  const draws=_kbGetDraws(_orOyun())||[];
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  draws.forEach((d,i)=>{if(draws.length-i-1<10)return;
+    h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]</option>`;});
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('orDate'+sl);if(!e)return;
+    const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
+}
+function _orYenidenUret(){
+  const gid=_orOyun(),g=getGame(gid),draws=_kbGetDraws(gid)||[];
+  if(!g||draws.length<10)return;
+  const K=_orK||_orVarK(g),O=_orOlc(gid);
+  if(_orData.live)_orData.live=_orKolon(g,draws,null,K,O);
+  ['t1','t2','t3'].forEach(k=>{
+    if(!_orData[k]||!_orData[k].actual)return;
+    const idx=draws.findIndex(x=>x.date===_orData[k].actual.date);
+    if(idx<0){_orData[k]=null;return;}
+    _orData[k]=_orKolon(g,draws.slice(idx+1),draws[idx],K,O);
+  });
+  _orRender();
+}
+function _orRun(){
+  const gid=_orOyun(),g=getGame(gid),draws=_kbGetDraws(gid)||[];
+  if(!g||draws.length<10){showToast('⚠️ Yeterli veri yok');return;}
+  const K=_orK||_orVarK(g);
+  _orData.live=_orKolon(g,draws,null,K,_orOlc(gid));
+  _orRender();
+}
+function _orDateTest(slot){
+  slot=slot||'';
+  const key=slot==='3'?'t3':slot==='2'?'t2':'t1';
+  const gid=_orOyun(),g=getGame(gid),draws=_kbGetDraws(gid)||[];
+  const date=(document.getElementById('orDate'+slot)||{}).value||'';
+  if(!date){_orData[key]=null;_orRender();return;}
+  const idx=draws.findIndex(d=>d.date===date);
+  if(idx<0){_orData[key]=null;_orRender();return;}
+  const K=_orK||_orVarK(g),O=_orOlc(gid);
+  _orData[key]=_orKolon(g,draws.slice(idx+1),draws[idx],K,O);
+  if(!_orData.live)_orData.live=_orKolon(g,draws,null,K,O);
+  _orRender();
+}
+function _orInit(){_orOptions();_orDates();_orOlcumRender();_orRender();}
 
 // 🗄️ Veritabanı sekmesi menüde HER ZAMAN en sonda dursun
 function _navDbSona(){
@@ -27010,6 +27226,10 @@ function _oyunYay(gid,kaynak){
     setTimeout(_jokerPanelYaz,0);
     setTimeout(_esikIsaretle,400);
     if(_curPage==='fibonacci')_xkInit();
+    // Örüntü tahmini başka oyunun sonuçlarını taşımasın
+    const orMev=(_orData&&_orData.live&&_orData.live.game)?_orData.live.game.id:null;
+    if(orMev&&orMev!==gid){_orData={live:null,t1:null,t2:null,t3:null};_orK=0;}
+    if(_curPage==='kazanan')setTimeout(_orInit,0);
   }catch(e){}});
     isler.push(()=>{if(typeof _listelerGame!=='undefined'&&_listelerGame!==gid){
     _listelerGame=gid;_listelerHighlightGame(gid);_listelerPopulateDates();}});
