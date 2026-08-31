@@ -16355,7 +16355,6 @@ else setTimeout(_okInit,300);
 // ═══════════════════════════════════════════════════════════════════════════
 const _OR_ILISKI=[
   {id:'k1', ad:'±1 komşu (1 önceki)',  fn:(pr,mx)=>_orKomsu(pr[0],mx,1)},
-  {id:'t1', ad:'tekrar (1 önceki)',    fn:(pr,mx)=>_orKume(pr[0],mx)},
   {id:'k2', ad:'±1 komşu (2 önceki)',  fn:(pr,mx)=>_orKomsu(pr[1],mx,1)},
   {id:'t2', ad:'tekrar (2 önceki)',    fn:(pr,mx)=>_orKume(pr[1],mx)},
   {id:'k3', ad:'±1 komşu (3 önceki)',  fn:(pr,mx)=>_orKomsu(pr[2],mx,1)},
@@ -16369,6 +16368,17 @@ const _OR_ILISKI=[
       k.forEach(v=>{const lo=Math.floor((v-1)/10)*10+1;for(let n=lo;n<lo+10&&n<=mx;n++)if(!k.has(n))s.add(n);});
       return s;}},
 ];
+// Kullanıcı kuralı: BİR ÖNCEKİ çekilişte çıkan sayılar hiçbir aday havuzunda yer almaz.
+function _orSuz(s,pr,mx){
+  const son=_orKume(pr&&pr[0],mx);
+  const o=new Set();
+  (s||new Set()).forEach(n=>{if(!son.has(n))o.add(n);});
+  return o;
+}
+function _orIliskiKume(R,pr,mx){
+  let s=null;try{s=R.fn(pr,mx);}catch(e){}
+  return _orSuz(s,pr,mx);
+}
 function _orKume(d,mx){const s=new Set();((d&&d.nums)||[]).forEach(n=>{if(n>=1&&n<=mx)s.add(n);});return s;}
 function _orKomsu(d,mx,adim){
   const s=new Set(),k=_orKume(d,mx);
@@ -16393,7 +16403,7 @@ function _orOlc(gid){
     if(pr.length<4)break;
     const aSet=new Set(d.nums||[]);
     _OR_ILISKI.forEach(R=>{
-      let s=null;try{s=R.fn(pr,g.max);}catch(e){}
+      const s=_orIliskiKume(R,pr,g.max);
       if(!s||!s.size)return;
       let h=0;s.forEach(n=>{if(aSet.has(n))h++;});
       acc[R.id].hit+=h;acc[R.id].boy+=s.size;
@@ -16419,7 +16429,7 @@ function _orTahmin(game,prior,K,olcum){
     const kat=katalog[R.id];
     if(!(kat>1))return;                                  // o oyunda şansın altındaysa katılmaz
     katkiVar=true;
-    let s=null;try{s=R.fn(prior,mx);}catch(e){}
+    const s=_orIliskiKume(R,prior,mx);
     if(!s)return;
     s.forEach(n=>{puan[n]+=(kat-1);});
   });
@@ -16427,7 +16437,8 @@ function _orTahmin(game,prior,K,olcum){
   // eşitlik bozucu: son 10 çekiliş sıcaklığı
   const sic=new Array(mx+1).fill(0);
   prior.slice(0,10).forEach(d=>(d.nums||[]).forEach(n=>{if(n>=1&&n<=mx)sic[n]++;}));
-  const sira=[];for(let n=1;n<=mx;n++)if(puan[n]>0)sira.push(n);
+  const son=_orKume(prior&&prior[0],mx);
+  const sira=[];for(let n=1;n<=mx;n++)if(puan[n]>0&&!son.has(n))sira.push(n);
   sira.sort((a,b)=>puan[b]-puan[a]||sic[b]-sic[a]||a-b);
   return {nums:sira.slice(0,K),kullanilan:(olcum&&olcum.sonuc||[]).filter(r=>r.kat>1).map(r=>({id:r.id,ad:r.ad,kat:r.kat}))};
 }
@@ -16446,7 +16457,7 @@ function _orCip(n,aSet,yakSet){
 // Bir ilişkinin o sütundaki havuzu — sadece sayılar
 function _orIliskiNums(D,R){
   if(!D)return [];
-  let s=null;try{s=R.fn(D.prior,D.game.max);}catch(e){}
+  const s=_orIliskiKume(R,D.prior,D.game.max);
   return s?[...s].sort((a,b)=>a-b):[];
 }
 function _orIliskiKolon(D,R,ilk){
