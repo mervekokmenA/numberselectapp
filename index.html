@@ -1484,6 +1484,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_exEkle()" style="font-size:.72rem;padding:6px 13px;border-radius:8px;border:1px solid rgba(16,185,129,.5);background:rgba(16,185,129,.1);color:#0a9a6a;cursor:pointer;font-weight:700">➕ Sütun Ekle</button>
    <button onclick="_exSifirla()" style="font-size:.72rem;padding:6px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">↩ Excel'deki Haline Dön</button>
    <button onclick="_exKopyala()" class="copy-btn" style="font-size:.72rem;padding:6px 13px;font-weight:700">📋 Tabloyu Kopyala</button>
+   <button onclick="_exYeniKopyala()" title="Sadece 🔮 Yeni Tahmin satırındaki sayılar — yan yana" style="font-size:.72rem;padding:6px 13px;border-radius:8px;border:1px solid rgba(129,140,248,.55);background:rgba(129,140,248,.14);color:#6366f1;cursor:pointer;font-weight:700">🔮 Yeni Tahmini Kopyala</button>
   </div>
  </div>
  <div id="exGrid"></div>
@@ -2005,13 +2006,20 @@ function _adayCip(n,aSet,yakSet,vurgu){
   const kenar=net?'rgba(0,200,100,.7)':yak?'rgba(244,114,63,.7)':'rgba(37,99,235,.5)';
   return `<span style="display:block;text-align:center;font-family:monospace;font-size:.82rem;font-weight:800;color:${renk};background:${zemin};border:1.5px solid ${kenar};border-radius:7px;padding:2px 3px">${n}${net?'✓':yak?'~':''}</span>`;
 }
+// Başlıklardaki rozet HTML'ini kopyalanacak düz metne çevirir
+function _adayDuzBaslik(ad){
+  return String(ad||'').replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
+}
 // Bir sütun (yeni tahmin ya da geçmiş test) için aday satırları
 function _adaySatir(ad,nums,aSet,yakSet,ilk,kopyaAd){
   if(!nums||!nums.length)return '';
   const net=aSet?nums.filter(n=>aSet.has(n)).length:null;
   const yak=yakSet?nums.filter(n=>!aSet.has(n)&&yakSet.has(n)).length:0;
   const ck='_adayTxt'+(kopyaAd||'').replace(/[^A-Za-z0-9]/g,'');
-  window[ck]=ad+'\n'+nums.join(' ');
+  // Kopya anahtarı sütunlar arasında ORTAK; yalnız ilk (yeni tahmin) sütunu yazsın,
+  // yoksa geçmiş test sütunları üzerine yazıp butona yanlış sayıları kopyalatıyordu.
+  // Ayrıca başlıkta rozet HTML'i olabilir — kopyalanan metne etiket sızmasın.
+  if(ilk)window[ck]=_adayDuzBaslik(ad)+'\n'+nums.join(' ');
   return `<div style="margin-bottom:6px">`
     +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px">`
     +`<span style="font-size:.6rem;font-weight:800;color:var(--text)">${ad}</span>`
@@ -26720,6 +26728,26 @@ function _exKopyala(){
   }).join('\t')).join('\n');
   _caCopy('Excel — '+getGame(_exGame).name+'\n'+bas+'\n'+satirlar);
   showToast('📋 Tablo kopyalandı');
+}
+// Sadece 🔮 Yeni Tahmin satırı — yalnızca sayılar, yan yana
+function _exYeniKopyala(){
+  if(!_exGame)_exGame=(state&&state.selectedGame)||GAMES[0].id;
+  if(!_exKol)_exKol=_exYukle(_exGame);
+  const ctx=_exCtx();
+  const r=ctx.satirlar.findIndex(st=>st.gelecek);
+  if(r<0){showToast('⚠️ Yeni tahmin satırı yok');return;}
+  const g=getGame(_exGame),st=ctx.satirlar[r],gor=new Set(),cikti=[];
+  _exKol.forEach(k=>{
+    if(k.tip==='tarih')return;
+    const v=(k.tip==='formul'&&k.f)?_exDeger(k.h,r,ctx):_exTaban(k,st);
+    const n=Math.round(_exSayi(v));
+    if(!(n>=1&&n<=g.max))return;                       // oyun aralığı dışı / boş hücreleri atla
+    if(gor.has(n))return;                              // aynı sayı iki sütunda çıkarsa bir kez yaz
+    gor.add(n);cikti.push(n);
+  });
+  if(!cikti.length){showToast('⚠️ Kopyalanacak sayı yok');return;}
+  _caCopy(cikti.join(' '));
+  showToast('🔮 '+cikti.length+' sayı kopyalandı');
 }
 function _exCtx(){
   const satirlar=_exSatirlar(_exGame);
