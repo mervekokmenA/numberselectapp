@@ -1975,119 +1975,14 @@ function _adaySkorGecikme(draws,MAX,cnt){
 //   super  : karışım 0.98/0.98  vs gecikme 1.04/1.04  → gecikme
 //   onnumara: karışım 0.99/1.01 vs gecikme 1.02/1.12  → gecikme
 //   sans   : karışım 1.01/1.01  vs gecikme 0.94/0.94  → karışım   (K=12)
-// Kullanıcı isteği: her oyunda varsayılan Gecikme/Markov motoru.
-// (Ölçüm Sayısal ve Şans'ta karışımı önde bulmuştu — seçici ile istenirse ona dönülebilir.)
-const _ADAY_MOTOR_VARSAYILAN={sayisal:'gecikme',super:'gecikme',sans:'gecikme',onnumara:'gecikme'};
-function _adayMotorSec(gid){
-  try{const v=localStorage.getItem('_adayMotor_'+gid);if(v==='karisim'||v==='gecikme')return v;}catch(e){}
-  return _ADAY_MOTOR_VARSAYILAN[gid]||'karisim';
-}
-function _adaySetMotor(v){
-  const gid=(state&&state.selectedGame)||GAMES[0].id;
-  try{localStorage.setItem('_adayMotor_'+gid,v);}catch(e){}
-  _jokerPanelYaz();
-}
-function _anaAdaylari(game,prior,adet,motor){
-  if(!game||!adet)return [];
-  const m=motor||_adayMotorSec(game.id);
-  try{
-    const r=(m==='gecikme')?_adaySkorGecikme(prior,game.max,game.count)
-                           :_anaAdaySkor(prior,game.max,game.count);
-    if(r&&r.scored&&r.scored.length)return r.scored.slice(0,adet).map(x=>x.n);
-  }catch(e){}
-  return [];
-}
-
-// Joker panelinin gösterileceği sayfalar (yeni tahmin üreten sayfalar)
-const _JOKER_SAYFA=['nihai','fibonacci','formul','formul2','gulsis0','kapsamli','haber','nsa','listeler','scan','hizlitahmin','basit','soz','home'];
-function _adayCip(n,aSet,yakSet,vurgu){
-  const net=aSet&&aSet.has(n),yak=!net&&yakSet&&yakSet.has(n);
-  const renk=net?'#fff':yak?'#fff':(vurgu?'#fff':'#2563eb');
-  const zemin=net?'var(--green)':yak?'#c2410c':(vurgu?'#2563eb':'rgba(37,99,235,.10)');
-  const kenar=net?'rgba(0,200,100,.7)':yak?'rgba(244,114,63,.7)':'rgba(37,99,235,.5)';
-  return `<span style="display:block;text-align:center;font-family:monospace;font-size:.82rem;font-weight:800;color:${renk};background:${zemin};border:1.5px solid ${kenar};border-radius:7px;padding:2px 3px">${n}${net?'✓':yak?'~':''}</span>`;
-}
-// Başlıklardaki rozet HTML'ini kopyalanacak düz metne çevirir
-function _adayDuzBaslik(ad){
-  return String(ad||'').replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim();
-}
-// Bir sütun (yeni tahmin ya da geçmiş test) için aday satırları
-function _adaySatir(ad,nums,aSet,yakSet,ilk,kopyaAd){
-  if(!nums||!nums.length)return '';
-  const net=aSet?nums.filter(n=>aSet.has(n)).length:null;
-  const yak=yakSet?nums.filter(n=>!aSet.has(n)&&yakSet.has(n)).length:0;
-  const ck='_adayTxt'+(kopyaAd||'').replace(/[^A-Za-z0-9]/g,'');
-  // Kopya anahtarı sütunlar arasında ORTAK; yalnız ilk (yeni tahmin) sütunu yazsın,
-  // yoksa geçmiş test sütunları üzerine yazıp butona yanlış sayıları kopyalatıyordu.
-  // Ayrıca başlıkta rozet HTML'i olabilir — kopyalanan metne etiket sızmasın.
-  if(ilk)window[ck]=_adayDuzBaslik(ad)+'\n'+nums.join(' ');
-  return `<div style="margin-bottom:6px">`
-    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px">`
-    +`<span style="font-size:.6rem;font-weight:800;color:var(--text)">${ad}</span>`
-    +`<span style="display:flex;align-items:center;gap:7px">`
-    +(net!=null?`<span style="font-size:.58rem;font-weight:800;color:${net?'var(--green)':'var(--muted)'}">${net} net${yak?` · <span style="color:#c2410c">${yak} yakın</span>`:''}</span>`:'')
-    +(ilk?`<button onclick="_caCopy(window.${ck}||'');showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.56rem;padding:1px 8px">📋</button>`:'')
-    +`</span></div>`
-    +`<div data-lp="${nums.join(' ')}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:4px">`
-    +nums.map(n=>_adayCip(n,aSet,yakSet,!aSet)).join('')+`</div></div>`;
-}
-let _adayGecmis=false, _adayK=8;
-function _adayGecmisAc(){_adayGecmis=!_adayGecmis;_jokerPanelYaz();}
-function _adaySetK(v){_adayK=+v||8;try{localStorage.setItem('_adayK',String(_adayK));}catch(e){}_jokerPanelYaz();}
+// Kullanıcı geri bildirimi: "🎯 K Aday" paneli (bu fonksiyonun eskiden ürettiği
+// sayfa-üstü grup) hiçbir oyunda tutarlı çalışmadı — kaldırıldı. Sayfa üstünde
+// artık yalnızca 🧠 Çekirdek Motor kalıyor (bkz. _ckPanelYaz, yalnızca Ana Sayfa'da).
 function _jokerPanelYaz(){
   try{setTimeout(_ckPanelYaz,0);}catch(e){}
   try{
     const eski=document.getElementById('jokerPanel');
     if(eski)eski.remove();
-    if(_JOKER_SAYFA.indexOf(_curPage)<0)return;
-    const gid=(state&&state.selectedGame)||GAMES[0].id,g=getGame(gid);
-    if(!g)return;
-    const kok=(_curPage==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+_curPage));
-    if(!kok)return;
-    const draws=_kbGetDraws(gid)||[];
-    if(draws.length<40)return;
-    try{const kv=localStorage.getItem('_adayK');if(kv)_adayK=+kv||8;}catch(e){}
-    const K=_adayK;
-    const isim=g.id==='sans'?'Joker':g.id==='sayisal'?'Süperstar':'';
-    // sütunlar: yeni tahmin (+ istenirse son 3 çekiliş, her biri kendi tarihinden ÖNCEKİ veriyle)
-    const kolonlar=[{ad:'🔮 Yeni Tahmin',prior:draws,actual:null}];
-    if(_adayGecmis)for(let i=0;i<3&&i<draws.length-40;i++)kolonlar.push({ad:'🎯 '+draws[i].date,prior:draws.slice(i+1),actual:draws[i]});
-    const govde=kolonlar.map((K0,ci)=>{
-      const aSet=K0.actual?new Set([...(K0.actual.nums||[])]):null;
-      const bSet=K0.actual?new Set([...(K0.actual.bonus||[])]):null;
-      const yakSet=aSet?(()=>{const y=new Set();aSet.forEach(n=>[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!aSet.has(x))y.add(x);}));return y;})():null;
-      const ana=_anaAdaylari(g,K0.prior,K);
-      const bon=g.bonusCount>0?_jokerAdaylari(g,K0.prior,K):[];
-      let h=`<div><div style="font-size:.62rem;font-weight:800;color:${K0.actual?'var(--green)':'var(--accent)'};margin-bottom:5px">${K0.ad}`
-        +(K0.actual?` — ${[...(K0.actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(K0.actual.bonus&&K0.actual.bonus.length)?' + '+K0.actual.bonus.join(' '):''}`:'')+`</div>`;
-      h+=_adaySatir('🎯 '+K+' Aday (ana sayılar)',ana,aSet,yakSet,ci===0,'Ana');
-      if(bon.length){
-        // joker adayları: hem bonusu hem ANA sayıları tutturması ayrı ayrı gösterilir
-        const bNet=bSet?bon.filter(n=>bSet.has(n)).length:null;
-        h+=_adaySatir('🎱 '+isim+' Adayları'+(bNet!=null?` <span style="font-size:.54rem;color:${bNet?'var(--green)':'var(--muted)'}">${isim.toLowerCase()}: ${bNet} tuttu</span>`:''),
-                      bon,aSet,yakSet,ci===0,'Bonus');
-      }
-      return h+`</div>`;
-    }).join('');
-    const tpl='repeat('+kolonlar.length+',minmax(0,1fr))';
-    window._jokerTxt=(isim?isim+' adayları':'Adaylar')+' ('+g.name+')\n'
-      +(g.bonusCount>0?(window._adayTxtBonus||'').split('\n')[1]||'':'')
-      +(g.bonusCount>0?'\n':'')+((window._adayTxtAna||'').split('\n')[1]||'');
-    kok.insertAdjacentHTML('afterbegin',
-      `<div id="jokerPanel" class="card" style="margin-bottom:10px;border:2px solid rgba(37,99,235,.45);background:linear-gradient(135deg,rgba(37,99,235,.06),transparent)">`
-      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">`
-      +`<div class="card-title" style="margin:0">🎯 ${K} Aday — ${g.emoji} ${g.name}</div>`
-      +`<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">`
-      +`<select onchange="_adaySetMotor(this.value)" style="font-size:.64rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 7px">`
-      +[['karisim','🔥 Sıcak karışım'],['gecikme','⏳ Gecikme/Markov']].map(([v,t])=>`<option value="${v}"${v===_adayMotorSec(gid)?' selected':''}>${t}</option>`).join('')
-      +`</select>`
-      +`<select onchange="_adaySetK(this.value)" style="font-size:.64rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 7px">`
-      +[5,8,10,12,15].map(x=>`<option value="${x}"${x===K?' selected':''}>${x} sayı</option>`).join('')
-      +`</select>`
-      +`<button onclick="_adayGecmisAc()" style="font-size:.62rem;padding:3px 10px;border-radius:7px;border:1px solid ${_adayGecmis?'rgba(244,114,63,.6)':'var(--border)'};background:${_adayGecmis?'rgba(244,114,63,.12)':'var(--surface2)'};color:${_adayGecmis?'#f97316':'var(--muted)'};cursor:pointer;font-weight:800">${_adayGecmis?'✕ Geçmiş testi kapat':'📊 Geçmiş test'}</button>`
-      +`</span></div>`
-      +`<div class="aday-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">${govde}</div>`
-      +`</div>`);
   }catch(e){}
 }
 
