@@ -2035,6 +2035,7 @@ let _adayGecmis=false, _adayK=8;
 function _adayGecmisAc(){_adayGecmis=!_adayGecmis;_jokerPanelYaz();}
 function _adaySetK(v){_adayK=+v||8;try{localStorage.setItem('_adayK',String(_adayK));}catch(e){}_jokerPanelYaz();}
 function _jokerPanelYaz(){
+  try{setTimeout(_ckPanelYaz,0);}catch(e){}
   try{
     const eski=document.getElementById('jokerPanel');
     if(eski)eski.remove();
@@ -2087,6 +2088,300 @@ function _jokerPanelYaz(){
       +`</span></div>`
       +`<div class="aday-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">${govde}</div>`
       +`</div>`);
+  }catch(e){}
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧠 ÇEKİRDEK MOTOR — uygulamanın "sıfırdan yazılsaydı" tasarımı
+//
+// Tek motor, oyun başına kendi kendini ölçer:
+//   1) 13 sinyal (sıcaklık, gecikme, tekrar, Markov, komşu, uzun vade, …) her
+//      çekiliş için yüzdelik sıraya çevrilir.
+//   2) Ağırlıklar EĞİTİM penceresinde (eski çekilişler) ileriye bakışsız
+//      öğrenilir. Bir sinyal ancak eğitim penceresinin İKİ yarısında da şansın
+//      üstündeyse kullanılır (kararlılık şartı); ağırlık = ortalama kat − 1.
+//   3) Öğrenilen model, modelin HİÇ görmediği en yeni pencerede (Karne)
+//      şansa, tek tek sinyallere ve mevcut varsayılan motora karşı ölçülür.
+//   4) Geçmiş test tarihleri yalnızca bu görülmemiş pencereden seçilebilir;
+//      yani ekranda gördüğün her geçmiş test gerçekten ileriye bakışsızdır.
+//   5) Yeni çekiliş geldikçe model kendini yeniden öğrenir.
+// Dürüstlük notu: piyango bağımsız rastgele çekiliştir; ölçülen üstünlükler
+// %3–6 seviyesinde ve gürültüye yakındır. Motor bunu saklamaz, Karne'de gösterir.
+// ═══════════════════════════════════════════════════════════════════════════
+const _CK_SINYAL={
+  hot30:  {ad:'Sıcak (son 30)',     f:(pr,mx)=>_mrFreqW(pr.slice(0,30),mx)},
+  hot10:  {ad:'Sıcak (son 10)',     f:(pr,mx)=>_mrFreqW(pr.slice(0,10),mx)},
+  cold100:{ad:'Soğuk (son 100)',    f:(pr,mx)=>_mrColdW(pr.slice(0,100),mx)},
+  overdue:{ad:'Gecikmiş',           f:(pr,mx)=>_mrOverdueW(pr.slice(0,80),mx)},
+  ewf:    {ad:'Üstel sıcaklık',     f:(pr,mx)=>_mrEwfW(pr.slice(0,30),mx)},
+  repeat: {ad:'Tekrar zinciri',     f:(pr,mx)=>_mrRepeatW(pr.slice(0,30),mx)},
+  pair:   {ad:'Pair-Markov',        f:(pr,mx)=>_mrPairW(pr.slice(0,30),mx)},
+  gulay:  {ad:'Gülay farkı',        f:(pr,mx)=>_mrGulayW(pr.slice(0,30),mx)},
+  karisim:{ad:'Sıcak karışım',      f:(pr,mx,c)=>_ckScored(_anaAdaySkor(pr,mx,c))},
+  gecikme:{ad:'Gecikme/Markov',     f:(pr,mx,c)=>_ckScored(_adaySkorGecikme(pr,mx,c))},
+  komsu1: {ad:'±1 komşu (önceki)',  f:(pr,mx)=>{const s=new Set(pr[0]&&pr[0].nums||[]),w={};for(let n=1;n<=mx;n++)w[n]=((s.has(n-1)||s.has(n+1))&&!s.has(n))?1:0;return w;}},
+  prev:   {ad:'Önceki çekiliş',     f:(pr,mx)=>{const s=new Set(pr[0]&&pr[0].nums||[]),w={};for(let n=1;n<=mx;n++)w[n]=s.has(n)?1:0;return w;}},
+  longf:  {ad:'Uzun vade sıklık',   f:(pr,mx)=>_mrFreqW(pr,mx)},
+};
+const _CK_ADLAR=Object.keys(_CK_SINYAL);
+const _CK_VARSAYILAN_K={sayisal:11,super:10,sans:9,onnumara:14};
+let _ckModel={},_ckK=0,_ckData={live:null,t1:null,t2:null,t3:null},_ckMesgul={};
+function _ckScored(r){const w={};(r&&r.scored||[]).forEach(x=>w[x.n]=x.score);return w;}
+function _ckPct(w,mx){
+  const a=[];for(let n=1;n<=mx;n++)a.push(n);
+  a.sort((x,y)=>(w[y]||0)-(w[x]||0)||x-y);
+  const o=new Array(mx+1).fill(0);a.forEach((n,i)=>{o[n]=1-i/Math.max(1,mx-1);});
+  return o;
+}
+function _ckOzellikler(prior,g){
+  const F={};
+  _CK_ADLAR.forEach(k=>{let w={};try{w=_CK_SINYAL[k].f(prior,g.max,g.count)||{};}catch(e){}F[k]=_ckPct(w,g.max);});
+  return F;
+}
+function _ckVarK(g){return _CK_VARSAYILAN_K[g.id]||(g.count+4);}
+function _ckOyun(){return (state&&state.selectedGame&&GAMES.some(x=>x.id===state.selectedGame))?state.selectedGame:GAMES[0].id;}
+function _ckAnahtar(gid){const d=_kbGetDraws(gid)||[];return gid+'|'+((d[0]&&d[0].date)||'')+'|'+d.length;}
+// Bir satır kümesinde bir skor fonksiyonunun katı (ort. net / şans)
+function _ckKat(rows,skorFn,K,mx,sans){
+  if(!rows.length)return 0;
+  let net=0;
+  rows.forEach(r=>{
+    const s=skorFn(r);const a=[];for(let n=1;n<=mx;n++)a.push(n);
+    a.sort((x,y)=>s[y]-s[x]||x-y);
+    a.slice(0,K).forEach(n=>{if(r.a.has(n))net++;});
+  });
+  return net/rows.length/sans;
+}
+function _ckBirlesik(F,W,mx){
+  const s=new Array(mx+1).fill(0);
+  Object.keys(W).forEach(k=>{const w=W[k],v=F[k];if(!(w>0)||!v)return;for(let n=1;n<=mx;n++)s[n]+=w*v[n];});
+  return s;
+}
+// Öğrenme — parça parça (arayüz donmasın); bitince cb(model)
+function _ckOgren(gid,cb){
+  const anahtar=_ckAnahtar(gid);
+  if(_ckModel[gid]&&_ckModel[gid].anahtar===anahtar){cb&&cb(_ckModel[gid]);return;}
+  if(_ckMesgul[gid]){_ckMesgul[gid].push(cb);return;}
+  _ckMesgul[gid]=[cb];
+  const g=getGame(gid),draws=_kbGetDraws(gid)||[];
+  if(!g||draws.length<120){delete _ckMesgul[gid];cb&&cb(null);return;}
+  const mx=g.max,cnt=g.count;
+  const cek=(draws[0].nums||[]).length||cnt;
+  const K=_ckVarK(g),sans=K*cek/mx;
+  const N=Math.min(360,draws.length-60);
+  const rows=new Array(N);
+  let i=0;
+  const adim=()=>{
+    const son=Math.min(i+8,N);
+    for(;i<son;i++){
+      const prior=draws.slice(i+1);
+      rows[i]={F:_ckOzellikler(prior,g),a:new Set(draws[i].nums||[]),date:draws[i].date};
+    }
+    _ckIlerleme(gid,i,N);
+    if(i<N){setTimeout(adim,0);return;}
+    // pencereler (yeniden eskiye): TEST = en yeni çeyrek (hiç dokunulmaz) ·
+    // DOĞRULAMA = sonraki çeyrek (aday modeller arasından seçim) · EĞİTİM = kalan (ağırlık öğrenme)
+    const T=Math.max(30,Math.floor(N/4)),V=Math.max(30,Math.floor(N/4));
+    const test=rows.slice(0,T),dogr=rows.slice(T,T+V),egitim=rows.slice(T+V);
+    const yarim=Math.floor(egitim.length/2);
+    const egA=egitim.slice(0,yarim),egB=egitim.slice(yarim);       // A yeni yarı, B eski yarı
+    const tekil={};
+    _CK_ADLAR.forEach(k=>{
+      const fn=r=>r.F[k];
+      tekil[k]={A:_ckKat(egA,fn,K,mx,sans),B:_ckKat(egB,fn,K,mx,sans),dogr:_ckKat(dogr,fn,K,mx,sans),test:_ckKat(test,fn,K,mx,sans)};
+    });
+    // Aday 1 — kararlı karışım: iki eğitim yarısında da >1 olan sinyaller, ağırlık = ort. kat − 1
+    const Wk={};
+    _CK_ADLAR.forEach(k=>{const t=tekil[k];if(t.A>1&&t.B>1)Wk[k]=+(((t.A+t.B)/2)-1).toFixed(4);});
+    const siraEgitim=_CK_ADLAR.slice().sort((x,y)=>((tekil[y].A+tekil[y].B)-(tekil[x].A+tekil[x].B)));
+    const adaylar=[];
+    if(Object.keys(Wk).length)adaylar.push({ad:'Kararlı karışım',W:Wk});
+    // Aday 2 — eğitimde en iyi 2 sinyal eşit ağırlık
+    adaylar.push({ad:'En iyi 2 sinyal',W:Object.fromEntries(siraEgitim.slice(0,2).map(k=>[k,1]))});
+    // Aday 3..5 — tekil motorlar (mevcut varsayılanlar da yarışa girer)
+    [['Gecikme/Markov','gecikme'],['Sıcak karışım','karisim'],['Uzun vade + sıcak 30',null]].forEach(([ad,k])=>{
+      adaylar.push({ad,W:k?{[k]:1}:{longf:1,hot30:1}});
+    });
+    adaylar.forEach(c=>{const fn=r=>_ckBirlesik(r.F,c.W,mx);c.dogr=+_ckKat(dogr,fn,K,mx,sans).toFixed(3);c.test=+_ckKat(test,fn,K,mx,sans).toFixed(3);c.egitim=+_ckKat(egitim,fn,K,mx,sans).toFixed(3);});
+    // seçim YALNIZ doğrulama penceresine göre — test penceresi seçime hiç karışmaz
+    const secilen=adaylar.slice().sort((x,y)=>y.dogr-x.dogr)[0];
+    const W=secilen.W,yedek=secilen.ad!=='Kararlı karışım';
+    const karne={
+      N,T,V,K,sans:+sans.toFixed(3),
+      secilen:secilen.ad,
+      cekirdek:{egitim:secilen.egitim,dogr:secilen.dogr,test:secilen.test},
+      adaylar:adaylar.map(c=>({ad:c.ad,dogr:c.dogr,test:c.test})),
+      gecikme:+tekil.gecikme.test.toFixed(3),
+      karisim:+tekil.karisim.test.toFixed(3),
+      tekil:Object.fromEntries(_CK_ADLAR.map(k=>[k,{A:+tekil[k].A.toFixed(3),B:+tekil[k].B.toFixed(3),dogr:+tekil[k].dogr.toFixed(3),test:+tekil[k].test.toFixed(3)}])),
+      testIlk:rows[0]?rows[0].date:'',testSon:rows[T-1]?rows[T-1].date:'',
+    };
+    const model={gid,anahtar,W,yedek,karne,testTarihler:rows.slice(0,T).map(r=>r.date)};
+    _ckModel[gid]=model;
+    const bekleyen=_ckMesgul[gid]||[];delete _ckMesgul[gid];
+    bekleyen.forEach(f=>{try{f&&f(model);}catch(e){}});
+  };
+  setTimeout(adim,0);
+}
+function _ckIlerleme(gid,i,N){
+  const e=document.getElementById('ckDurum');
+  if(e)e.textContent='⏳ öğreniyor… '+Math.round(100*i/N)+'%';
+}
+function _ckSkor(g,prior,model){return _ckBirlesik(_ckOzellikler(prior,g),model.W,g.max);}
+function _ckTahmin(g,prior,K,model){
+  const s=_ckSkor(g,prior,model);
+  const a=[];for(let n=1;n<=g.max;n++)a.push(n);
+  a.sort((x,y)=>s[y]-s[x]||x-y);
+  return a.slice(0,K);
+}
+function _ckKolon(g,prior,actual,K,model){
+  if(!prior||prior.length<60||!model)return null;
+  const nums=_ckTahmin(g,prior,K,model);
+  const joker=(g.bonusCount>0)?_jokerAdaylari(g,prior,3):[];
+  return {game:g,prior,actual:actual||null,nums,joker};
+}
+function _ckCip(n,aSet,yakSet){
+  const net=aSet&&aSet.has(n),yak=!net&&yakSet&&yakSet.has(n);
+  const renk=net||yak?'#fff':'#7c3aed';
+  const zemin=net?'var(--green)':yak?'#c2410c':'rgba(124,58,237,.10)';
+  const kenar=net?'rgba(0,200,100,.7)':yak?'rgba(244,114,63,.7)':'rgba(124,58,237,.45)';
+  return `<span style="display:block;text-align:center;font-family:monospace;font-size:.82rem;font-weight:800;color:${renk};background:${zemin};border:1.5px solid ${kenar};border-radius:7px;padding:2px 3px">${n}${net?'✓':yak?'~':''}</span>`;
+}
+function _ckKolonHtml(D,ilk){
+  if(!D)return '<div></div>';
+  const g=D.game;
+  const aSet=D.actual?new Set([...(D.actual.nums||[])]):null;
+  const bSet=D.actual?new Set([...(D.actual.bonus||[])]):null;
+  const yakSet=aSet?(()=>{const y=new Set();aSet.forEach(n=>[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!aSet.has(x))y.add(x);}));return y;})():null;
+  const net=aSet?D.nums.filter(n=>aSet.has(n)).length:null;
+  const yak=yakSet?D.nums.filter(n=>!aSet.has(n)&&yakSet.has(n)).length:0;
+  const jNet=bSet?D.joker.filter(n=>bSet.has(n)).length:null;
+  const E=_oyunEsik(g);
+  return `<div>`
+    +`<div style="font-size:.62rem;font-weight:800;color:${D.actual?'var(--green)':'var(--accent)'};margin-bottom:4px">`
+    +(D.actual?`🎯 ${D.actual.date} — ${[...(D.actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(D.actual.bonus&&D.actual.bonus.length)?' + '+D.actual.bonus.join(' '):''}`:`🔮 Yeni Tahmin — ${g.emoji} ${g.name}`)+`</div>`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px">`
+    +`<span style="font-size:.55rem;color:var(--muted)">${D.nums.length} sayı`
+    +(net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yak?` · <strong style="color:#c2410c">${yak} yakın</strong>`:''} ${net>=E.hedef?'🎯':net>=E.odul?'💰':''}`:'')+`</span>`
+    +(ilk?`<button onclick="_ckCopy()" class="copy-btn" style="font-size:.56rem;padding:1px 8px">📋</button>`:'')
+    +`</div>`
+    +`<div data-lp="${D.nums.join(' ')}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:4px">${D.nums.map(n=>_ckCip(n,aSet,yakSet)).join('')}</div>`
+    +(D.joker.length?`<div style="font-size:.55rem;color:var(--muted);margin:6px 0 3px">🎱 ${E.jokerAd||'bonus'} adayları${jNet!=null?` · <strong style="color:${jNet?'var(--green)':'var(--muted)'}">${jNet} tuttu</strong>`:''}</div>`
+      +`<div data-lp="${D.joker.join(' ')}" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:4px">${D.joker.map(n=>_ckCip(n,bSet,null)).join('')}</div>`:'')
+    +`</div>`;
+}
+function _ckKarneHtml(model){
+  const k=model.karne;
+  const kat=v=>`<strong style="color:${v>1?'var(--green)':'var(--muted)'}">${(+v).toFixed(3)}×</strong>`;
+  const sinyaller=Object.keys(model.W).map(x=>`${_CK_SINYAL[x].ad}${model.W[x]>=1?'':' <span style="color:var(--muted)">(+'+model.W[x].toFixed(3)+')</span>'}`).join(' · ');
+  const satir=k.adaylar.map(c=>`<tr style="${c.ad===k.secilen?'background:rgba(124,58,237,.10);font-weight:800':''}"><td style="padding:2px 8px">${c.ad===k.secilen?'✔ ':''}${c.ad}</td><td style="padding:2px 8px;text-align:right">${kat(c.dogr)}</td><td style="padding:2px 8px;text-align:right">${kat(c.test)}</td></tr>`).join('');
+  return `<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);font-size:.58rem;color:var(--muted);line-height:1.7">`
+    +`<div><strong style="color:var(--text)">📋 Karne</strong> — ${k.N-k.T-k.V} eski çekilişte öğrenildi · ${k.V} çekilişte aday modeller yarıştı (seçim) · <strong style="color:var(--text)">hiç dokunulmayan son ${k.T} çekilişte</strong> (${k.testSon} → ${k.testIlk}) ölçüldü · K=${k.K} · şans ${k.sans} net/çekiliş</div>`
+    +`<div style="overflow-x:auto"><table style="border-collapse:collapse;margin:4px 0"><tr style="color:var(--muted)"><th style="padding:2px 8px;text-align:left;font-weight:600">Aday model</th><th style="padding:2px 8px;text-align:right;font-weight:600">seçim penceresi</th><th style="padding:2px 8px;text-align:right;font-weight:600">görülmemiş test</th></tr>${satir}</table></div>`
+    +`<div>Seçilen: <strong style="color:#7c3aed">${k.secilen}</strong> → sinyaller: ${sinyaller||'—'}</div>`
+    +`<div style="color:#8a6200">Seçim yalnız seçim penceresine bakılarak yapılır; test sütunu seçime hiç karışmaz. Ölçülen üstünlükler şansın en fazla birkaç yüzde üstündedir; garanti yoktur.</div>`
+    +`</div>`;
+}
+function _ckRender(){
+  const out=document.getElementById('ckOut');if(!out)return;
+  const gid=_ckOyun(),model=_ckModel[gid];
+  if(!model){out.innerHTML='<div style="font-size:.7rem;color:var(--muted)">Model öğrenilmedi.</div>';return;}
+  const kol=[_ckData.live,_ckData.t1,_ckData.t2,_ckData.t3].filter(Boolean);
+  let h='';
+  if(kol.length){
+    const tpl='repeat('+kol.length+',minmax(0,1fr))';
+    h+=`<div class="aday-row" style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`+kol.map((D,i)=>_ckKolonHtml(D,i===0)).join('')+`</div>`;
+    const D0=_ckData.live;
+    if(D0)window._ckTxt='🧠 Çekirdek Motor ('+D0.game.name+')\n'+D0.nums.join(' ')+(D0.joker.length?'\n'+(_oyunEsik(D0.game).jokerAd||'bonus')+': '+D0.joker.join(' '):'');
+  }else h+='<div style="font-size:.7rem;color:var(--muted)">🧠 Üret butonuna basın.</div>';
+  h+=_ckKarneHtml(model);
+  out.innerHTML=h;
+  try{if(typeof _esikIsaretle==='function')setTimeout(_esikIsaretle,60);}catch(e){}
+  try{if(typeof _exYildizPlanla==='function')_exYildizPlanla();}catch(e){}
+}
+function _ckCopy(){const t=window._ckTxt||'';if(!t){showToast('⚠️ Önce üretin');return;}_caCopy(t);showToast('📋 Kopyalandı');}
+function _ckSetK(v){_ckK=+v||0;_ckYenidenUret();}
+function _ckYenidenUret(){
+  const gid=_ckOyun(),g=getGame(gid),draws=_kbGetDraws(gid)||[],model=_ckModel[gid];
+  if(!g||!model)return;
+  const K=_ckK||_ckVarK(g);
+  if(_ckData.live)_ckData.live=_ckKolon(g,draws,null,K,model);
+  ['t1','t2','t3'].forEach(k=>{
+    const D=_ckData[k];if(!D||!D.actual)return;
+    const idx=draws.findIndex(x=>x.date===D.actual.date);
+    _ckData[k]=idx<0?null:_ckKolon(g,draws.slice(idx+1),draws[idx],K,model);
+  });
+  _ckRender();
+}
+function _ckRun(){
+  const gid=_ckOyun(),g=getGame(gid),draws=_kbGetDraws(gid)||[];
+  if(!g||draws.length<120){showToast('⚠️ Yeterli veri yok (≥120 çekiliş)');return;}
+  const d=document.getElementById('ckDurum');if(d)d.textContent='⏳ öğreniyor…';
+  _ckOgren(gid,model=>{
+    if(!model){if(d)d.textContent='';return;}
+    if(d)d.textContent='';
+    _ckData.live=_ckKolon(g,draws,null,_ckK||_ckVarK(g),model);
+    _ckTarihler();_ckRender();
+  });
+}
+function _ckTarihler(){
+  const gid=_ckOyun(),model=_ckModel[gid];
+  const draws=_kbGetDraws(gid)||[];
+  let h='<option value="">— Geçmiş test (yalnız modelin görmediği tarihler) —</option>';
+  const izin=new Set(model?model.testTarihler:[]);
+  draws.forEach(d=>{if(!izin.has(d.date))return;h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('ckDate'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
+}
+function _ckDateTest(slot){
+  slot=slot||'';
+  const key=slot==='3'?'t3':slot==='2'?'t2':'t1';
+  const gid=_ckOyun(),g=getGame(gid),draws=_kbGetDraws(gid)||[],model=_ckModel[gid];
+  const date=(document.getElementById('ckDate'+slot)||{}).value||'';
+  if(!date||!model){_ckData[key]=null;_ckRender();return;}
+  const idx=draws.findIndex(d=>d.date===date);
+  if(idx<0){_ckData[key]=null;_ckRender();return;}
+  const K=_ckK||_ckVarK(g);
+  _ckData[key]=_ckKolon(g,draws.slice(idx+1),draws[idx],K,model);
+  if(!_ckData.live)_ckData.live=_ckKolon(g,draws,null,K,model);
+  _ckRender();
+}
+function _ckSon3(){
+  const gid=_ckOyun(),model=_ckModel[gid];
+  if(!model){_ckRun();setTimeout(_ckSon3,800);return;}
+  const draws=_kbGetDraws(gid)||[];
+  const izin=model.testTarihler;
+  ['','2','3'].forEach((sl,i)=>{const e=document.getElementById('ckDate'+sl);if(!e||!izin[i])return;e.value=izin[i];_ckDateTest(sl);});
+}
+// Ana sayfanın en üstüne panel — oyun değişince tazelenir
+function _ckPanelYaz(){
+  try{
+    const eski=document.getElementById('ckPanel');if(eski)eski.remove();
+    if(_curPage!=='home')return;
+    const kok=document.getElementById('homeWrap');if(!kok)return;
+    const gid=_ckOyun(),g=getGame(gid);if(!g)return;
+    const draws=_kbGetDraws(gid)||[];if(draws.length<120)return;
+    const canli=_ckData.live&&_ckData.live.game&&_ckData.live.game.id;
+    if(canli&&canli!==gid){_ckData={live:null,t1:null,t2:null,t3:null};_ckK=0;}
+    const K=_ckK||_ckVarK(g);
+    let kSec='';for(let k=g.count;k<=Math.min(g.max,g.count+10);k++)kSec+=`<option value="${k}"${k===K?' selected':''}>${k} sayı</option>`;
+    // #homeWrap içindeki üretici/geçmiş test sütunları 1. satıra sabitli; panel en üstte
+    // dursun diye #homeWrap'ın hemen ÖNÜNE (aynı .app ızgarasına, tam genişlik) konur.
+    kok.insertAdjacentHTML('beforebegin',
+      `<div id="ckPanel" class="card" style="grid-column:1/-1;margin-bottom:10px;border:2px solid rgba(124,58,237,.5);background:linear-gradient(135deg,rgba(124,58,237,.07),transparent)">`
+      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">`
+      +`<div class="card-title" style="margin:0">🧠 Çekirdek Motor — ${g.emoji} ${g.name} <span style="font-size:.56rem;color:var(--muted);font-weight:600">kendi kendini ölçen tek motor</span></div>`
+      +`<span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">`
+      +`<span id="ckDurum" style="font-size:.6rem;color:var(--muted)"></span>`
+      +`<select onchange="_ckSetK(this.value)" style="font-size:.64rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 7px">${kSec}</select>`
+      +`<button onclick="_ckRun()" style="font-size:.68rem;padding:5px 12px;border-radius:8px;border:1px solid rgba(124,58,237,.5);background:rgba(124,58,237,.12);color:#7c3aed;cursor:pointer;font-weight:800">🧠 Üret</button>`
+      +`<button onclick="_ckSon3()" style="font-size:.64rem;padding:5px 10px;border-radius:8px;border:1px solid rgba(244,114,63,.5);background:rgba(244,114,63,.1);color:#f97316;cursor:pointer;font-weight:800">📅 Son 3 çekiliş</button>`
+      +`</span></div>`
+      +`<div class="aday-row" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px">`
+      +['','2','3'].map(sl=>`<select id="ckDate${sl}" onchange="_ckDateTest('${sl}')" style="min-width:0;font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"><option value="">— Geçmiş test —</option></select>`).join('')
+      +`</div>`
+      +`<div id="ckOut"><div style="font-size:.7rem;color:var(--muted)">🧠 Üret: motor bu oyun için ağırlıklarını eski çekilişlerden öğrenir, görmediği son çekilişlerde ölçer ve yeni tahmini üretir.</div></div>`
+      +`</div>`);
+    if(_ckModel[gid]){_ckTarihler();_ckRender();}
   }catch(e){}
 }
 
@@ -7608,6 +7903,8 @@ function _renderBtHistoryFromLocalData(id,stale){
     if(ps&&state.pastDraws.length){ps.className='parse-status success';ps.textContent=`✅ ${state.pastDraws.length} çekiliş yüklendi. ${Object.keys(state.frequency).length} tekil sayı bulundu.`;}
     const run=(fn)=>{try{fn();}catch(e){console.warn(fn.name,e);}};
     run(updateBtDateOptions);
+    // Açılışta ana sayfa panelleri (🧠 Çekirdek + 🎯 Aday) de kurulsun — daha önce yalnız sayfa/oyun değişince geliyordu
+    run(()=>setTimeout(_jokerPanelYaz,0));
     run(updateBtDateOptions2);
     _homeLazy('algoScores',()=>run(updateAlgoScores));
     _homeLazy('algoScores2',()=>run(updateAlgoScores2));
