@@ -19164,11 +19164,15 @@ function _soTemizle(){_soDate=_soDate2=_soDate3='';_soRenderFull();}
 // Bir sütun = o hedef için tüm Gülay çıktısı (analiz + Nihai bloğu + İlk Hane + AI bölümü).
 // Geçmiş sütunlarında kaynak, hedeften ÖNCEKİ çekiliştir ve AI bölümüne yalnızca o tarihe
 // kadarki veri verilir (lookahead yok) — tek tarihli eski sürümdeki davranışın aynısı.
-function _soKolonHtml(draws,game,dateStr){
+function _soKolonHtml(draws,game,dateStr,colIdx){
+  // Sabit Sayılarla Kesişim + Nihai Sayı Tablosu + İlk Hane Tablosu ORTAK bir filtre
+  // alanı paylaşır (kullanıcı isteği) — hiçbiri seçili gelmez (Gülay'da varsayılan boş).
+  const scopeId='soFiltCol'+(colIdx||0);
+  const wrap=inner=>_gfBar(scopeId,false,'Sabit Kesişim / Nihai / İlk Hane')+`<div id="${scopeId}">${inner}</div>`;
   if(!dateStr){
-    return _soDoAnalysis(draws[0],game,null,true)
+    return wrap(_soDoAnalysis(draws[0],game,null,true)
       +_soRenderNihaiBlock(draws[0],game,null)
-      +_soRenderIlkHaneBlock(draws[0],game,null)
+      +_soRenderIlkHaneBlock(draws[0],game,null))
       +_soAiSection(draws,game,draws[0],null);
   }
   const targetDraw=draws.find(d=>d.date===dateStr);
@@ -19176,9 +19180,9 @@ function _soKolonHtml(draws,game,dateStr){
   const tIdx=draws.indexOf(targetDraw);
   const srcDraw=tIdx<draws.length-1?draws[tIdx+1]:null;
   if(!srcDraw)return '<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için kaynak (önceki) çekiliş bulunamadı.</div>';
-  return _soDoAnalysis(srcDraw,game,targetDraw,false)
+  return wrap(_soDoAnalysis(srcDraw,game,targetDraw,false)
     +_soRenderNihaiBlock(srcDraw,game,targetDraw)
-    +_soRenderIlkHaneBlock(srcDraw,game,targetDraw)
+    +_soRenderIlkHaneBlock(srcDraw,game,targetDraw))
     +_soAiSection(draws.slice(tIdx+1),game,srcDraw,targetDraw);
 }
 function _soRenderFull(){
@@ -19216,9 +19220,9 @@ function _soRenderFull(){
   const hedefler=[{d:'',bas:'🔮 Yeni Tahmin — '+draws[0].date+' sonuçlarından'}];
   [_soDate,_soDate2,_soDate3].forEach(dt=>{if(dt)hedefler.push({d:dt,bas:'🎯 Geçmiş Test — '+dt});});
   const kopya=[];
-  const sut=hedefler.map(t=>{
+  const sut=hedefler.map((t,i)=>{
     window._soCopy='';
-    const inner=_soKolonHtml(draws,game,t.d);
+    const inner=_soKolonHtml(draws,game,t.d,i);
     if(window._soCopy)kopya.push(t.bas+'\n'+window._soCopy);
     return `<div><div style="font-size:.66rem;font-weight:800;color:var(--accent);margin-bottom:5px">${t.bas}</div>${inner}</div>`;
   }).join('');
@@ -21065,6 +21069,7 @@ function _qtRenderAll(mode,game,prior,actual){
   blk('niYakInter',_qtNihaiYakInter(src,game,aSet));
   blk('niYakGulayInter',_qtNihaiYakGulayInter(src,game,aSet));
   if(src.ga)blk('gulay',_qtGulayBlock(src.ga,game,aSet));
+  if(src.ga&&prior&&prior[0])blk('kesisim',_qtKesisimBlock(src.ga,game,prior[0],aSet,mode));
   blk('aiCombined',_qtAiBlock(game,prior,src,aSet));
   blk('best3',_qtBest3Block(game,prior,src,aSet));
   blk('transform',_qtTransformBlock(game,prior,aSet));
@@ -23127,20 +23132,20 @@ function _btsCopyAll(){
   const tk=t=>window['_qtCopy_qtc'+Math.abs(_qtHash(t))];
   const parts=[];
   [window._qtAiTk,tk('AI Bilet Üretici'),tk('Gülsis Sıfır'),tk('Nihai'),
-   window._qtInter,window._qtGulayTxt,window._qtAdayTxt,
+   window._qtInter,window._qtGulayTxt,window._qtKesisimTxt,window._qtAdayTxt,
    window._qtNihaiCopy,window._qtIlkHaneCopy].forEach(x=>{if(x)parts.push(x);});
   if(!parts.length){if(typeof showToast==='function')showToast('Önce Üret\'e basın');return;}
   _caCopy(parts.join('\n\n'));
   if(typeof showToast==='function')showToast('📋 Basit Tahmin kopyalandı');
 }
 const _BASIT_GROUPS=new Set(['🧠 Birleşik AI','🤖 AI Bilet Üretici','🎯⁰ Gülsis Sıfır','🏁 Nihai',
-  '🔗 Nihai × 3+ Kapsamlı Kesişim','🔮 Gülay Fark-Analizi','🎰 Aday Sayılar (Uzlaşı)','nihaiTablo','ilkHane']);
+  '🔗 Nihai × 3+ Kapsamlı Kesişim','🔮 Gülay Fark-Analizi','🧩 Sabit Sayılarla Kesişim','🎰 Aday Sayılar (Uzlaşı)','nihaiTablo','ilkHane']);
 function _btsCopyGrouped(){_qtCopyAllGrouped(_BASIT_GROUPS);}
 // Sol (Yeni Tahmin) ve sağ (Geçmiş Test) taraflardaki bloklar bağımsız üretilir ama aynı data-k
 // anahtarıyla etiketlenir; burada anahtar bazında eşleştirilip TEK bir grid satırına yerleştirilir —
 // böylece biletlerin/analizlerin yüksekliği farklı olsa bile aynı bölüm her zaman tam yan yana durur.
 // Basit Tahmin sayfasında gösterilecek 9 analiz ve sırası (kullanıcının belirlediği liste).
-const _BASIT_KEYS=['actual','aiCombined','aiBlk','g0','ni','niYakInter','gulay','aday','nihaiSection','ilkHaneSection'];
+const _BASIT_KEYS=['actual','aiCombined','aiBlk','g0','ni','niYakInter','gulay','kesisim','aday','nihaiSection','ilkHaneSection'];
 function _qtSyncPairs(){
   // Hızlı Tahmin ve Basit Tahmin AYNI üretimi paylaşır. Aynı anda yalnızca aktif sayfanın
   // grid'i doldurulur → aynı id'ler (nihai/ilk hane bölümleri) hiç çiftlenmez, kopyalama
@@ -23803,6 +23808,25 @@ function _qtGulayBlock(ga,game,aSet){
   window._qtGulayTxt=txt;
   h+=`</div>`;
   return h;
+}
+// 🧩 Sabit Sayılarla Kesişim — Basit/Hızlı Tahmin sürümü, Gülay'daki AYNI hesap
+// (_soKesisimHesapla). Kullanıcı isteği: burada 🔎 filtre öntanımlı YAKIN AÇIK gelsin
+// (Gülay'da tam tersine hiçbir öntanım yok) — scope, mode'a göre bağımsız (live/test/…).
+function _qtKesisimBlock(ga,game,draw,aSet,mode){
+  const {topRows,cikRows,chainRows}=ga;
+  const badge=n=>{
+    const hit=aSet&&aSet.has(n),near=!hit&&aSet&&(aSet.has(n-1)||aSet.has(n+1));
+    const col=hit?'var(--green)':near?'#c2410c':'#6c5ce7';
+    const mk=hit?'✓':near?'~':'';
+    return `<span style="font-family:monospace;font-size:.62rem;background:rgba(108,92,231,.08);border:1px solid rgba(108,92,231,.25);color:${col};font-weight:${mk?800:400};border-radius:5px;padding:1px 5px">${n}${mk}</span>`;
+  };
+  const copyKey='_qtKesisimTxt'+(mode==='live'?'':'T');
+  const kart=_soKesisimCard(topRows,cikRows,chainRows,aSet,badge,game,draw,copyKey);
+  // Basit Tahmin'de "yakınları da" öntanımlı AÇIK gelsin (kullanıcı isteği) — Hızlı Tahmin'de
+  // (paylaşılan aynı fonksiyon) öntanım kapalı kalır.
+  const defaultYakin=_curPage==='basit';
+  const scopeId='qtKesFilt_'+_curPage+'_'+mode;
+  return `<div>${_gfBar(scopeId,defaultYakin,null)}<div id="${scopeId}">${kart}</div></div>`;
 }
 function _qtAiBlock(game,prior,src,aSet){
   const max=game.max,cnt=game.count;
@@ -25131,6 +25155,73 @@ function _htAiRunBacktest(){
 }
 
 const _soGapCache=new WeakMap();
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔎 Sabit sayı filtresi — Sabit Sayılarla Kesişim / Nihai Sayı Tablosu / İlk Hane
+// Tablosu panellerinde ORTAK. data-num="N" taşıyan chip'leri kullanıcının yazdığı
+// sayılara göre (istenirse ±1 yakınları da dahil ederek) gösterir/gizler.
+// Her sütun/sayfa kendi scope id'siyle bağımsız çalışır — global state yok.
+// ═══════════════════════════════════════════════════════════════════════════
+function _gfBar(scopeId,defaultYakin,baslik){
+  return `<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:8px;padding:6px 8px;background:rgba(0,0,0,.025);border:1px dashed var(--border);border-radius:7px">`
+    +`<span style="font-size:.56rem;color:var(--muted);font-weight:700;white-space:nowrap">🔎 Filtre${baslik?' — '+baslik:''}:</span>`
+    +`<input type="text" id="${scopeId}_in" oninput="_gfUygula('${scopeId}')" placeholder="Sayı(lar) — örn: 14 30" style="flex:1;min-width:110px;font-size:.62rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:5px;padding:3px 7px">`
+    +`<label style="display:flex;align-items:center;gap:3px;font-size:.56rem;color:var(--muted);cursor:pointer;white-space:nowrap"><input type="checkbox" id="${scopeId}_yk" onchange="_gfUygula('${scopeId}')"${defaultYakin?' checked':''} style="width:12px;height:12px;cursor:pointer">yakınları da (±1)</label>`
+    +`<span id="${scopeId}_ct" style="font-size:.54rem;color:var(--muted)"></span>`
+    +`<button onclick="document.getElementById('${scopeId}_in').value='';_gfUygula('${scopeId}')" style="font-size:.54rem;padding:2px 7px;border-radius:5px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">✕ Temizle</button>`
+    +`</div>`;
+}
+function _gfUygula(scopeId){
+  const kok=document.getElementById(scopeId);if(!kok)return;
+  const raw=(document.getElementById(scopeId+'_in')||{}).value||'';
+  const nums=[...new Set((raw.match(/\d{1,3}/g)||[]).map(Number))];
+  const yakin=!!(document.getElementById(scopeId+'_yk')||{}).checked;
+  const chips=[...kok.querySelectorAll('[data-num]')];
+  let gosterilen=0;
+  if(!nums.length){
+    chips.forEach(c=>{c.hidden=false;});
+  }else{
+    const allowed=new Set(nums);
+    if(yakin)nums.forEach(n=>{allowed.add(n-1);allowed.add(n+1);});
+    chips.forEach(c=>{
+      const n=+c.dataset.num;
+      const on=allowed.has(n);
+      c.hidden=!on;
+      if(on)gosterilen++;
+    });
+  }
+  const ct=document.getElementById(scopeId+'_ct');
+  if(ct)ct.textContent=nums.length?`${gosterilen}/${chips.length} sayı gösteriliyor`:'';
+}
+// 🧩 Sabit Sayılarla Kesişim — Toplama/Çıkarma tablolarındaki tüm sayılar "sabit" kabul
+// edilir; Fark Zinciri'ndeki bir sayı bu sabit sayılardan birine doğrudan eşitse veya
+// ±1 farkla yakınsa (ya da hedef çekilişte doğrudan çıkmışsa) kesişim listesine girer.
+// Gülay sayfası, Basit Tahmin ve Hızlı Tahmin AYNI bu fonksiyonu paylaşır.
+function _soKesisimHesapla(topRows,cikRows,chainRows,nextSet){
+  const sabitSet=new Set([...topRows.flat(),...cikRows.flat()]);
+  const chainNumSet=new Set();
+  chainRows.forEach(({chain})=>chain.forEach(n=>chainNumSet.add(n)));
+  const kesisimler=[];
+  chainNumSet.forEach(n=>{
+    if(sabitSet.has(n)){kesisimler.push(n);return;}
+    if([...sabitSet].some(s=>Math.abs(s-n)===1)){kesisimler.push(n);return;}
+    if(nextSet&&nextSet.has(n))kesisimler.push(n);
+  });
+  return kesisimler.sort((a,b)=>a-b);
+}
+function _soKesisimCard(topRows,cikRows,chainRows,nextSet,badge,game,draw,copyKey){
+  const kesisimler=_soKesisimHesapla(topRows,cikRows,chainRows,nextSet);
+  window[copyKey]=`🧩 Sabit Sayılarla Kesişim — ${game.name} (${draw.date})\n`+(kesisimler.length?kesisimler.join(' '):'(kesişim yok)');
+  let h=`<div style="background:rgba(82,72,212,.05);border:1px solid rgba(82,72,212,.25);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-size:.72rem;font-weight:800;color:var(--accent)">🧩 Sabit Sayılarla Kesişim</div><button onclick="_kbCopy(window.${copyKey})" style="font-size:.56rem;padding:2px 7px;border-radius:5px;border:1px solid rgba(82,72,212,.3);background:rgba(82,72,212,.06);color:var(--accent);cursor:pointer">📋</button></div>`;
+  if(!kesisimler.length){
+    h+=`<div style="font-size:.6rem;color:var(--muted);text-align:center;padding:6px">Bu turda kesişim bulunamadı.</div>`;
+  }else{
+    // data-num: 🔎 Filtre (_gfUygula) bu chip'leri sayıya göre gösterip gizleyebilsin diye
+    h+=`<div style="display:flex;flex-wrap:wrap;gap:2px">${kesisimler.map(n=>badge(n).replace('<span ','<span data-num="'+n+'" ')).join('')}</div>`;
+  }
+  h+=`</div>`;
+  return h;
+}
 function _soGapAnalysisCompute(draw,game){
   if(!draw||!draw.nums)return _soGapAnalysisComputeRaw(draw,game);
   const key=game.id+'|'+draw.nums.join(',')+'|'+((draw.bonus||[]).join(','));
@@ -25293,7 +25384,7 @@ function _soNihaiTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,noteHt
         const style=hit
           ?'background:rgba(0,230,118,.28);border:2px solid rgba(0,230,118,.85);color:var(--green);font-weight:800'
           :'background:rgba(37,99,235,.1);border:2px solid #2563eb;color:#2563eb;font-weight:800';
-        h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:7px;font-size:.64rem;font-family:monospace;${style}">${target}${hit?'✓':''}</span>`;
+        h+=`<span data-num="${target}" style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:7px;font-size:.64rem;font-family:monospace;${style}">${target}${hit?'✓':''}</span>`;
       });
       h+=`</div>`;
     }
@@ -25367,7 +25458,7 @@ function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,note
         const style=hit
           ?'background:rgba(0,230,118,.28);border:2px solid rgba(0,230,118,.85);color:var(--green);font-weight:800'
           :'background:rgba(124,58,237,.1);border:2px solid #7c3aed;color:#7c3aed;font-weight:800';
-        h+=`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:7px;font-size:.64rem;font-family:monospace;${style}">${target}${hit?'✓':''}</span>`;
+        h+=`<span data-num="${target}" style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;border-radius:7px;font-size:.64rem;font-family:monospace;${style}">${target}${hit?'✓':''}</span>`;
       });
       h+=`</div>`;
     }
@@ -25464,28 +25555,7 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture){
   });
   h+=`</div>`;
   // ── Sabit (Toplama+Çıkarma) sayılarla Fark Zinciri kesişimi
-  // Toplama/Çıkarma tablolarındaki tüm sayılar "sabit" kabul edilir; Fark Zinciri'ndeki
-  // bir sayı bu sabit sayılardan birine doğrudan eşitse veya ±1 farkla yakınsa burada listelenir.
-  h+=`<div style="background:rgba(82,72,212,.05);border:1px solid rgba(82,72,212,.25);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-size:.72rem;font-weight:800;color:var(--accent)">🧩 Sabit Sayılarla Kesişim</div><button onclick="_kbCopy(window._soKesisimCopy)" style="font-size:.56rem;padding:2px 7px;border-radius:5px;border:1px solid rgba(82,72,212,.3);background:rgba(82,72,212,.06);color:var(--accent);cursor:pointer">📋</button></div>`;
-  h+=``;
-  const sabitSet=new Set([...topRows.flat(),...cikRows.flat()]);
-  const chainNumSet=new Set();
-  chainRows.forEach(({chain})=>chain.forEach(n=>chainNumSet.add(n)));
-  const kesisimler=[];
-  chainNumSet.forEach(n=>{
-    if(sabitSet.has(n)){kesisimler.push(n);return;}
-    if([...sabitSet].some(s=>Math.abs(s-n)===1)){kesisimler.push(n);return;}
-    if(nextSet&&nextSet.has(n))kesisimler.push(n);
-  });
-  kesisimler.sort((a,b)=>a-b);
-  window._soKesisimCopy=kesisimler.join(' ');
-  if(!kesisimler.length){
-    h+=`<div style="font-size:.6rem;color:var(--muted);text-align:center;padding:6px">Bu turda kesişim bulunamadı.</div>`;
-  }else{
-    h+=`<div style="display:flex;flex-wrap:wrap;gap:2px">${kesisimler.map(badge).join('')}</div>`;
-  }
-  h+=`</div>`;
+  h+=_soKesisimCard(topRows,cikRows,chainRows,nextSet,badge,game,draw,'_soKesisimCopy');
   // ── Kopyala (tam analiz)
   const allCik=cikRows.map((r,i)=>`-f${i+1}(${gaps[i]}): ${r.join(' ')}`).join('\n');
   const allTop=topRows.map((r,i)=>`+f${i+1}(${gaps[i]}): ${r.join(' ')}`).join('\n');
