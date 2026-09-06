@@ -19193,12 +19193,13 @@ function _soKolonHtml(draws,game,dateStr,colIdx){
   // alanı paylaşır (kullanıcı isteği) — kutu görsel olarak 🧩 Sabit Sayılarla Kesişim
   // panelinin içinde durur ama aynı scope (soFiltCol${colIdx}) sayesinde Nihai ve
   // İlk Hane tablolarını da birlikte filtreler. Gülay'da varsayılan boş/işaretsiz.
-  const scopeId='soFiltCol'+(colIdx||0);
+  const ci=colIdx||0;
+  const scopeId='soFiltCol'+ci;
   const wrap=inner=>`<div id="${scopeId}">${inner}</div>`;
   if(!dateStr){
-    return wrap(_soDoAnalysis(draws[0],game,null,true,scopeId)
-      +_soRenderNihaiBlock(draws[0],game,null)
-      +_soRenderIlkHaneBlock(draws[0],game,null))
+    return wrap(_soDoAnalysis(draws[0],game,null,true,scopeId,ci)
+      +_soRenderNihaiBlock(draws[0],game,null,ci)
+      +_soRenderIlkHaneBlock(draws[0],game,null,ci))
       +_soAiSection(draws,game,draws[0],null);
   }
   const targetDraw=draws.find(d=>d.date===dateStr);
@@ -19206,9 +19207,9 @@ function _soKolonHtml(draws,game,dateStr,colIdx){
   const tIdx=draws.indexOf(targetDraw);
   const srcDraw=tIdx<draws.length-1?draws[tIdx+1]:null;
   if(!srcDraw)return '<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için kaynak (önceki) çekiliş bulunamadı.</div>';
-  return wrap(_soDoAnalysis(srcDraw,game,targetDraw,false,scopeId)
-    +_soRenderNihaiBlock(srcDraw,game,targetDraw)
-    +_soRenderIlkHaneBlock(srcDraw,game,targetDraw))
+  return wrap(_soDoAnalysis(srcDraw,game,targetDraw,false,scopeId,ci)
+    +_soRenderNihaiBlock(srcDraw,game,targetDraw,ci)
+    +_soRenderIlkHaneBlock(srcDraw,game,targetDraw,ci))
     +_soAiSection(draws.slice(tIdx+1),game,srcDraw,targetDraw);
 }
 function _soRenderFull(){
@@ -23396,6 +23397,18 @@ function _qtNihaiToggleFilter(mode,name){
   _qtIlkHaneRerender(mode); // İlk Hane, Nihai'nin seçimini paylaşıyor — o da güncellensin
 }
 function _qtNihaiClearFilter(mode){_qtNihaiFilter[mode]=new Set();_qtNihaiRerender(mode);_qtIlkHaneRerender(mode);}
+// 🧩 Sabit Sayılarla Kesişim checkbox'ı işaretlendiğinde Nihai/İlk Hane'nin candSet'ini
+// GERÇEKTEN daraltır (sadece görsel gizleme değil) — böylece hem ekrandaki sayılar hem de
+// 🎯 Sonuç bölümü hem de 📋 kopyalama metni (window[copyVar], bu fonksiyonlardan üretilir)
+// filtreyle TUTARLI kalır. mode → {on,nums,yakin}.
+let _skFilterState={};
+function _skDaralt(candSet,mode){
+  const sk=_skFilterState[mode];
+  if(!sk||!sk.on)return candSet;
+  const allowed=new Set(sk.nums);
+  if(sk.yakin)sk.nums.forEach(n=>{allowed.add(n-1);allowed.add(n+1);});
+  return new Set([...candSet].filter(n=>allowed.has(n)));
+}
 function _qtNihaiRerender(mode){
   const st=_qtNihaiState[mode];if(!st)return;
   const chipsEl=document.getElementById('qtNihaiChips_'+mode);
@@ -23411,11 +23424,13 @@ function _qtNihaiRerender(mode){
   }else{
     candSet=new Set([...st.groups[names[0]]].filter(n=>names.every(nm=>st.groups[nm].has(n))));
   }
+  candSet=_skDaralt(candSet,mode);
   const copyVar=mode==='test'?'_qtNihaiCopyT':mode==='live'?'_qtNihaiCopy':'_qtNihaiCopy_'+mode;
   let note;
   if(!names.length)note=`sayfadaki analizlerden <strong>herhangi birinde</strong> de var (daraltmak için yukarıdan bir veya daha fazla analiz seç)`;
   else if(names.length===1)note=`<strong>${names[0]}</strong> analizinin ŞU ANKİ sayılarında da var`;
   else note=`seçtiğin <strong>${names.length} analizin TÜMÜNDE ORTAK</strong> (kesişim) var: ${names.join(' × ')}`;
+  if(_skFilterState[mode]&&_skFilterState[mode].on)note+=' <strong>· 🧩 Sabit Sayılarla Kesişim filtresi aktif</strong>';
   const sourceLabel=!names.length?'Tümü (birleşim)':names.join(' × ');
   wrap.innerHTML=_soNihaiTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note,sourceLabel,st.actualDraw);
 }
@@ -23450,11 +23465,13 @@ function _qtIlkHaneRerender(mode){
   }else{
     candSet=new Set([...st.groups[names[0]]].filter(n=>names.every(nm=>st.groups[nm].has(n))));
   }
+  candSet=_skDaralt(candSet,mode);
   const copyVar=mode==='test'?'_qtIlkHaneCopyT':mode==='live'?'_qtIlkHaneCopy':'_qtIlkHaneCopy_'+mode;
   let note;
   if(!names.length)note=`sayfadaki analizlerden <strong>herhangi birinde</strong> de var (kaynak, Nihai Sayı Tablosu'ndaki seçime göre belirlenir)`;
   else if(names.length===1)note=`<strong>${names[0]}</strong> analizinin ŞU ANKİ sayılarında da var (Nihai Sayı Tablosu'ndaki seçimle aynı)`;
   else note=`seçtiğin <strong>${names.length} analizin TÜMÜNDE ORTAK</strong> (kesişim) var: ${names.join(' × ')} (Nihai Sayı Tablosu'ndaki seçimle aynı)`;
+  if(_skFilterState[mode]&&_skFilterState[mode].on)note+=' <strong>· 🧩 Sabit Sayılarla Kesişim filtresi aktif</strong>';
   const sourceLabel=!names.length?'Tümü (birleşim)':names.join(' × ');
   wrap.innerHTML=_soIlkHaneTableRender(st.rowsInfo,st.game,candSet,st.nextSet,copyVar,"_caCopy(window."+copyVar+")",note,sourceLabel,st.actualDraw);
 }
@@ -23849,13 +23866,12 @@ function _qtKesisimBlock(ga,game,draw,aSet,mode){
   const copyKey='_qtKesisimTxt'+(mode==='live'?'':'T');
   // Basit Tahmin'de "yakınları da" öntanımlı AÇIK gelsin (kullanıcı isteği) — Hızlı Tahmin'de
   // (paylaşılan aynı fonksiyon) öntanım kapalı kalır. Filtre kutusu, kullanıcı isteği üzerine
-  // görsel olarak 🧩 Sabit Sayılarla Kesişim panelinin içine yerleşir (_soKesisimCard içinde),
-  // ama Nihai Sayı Tablosu (qtNihaiWrap_mode) ve İlk Hane Tablosu (qtIlkHaneWrap_mode) ayrı
-  // bloklar olarak render edildiği için onları da extraScopeIds ile AYNI kutudan filtreler.
+  // görsel olarak 🧩 Sabit Sayılarla Kesişim panelinin içine yerleşir (_soKesisimCard içinde);
+  // kind='qt',key=mode → _qtNihaiRerender/_qtIlkHaneRerender'ı GERÇEK candSet daraltmasıyla
+  // tetikler (ayrı bloklar olan Nihai/İlk Hane böylece aynı kutudan tutarlı biçimde filtrelenir).
   const defaultYakin=_curPage==='basit';
   const scopeId='qtKesFilt_'+_curPage+'_'+mode;
-  const extraScopeIds=['qtNihaiWrap_'+mode,'qtIlkHaneWrap_'+mode];
-  const kart=_soKesisimCard(topRows,cikRows,chainRows,aSet,badge,game,draw,copyKey,scopeId,defaultYakin,extraScopeIds);
+  const kart=_soKesisimCard(topRows,cikRows,chainRows,aSet,badge,game,draw,copyKey,scopeId,defaultYakin,'qt',mode);
   return `<div id="${scopeId}">${kart}</div>`;
 }
 function _qtAiBlock(game,prior,src,aSet){
@@ -25192,44 +25208,44 @@ const _soGapCache=new WeakMap();
 // filtresiyle AYNI mantık: bir kaynağı seç, tablolar o kaynağa göre daralsın).
 // data-num="N" taşıyan chip'ler gösterilip gizlenir. Her scope kendi id'siyle bağımsız çalışır.
 // ═══════════════════════════════════════════════════════════════════════════
-function _skFiltreBar(scopeId,nums,defaultYakin,extraScopeIds){
-  // extraScopeIds: Kesişim'in kendi scope'u dışında AYNI anda filtrelenmesi gereken başka
-  // scope id'leri (Basit/Hızlı Tahmin'de Nihai/İlk Hane ayrı bloklar olarak render edilir).
-  const extraAttr=(extraScopeIds&&extraScopeIds.length)?` data-sk-extra="${extraScopeIds.join(',')}"`:'';
+function _skFiltreBar(scopeId,nums,defaultYakin,kind,key){
+  // kind/key: hangi Nihai/İlk Hane re-render fonksiyonunun çağrılacağını belirler —
+  // 'qt' → _qtNihaiRerender/_qtIlkHaneRerender(key=mode), 'gulay' → _soNihaiApplyFilter/
+  // _soIlkHaneApplyFilter(key=colIdx). GERÇEK candSet daraltılıp tablo YENİDEN render
+  // edilir — sadece görsel gizleme değil; böylece 🎯 Sonuç ve 📋 kopyalama metni de
+  // (window[copyVar], render fonksiyonları içinde üretilir) filtreyle TUTARLI kalır.
   const numsAttr=(nums||[]).join(',');
   return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px;padding:5px 8px;background:rgba(0,0,0,.025);border:1px dashed var(--border);border-radius:7px">`
-    +`<label style="display:flex;align-items:center;gap:5px;font-size:.6rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="${scopeId}_sk" data-sk-nums="${numsAttr}"${extraAttr} onchange="_skUygula('${scopeId}')" style="width:12px;height:12px;cursor:pointer"><span>🧩 Bu sayılara göre <strong>Nihai</strong> ve <strong>İlk Hane</strong> tablolarını filtrele</span></label>`
+    +`<label style="display:flex;align-items:center;gap:5px;font-size:.6rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="${scopeId}_sk" data-sk-nums="${numsAttr}" data-sk-kind="${kind}" data-sk-key="${key}" onchange="_skUygula('${scopeId}')" style="width:12px;height:12px;cursor:pointer"><span>🧩 Bu sayılara göre <strong>Nihai</strong> ve <strong>İlk Hane</strong> tablolarını filtrele</span></label>`
     +`<label style="display:flex;align-items:center;gap:3px;font-size:.56rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="${scopeId}_skYk" onchange="_skUygula('${scopeId}')"${defaultYakin?' checked':''} style="width:11px;height:11px;cursor:pointer">yakınları da (±1)</label>`
     +`<span id="${scopeId}_skCt" style="font-size:.54rem;color:var(--muted)"></span>`
     +`</div>`;
 }
 function _skUygula(scopeId){
   const chk=document.getElementById(scopeId+'_sk');if(!chk)return;
-  const extra=(chk.dataset.skExtra)?chk.dataset.skExtra.split(',').filter(Boolean):[];
-  const roots=[scopeId,...extra].map(id=>document.getElementById(id)).filter(Boolean);
-  const ct=document.getElementById(scopeId+'_skCt');
-  const chips=roots.flatMap(kok=>[...kok.querySelectorAll('[data-num]')]);
-  // NOT: bu chip'lerin çoğu "style=\"display:inline-flex;...\"" gibi satır-içi bir display
-  // değeri taşıyor — satır-içi style her zaman [hidden] için tarayıcının varsayılan
-  // stylesheet kuralından önceliklidir, o yüzden `el.hidden` burada GÖRSEL olarak hiçbir
-  // şey gizlemez. Bunun yerine doğrudan style.display'i none/'' yaparak gizliyoruz.
-  if(!chk.checked){
-    chips.forEach(c=>{c.style.display='';});
-    if(ct)ct.textContent='';
-    return;
-  }
+  const on=chk.checked;
   const nums=(chk.dataset.skNums||'').split(',').filter(Boolean).map(Number);
   const yakin=!!(document.getElementById(scopeId+'_skYk')||{}).checked;
-  const allowed=new Set(nums);
-  if(yakin)nums.forEach(n=>{allowed.add(n-1);allowed.add(n+1);});
-  let gosterilen=0;
-  chips.forEach(c=>{
-    const n=+c.dataset.num;
-    const on=allowed.has(n);
-    c.style.display=on?'':'none';
-    if(on)gosterilen++;
-  });
-  if(ct)ct.textContent=`${gosterilen}/${chips.length} sayı gösteriliyor`;
+  const kind=chk.dataset.skKind,key=chk.dataset.skKey;
+  let nihaiWrapId=null,ilkWrapId=null;
+  if(kind==='qt'){
+    _skFilterState[key]={on,nums,yakin};
+    _qtNihaiRerender(key);
+    _qtIlkHaneRerender(key);
+    nihaiWrapId='qtNihaiWrap_'+key;ilkWrapId='qtIlkHaneWrap_'+key;
+  }else if(kind==='gulay'){
+    _soNihaiApplyFilter(key,on,nums,yakin);
+    _soIlkHaneApplyFilter(key,on,nums,yakin);
+    nihaiWrapId='soNihaiWrap'+key;ilkWrapId='soIlkHaneWrap'+key;
+  }
+  const ct=document.getElementById(scopeId+'_skCt');
+  if(!ct)return;
+  if(!on){ct.textContent='';return;}
+  const nihaiWrap=nihaiWrapId&&document.getElementById(nihaiWrapId);
+  const ilkWrap=ilkWrapId&&document.getElementById(ilkWrapId);
+  const n=nihaiWrap?nihaiWrap.querySelectorAll('[data-num]').length:0;
+  const i=ilkWrap?ilkWrap.querySelectorAll('[data-num]').length:0;
+  ct.textContent=`Nihai: ${n} · İlk Hane: ${i} sayı gösteriliyor`;
 }
 // 🧩 Sabit Sayılarla Kesişim — Toplama/Çıkarma tablolarındaki tüm sayılar "sabit" kabul
 // edilir; Fark Zinciri'ndeki bir sayı bu sabit sayılardan birine doğrudan eşitse veya
@@ -25247,15 +25263,16 @@ function _soKesisimHesapla(topRows,cikRows,chainRows,nextSet){
   });
   return kesisimler.sort((a,b)=>a-b);
 }
-function _soKesisimCard(topRows,cikRows,chainRows,nextSet,badge,game,draw,copyKey,filtreScopeId,filtreYakinDefault,filtreExtraScopeIds){
+function _soKesisimCard(topRows,cikRows,chainRows,nextSet,badge,game,draw,copyKey,filtreScopeId,filtreYakinDefault,filtreKind,filtreKey){
   const kesisimler=_soKesisimHesapla(topRows,cikRows,chainRows,nextSet);
   window[copyKey]=`🧩 Sabit Sayılarla Kesişim — ${game.name} (${draw.date})\n`+(kesisimler.length?kesisimler.join(' '):'(kesişim yok)');
   let h=`<div style="background:rgba(82,72,212,.05);border:1px solid rgba(82,72,212,.25);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-size:.72rem;font-weight:800;color:var(--accent)">🧩 Sabit Sayılarla Kesişim</div><button onclick="_kbCopy(window.${copyKey})" style="font-size:.56rem;padding:2px 7px;border-radius:5px;border:1px solid rgba(82,72,212,.3);background:rgba(82,72,212,.06);color:var(--accent);cursor:pointer">📋</button></div>`;
   // Filtre kutusu — kullanıcı isteği: elle sayı yazmak yerine TEK bir checkbox; işaretlenince
-  // Kesişim'de o an görünen sayılar otomatik olarak Nihai/İlk Hane tablolarını filtreler
-  // (Basit Tahmin'deki "Kaynak analiz(ler)" seç-filtrele mantığıyla aynı).
-  if(filtreScopeId)h+=_skFiltreBar(filtreScopeId,kesisimler,!!filtreYakinDefault,filtreExtraScopeIds);
+  // Kesişim'de o an görünen sayılar Nihai/İlk Hane tablolarının candSet'ini GERÇEKTEN daraltıp
+  // yeniden render eder (Basit Tahmin'deki "Kaynak analiz(ler)" seç-filtrele mantığıyla aynı) —
+  // böylece 📋 kopyalama metni de filtrelenmiş sonucu yansıtır.
+  if(filtreScopeId)h+=_skFiltreBar(filtreScopeId,kesisimler,!!filtreYakinDefault,filtreKind,filtreKey);
   if(!kesisimler.length){
     h+=`<div style="font-size:.6rem;color:var(--muted);text-align:center;padding:6px">Bu turda kesişim bulunamadı.</div>`;
   }else{
@@ -25512,7 +25529,7 @@ function _soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,copyVar,copyFn,note
   return h;
 }
 
-function _soDoAnalysis(draw,game,nextDraw,isFuture,scopeId){
+function _soDoAnalysis(draw,game,nextDraw,isFuture,scopeId,colIdx){
   const ga=_soGapAnalysisCompute(draw,game);
   if(!ga)return'<div style="color:var(--muted);font-size:.7rem;padding:10px">Bu çekiliş için yeterli sayı yok.</div>';
   const{max,nums,gaps,gapSum,drawSet,cikRows,topRows,chainRows:gaChainRows}=ga;
@@ -25598,7 +25615,7 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture,scopeId){
   });
   h+=`</div>`;
   // ── Sabit (Toplama+Çıkarma) sayılarla Fark Zinciri kesişimi
-  h+=_soKesisimCard(topRows,cikRows,chainRows,nextSet,badge,game,draw,'_soKesisimCopy',scopeId,false);
+  h+=_soKesisimCard(topRows,cikRows,chainRows,nextSet,badge,game,draw,'_soKesisimCopy',scopeId,false,'gulay',colIdx||0);
   // ── Kopyala (tam analiz)
   const allCik=cikRows.map((r,i)=>`-f${i+1}(${gaps[i]}): ${r.join(' ')}`).join('\n');
   const allTop=topRows.map((r,i)=>`+f${i+1}(${gaps[i]}): ${r.join(' ')}`).join('\n');
@@ -25611,25 +25628,55 @@ function _soDoAnalysis(draw,game,nextDraw,isFuture,scopeId){
 }
 // Nihai Sayı Tablosu'nu Gülay sayfası için üretir (kaynak: aynı çekilişin toplama/çıkarma/fark
 // zinciri) ve "Tüm Analizi Kopyala" metnine de ekler.
-function _soRenderNihaiBlock(draw,game,nextDraw){
+// colIdx verilirse (Gülay çok-sütunlu görünümde) çıktı, 🧩 Sabit Sayılarla Kesişim checkbox'ının
+// _soNihaiApplyFilter/_soIlkHaneApplyFilter ile yeniden render edebilmesi için sabit id'li bir
+// div'e sarılır ve gerekli state (rowsInfo/candSet/nextSet) _soNihaiColState'te saklanır.
+let _soNihaiColState={},_soIlkHaneColState={};
+function _soRenderNihaiBlock(draw,game,nextDraw,colIdx){
   const rowsInfo=_soNihaiRowsFromDraw(draw,game);
   if(!rowsInfo)return '';
   const ga=_soGapAnalysisCompute(draw,game);
   const candSet=_soGulayCandSet(ga);
   const nextSet=nextDraw?new Set([...(nextDraw.nums||[]),...(nextDraw.bonus||[])]):null;
+  if(colIdx!=null)_soNihaiColState[colIdx]={rowsInfo,game,candSet,nextSet,nextDraw};
   const h=_soNihaiTableRender(rowsInfo,game,candSet,nextSet,'_soNihaiCopy',"_kbCopy(window._soNihaiCopy)",'<strong>Gülay\'ın toplama/çıkarma/fark zincirinde</strong> de var','Gülay Fark-Analizi (toplama/çıkarma/fark zinciri)',nextDraw);
   if(window._soNihaiCopy&&window._soCopy)window._soCopy+='\n\n'+window._soNihaiCopy;
-  return h;
+  return colIdx!=null?`<div id="soNihaiWrap${colIdx}">${h}</div>`:h;
 }
-function _soRenderIlkHaneBlock(draw,game,nextDraw){
+function _soRenderIlkHaneBlock(draw,game,nextDraw,colIdx){
   const rowsInfo=_soNihaiRowsFromDraw(draw,game);
   if(!rowsInfo)return '';
   const ga=_soGapAnalysisCompute(draw,game);
   const candSet=_soGulayCandSet(ga);
   const nextSet=nextDraw?new Set([...(nextDraw.nums||[]),...(nextDraw.bonus||[])]):null;
+  if(colIdx!=null)_soIlkHaneColState[colIdx]={rowsInfo,game,candSet,nextSet,nextDraw};
   const h=_soIlkHaneTableRender(rowsInfo,game,candSet,nextSet,'_soIlkHaneCopy',"_kbCopy(window._soIlkHaneCopy)",'<strong>Gülay\'ın toplama/çıkarma/fark zincirinde</strong> de var','Gülay Fark-Analizi (toplama/çıkarma/fark zinciri)',nextDraw);
   if(window._soIlkHaneCopy&&window._soCopy)window._soCopy+='\n\n'+window._soIlkHaneCopy;
-  return h;
+  return colIdx!=null?`<div id="soIlkHaneWrap${colIdx}">${h}</div>`:h;
+}
+function _soNihaiApplyFilter(colIdx,on,nums,yakin){
+  const st=_soNihaiColState[colIdx];if(!st)return;
+  let cand=st.candSet;
+  if(on){
+    const allowed=new Set(nums);
+    if(yakin)nums.forEach(n=>{allowed.add(n-1);allowed.add(n+1);});
+    cand=new Set([...st.candSet].filter(n=>allowed.has(n)));
+  }
+  const wrap=document.getElementById('soNihaiWrap'+colIdx);if(!wrap)return;
+  const note='<strong>Gülay\'ın toplama/çıkarma/fark zincirinde</strong> de var'+(on?' <strong>· 🧩 Sabit Sayılarla Kesişim filtresi aktif</strong>':'');
+  wrap.innerHTML=_soNihaiTableRender(st.rowsInfo,st.game,cand,st.nextSet,'_soNihaiCopy',"_kbCopy(window._soNihaiCopy)",note,'Gülay Fark-Analizi (toplama/çıkarma/fark zinciri)',st.nextDraw);
+}
+function _soIlkHaneApplyFilter(colIdx,on,nums,yakin){
+  const st=_soIlkHaneColState[colIdx];if(!st)return;
+  let cand=st.candSet;
+  if(on){
+    const allowed=new Set(nums);
+    if(yakin)nums.forEach(n=>{allowed.add(n-1);allowed.add(n+1);});
+    cand=new Set([...st.candSet].filter(n=>allowed.has(n)));
+  }
+  const wrap=document.getElementById('soIlkHaneWrap'+colIdx);if(!wrap)return;
+  const note='<strong>Gülay\'ın toplama/çıkarma/fark zincirinde</strong> de var'+(on?' <strong>· 🧩 Sabit Sayılarla Kesişim filtresi aktif</strong>':'');
+  wrap.innerHTML=_soIlkHaneTableRender(st.rowsInfo,st.game,cand,st.nextSet,'_soIlkHaneCopy',"_kbCopy(window._soIlkHaneCopy)",note,'Gülay Fark-Analizi (toplama/çıkarma/fark zinciri)',st.nextDraw);
 }
 
 // ── AI Tahmin Sistemi v2 — 6 bağımsız sinyali sıra-füzyonu (RRF) ile birleştirir;
