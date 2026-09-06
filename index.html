@@ -770,6 +770,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
         style="width:64px;font-size:.8rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;text-align:center"
         oninput="this.value=Math.max(1,Math.min(10000,parseInt(this.value)||1))">
       <span style="font-size:.72rem;color:var(--muted)">bilet</span>
+      <button onclick="listelerHizliUret()" style="padding:7px 16px;background:linear-gradient(135deg,rgba(255,101,132,.22),rgba(129,140,248,.18));border:1px solid rgba(255,101,132,.5);color:#e53973;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:800" title="Son 4 çekilişi geçmiş test olarak ekler (kırmızı hücre hesabının dayanağı), yeni tahmini üretir ve Kontrol'ü otomatik çalıştırır — Bulunan Sayılar'da son 2'si gösterilir">🚀 Son 2 + Yeni Tahmin Üret</button>
       <button onclick="listelerVeriDurumu()" style="padding:7px 14px;background:rgba(0,150,58,.09);border:1px solid rgba(0,150,58,.35);color:var(--text);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">📥 Veri Durumu</button>
       <button onclick="listelerRunBacktest()" style="padding:7px 16px;background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.08));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🔬 Geçmiş Testi Çalıştır</button>
       <input type="date" id="listelerPredDate" title="Yeni tahmin hedef tarihi" style="font-size:.72rem;background:var(--surface2);border:1px solid rgba(108,99,255,.35);color:var(--text);border-radius:6px;padding:5px 8px;max-width:130px">
@@ -818,19 +819,10 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
         <div class="card-title" style="margin-bottom:0">🔎 Bulunan Sayılar</div>
         <button onclick="listelerCopyBulundu()" style="padding:5px 12px;background:rgba(120,120,120,.13);border:1px solid rgba(180,180,180,.3);color:var(--muted);border-radius:8px;cursor:pointer;font-size:.72rem;font-weight:700;flex-shrink:0">📋 Tümünü Kopyala</button>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start">
-        <div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-            <div style="font-size:.65rem;font-weight:700;color:#ef9a9a;text-transform:uppercase;letter-spacing:.8px">🔴 Kırmızı Hücrelerden Sayılar</div>
-            <button onclick="listelerCopyKirmizi()" style="padding:3px 9px;background:rgba(239,154,154,.1);border:1px solid rgba(239,154,154,.3);color:#ef9a9a;border-radius:6px;cursor:pointer;font-size:.65rem;font-weight:700;flex-shrink:0">📋 Kopyala</button>
-          </div>
-          <div id="listelerBulunduLeft"></div>
-        </div>
-        <div>
-          <div style="font-size:.65rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">🔗 Ortak Sayılar (B10 × Dönüşüm)</div>
-          <div id="listelerBulunduRight"><div style="font-size:.72rem;color:var(--muted)">Kontrol butonuna basınca hesaplanır.</div></div>
-        </div>
-      </div>
+      <div style="font-size:.65rem;font-weight:700;color:#ef9a9a;text-transform:uppercase;letter-spacing:.8px;margin:6px 0 8px">🔴 Kırmızı Hücrelerden Sayılar — Yeni Tahmin ve son 2 geçmiş test yan yana</div>
+      <div id="listelerBulunduKirmizi" class="ls-date" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start;margin-bottom:16px"></div>
+      <div style="font-size:.65rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">🔗 Ortak Sayılar (B10 × Dönüşüm) <span style="font-size:.55rem;color:var(--muted);text-transform:none;font-weight:500">— oyun geneli, geçmiş teste göre değişmez</span></div>
+      <div id="listelerBulunduRight"><div style="font-size:.72rem;color:var(--muted)">Kontrol butonuna basınca hesaplanır.</div></div>
     </div>
   </div>
 
@@ -14342,7 +14334,10 @@ function listelerVeriDurumu(){
   configCard.insertAdjacentHTML('beforeend',html);
 }
 
-function _listelerNewPredCore(gameId,algoId,win,n,bazDate){
+// Saf bilet üretici — global _listelerNewPred'i DEĞİŞTİRMEZ. Geçmiş test
+// sütunlarını "o tarihe göre" ayrı ayrı hesaplarken (bkz. _listelerBulunanRender)
+// canlı Yeni Tahmin durumunu bozmadan kullanılır.
+function _listelerTicketsAsOf(gameId,algoId,win,n,bazDate){
   const game=getGame(gameId);if(!game)return null;
   const draws=_scanGetDraws(gameId);
   if(!draws.length)return null;
@@ -14355,9 +14350,39 @@ function _listelerNewPredCore(gameId,algoId,win,n,bazDate){
   const freq=buildFreq(prior);
   const tickets=Array.from({length:n},()=>generateNumbers(game,algoId,freq,prior));
   tickets.sort((a,b)=>calcTicketScore(b,game)-calcTicketScore(a,game));
+  return tickets;
+}
+function _listelerNewPredCore(gameId,algoId,win,n,bazDate){
+  const game=getGame(gameId);if(!game)return null;
+  const tickets=_listelerTicketsAsOf(gameId,algoId,win,n,bazDate);
+  if(!tickets)return null;
   _listelerNewPred={tickets,game,algoId,bazDate:bazDate||null};
   _listelerRedKeys=new Set();
   return _listelerNewPred;
+}
+// Kullanıcı isteği: tek butonla son 2 çekilişi geçmiş test olarak ekle,
+// yeni tahmini üret ve (yeterli veri varsa) Kontrol'ü otomatik çalıştır.
+function listelerHizliUret(){
+  const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
+  const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
+  const win=document.getElementById('listelerWindow')?.value||'30';
+  const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||2000));
+  const draws=_scanGetDraws(gameId);
+  if(!draws||draws.length<10){showToast('⚠️ Yeterli veri yok');return;}
+  // Kırmızı hücre hesabı bir tarih için EN AZ 2 işaretli, ondan ÖNCEKİ sütun ister —
+  // "son 2 geçmiş test"in kendisi anlamlı çıkabilsin diye son 4 çekiliş eklenir
+  // (üstteki 2'si gösterilecek geçmiş testler, alttaki 2'si onların dayanağı).
+  draws.slice(0,4).forEach(d=>{
+    const dup=_listelerHistory.find(h=>h.date===d.date&&h.game.id===gameId);
+    if(dup){dup.checked=true;return;}
+    _listelerBacktestCore(gameId,d.date,algoId,win,n);
+  });
+  const res=_listelerNewPredCore(gameId,algoId,win,n);
+  if(!res){showToast('⚠️ Yeni tahmin üretilemedi');return;}
+  document.getElementById('listelerBulundu').style.display='none';
+  _renderListelerCols();
+  if(_listelerHistory.filter(h=>h.checked).length>=2)setTimeout(listelerKontrol,30);
+  showToast('🚀 Son 2 çekiliş + yeni tahmin üretildi');
 }
 function listelerRunNewPred(){
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
@@ -14416,6 +14441,89 @@ function listelerBazTemizle(){
   if(_listelerNewPred)_listelerNewPredCore(gameId,algoId,win,n,null);
   listelerKontrol();
 }
+// Saf: bir baz tarihe göre "kırmızı" pozisyon kümesi (o tarihten ÖNCEKİ işaretli
+// geçmiş sütunlarının hepsinde yeşil olan hücreler). Global state'e dokunmaz.
+function _listelerKirmiziHesapla(bazDate){
+  const checked=_listelerHistory.filter(h=>h.checked&&(!bazDate||h.date<bazDate));
+  if(checked.length<2)return null;
+  const cnt={};
+  checked.forEach(col=>col.greenCells.forEach(k=>{cnt[k]=(cnt[k]||0)+1;}));
+  const total=checked.length;
+  return new Set(Object.entries(cnt).filter(([,v])=>v>=total).map(([k])=>k));
+}
+// Saf: verilen bilet setinden, redKeys'teki pozisyonlardaki sayıları (ilk görülme
+// sırasıyla, tekrarsız) çıkarır ve varsa gerçek sonuca göre işaretler.
+function _listelerKirmiziSayilari(tickets,redKeys,bazActual,gid){
+  const g=getGame(gid)||{max:90};
+  let bazSet=null,bazYakin=null;
+  if(bazActual){
+    bazSet=new Set([...(bazActual.nums||[]),...(bazActual.bonus||[])]);
+    bazYakin=new Set();
+    bazSet.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=(g.max||90)&&!bazSet.has(x))bazYakin.add(x);});});
+  }
+  const numOrder=[],seen=new Set();
+  tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
+    if(redKeys.has(`${ti}-${pi}`)&&!seen.has(num)){seen.add(num);numOrder.push(num);}
+  }));
+  return {numOrder,bazSet,bazYakin};
+}
+function _listelerKirmiziKolonHtml(baslik,tarihEtiket,numOrder,bazSet,bazYakin,copyKey){
+  let net=0,yak=0;
+  const cip=numOrder.map(num=>{
+    const _n=+num;
+    const _net=bazSet&&bazSet.has(_n),_yak=!_net&&bazYakin&&bazYakin.has(_n);
+    if(_net)net++;else if(_yak)yak++;
+    const zemin=_net?'rgba(0,230,118,.22)':_yak?'rgba(251,140,0,.22)':'rgba(229,57,53,.15)';
+    const kenar=_net?'rgba(0,200,100,.6)':_yak?'rgba(230,81,0,.55)':'rgba(229,57,53,.35)';
+    const renk=_net?'var(--green)':_yak?'#e65100':'var(--text)';
+    return `<span style="font-size:.76rem;font-weight:700;color:${renk};background:${zemin};border:1px solid ${kenar};padding:3px 8px;border-radius:7px">${num}${_net?'✓':_yak?'~':''}</span>`;
+  }).join('');
+  window[copyKey]=numOrder.join(' ');
+  const ozet=bazSet?`<span style="font-size:.56rem;color:var(--muted)">${net} net${yak?' · '+yak+' yakın':''} / ${numOrder.length} sayı</span>`
+             :`<span style="font-size:.56rem;color:var(--muted)">${numOrder.length} sayı</span>`;
+  return `<div>`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px">`
+    +`<span style="font-size:.62rem;font-weight:800;color:${bazSet?'var(--green)':'var(--accent)'}">${baslik}</span>`
+    +`<button onclick="_caCopy(window.${copyKey}||'');showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.54rem;padding:1px 7px;flex-shrink:0">📋</button>`
+    +`</div>`
+    +`<div style="font-size:.55rem;color:var(--muted);margin-bottom:4px">${tarihEtiket}</div>`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">${ozet}</div>`
+    +(numOrder.length?`<div data-lp="${numOrder.join(' ')}" style="display:flex;flex-wrap:wrap;gap:5px">${cip}</div>`
+                     :`<div style="font-size:.68rem;color:var(--muted)">Kırmızı hücre bulunamadı.</div>`)
+    +`</div>`;
+}
+// Kullanıcı isteği: Bulunan Sayılar da "yeni tahmin + son 2 geçmiş test" düzeninde,
+// her sütun kendi tarihine göre AYRI üretilmiş biletlerle ve kendi sonucuna göre
+// işaretlenmiş olarak yan yana görünsün.
+function _listelerBulunanRender(){
+  const el=document.getElementById('listelerBulunduKirmizi');if(!el)return;
+  const gid=_listelerGame||state.selectedGame||GAMES[0].id;
+  const algoId=_listelerNewPred?.algoId||document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
+  const win=document.getElementById('listelerWindow')?.value||'30';
+  const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||2000));
+  let h='';
+  // Sütun 1: Yeni Tahmin — mevcut canlı (ya da elle seçilmiş baz) durum, dokunulmaz
+  if(_listelerNewPred){
+    const redKeys0=_listelerRedKeys.size?_listelerRedKeys:(_listelerKirmiziHesapla(_listelerBazDate)||new Set());
+    const {numOrder,bazSet,bazYakin}=_listelerKirmiziSayilari(_listelerNewPred.tickets,redKeys0,_listelerBazActual,gid);
+    h+=_listelerKirmiziKolonHtml('🔮 Yeni Tahmin',_listelerBazDate?('baz: '+_listelerBazDate):'canlı',numOrder,bazSet,bazYakin,'_lsKirmiziTxt0');
+  }else h+='<div style="font-size:.68rem;color:var(--muted)">Önce yeni tahmin yapın.</div>';
+  // Sütun 2-3: son 2 geçmiş test tarihi — HER BİRİ o tarihten önceki verilerle
+  // kendi biletlerini üretir (lookahead yok) ve kendi gerçek sonucuna göre işaretlenir.
+  const sonIki=_listelerHistory.slice(0,2);
+  sonIki.forEach((col,i)=>{
+    const redKeys=_listelerKirmiziHesapla(col.date);
+    if(!redKeys){
+      h+=`<div><div style="font-size:.62rem;font-weight:800;color:var(--muted);margin-bottom:3px">📅 ${col.date}</div><div style="font-size:.62rem;color:var(--muted)">Bu tarihten önce en az 2 işaretli geçmiş sütun gerekli.</div></div>`;
+      return;
+    }
+    const asOfTickets=_listelerTicketsAsOf(gid,algoId,win,n,col.date)||col.tickets;
+    const {numOrder,bazSet,bazYakin}=_listelerKirmiziSayilari(asOfTickets,redKeys,col.actual,gid);
+    const cek=col.actual?[...(col.actual.nums||[]),...(col.actual.bonus||[])].join(' '):'sonuç yok';
+    h+=_listelerKirmiziKolonHtml('📅 Geçmiş Test '+(i+1),col.date+' — '+cek,numOrder,bazSet,bazYakin,'_lsKirmiziTxt'+(i+1));
+  });
+  el.innerHTML=h;
+}
 function listelerKontrol(){
   if(!_listelerNewPred){showToast('⚠️ Önce yeni tahmin yapın');return;}
   // Baz tarih seçiliyse üstteki tahmin o çekilişin gerçek sonucuna göre işaretlenir
@@ -14431,44 +14539,9 @@ function listelerKontrol(){
   }
   _listelerRecompute();
   _renderListelerNewPred();
-  // Bulunan sayılar — sol: kırmızı hücrelerden sayılar
-  const tickets=_listelerNewPred.tickets;
-  const numCnt={};
-  const numOrder=[];
-  const _seen=new Set();
-  // Baz tarih seçiliyse bulunan sayılar da o çekilişe göre yeşil/turuncu işaretlenir
-  let _lsBazSet=null,_lsBazYakin=null;
-  if(_listelerBazActual){
-    const _g=getGame(_listelerGame||state.selectedGame)||{max:90};
-    _lsBazSet=new Set([...(_listelerBazActual.nums||[]),...(_listelerBazActual.bonus||[])]);
-    _lsBazYakin=new Set();
-    _lsBazSet.forEach(n=>{[n-1,n+1].forEach(x=>{if(x>=1&&x<=(_g.max||90)&&!_lsBazSet.has(x))_lsBazYakin.add(x);});});
-  }
-  tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{
-    if(_listelerRedKeys.has(`${ti}-${pi}`)){
-      numCnt[num]=(numCnt[num]||0)+1;
-      if(!_seen.has(num)){_seen.add(num);numOrder.push(num);}
-    }
-  }));
-  let leftHtml='';
-  if(!numOrder.length){
-    leftHtml='<div style="font-size:.72rem;color:var(--muted)">Kırmızı hücre bulunamadı — önce geçmiş sütunları ekleyin ve checkbox işaretleyin.</div>';
-  } else {
-    leftHtml='<div style="display:flex;flex-wrap:wrap;gap:6px">';
-    numOrder.forEach(num=>{
-      const _n=+num;
-      const _net=_lsBazSet&&_lsBazSet.has(_n);
-      const _yak=!_net&&_lsBazYakin&&_lsBazYakin.has(_n);
-      const _zemin=_net?'rgba(0,230,118,.22)':_yak?'rgba(251,140,0,.22)':'rgba(229,57,53,.15)';
-      const _kenar=_net?'rgba(0,200,100,.6)':_yak?'rgba(230,81,0,.55)':'rgba(229,57,53,.35)';
-      const _renk=_net?'var(--green)':_yak?'#e65100':'var(--text)';
-      leftHtml+=`<span style="font-size:.78rem;font-weight:700;color:${_renk};background:${_zemin};border:1px solid ${_kenar};padding:4px 10px;border-radius:8px">${num}${_net?'✓':_yak?'~':''}</span>`;
-    });
-    leftHtml+='</div>';
-  }
   const bulEl=document.getElementById('listelerBulundu');
   bulEl.style.display='block';
-  document.getElementById('listelerBulunduLeft').innerHTML=leftHtml;
+  _listelerBulunanRender();
   // Sağ: Ortak Sayılar — mevcut runOrtakSayilar'ı kullan, sonra kopyala
   const rightEl=document.getElementById('listelerBulunduRight');
   rightEl.innerHTML='<div style="font-size:.72rem;color:var(--muted)">⏳ Hesaplanıyor...</div>';
