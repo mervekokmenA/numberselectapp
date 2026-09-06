@@ -25209,8 +25209,12 @@ function _skUygula(scopeId){
   const roots=[scopeId,...extra].map(id=>document.getElementById(id)).filter(Boolean);
   const ct=document.getElementById(scopeId+'_skCt');
   const chips=roots.flatMap(kok=>[...kok.querySelectorAll('[data-num]')]);
+  // NOT: bu chip'lerin çoğu "style=\"display:inline-flex;...\"" gibi satır-içi bir display
+  // değeri taşıyor — satır-içi style her zaman [hidden] için tarayıcının varsayılan
+  // stylesheet kuralından önceliklidir, o yüzden `el.hidden` burada GÖRSEL olarak hiçbir
+  // şey gizlemez. Bunun yerine doğrudan style.display'i none/'' yaparak gizliyoruz.
   if(!chk.checked){
-    chips.forEach(c=>{c.hidden=false;});
+    chips.forEach(c=>{c.style.display='';});
     if(ct)ct.textContent='';
     return;
   }
@@ -25222,7 +25226,7 @@ function _skUygula(scopeId){
   chips.forEach(c=>{
     const n=+c.dataset.num;
     const on=allowed.has(n);
-    c.hidden=!on;
+    c.style.display=on?'':'none';
     if(on)gosterilen++;
   });
   if(ct)ct.textContent=`${gosterilen}/${chips.length} sayı gösteriliyor`;
