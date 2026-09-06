@@ -27545,6 +27545,13 @@ function _exSutunTarih(el){
   if(satir){
     let c=el;while(c&&c.parentElement!==satir)c=c.parentElement;
     if(!c)return null;
+    // Sütunun kendi BAŞLIĞI (ilk çocuğu) genelde kısa ve tarihi içerir. İçeriği
+    // çok uzun sütunlarda (Gülay'ın Fark Zinciri/Sabit Sayılar/Nihai/AI bloklarının
+    // hepsini tek sütunda topladığı gibi) tüm metni taramak 800 karakter sınırına
+    // takılıp tarihi HİÇ BULAMIYORDU — bu yüzden o sütun her zaman 'atla' oluyor ve
+    // Excel işaretlemesi (son geçmiş test için bile) hiç görünmüyordu. Önce başlığa bakılır.
+    const baslik=c.firstElementChild;
+    if(baslik){const d=_exTarihBul(baslik.textContent||'');if(d)return d;}
     const ci=[...satir.children].indexOf(c);
     const kt=c.textContent||'';
     if(kt.length<800){const d=_exTarihBul(kt);if(d)return d;}
