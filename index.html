@@ -21051,11 +21051,62 @@ function _qtNihaiYakGulayInter(src,game,aSet){
   if(!inter.length&&!(src.ni&&src.ni.length&&src.yak&&src.yak.length&&src.ga))return '';
   return _qtNihaiYakGulayRender(inter,game,aSet,'_qtInter3');
 }
+// 📌 ÖZET KESİŞİMLER — kullanıcı isteği: Basit/Hızlı Tahmin'in EN ÜSTÜNDE (tarih seçiminin
+// hemen altında), her zaman ELLE tek tek gezip kopyaladığı üç kaynağı TEK bir kutuda toplar:
+// 🔗 Nihai×3+Kapsamlı×Gülay Kesişimi, 🔶 bunun Excel'e göre birebir/±1-yakın kırılımı, ve
+// 🧩 Sabit Sayılarla Kesişim (Gülay). Excel karşılaştırması "satir" (0=canlı tahmin satırı,
+// N=o tarihin _kbGetDraws sıralamasındaki 1-tabanlı konumu) üzerinden YAPILIR — bu, hangi
+// tarih seçilirse seçilsin (test/test2/test3 rastgele bir geçmiş tarih olabilir) Excel'in DOĞRU
+// satırıyla karşılaştırma yapılmasını garanti eder (bkz. _exSatirlar: satir 0=gelecek, satir
+// i+1=_kbGetDraws(gid)[i]).
+function _ozetUstKart(mode,game,src,aSet,actual){
+  if(!src||!src.ga)return '';
+  const inter=_qtNihaiYakGulaySet(src.ni,src.yak,src.ga)||[];
+  let satir=0;
+  if(actual){
+    const draws=_kbGetDraws(game.id)||[];
+    const idx=draws.findIndex(d=>d.date===actual.date);
+    if(idx>=0)satir=idx+1;
+  }
+  let excelSet=new Set();
+  try{excelSet=_xkExcelSatirNo(game.id,satir)||new Set();}catch(e){}
+  const birebir=inter.filter(n=>excelSet.has(n));
+  const yakin=inter.filter(n=>!excelSet.has(n)&&(excelSet.has(n-1)||excelSet.has(n+1)));
+  const kesisim=_soKesisimHesapla(src.ga.topRows,src.ga.cikRows,src.ga.chainRows,aSet);
+  if(!inter.length&&!kesisim.length)return '';
+  const badge=n=>{
+    const hit=aSet&&aSet.has(n),near=!hit&&aSet&&(aSet.has(n-1)||aSet.has(n+1));
+    const col=hit?'var(--green)':near?'#c2410c':'var(--text)';
+    const bd=hit?'rgba(0,200,100,.5)':near?'rgba(244,114,63,.4)':'var(--border)';
+    return `<span data-num="${n}" style="display:inline-flex;font-family:monospace;font-size:.66rem;font-weight:700;color:${col};background:var(--surface2);border:1px solid ${bd};border-radius:6px;padding:2px 6px">${n}${hit?'✓':near?'~':''}</span>`;
+  };
+  const sfx='_'+mode;
+  const grp=(title,nums,colorHex,varName)=>{
+    window[varName]=title+' ('+game.name+')\n'+(nums.length?nums.join(' '):'(yok)');
+    return `<div style="margin-bottom:8px">`
+      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">`
+      +`<span style="font-size:.62rem;font-weight:800;color:${colorHex}">${title} <span style="font-size:.54rem;color:var(--muted);font-weight:600">${nums.length} sayı</span></span>`
+      +`<button onclick="_caCopy(window.${varName})" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋</button>`
+      +`</div>`
+      +(nums.length?`<div style="display:flex;gap:4px;flex-wrap:wrap">${nums.map(badge).join('')}</div>`
+                   :`<div style="font-size:.58rem;color:var(--muted)">—</div>`)
+      +`</div>`;
+  };
+  let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(37,99,235,.4)">`;
+  h+=`<div style="font-size:.76rem;font-weight:800;color:#2563eb;margin-bottom:8px">📌 Özet Kesişimler — ${game.emoji} ${game.name}</div>`;
+  h+=grp('🔗 Nihai × 3+ Kapsamlı × Gülay Kesişimi',inter,'#6c5ce7','_ozetInter'+sfx);
+  h+=grp('✅ Excel’de birebir',birebir,'#0a9a6a','_ozetBirebir'+sfx);
+  h+=grp('🔶 Excel’e ±1 yakın',yakin,'#c2410c','_ozetYakin'+sfx);
+  h+=grp('🧩 Sabit Sayılarla Kesişim',kesisim,'var(--accent)','_ozetKesisim'+sfx);
+  h+=`</div>`;
+  return h;
+}
 function _qtRenderAll(mode,game,prior,actual){
   const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
   const src=_qtBuildSources(game,prior);
   let h='';
   const blk=(key,html)=>{if(html)h+=`<div class="qt-blk" data-k="${key}">${html}</div>`;};
+  blk('ozetUst',_ozetUstKart(mode,game,src,aSet,actual));
   if(actual){const res=[...(actual.nums||[])].sort((a,b)=>a-b);blk('actual',`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Tüm yapılar bu tarihten ÖNCEKİ verilerle üretildi · ✓ net · ~ ±1 yakın.</div></div>`);}
   blk('nnSys',_qtNnBlock(game,prior,aSet,src));
   blk('aiBlk',_qtTicketsBlock('🤖','AI Bilet Üretici',src.aiB,game,'#0a9a6a',aSet));
@@ -23136,7 +23187,8 @@ function _btsCopyAll(){
   const parts=[];
   [window._qtAiTk,tk('AI Bilet Üretici'),tk('Gülsis Sıfır'),tk('Nihai'),
    window._qtInter,window._qtGulayTxt,window._qtKesisimTxt,window._qtAdayTxt,
-   window._qtNihaiCopy,window._qtIlkHaneCopy].forEach(x=>{if(x)parts.push(x);});
+   window._qtNihaiCopy,window._qtIlkHaneCopy,
+   window._ozetInter_live,window._ozetBirebir_live,window._ozetYakin_live,window._ozetKesisim_live].forEach(x=>{if(x)parts.push(x);});
   if(!parts.length){if(typeof showToast==='function')showToast('Önce Üret\'e basın');return;}
   _caCopy(parts.join('\n\n'));
   if(typeof showToast==='function')showToast('📋 Basit Tahmin kopyalandı');
@@ -23148,7 +23200,7 @@ function _btsCopyGrouped(){_qtCopyAllGrouped(_BASIT_GROUPS);}
 // anahtarıyla etiketlenir; burada anahtar bazında eşleştirilip TEK bir grid satırına yerleştirilir —
 // böylece biletlerin/analizlerin yüksekliği farklı olsa bile aynı bölüm her zaman tam yan yana durur.
 // Basit Tahmin sayfasında gösterilecek 9 analiz ve sırası (kullanıcının belirlediği liste).
-const _BASIT_KEYS=['actual','aiCombined','aiBlk','g0','ni','niYakInter','gulay','kesisim','aday','nihaiSection','ilkHaneSection'];
+const _BASIT_KEYS=['ozetUst','actual','aiCombined','aiBlk','g0','ni','niYakInter','gulay','kesisim','aday','nihaiSection','ilkHaneSection'];
 function _qtSyncPairs(){
   // Hızlı Tahmin ve Basit Tahmin AYNI üretimi paylaşır. Aynı anda yalnızca aktif sayfanın
   // grid'i doldurulur → aynı id'ler (nihai/ilk hane bölümleri) hiç çiftlenmez, kopyalama
