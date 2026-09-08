@@ -397,6 +397,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <div class="nav-links" id="navLinks">
       <button class="nav-link active" id="navBtn-home" onclick="showMainPage('home')">🏠 Ana Sayfa</button>
       <button class="nav-link" id="navBtn-basit" onclick="showMainPage('basit')">✨ Basit Tahmin</button>
+      <button class="nav-link" id="navBtn-hizlitahmin" onclick="showMainPage('hizlitahmin')">⚡ Hızlı Tahmin</button>
       <button class="nav-link" id="navBtn-fibonacci" onclick="showMainPage('fibonacci')">🔎 Excel Karşılaştırma</button>
       <button class="nav-link" id="navBtn-excel" onclick="showMainPage('excel')">📊 Excel</button>
       <button class="nav-link" id="navBtn-soz" onclick="showMainPage('soz')">🔮 Gülay</button>
@@ -1606,6 +1607,18 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div id="btsPairGrid"></div>
 </div>
 
+<!-- ═══════════ PAGE: HIZLI TAHMİN (yepyeni — kullanıcı isteğiyle 4 sabit bölüm) ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-hizlitahmin">
+ <div class="card">
+  <div class="card-title">⚡ Hızlı Tahmin</div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="htsGameRow"></div>
+  <button onclick="_htsUret()" style="width:100%;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🚀 Üret</button>
+ </div>
+ <div id="htsOzet"></div>
+ <div id="htsTekrar"></div>
+ <div id="htsBulunan"></div>
+ <div id="nihaiIlkHane_htsLive"></div>
+</div>
 
 <!-- ═══════════ PAGE: YÖNTEM ARAŞTIRMA ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-arastirma">
@@ -13741,8 +13754,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','soz','gulsis0','nsa','basit','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -13756,6 +13769,7 @@ function _pageInit(id){
   if(id==='nihai')_niInit();
   if(id==='nsa')_nsaInit();
   if(id==='basit')_btsInit();
+  if(id==='hizlitahmin')_htsInit();
   if(id==='fibonacci')_xkInit();
   setTimeout(_jokerPanelYaz,0);
   setTimeout(_esikIsaretle,400);
@@ -13797,11 +13811,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-basit','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
@@ -21009,8 +21023,10 @@ function _qtNihaiYakGulayInter(src,game,aSet){
 // tarih seçilirse seçilsin (test/test2/test3 rastgele bir geçmiş tarih olabilir) Excel'in DOĞRU
 // satırıyla karşılaştırma yapılmasını garanti eder (bkz. _exSatirlar: satir 0=gelecek, satir
 // i+1=_kbGetDraws(gid)[i]).
-function _ozetUstKart(mode,game,src,aSet,actual){
-  if(!src||!src.ga)return '';
+// Özet Kesişimler'in ham hesabı — hem _ozetUstKart (görsel kart) hem başka sayfalar (ör. Yeni
+// Hızlı Tahmin'in Nihai/İlk Hane filtre kaynakları) bu ham listeleri PAYLAŞIR.
+function _ozetUstListeleri(game,src,aSet,actual){
+  if(!src||!src.ga)return null;
   const inter=_qtNihaiYakGulaySet(src.ni,src.yak,src.ga)||[];
   let satir=0;
   if(actual){
@@ -21023,6 +21039,12 @@ function _ozetUstKart(mode,game,src,aSet,actual){
   const birebir=inter.filter(n=>excelSet.has(n));
   const yakin=inter.filter(n=>!excelSet.has(n)&&(excelSet.has(n-1)||excelSet.has(n+1)));
   const kesisim=_soKesisimHesapla(src.ga.topRows,src.ga.cikRows,src.ga.chainRows,aSet);
+  return {inter,birebir,yakin,kesisim};
+}
+function _ozetUstKart(mode,game,src,aSet,actual){
+  const L=_ozetUstListeleri(game,src,aSet,actual);
+  if(!L)return '';
+  const{inter,birebir,yakin,kesisim}=L;
   if(!inter.length&&!kesisim.length)return '';
   const badge=n=>{
     const hit=aSet&&aSet.has(n),near=!hit&&aSet&&(aSet.has(n-1)||aSet.has(n+1));
@@ -21053,6 +21075,126 @@ function _ozetUstKart(mode,game,src,aSet,actual){
   // Tümü birden — kullanıcı isteği: kartın sağ üstünde tüm dört alt listeyi başlıklarıyla birlikte kopyalar
   window[tumuVar]=[window['_ozetKesisim'+sfx],window['_ozetInter'+sfx],window['_ozetBirebir'+sfx],window['_ozetYakin'+sfx]].filter(Boolean).join('\n\n');
   return h;
+}
+// ═══════════════════════════════════════════════════════════════════════════
+// ⚡ YENİ HIZLI TAHMİN SAYFASI — kullanıcı isteğiyle SADECE 4 sabit bölüm, sırayla:
+// 1) Basit Tahmin'deki 📌 Özet Kesişimler (_ozetUstKart)
+// 2) Excel'deki 🔁 Formüllerde Tekrar Eden Sayılar (_etkSatirHesapla/_etkKolonHtml, Excel
+//    sayfasının _exGame/_exKol'u GEÇİCİ olarak bu sayfanın oyununa çevrilip geri alınır)
+// 3) Listeler'in 🔎 Bulunan Sayılar (🧮 Sisal-LCG Dengesi + 🔴 Kırmızı Hücreler) — PAHALI
+//    bir simülasyon olduğu için TEMBEL: kullanıcı ▶ Çalıştır'a basmadan hesaplanmaz.
+// 4) Nihai Sayı Tablosu + İlk Hane Tablosu — kaynak filtresi SADECE yukarıdaki 1-3'ün
+//    başlıklarından oluşur (_homeRenderNihaiIlkHane'in paylaşılan chip-seç mekanizması).
+// ═══════════════════════════════════════════════════════════════════════════
+let _htsGame='super';
+let _htsState=null;
+function _htsRenderGameRow(){
+  const row=document.getElementById('htsGameRow');if(!row)return;
+  row.innerHTML=GAMES.map(g=>{
+    const a=g.id===_htsGame;
+    return `<button onclick="_htsSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;
+  }).join('');
+}
+function _htsSetGame(g){_htsGame=g;_htsRenderGameRow();_htsUret();}
+function _htsInit(){_htsRenderGameRow();_htsUret();}
+function _htsUret(){
+  const gid=_htsGame,game=getGame(gid),draws=_kbGetDraws(gid);
+  const elOzet=document.getElementById('htsOzet'),elTekrar=document.getElementById('htsTekrar'),
+        elBulunan=document.getElementById('htsBulunan'),elNihai=document.getElementById('nihaiIlkHane_htsLive');
+  if(!draws||draws.length<60){
+    if(elOzet)elOzet.innerHTML='<div class="card"><div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (≥60 gerekli).</div></div>';
+    if(elTekrar)elTekrar.innerHTML='';if(elBulunan)elBulunan.innerHTML='';if(elNihai)elNihai.innerHTML='';
+    _htsState=null;
+    return;
+  }
+  const src=_qtBuildSources(game,draws);
+  const L=_ozetUstListeleri(game,src,null,null);
+  // 🔁 Formüllerde Tekrar Eden Sayılar — Excel motoru geçici olarak bu sayfanın oyununa çevrilir
+  let tekrarNums=[],tekrarHtml='';
+  const eskiExG=_exGame,eskiExK=_exKol;
+  try{
+    _exGame=gid;_exKol=_exYukle(gid);
+    const D=_etkSatirHesapla(0,null);
+    tekrarNums=D.tekrar.map(t=>t.n);
+    tekrarHtml=_etkKolonHtml(D,'🔁 Formüllerde Tekrar Eden Sayılar',true);
+  }catch(e){}
+  finally{_exGame=eskiExG;_exKol=eskiExK;}
+  // Oyun değişmediyse önceki "Bulunan Sayılar" sonucu (pahalı, tekrar hesaplanmasın) korunur
+  const oncekiBulunan=(_htsState&&_htsState.gid===gid)?_htsState.bulunan:null;
+  _htsState={gid,game,draws,src,L,tekrar:tekrarNums,bulunan:oncekiBulunan};
+  if(elOzet)elOzet.innerHTML=(L?_ozetUstKart('htsLive',game,src,null,null):'')
+    ||'<div class="card"><div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bu oyun için Gülay/kesişim verisi yetersiz.</div></div>';
+  if(elTekrar)elTekrar.innerHTML=`<div class="card" style="margin-bottom:12px;border-color:rgba(217,119,6,.4)">${tekrarHtml||'<div style="font-size:.6rem;color:var(--muted)">Hesaplanamadı.</div>'}</div>`;
+  _htsRenderBulunan();
+  _htsRenderNihaiIlkHane();
+}
+function _htsBulunanKartHtml(){
+  const st=_htsState;
+  const game=st?st.game:null;
+  let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(229,57,53,.35)">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`;
+  h+=`<span style="font-size:.74rem;font-weight:800;color:#e53935">🔎 Bulunan Sayılar${game?' — '+game.emoji+' '+game.name:''}</span>`;
+  if(!st||!st.bulunan){
+    h+=`<button onclick="_htsBulunanCalistir()" style="font-size:.66rem;padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,rgba(229,57,53,.9),rgba(198,40,40,.8));border:1px solid rgba(229,57,53,.6);color:#fff;cursor:pointer;font-weight:800">▶ Çalıştır</button></div>`;
+    h+=`<div style="font-size:.62rem;color:var(--muted)">Henüz bu alan çalıştırılmadı.</div>`;
+    h+=`</div>`;
+    return h;
+  }
+  const {algoName,numOrder}=st.bulunan;
+  window._htsBulunanTxt=`🔎 Bulunan Sayılar — ${game.name}\n🧮 Analiz: ${algoName}\n🔴 Kırmızı Hücreler: `+(numOrder.length?numOrder.join(' '):'—');
+  h+=`<span style="display:flex;align-items:center;gap:6px"><button onclick="_htsBulunanCalistir()" style="font-size:.58rem;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔄 Yeniden Çalıştır</button><button onclick="_caCopy(window._htsBulunanTxt);showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋</button></span></div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:6px">🧮 Analiz: ${algoName}</div>`;
+  h+=`<div style="font-size:.62rem;font-weight:800;color:#e53935;margin-bottom:4px">🔴 Kırmızı Hücreler <span style="font-size:.54rem;color:var(--muted);font-weight:600">${numOrder.length} sayı</span></div>`;
+  h+=numOrder.length?`<div style="display:flex;flex-wrap:wrap;gap:4px">${numOrder.map(n=>`<span data-num="${n}" style="display:inline-flex;font-family:monospace;font-size:.66rem;font-weight:700;color:#c62828;background:rgba(229,57,53,.1);border:1px solid rgba(229,57,53,.35);border-radius:6px;padding:2px 6px">${n}</span>`).join('')}</div>`
+             :`<div style="font-size:.6rem;color:var(--muted)">Kırmızı hücre bulunamadı.</div>`;
+  h+=`</div>`;
+  return h;
+}
+function _htsRenderBulunan(){
+  const el=document.getElementById('htsBulunan');if(!el)return;
+  el.innerHTML=_htsBulunanKartHtml();
+}
+// 🎲 Sisal-LCG Dengesi sabit algoritmasıyla (Kapsamlı sayfasının Listeler'e otomatik doldurduğu
+// AYNI yöntem) son 2 gerçek çekilişi geçmiş test sütunu olarak ekler, yeni tahmini üretir ve
+// kırmızı hücreleri (≥2 geçmiş sütunda ORTAK tutan konumlar) hesaplar — pahalı olduğu için
+// yalnızca kullanıcı ▶ Çalıştır'a bastığında.
+function _htsBulunanCalistir(){
+  const st=_htsState;if(!st)return;
+  const gid=st.gid,algoId='sislcg',win='all',n=2000;
+  if(!_listelerHistory.some(h=>h.game.id===gid)){
+    const draws=_scanGetDraws(gid);
+    if(draws&&draws.length>=2){
+      _listelerBacktestCore(gid,draws[0].date,algoId,win,n);
+      _listelerBacktestCore(gid,draws[1].date,algoId,win,n);
+    }
+  }
+  const res=_listelerNewPredCore(gid,algoId,win,n,null);
+  if(!res){showToast('⚠️ Yeterli veri yok');return;}
+  const redKeys=_listelerKirmiziHesapla(null)||new Set();
+  const{numOrder}=_listelerKirmiziSayilari(res.tickets,redKeys,null,gid);
+  st.bulunan={algoName:_algoDisplayName(algoId),numOrder};
+  _htsRenderBulunan();
+  _htsRenderNihaiIlkHane();
+}
+// Nihai Sayı Tablosu + İlk Hane Tablosu — kaynak filtresi SADECE 1-3'teki başlıklardan oluşur
+// (_homeRenderNihaiIlkHane'in paylaştığı aynı chip-seç + kesişim/birleşim mekanizması).
+function _htsBuildGroups(){
+  const st=_htsState;if(!st)return{};
+  const groups={};
+  if(st.L){
+    if(st.L.kesisim.length)groups['🧩 Sabit Sayılarla Kesişim']=new Set(st.L.kesisim);
+    if(st.L.inter.length)groups['🔗 Nihai × 3+ Kapsamlı × Gülay Kesişimi']=new Set(st.L.inter);
+    if(st.L.birebir.length)groups['✅ Excel’de birebir']=new Set(st.L.birebir);
+    if(st.L.yakin.length)groups['🔶 Excel’e ±1 yakın']=new Set(st.L.yakin);
+  }
+  if(st.tekrar&&st.tekrar.length)groups['🔁 Formüllerde Tekrar Eden Sayılar']=new Set(st.tekrar);
+  if(st.bulunan&&st.bulunan.numOrder.length)groups['🔴 Kırmızı Hücreler']=new Set(st.bulunan.numOrder);
+  return groups;
+}
+function _htsRenderNihaiIlkHane(){
+  const st=_htsState;if(!st)return;
+  const groups=_htsBuildGroups();
+  _homeRenderNihaiIlkHane('htsLive',st.game,st.draws,groups,null,null);
 }
 function _qtRenderAll(mode,game,prior,actual){
   const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
