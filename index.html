@@ -21275,13 +21275,16 @@ function _htsRenderNihaiRow(modes){
     _homeRenderNihaiIlkHane(m,col.game,col.prior,groups,col.aSet,col.actual);
   });
 }
+// Kullanıcı isteği: sadece 🔮 Yeni Tahmin (canlı) sütununu kopyalar — geçmiş testler DAHİL
+// EDİLMEZ. Bulunan Sayılar henüz çalıştırılmadıysa, ekranda göründüğü gibi "henüz bu alan
+// çalıştırılmadı" notuyla kopyalanır (eski/başka oyundan kalma bayat metin kopyalanmaz).
 function _htsCopyAll(){
+  const col=_htsCol.htsLive;
+  if(!col){showToast('Önce Üret\'e basın');return;}
   const parts=[];
-  ['htsLive','htsTest','htsTest2','htsTest3'].forEach(m=>{
-    if(!_htsCol[m])return;
-    [window['_ozetTumu_'+m],window['_htsTekrarTxt_'+m],window['_htsBulunanTxt_'+m]].forEach(x=>{if(x)parts.push(x);});
-  });
-  if(!parts.length){showToast('Önce Üret\'e basın');return;}
+  if(window._ozetTumu_htsLive)parts.push(window._ozetTumu_htsLive);
+  if(window._htsTekrarTxt_htsLive)parts.push(window._htsTekrarTxt_htsLive);
+  parts.push(col.bulunan?window._htsBulunanTxt_htsLive:`🔎 Bulunan Sayılar — ${col.game.name}\nHenüz bu alan çalıştırılmadı.`);
   _caCopy(parts.join('\n\n'));
   showToast('📋 Hızlı Tahmin kopyalandı');
 }
