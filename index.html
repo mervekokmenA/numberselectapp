@@ -1612,12 +1612,27 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div class="card">
   <div class="card-title">⚡ Hızlı Tahmin</div>
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="htsGameRow"></div>
-  <button onclick="_htsUret()" style="width:100%;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🚀 Üret</button>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+   <button onclick="_htsUret()" style="flex:1;min-width:180px;font-size:.8rem;padding:10px;border-radius:10px;background:linear-gradient(135deg,rgba(129,140,248,.9),rgba(99,102,241,.78));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:800">🚀 Üret</button>
+   <button onclick="_htsCopyAll()" class="copy-btn" style="font-size:.72rem;padding:9px 14px;font-weight:700">📋 Tümünü Kopyala</button>
+  </div>
  </div>
- <div id="htsOzet"></div>
- <div id="htsTekrar"></div>
- <div id="htsBulunan"></div>
- <div id="nihaiIlkHane_htsLive"></div>
+ <div class="card" style="margin-bottom:12px">
+  <div class="card-title">📊 Geçmiş Test</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+   <select id="htsDateSel" onchange="_htsDateTest()" style="flex:1;min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   <select id="htsDateSel2" onchange="_htsDateTest('2')" title="2. geçmiş test" style="flex:1;min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   <select id="htsDateSel3" onchange="_htsDateTest('3')" title="3. geçmiş test" style="flex:1;min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+  </div>
+ </div>
+ <div id="htsHdrRow" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:6px">
+  <div style="font-size:.68rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
+  <div style="font-size:.68rem;font-weight:800;color:var(--accent)">📊 Geçmiş Test</div>
+ </div>
+ <div id="htsRowOzet" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
+ <div id="htsRowTekrar" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
+ <div id="htsRowBulunan" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
+ <div id="htsRowNihai" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
 </div>
 
 <!-- ═══════════ PAGE: YÖNTEM ARAŞTIRMA ═══════════ -->
@@ -21079,15 +21094,19 @@ function _ozetUstKart(mode,game,src,aSet,actual){
 // ═══════════════════════════════════════════════════════════════════════════
 // ⚡ YENİ HIZLI TAHMİN SAYFASI — kullanıcı isteğiyle SADECE 4 sabit bölüm, sırayla:
 // 1) Basit Tahmin'deki 📌 Özet Kesişimler (_ozetUstKart)
-// 2) Excel'deki 🔁 Formüllerde Tekrar Eden Sayılar (_etkSatirHesapla/_etkKolonHtml, Excel
-//    sayfasının _exGame/_exKol'u GEÇİCİ olarak bu sayfanın oyununa çevrilip geri alınır)
+// 2) Excel'deki 🔁 Formüllerde Tekrar Eden Sayılar (_etkSatirHesapla, Excel sayfasının
+//    _exGame/_exKol'u GEÇİCİ olarak bu sayfanın oyununa çevrilip geri alınır)
 // 3) Listeler'in 🔎 Bulunan Sayılar (🧮 Sisal-LCG Dengesi + 🔴 Kırmızı Hücreler) — PAHALI
 //    bir simülasyon olduğu için TEMBEL: kullanıcı ▶ Çalıştır'a basmadan hesaplanmaz.
 // 4) Nihai Sayı Tablosu + İlk Hane Tablosu — kaynak filtresi SADECE yukarıdaki 1-3'ün
 //    başlıklarından oluşur (_homeRenderNihaiIlkHane'in paylaşılan chip-seç mekanizması).
+// Diğer ekranlarla (Basit Tahmin, Gülay…) AYNI şekilde: 🔮 Yeni Tahmin + en fazla 3 Geçmiş
+// Test yan yana sütunlarda — her sütun kendi tarihiyle BAĞIMSIZ üretilir/işaretlenir.
+// Mod anahtarları kasıtlı olarak 'hts…' ön ekli: Basit Tahmin'in kendi 'live'/'test'/…
+// state'iyle (_qtNihaiState vb. GLOBAL haritalar) ÇAKIŞMASIN diye.
 // ═══════════════════════════════════════════════════════════════════════════
 let _htsGame='super';
-let _htsState=null;
+let _htsCol={htsLive:null,htsTest:null,htsTest2:null,htsTest3:null};
 function _htsRenderGameRow(){
   const row=document.getElementById('htsGameRow');if(!row)return;
   row.innerHTML=GAMES.map(g=>{
@@ -21095,106 +21114,205 @@ function _htsRenderGameRow(){
     return `<button onclick="_htsSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;
   }).join('');
 }
-function _htsSetGame(g){_htsGame=g;_htsRenderGameRow();_htsUret();}
-function _htsInit(){_htsRenderGameRow();_htsUret();}
-function _htsUret(){
-  const gid=_htsGame,game=getGame(gid),draws=_kbGetDraws(gid);
-  const elOzet=document.getElementById('htsOzet'),elTekrar=document.getElementById('htsTekrar'),
-        elBulunan=document.getElementById('htsBulunan'),elNihai=document.getElementById('nihaiIlkHane_htsLive');
-  if(!draws||draws.length<60){
-    if(elOzet)elOzet.innerHTML='<div class="card"><div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Yeterli çekiliş verisi yok (≥60 gerekli).</div></div>';
-    if(elTekrar)elTekrar.innerHTML='';if(elBulunan)elBulunan.innerHTML='';if(elNihai)elNihai.innerHTML='';
-    _htsState=null;
-    return;
-  }
-  const src=_qtBuildSources(game,draws);
-  const L=_ozetUstListeleri(game,src,null,null);
-  // 🔁 Formüllerde Tekrar Eden Sayılar — Excel motoru geçici olarak bu sayfanın oyununa çevrilir
-  let tekrarNums=[],tekrarHtml='';
-  const eskiExG=_exGame,eskiExK=_exKol;
-  try{
-    _exGame=gid;_exKol=_exYukle(gid);
-    const D=_etkSatirHesapla(0,null);
-    tekrarNums=D.tekrar.map(t=>t.n);
-    tekrarHtml=_etkKolonHtml(D,'🔁 Formüllerde Tekrar Eden Sayılar',true);
-  }catch(e){}
-  finally{_exGame=eskiExG;_exKol=eskiExK;}
-  // Oyun değişmediyse önceki "Bulunan Sayılar" sonucu (pahalı, tekrar hesaplanmasın) korunur
-  const oncekiBulunan=(_htsState&&_htsState.gid===gid)?_htsState.bulunan:null;
-  _htsState={gid,game,draws,src,L,tekrar:tekrarNums,bulunan:oncekiBulunan};
-  if(elOzet)elOzet.innerHTML=(L?_ozetUstKart('htsLive',game,src,null,null):'')
-    ||'<div class="card"><div style="padding:14px;text-align:center;font-size:.7rem;color:var(--muted)">Bu oyun için Gülay/kesişim verisi yetersiz.</div></div>';
-  if(elTekrar)elTekrar.innerHTML=`<div class="card" style="margin-bottom:12px;border-color:rgba(217,119,6,.4)">${tekrarHtml||'<div style="font-size:.6rem;color:var(--muted)">Hesaplanamadı.</div>'}</div>`;
-  _htsRenderBulunan();
-  _htsRenderNihaiIlkHane();
+function _htsSetGame(g){
+  _htsGame=g;_htsRenderGameRow();
+  _htsCol={htsLive:null,htsTest:null,htsTest2:null,htsTest3:null};
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('htsDateSel'+sl);if(e)e.value='';});
+  _htsUret();
 }
-function _htsBulunanKartHtml(){
-  const st=_htsState;
-  const game=st?st.game:null;
-  let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(229,57,53,.35)">`;
+function _htsInit(){_htsRenderGameRow();_htsDates();_htsUret();}
+function _htsDates(){
+  const draws=_kbGetDraws(_htsGame);
+  let h=`<option value="">— Geçmiş test için tarih seçin —</option>`;
+  draws.forEach((d,i)=>{if(draws.length-i-1<60)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${d.nums.join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('htsDateSel'+sl);if(!e)return;const prev=e.value;e.innerHTML=h;if(prev)e.value=prev;});
+}
+// satir: Excel'in _exSatirlar kuralıyla AYNI — 0=canlı/gelecek satırı, i+1=_kbGetDraws(gid)[i].
+// Hangi geçmiş tarih seçilirse seçilsin (rastgele bir tarih olabilir) Excel'in DOĞRU satırıyla
+// karşılaştırma yapılmasını garanti eder.
+function _htsSatirIcin(gid,actual){
+  if(!actual)return 0;
+  const draws=_kbGetDraws(gid)||[];
+  const idx=draws.findIndex(d=>d.date===actual.date);
+  return idx>=0?idx+1:0;
+}
+function _htsBuildCol(mode,gid,prior,actual){
+  const game=getGame(gid);
+  const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
+  const src=_qtBuildSources(game,prior);
+  const L=_ozetUstListeleri(game,src,aSet,actual);
+  const satir=_htsSatirIcin(gid,actual);
+  let tekrarD=null;
+  const eskiG=_exGame,eskiK=_exKol;
+  try{_exGame=gid;_exKol=_exYukle(gid);tekrarD=_etkSatirHesapla(satir,actual);}catch(e){}
+  finally{_exGame=eskiG;_exKol=eskiK;}
+  // Aynı sütun (oyun+tarih) yeniden üretiliyorsa önceki "Bulunan Sayılar" sonucu (pahalı, tekrar
+  // hesaplanmasın) korunur; oyun ya da tarih değiştiyse sıfırdan "henüz çalıştırılmadı" olur.
+  const eski=_htsCol[mode];
+  const actualDate=actual?actual.date:null;
+  const bulunan=(eski&&eski.gid===gid&&eski.actualDate===actualDate)?eski.bulunan:null;
+  return{gid,game,prior,actual,actualDate,aSet,src,L,tekrarD,bulunan};
+}
+function _htsUret(){
+  const gid=_htsGame,draws=_kbGetDraws(gid);
+  _htsCol.htsLive=(draws&&draws.length>=60)?_htsBuildCol('htsLive',gid,draws,null):null;
+  _htsDates();
+  _htsRenderAll();
+}
+function _htsDateTest(slot){
+  slot=slot||'';
+  const mode=slot==='3'?'htsTest3':slot==='2'?'htsTest2':'htsTest';
+  const date=document.getElementById('htsDateSel'+slot)?.value||'';
+  if(!date){_htsCol[mode]=null;_htsRenderAll();return;}
+  const gid=_htsGame,draws=_kbGetDraws(gid);
+  const idx=draws.findIndex(d=>d.date===date);
+  if(idx<0){_htsCol[mode]=null;_htsRenderAll();return;}
+  const actual=draws[idx],prior=draws.slice(idx+1);
+  _htsCol[mode]=prior.length>=60?_htsBuildCol(mode,gid,prior,actual):null;
+  _htsRenderAll();
+}
+function _htsActiveModes(){
+  const hasSlot2=!!(document.getElementById('htsDateSel2')?.value);
+  const hasSlot3=!!(document.getElementById('htsDateSel3')?.value);
+  const modes=['htsLive','htsTest'];
+  if(hasSlot2)modes.push('htsTest2');
+  if(hasSlot3)modes.push('htsTest3');
+  return modes;
+}
+const _HTS_LABELS={htsLive:'🔮 Yeni Tahmin',htsTest:'📊 Geçmiş Test',htsTest2:'📊 2. Geçmiş Test',htsTest3:'📊 3. Geçmiş Test'};
+function _htsRenderAll(){
+  const modes=_htsActiveModes();
+  const nCol=modes.length;
+  const hdr=document.getElementById('htsHdrRow');
+  if(hdr){
+    hdr.style.gridTemplateColumns='repeat('+nCol+',1fr)';
+    hdr.innerHTML=modes.map(m=>`<div style="font-size:.68rem;font-weight:800;color:var(--accent)">${_HTS_LABELS[m]}</div>`).join('');
+  }
+  const setRow=(id,builder)=>{
+    const el=document.getElementById(id);if(!el)return;
+    el.style.gridTemplateColumns='repeat('+nCol+',1fr)';
+    el.innerHTML=modes.map(m=>`<div>${builder(m,_htsCol[m])}</div>`).join('');
+  };
+  const bosMsg=m=>m==='htsLive'?'Yeterli çekiliş verisi yok / henüz üretilmedi.':'Bu tarih için yeterli önceki veri yok.';
+  setRow('htsRowOzet',(m,col)=>{
+    if(!col)return `<div class="card"><div style="padding:14px;text-align:center;font-size:.68rem;color:var(--muted)">${bosMsg(m)}</div></div>`;
+    return _ozetUstKart(m,col.game,col.src,col.aSet,col.actual)
+      ||'<div class="card"><div style="padding:14px;text-align:center;font-size:.68rem;color:var(--muted)">Bu oyun için Gülay/kesişim verisi yetersiz.</div></div>';
+  });
+  setRow('htsRowTekrar',(m,col)=>{
+    if(!col||!col.tekrarD)return `<div class="card" style="border-color:rgba(217,119,6,.4)"><div style="padding:10px;font-size:.6rem;color:var(--muted)">${bosMsg(m)}</div></div>`;
+    return `<div class="card" style="border-color:rgba(217,119,6,.4)">${_htsTekrarKolonHtml(col.tekrarD,m,col.actual,col.gid)}</div>`;
+  });
+  setRow('htsRowBulunan',(m,col)=>_htsBulunanKartHtml(m,col));
+  _htsRenderNihaiRow(modes);
+}
+function _htsTekrarKolonHtml(D,mode,actual,gid){
+  const g=getGame(gid);
+  const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
+  const yakSet=aSet?(()=>{const y=new Set();aSet.forEach(n=>[n-1,n+1].forEach(x=>{if(x>=1&&x<=g.max&&!aSet.has(x))y.add(x);}));return y;})():null;
+  const net=aSet?D.tekrar.filter(t=>aSet.has(t.n)).length:null;
+  const nums=D.tekrar.map(t=>t.n);
+  const varName='_htsTekrarTxt_'+mode;
+  window[varName]='🔁 Formüllerde Tekrar Eden Sayılar ('+g.name+')\n'+nums.join(' ');
+  let h=`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:5px">`
+    +`<span style="font-size:.6rem;font-weight:800;color:${actual?'var(--green)':'var(--accent)'}">🔁 Formüllerde Tekrar Eden Sayılar`
+    +(actual?` — ${[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''}`:'')+`</span>`
+    +`<button onclick="_caCopy(window.${varName});showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.56rem;padding:1px 8px;flex-shrink:0">📋</button>`
+    +`</div>`;
+  h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:5px">${D.toplamFormul} formül · ${D.tekrar.length} tekrar eden sayı`
+    +(net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>`:'')+`</div>`;
+  h+=D.tekrar.length?`<div data-lp="${nums.join(' ')}">${D.tekrar.map(t=>_etkCip(t.n,t.adet,aSet,yakSet)).join('')}</div>`
+                    :`<div style="font-size:.6rem;color:var(--muted)">Tekrar eden sayı yok.</div>`;
+  return h;
+}
+function _htsBulunanKartHtml(mode,col){
+  let h=`<div class="card" style="border-color:rgba(229,57,53,.35)">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`;
-  h+=`<span style="font-size:.74rem;font-weight:800;color:#e53935">🔎 Bulunan Sayılar${game?' — '+game.emoji+' '+game.name:''}</span>`;
-  if(!st||!st.bulunan){
-    h+=`<button onclick="_htsBulunanCalistir()" style="font-size:.66rem;padding:6px 14px;border-radius:8px;background:linear-gradient(135deg,rgba(229,57,53,.9),rgba(198,40,40,.8));border:1px solid rgba(229,57,53,.6);color:#fff;cursor:pointer;font-weight:800">▶ Çalıştır</button></div>`;
-    h+=`<div style="font-size:.62rem;color:var(--muted)">Henüz bu alan çalıştırılmadı.</div>`;
-    h+=`</div>`;
+  h+=`<span style="font-size:.68rem;font-weight:800;color:#e53935">🔎 Bulunan Sayılar${col&&col.actual?' — '+[...(col.actual.nums||[])].sort((a,b)=>a-b).join(' '):''}</span>`;
+  if(!col){
+    h+=`<button disabled style="font-size:.6rem;padding:5px 12px;border-radius:8px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);cursor:not-allowed">▶ Çalıştır</button></div>`;
+    h+=`<div style="font-size:.6rem;color:var(--muted)">—</div></div>`;
     return h;
   }
-  const {algoName,numOrder}=st.bulunan;
-  window._htsBulunanTxt=`🔎 Bulunan Sayılar — ${game.name}\n🧮 Analiz: ${algoName}\n🔴 Kırmızı Hücreler: `+(numOrder.length?numOrder.join(' '):'—');
-  h+=`<span style="display:flex;align-items:center;gap:6px"><button onclick="_htsBulunanCalistir()" style="font-size:.58rem;padding:4px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔄 Yeniden Çalıştır</button><button onclick="_caCopy(window._htsBulunanTxt);showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋</button></span></div>`;
-  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:6px">🧮 Analiz: ${algoName}</div>`;
-  h+=`<div style="font-size:.62rem;font-weight:800;color:#e53935;margin-bottom:4px">🔴 Kırmızı Hücreler <span style="font-size:.54rem;color:var(--muted);font-weight:600">${numOrder.length} sayı</span></div>`;
-  h+=numOrder.length?`<div style="display:flex;flex-wrap:wrap;gap:4px">${numOrder.map(n=>`<span data-num="${n}" style="display:inline-flex;font-family:monospace;font-size:.66rem;font-weight:700;color:#c62828;background:rgba(229,57,53,.1);border:1px solid rgba(229,57,53,.35);border-radius:6px;padding:2px 6px">${n}</span>`).join('')}</div>`
-             :`<div style="font-size:.6rem;color:var(--muted)">Kırmızı hücre bulunamadı.</div>`;
+  if(!col.bulunan){
+    h+=`<button onclick="_htsBulunanCalistir('${mode}')" style="font-size:.6rem;padding:5px 12px;border-radius:8px;background:linear-gradient(135deg,rgba(229,57,53,.9),rgba(198,40,40,.8));border:1px solid rgba(229,57,53,.6);color:#fff;cursor:pointer;font-weight:800">▶ Çalıştır</button></div>`;
+    h+=`<div style="font-size:.6rem;color:var(--muted)">Henüz bu alan çalıştırılmadı.</div></div>`;
+    return h;
+  }
+  const{algoName,numOrder}=col.bulunan;
+  const varName='_htsBulunanTxt_'+mode;
+  window[varName]=`🔎 Bulunan Sayılar — ${col.game.name}\n🧮 Analiz: ${algoName}\n🔴 Kırmızı Hücreler: `+(numOrder.length?numOrder.join(' '):'—');
+  h+=`<span style="display:flex;align-items:center;gap:6px"><button onclick="_htsBulunanCalistir('${mode}')" style="font-size:.56rem;padding:3px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔄</button><button onclick="_caCopy(window.${varName});showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.54rem;padding:2px 7px">📋</button></span></div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:5px">🧮 Analiz: ${algoName}</div>`;
+  h+=`<div style="font-size:.6rem;font-weight:800;color:#e53935;margin-bottom:4px">🔴 Kırmızı Hücreler <span style="font-size:.52rem;color:var(--muted);font-weight:600">${numOrder.length} sayı</span></div>`;
+  h+=numOrder.length?`<div style="display:flex;flex-wrap:wrap;gap:4px">${numOrder.map(n=>{
+      const net=col.aSet&&col.aSet.has(n);
+      const near=!net&&col.aSet&&(col.aSet.has(n-1)||col.aSet.has(n+1));
+      const c=net?'var(--green)':near?'#c2410c':'#c62828';
+      const bg=net?'rgba(0,230,118,.15)':near?'rgba(244,114,63,.12)':'rgba(229,57,53,.1)';
+      const bd=net?'rgba(0,200,100,.5)':near?'rgba(244,114,63,.4)':'rgba(229,57,53,.35)';
+      return `<span data-num="${n}" style="display:inline-flex;font-family:monospace;font-size:.64rem;font-weight:700;color:${c};background:${bg};border:1px solid ${bd};border-radius:6px;padding:2px 6px">${n}${net?'✓':near?'~':''}</span>`;
+    }).join('')}</div>`
+             :`<div style="font-size:.58rem;color:var(--muted)">Kırmızı hücre bulunamadı.</div>`;
   h+=`</div>`;
   return h;
 }
-function _htsRenderBulunan(){
-  const el=document.getElementById('htsBulunan');if(!el)return;
-  el.innerHTML=_htsBulunanKartHtml();
-}
 // 🎲 Sisal-LCG Dengesi sabit algoritmasıyla (Kapsamlı sayfasının Listeler'e otomatik doldurduğu
-// AYNI yöntem) son 2 gerçek çekilişi geçmiş test sütunu olarak ekler, yeni tahmini üretir ve
-// kırmızı hücreleri (≥2 geçmiş sütunda ORTAK tutan konumlar) hesaplar — pahalı olduğu için
-// yalnızca kullanıcı ▶ Çalıştır'a bastığında.
-function _htsBulunanCalistir(){
-  const st=_htsState;if(!st)return;
-  const gid=st.gid,algoId='sislcg',win='all',n=2000;
-  if(!_listelerHistory.some(h=>h.game.id===gid)){
-    const draws=_scanGetDraws(gid);
-    if(draws&&draws.length>=2){
-      _listelerBacktestCore(gid,draws[0].date,algoId,win,n);
-      _listelerBacktestCore(gid,draws[1].date,algoId,win,n);
-    }
+// AYNI yöntem) o sütunun tarihinden ÖNCEKİ 2 gerçek çekilişi geçmiş test sütunu olarak ekler
+// (bazDate varsa lookahead yok), tahmini üretir ve kırmızı hücreleri hesaplar — pahalı olduğu
+// için yalnızca kullanıcı bu sütunun ▶ Çalıştır'ına bastığında.
+function _htsBulunanCalistir(mode){
+  const col=_htsCol[mode];if(!col)return;
+  const gid=col.gid,algoId='sislcg',win='all',n=2000;
+  const bazDate=col.actual?col.actual.date:null;
+  const draws=_scanGetDraws(gid);
+  const priorDraws=bazDate?draws.filter(d=>d.date<bazDate):draws;
+  const existingBefore=_listelerHistory.filter(h=>h.game.id===gid&&(!bazDate||h.date<bazDate));
+  if(existingBefore.length<2&&priorDraws.length>=2){
+    _listelerBacktestCore(gid,priorDraws[0].date,algoId,win,n);
+    _listelerBacktestCore(gid,priorDraws[1].date,algoId,win,n);
   }
-  const res=_listelerNewPredCore(gid,algoId,win,n,null);
+  const res=_listelerNewPredCore(gid,algoId,win,n,bazDate);
   if(!res){showToast('⚠️ Yeterli veri yok');return;}
-  const redKeys=_listelerKirmiziHesapla(null)||new Set();
-  const{numOrder}=_listelerKirmiziSayilari(res.tickets,redKeys,null,gid);
-  st.bulunan={algoName:_algoDisplayName(algoId),numOrder};
-  _htsRenderBulunan();
-  _htsRenderNihaiIlkHane();
+  const redKeys=_listelerKirmiziHesapla(bazDate)||new Set();
+  const{numOrder}=_listelerKirmiziSayilari(res.tickets,redKeys,col.actual,gid);
+  col.bulunan={algoName:_algoDisplayName(algoId),numOrder};
+  _htsRenderAll();
 }
 // Nihai Sayı Tablosu + İlk Hane Tablosu — kaynak filtresi SADECE 1-3'teki başlıklardan oluşur
 // (_homeRenderNihaiIlkHane'in paylaştığı aynı chip-seç + kesişim/birleşim mekanizması).
-function _htsBuildGroups(){
-  const st=_htsState;if(!st)return{};
+function _htsBuildGroups(col){
   const groups={};
-  if(st.L){
-    if(st.L.kesisim.length)groups['🧩 Sabit Sayılarla Kesişim']=new Set(st.L.kesisim);
-    if(st.L.inter.length)groups['🔗 Nihai × 3+ Kapsamlı × Gülay Kesişimi']=new Set(st.L.inter);
-    if(st.L.birebir.length)groups['✅ Excel’de birebir']=new Set(st.L.birebir);
-    if(st.L.yakin.length)groups['🔶 Excel’e ±1 yakın']=new Set(st.L.yakin);
+  if(col.L){
+    if(col.L.kesisim.length)groups['🧩 Sabit Sayılarla Kesişim']=new Set(col.L.kesisim);
+    if(col.L.inter.length)groups['🔗 Nihai × 3+ Kapsamlı × Gülay Kesişimi']=new Set(col.L.inter);
+    if(col.L.birebir.length)groups['✅ Excel’de birebir']=new Set(col.L.birebir);
+    if(col.L.yakin.length)groups['🔶 Excel’e ±1 yakın']=new Set(col.L.yakin);
   }
-  if(st.tekrar&&st.tekrar.length)groups['🔁 Formüllerde Tekrar Eden Sayılar']=new Set(st.tekrar);
-  if(st.bulunan&&st.bulunan.numOrder.length)groups['🔴 Kırmızı Hücreler']=new Set(st.bulunan.numOrder);
+  if(col.tekrarD&&col.tekrarD.tekrar.length)groups['🔁 Formüllerde Tekrar Eden Sayılar']=new Set(col.tekrarD.tekrar.map(t=>t.n));
+  if(col.bulunan&&col.bulunan.numOrder.length)groups['🔴 Kırmızı Hücreler']=new Set(col.bulunan.numOrder);
   return groups;
 }
-function _htsRenderNihaiIlkHane(){
-  const st=_htsState;if(!st)return;
-  const groups=_htsBuildGroups();
-  _homeRenderNihaiIlkHane('htsLive',st.game,st.draws,groups,null,null);
+function _htsRenderNihaiRow(modes){
+  const el=document.getElementById('htsRowNihai');if(!el)return;
+  el.style.gridTemplateColumns='repeat('+modes.length+',1fr)';
+  el.innerHTML=modes.map(m=>`<div id="nihaiIlkHane_${m}"></div>`).join('');
+  modes.forEach(m=>{
+    const col=_htsCol[m];
+    if(!col)return;
+    const groups=_htsBuildGroups(col);
+    _homeRenderNihaiIlkHane(m,col.game,col.prior,groups,col.aSet,col.actual);
+  });
+}
+function _htsCopyAll(){
+  const parts=[];
+  ['htsLive','htsTest','htsTest2','htsTest3'].forEach(m=>{
+    if(!_htsCol[m])return;
+    [window['_ozetTumu_'+m],window['_htsTekrarTxt_'+m],window['_htsBulunanTxt_'+m]].forEach(x=>{if(x)parts.push(x);});
+  });
+  if(!parts.length){showToast('Önce Üret\'e basın');return;}
+  _caCopy(parts.join('\n\n'));
+  showToast('📋 Hızlı Tahmin kopyalandı');
 }
 function _qtRenderAll(mode,game,prior,actual){
   const aSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):null;
