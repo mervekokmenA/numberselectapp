@@ -2219,16 +2219,17 @@ function _ckYenidenUret(scope){
   });
   _ckRender(scope);
 }
-function _ckRun(scope){
+function _ckRun(scope,silent,onDone){
   scope=scope||'';
   const gid=_ckOyun(),g=getGame(gid),draws=_kbGetDraws(gid)||[];
-  if(!g||draws.length<120){showToast('⚠️ Yeterli veri yok (≥120 çekiliş)');return;}
+  if(!g||draws.length<120){if(!silent)showToast('⚠️ Yeterli veri yok (≥120 çekiliş)');if(onDone)onDone(false);return;}
   const d=document.getElementById('ckDurum'+scope);if(d)d.textContent='⏳ öğreniyor…';
   _ckOgren(gid,model=>{
-    if(!model){if(d)d.textContent='';return;}
+    if(!model){if(d)d.textContent='';if(onDone)onDone(false);return;}
     if(d)d.textContent='';
     _ckD(scope).live=_ckKolon(g,draws,null,_ckKMap[scope]||_ckVarK(g),model);
     _ckTarihler(scope);_ckRender(scope);
+    if(onDone)onDone(true);
   });
 }
 function _ckTarihler(scope){
@@ -20993,11 +20994,16 @@ function _qtTicketsBlock(emoji,title,tickets,game,accent,aSet){
 }
 // tüm yapıları + birleşik AI'ı targetEl'e render eder (actual verilirse geçmiş test)
 // 🏁 Nihai ve 📈 12'li 3+ demetlerinde ORTAK geçen sayılar — iki bağımsız yapının uzlaştığı sayılar
-function _qtNihaiYakInter(src,game,aSet,copySuffix){
-  if(!src.ni||!src.ni.length||!src.yak||!src.yak.length)return '';
+// Saf hesap — hem _qtNihaiYakInter (kart) hem _htsBuildGroups (filtre kaynağı) PAYLAŞIR.
+function _qtNihaiYakSet(src){
+  if(!src.ni||!src.ni.length||!src.yak||!src.yak.length)return [];
   const niNums=new Set();src.ni.forEach(t=>t.main.forEach(n=>niNums.add(n)));
   const yakNums=new Set();src.yak.forEach(t=>t.main.forEach(n=>yakNums.add(n)));
-  const inter=[...niNums].filter(n=>yakNums.has(n)).sort((a,b)=>a-b);
+  return [...niNums].filter(n=>yakNums.has(n)).sort((a,b)=>a-b);
+}
+function _qtNihaiYakInter(src,game,aSet,copySuffix){
+  if(!src.ni||!src.ni.length||!src.yak||!src.yak.length)return '';
+  const inter=_qtNihaiYakSet(src);
   // copySuffix: birden fazla bağımsız sütun (Hızlı Tahmin'in Yeni Tahmin+3 Geçmiş Test'i gibi)
   // aynı anda gösterildiğinde her birinin kendi kopyalama metnine sahip olması için — yoksa
   // hepsi TEK 'live'/'T' değişkenini paylaşıp birbirini ezer.
@@ -21258,6 +21264,12 @@ function _htsUret(){
   _htsCol.htsLive=(draws&&draws.length>=60)?_htsBuildCol('htsLive',gid,draws,null):null;
   _htsDates();
   _htsRenderAll();
+  // Kullanıcı isteği: 🚀 Üret artık 🔎 Bulunan Sayılar'ın ▶ Çalıştır'ını ve 🧠 Çekirdek Motor'un
+  // 🧠 Üret'ini de OTOMATİK tetikler — ayrıca tek tek tıklamaya gerek kalmaz.
+  if(_htsCol.htsLive)_htsBulunanCalistir('htsLive',true);
+  // Çekirdek Motor bitince (asenkron öğrenme) Nihai/İlk Hane'nin kaynak filtresine 🧠 Çekirdek
+  // Motor grubu eklenebilsin diye satırı bir daha çiziyoruz.
+  _ckRun('Hts',true,ok=>{if(ok)_htsRenderNihaiRow(_htsActiveModes());});
 }
 function _htsDateTest(slot){
   slot=slot||'';
@@ -21394,7 +21406,7 @@ function _htsBulunanKartHtml(mode,col){
 // AYNI yöntem) o sütunun tarihinden ÖNCEKİ 2 gerçek çekilişi geçmiş test sütunu olarak ekler
 // (bazDate varsa lookahead yok), tahmini üretir ve kırmızı hücreleri hesaplar — pahalı olduğu
 // için yalnızca kullanıcı bu sütunun ▶ Çalıştır'ına bastığında.
-function _htsBulunanCalistir(mode){
+function _htsBulunanCalistir(mode,silent){
   const col=_htsCol[mode];if(!col)return;
   const gid=col.gid,algoId='sislcg',win='all',n=2000;
   const bazDate=col.actual?col.actual.date:null;
@@ -21406,7 +21418,7 @@ function _htsBulunanCalistir(mode){
     _listelerBacktestCore(gid,priorDraws[1].date,algoId,win,n);
   }
   const res=_listelerNewPredCore(gid,algoId,win,n,bazDate);
-  if(!res){showToast('⚠️ Yeterli veri yok');return;}
+  if(!res){if(!silent)showToast('⚠️ Yeterli veri yok');return;}
   const redKeys=_listelerKirmiziHesapla(bazDate)||new Set();
   const{numOrder}=_listelerKirmiziSayilari(res.tickets,redKeys,col.actual,gid);
   col.bulunan={algoName:_algoDisplayName(algoId),numOrder};
@@ -21414,7 +21426,10 @@ function _htsBulunanCalistir(mode){
 }
 // Nihai Sayı Tablosu + İlk Hane Tablosu — kaynak filtresi SADECE 1-3'teki başlıklardan oluşur
 // (_homeRenderNihaiIlkHane'in paylaştığı aynı chip-seç + kesişim/birleşim mekanizması).
-function _htsBuildGroups(col){
+// Sayfanın SON HALİNE göre — kullanıcı isteği: sayfadaki her sayı listesi burada seçilebilir
+// bir kaynak olsun. 🧠 Çekirdek Motor yalnızca 'htsLive' için eklenir — kendi tarih seçicileri
+// Hızlı Tahmin'in Geçmiş Test'inden BAĞIMSIZ olduğu için test/test2/test3 sütunlarıyla eşleşmez.
+function _htsBuildGroups(col,mode){
   const groups={};
   if(col.L){
     if(col.L.kesisim.length)groups['🧩 Sabit Sayılarla Kesişim']=new Set(col.L.kesisim);
@@ -21422,8 +21437,14 @@ function _htsBuildGroups(col){
     if(col.L.birebir.length)groups['✅ Excel’de birebir']=new Set(col.L.birebir);
     if(col.L.yakin.length)groups['🔶 Excel’e ±1 yakın']=new Set(col.L.yakin);
   }
+  const nihaiYak=_qtNihaiYakSet(col.src);
+  if(nihaiYak.length)groups['🔗 Nihai × 3+ Kapsamlı Kesişim']=new Set(nihaiYak);
   if(col.tekrarD&&col.tekrarD.tekrar.length)groups['🔁 Formüllerde Tekrar Eden Sayılar']=new Set(col.tekrarD.tekrar.map(t=>t.n));
   if(col.bulunan&&col.bulunan.numOrder.length)groups['🔴 Kırmızı Hücreler']=new Set(col.bulunan.numOrder);
+  if(mode==='htsLive'){
+    const ckLive=_ckD('Hts').live;
+    if(ckLive&&ckLive.nums&&ckLive.nums.length)groups['🧠 Çekirdek Motor']=new Set(ckLive.nums);
+  }
   return groups;
 }
 function _htsRenderNihaiRow(modes){
@@ -21433,7 +21454,7 @@ function _htsRenderNihaiRow(modes){
   modes.forEach(m=>{
     const col=_htsCol[m];
     if(!col)return;
-    const groups=_htsBuildGroups(col);
+    const groups=_htsBuildGroups(col,m);
     _homeRenderNihaiIlkHane(m,col.game,col.prior,groups,col.aSet,col.actual);
   });
 }
