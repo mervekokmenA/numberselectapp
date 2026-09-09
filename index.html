@@ -1630,6 +1630,8 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="font-size:.68rem;font-weight:800;color:var(--accent)">📊 Geçmiş Test</div>
  </div>
  <div id="htsRowOzet" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
+ <div id="htsRowKesisim" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
+ <div id="htsRowNihaiYak" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
  <div id="htsRowTekrar" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
  <div id="htsRowBulunan" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
  <div id="htsRowNihai" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
@@ -20937,12 +20939,15 @@ function _qtTicketsBlock(emoji,title,tickets,game,accent,aSet){
 }
 // tüm yapıları + birleşik AI'ı targetEl'e render eder (actual verilirse geçmiş test)
 // 🏁 Nihai ve 📈 12'li 3+ demetlerinde ORTAK geçen sayılar — iki bağımsız yapının uzlaştığı sayılar
-function _qtNihaiYakInter(src,game,aSet){
+function _qtNihaiYakInter(src,game,aSet,copySuffix){
   if(!src.ni||!src.ni.length||!src.yak||!src.yak.length)return '';
   const niNums=new Set();src.ni.forEach(t=>t.main.forEach(n=>niNums.add(n)));
   const yakNums=new Set();src.yak.forEach(t=>t.main.forEach(n=>yakNums.add(n)));
   const inter=[...niNums].filter(n=>yakNums.has(n)).sort((a,b)=>a-b);
-  const copyKey=aSet?'_qtInterT':'_qtInter';
+  // copySuffix: birden fazla bağımsız sütun (Hızlı Tahmin'in Yeni Tahmin+3 Geçmiş Test'i gibi)
+  // aynı anda gösterildiğinde her birinin kendi kopyalama metnine sahip olması için — yoksa
+  // hepsi TEK 'live'/'T' değişkenini paylaşıp birbirini ezer.
+  const copyKey=copySuffix?('_qtInter_'+copySuffix):(aSet?'_qtInterT':'_qtInter');
   window[copyKey]='Nihai 3+Kapsamlı Kesişim ('+game.name+')\n'+(inter.join(' ')||'(ortak sayı yok)');
   let iNet=0,iNear=0;if(aSet){inter.forEach(n=>{if(aSet.has(n))iNet++;else if(aSet.has(n-1)||aSet.has(n+1))iNear++;});}
   let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(129,140,248,.4)">`;
@@ -21112,12 +21117,18 @@ function _htsRenderGameRow(){
   }).join('');
 }
 function _htsSetGame(g){
-  _htsGame=g;_htsRenderGameRow();
+  // Kullanıcı isteği: üstten seçilen oyun sayfanın ALTINDAKİ (🔀 Ortak Sayı Bulucu vb. — o an
+  // seçili oyunu state.selectedGame'den okuyan) bölümlerde de otomatik seçili olsun.
+  _htsGame=g;state.selectedGame=g;_htsRenderGameRow();
   _htsCol={htsLive:null,htsTest:null,htsTest2:null,htsTest3:null};
   ['','2','3'].forEach(sl=>{const e=document.getElementById('htsDateSel'+sl);if(e)e.value='';});
   _htsUret();
 }
-function _htsInit(){_htsRenderGameRow();_htsDates();_htsUret();_okInit('Hts');}
+function _htsInit(){
+  if(state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_htsGame=state.selectedGame;
+  else state.selectedGame=_htsGame;
+  _htsRenderGameRow();_htsDates();_htsUret();_okInit('Hts');
+}
 // Sayfadaki bir sayı listesini (↥Üst/↧Alt butonu) tek tıkla 🔀 Ortak Sayı Bulucu'nun ilgili
 // kutusuna gönderir — kullanıcı isteği: "bu ekrandakileri o ortak bulucuda tıklamalarla
 // otomatik doldurabilmeliyim".
@@ -21184,9 +21195,14 @@ function _htsDateTest(slot){
   _htsRenderAll();
 }
 function _htsActiveModes(){
+  // Kullanıcı isteği: geçmiş test sütunları/kutuları, o slota bir tarih GİRİLMEDEN önce hiç
+  // görünmesin (eskiden "Geçmiş Test" her zaman ikinci sütun olarak, boş/uyarı mesajıyla
+  // görünüyordu).
+  const hasSlot1=!!(document.getElementById('htsDateSel')?.value);
   const hasSlot2=!!(document.getElementById('htsDateSel2')?.value);
   const hasSlot3=!!(document.getElementById('htsDateSel3')?.value);
-  const modes=['htsLive','htsTest'];
+  const modes=['htsLive'];
+  if(hasSlot1)modes.push('htsTest');
   if(hasSlot2)modes.push('htsTest2');
   if(hasSlot3)modes.push('htsTest3');
   return modes;
@@ -21211,12 +21227,40 @@ function _htsRenderAll(){
     return _ozetUstKart(m,col.game,col.src,col.aSet,col.actual)
       ||'<div class="card"><div style="padding:14px;text-align:center;font-size:.68rem;color:var(--muted)">Bu oyun için Gülay/kesişim verisi yetersiz.</div></div>';
   });
+  setRow('htsRowKesisim',(m,col)=>{
+    if(!col||!col.src||!col.src.ga)return `<div class="card"><div style="padding:14px;text-align:center;font-size:.68rem;color:var(--muted)">${bosMsg(m)}</div></div>`;
+    return _htsKesisimKartHtml(m,col);
+  });
+  setRow('htsRowNihaiYak',(m,col)=>{
+    if(!col)return `<div class="card"><div style="padding:14px;text-align:center;font-size:.68rem;color:var(--muted)">${bosMsg(m)}</div></div>`;
+    return _qtNihaiYakInter(col.src,col.game,col.aSet,m)
+      ||'<div class="card"><div style="padding:14px;text-align:center;font-size:.68rem;color:var(--muted)">Nihai/12\'li 3+ verisi yetersiz.</div></div>';
+  });
   setRow('htsRowTekrar',(m,col)=>{
     if(!col||!col.tekrarD)return `<div class="card" style="border-color:rgba(217,119,6,.4)"><div style="padding:10px;font-size:.6rem;color:var(--muted)">${bosMsg(m)}</div></div>`;
     return `<div class="card" style="border-color:rgba(217,119,6,.4)">${_htsTekrarKolonHtml(col.tekrarD,m,col.actual,col.gid)}</div>`;
   });
   setRow('htsRowBulunan',(m,col)=>_htsBulunanKartHtml(m,col));
   _htsRenderNihaiRow(modes);
+}
+// 🧩 Sabit Sayılarla Kesişim — Basit Tahmin'deki AYNI kart (_soKesisimCard), kendi checkbox'ıyla
+// (kind='qt',key=mode) Nihai/İlk Hane'yi GERÇEKTEN daraltır — kullanıcı isteği: "check işaretlenip
+// ortakları bulan yapı". Basit Tahmin'in _qtKesisimBlock'undan FARKLI olarak her sütun (mode) kendi
+// copyKey'ine sahiptir (o, 'live' dışındaki tüm modları TEK 'T' değişkeninde topluyordu — burada
+// 4 sütun aynı anda olabildiği için bu çakışmayı önlemek gerekiyor).
+function _htsKesisimKartHtml(mode,col){
+  const ga=col.src.ga,{topRows,cikRows,chainRows}=ga,aSet=col.aSet;
+  const badge=n=>{
+    const hit=aSet&&aSet.has(n),near=!hit&&aSet&&(aSet.has(n-1)||aSet.has(n+1));
+    const c=hit?'var(--green)':near?'#c2410c':'#6c5ce7';
+    const mk=hit?'✓':near?'~':'';
+    return `<span style="font-family:monospace;font-size:.62rem;background:rgba(108,92,231,.08);border:1px solid rgba(108,92,231,.25);color:${c};font-weight:${mk?800:400};border-radius:5px;padding:1px 5px">${n}${mk}</span>`;
+  };
+  const copyKey='_htsKesisimTxt_'+mode;
+  const scopeId='htsKesFilt_'+mode;
+  const draw=(col.prior&&col.prior[0])||col.actual;
+  const kart=_soKesisimCard(topRows,cikRows,chainRows,aSet,badge,col.game,draw,copyKey,scopeId,false,'qt',mode);
+  return `<div id="${scopeId}">${kart}</div>`;
 }
 function _htsTekrarKolonHtml(D,mode,actual,gid){
   const g=getGame(gid);
@@ -21324,8 +21368,12 @@ function _htsCopyAll(){
   if(!col){showToast('Önce Üret\'e basın');return;}
   const parts=[];
   if(window._ozetTumu_htsLive)parts.push(window._ozetTumu_htsLive);
+  if(window._htsKesisimTxt_htsLive)parts.push(window._htsKesisimTxt_htsLive);
+  if(window._qtInter_htsLive)parts.push(window._qtInter_htsLive);
   if(window._htsTekrarTxt_htsLive)parts.push(window._htsTekrarTxt_htsLive);
   parts.push(col.bulunan?window._htsBulunanTxt_htsLive:`🔎 Bulunan Sayılar — ${col.game.name}\nHenüz bu alan çalıştırılmadı.`);
+  if(window._qtNihaiCopy_htsLive)parts.push(window._qtNihaiCopy_htsLive);
+  if(window._qtIlkHaneCopy_htsLive)parts.push(window._qtIlkHaneCopy_htsLive);
   _caCopy(parts.join('\n\n'));
   showToast('📋 Hızlı Tahmin kopyalandı');
 }
