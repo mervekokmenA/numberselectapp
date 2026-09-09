@@ -23546,9 +23546,8 @@ function _qtBuildAnalysisGroups(game,prior,src,targetDate){
     }
   }catch(e){}
   try{
-    const K=parseInt(document.getElementById('qtAiK')?.value)||30;
     const C=_qtCombineWeights(game,prior,src);
-    const tickets=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});
+    const tickets=_niGenBundle(game,prior,_QT_BUNDLE_K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});
     if(tickets&&tickets.length)groups['🧠 Birleşik AI']=flat(tickets);
   }catch(e){}
   try{
@@ -23847,8 +23846,7 @@ function _qtAllBacktest(){
   const N=parseInt(document.getElementById('qtAllBtN')?.value)||60;
   const minPrior=60;
   if(!draws||draws.length<minPrior+5){el.innerHTML='<div style="padding:10px;font-size:.68rem;color:var(--muted)">Yeterli veri yok.</div>';return;}
-  const rawK=parseInt(document.getElementById('qtAiK')?.value)||20;
-  const K=Math.min(rawK,20);
+  const K=Math.min(_QT_BUNDLE_K,20);
   const BLOCKS=[
     {key:'ai',emoji:'🤖',name:'AI Bilet Üretici',gen:(g,p,src)=>src.aiB},
     {key:'g0',emoji:'🎯⁰',name:'Gülsis Sıfır',gen:(g,p,src)=>src.g0},
@@ -24111,7 +24109,10 @@ function _qtKesisimBlock(ga,game,draw,aSet,mode){
 }
 function _qtAiBlock(game,prior,src,aSet){
   const max=game.max,cnt=game.count;
-  const K=parseInt(document.getElementById('qtAiK')?.value)||30;
+  // Diğer bloklarla (AI Bilet Üretici, Gülsis Sıfır, Nihai) AYNI bilet sayısı — kullanıcı isteği.
+  // (Eskiden burada silinen Hızlı Tahmin sayfasının 'qtAiK' seçicisi okunuyordu; o kontrol artık
+  // hiçbir yerde yok, bu yüzden değeri hep bulunamayıp 30'a düşüyordu.)
+  const K=_QT_BUNDLE_K;
   const C=_qtCombineWeights(game,prior,src);
   let tickets=[];try{tickets=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){}
   const topNums=C.ranked.filter(n=>C.tally[n]>0).slice(0,cnt*2);
@@ -24835,7 +24836,7 @@ function _qtFilterToggle(name){
 function _qtAiBacktest(){
   const el=document.getElementById('qtAiBtOut');if(!el)return;
   const game=getGame(_qtGame),draws=_kbGetDraws(_qtGame);
-  const N=parseInt(document.getElementById('qtAiBtN')?.value)||12;const K=parseInt(document.getElementById('qtAiK')?.value)||30;
+  const N=parseInt(document.getElementById('qtAiBtN')?.value)||12;const K=_QT_BUNDLE_K;
   if(!draws||draws.length<70){el.innerHTML='<div style="padding:8px;font-size:.66rem;color:var(--muted)">Geçmiş test için yeterli veri yok.</div>';return;}
   el.innerHTML='<div style="padding:10px;font-size:.66rem;color:var(--muted)">⏳ AI biletleri her tarih için yeniden kurulup test ediliyor… (tüm yapılar çalışır, biraz sürebilir)</div>';
   setTimeout(()=>{
