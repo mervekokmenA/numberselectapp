@@ -1633,6 +1633,23 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div id="htsRowTekrar" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
  <div id="htsRowBulunan" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
  <div id="htsRowNihai" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-bottom:12px"></div>
+ <!-- 🔀 Ortak Sayı Bulucu — kullanıcı isteğiyle sayfanın en altında; yukarıdaki listelerin
+      yanındaki ↥Üst/↧Alt butonlarıyla tıklamalarla otomatik doldurulabilir. -->
+ <div class="card" style="border:2px solid rgba(139,92,246,.45);background:linear-gradient(135deg,rgba(139,92,246,.05),transparent)">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">🔀 Ortak Sayı Bulucu</div>
+   <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+    <span id="okBilgiHts" style="font-size:.6rem;color:var(--muted)"></span>
+    <button onclick="_okTemizle('Hts')" style="font-size:.64rem;padding:3px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">✕ Temizle</button>
+    <button onclick="_okCopy('Hts')" class="copy-btn" style="font-size:.64rem;padding:3px 10px">📋 Kopyala</button>
+   </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:7px">
+   <textarea id="okUstHts" oninput="_okPlanla('Hts')" placeholder="Üst liste — sayıları yapıştır ya da yukarıdaki ↥Üst butonlarıyla gönder" style="width:100%;min-height:52px;font-size:.74rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 9px;resize:vertical;box-sizing:border-box"></textarea>
+   <textarea id="okAltHts" oninput="_okPlanla('Hts')" placeholder="Alt liste — sayıları yapıştır ya da yukarıdaki ↧Alt butonlarıyla gönder" style="width:100%;min-height:52px;font-size:.74rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:8px;padding:7px 9px;resize:vertical;box-sizing:border-box"></textarea>
+  </div>
+  <div id="okOutHts" style="margin-top:9px"></div>
+ </div>
 </div>
 
 <!-- ═══════════ PAGE: YÖNTEM ARAŞTIRMA ═══════════ -->
@@ -16566,34 +16583,39 @@ function _okSayilar(t){
   const mx=(getGame((state&&state.selectedGame)||GAMES[0].id)||{}).max||99;
   return [...new Set((String(t||'').match(/\d{1,3}/g)||[]).map(Number).filter(n=>n>=1&&n<=mx))];
 }
-function _okPlanla(){clearTimeout(_okZaman);_okZaman=setTimeout(_okHesapla,180);}
-function _okTemizle(){
-  const u=document.getElementById('okUst'),a=document.getElementById('okAlt');
+// suf: aynı Ortak Sayı Bulucu mantığının BİRDEN FAZLA sayfada (Ana Sayfa suf='', Hızlı Tahmin
+// suf='Hts') kendi id'leriyle bağımsız çalışabilmesi için — id'ler her zaman 'okUst'+suf vb.
+function _okPlanla(suf){suf=suf||'';clearTimeout(_okZaman);_okZaman=setTimeout(()=>_okHesapla(suf),180);}
+function _okTemizle(suf){
+  suf=suf||'';
+  const u=document.getElementById('okUst'+suf),a=document.getElementById('okAlt'+suf);
   if(u)u.value='';if(a)a.value='';
-  _okHesapla();
+  _okHesapla(suf);
 }
-function _okCopy(){
-  const t=window._okTxt||'';
+function _okCopy(suf){
+  suf=suf||'';
+  const t=window['_okTxt'+suf]||'';
   if(!t){showToast('⚠️ Ortak sayı yok');return;}
   _caCopy(t);showToast('📋 Kopyalandı');
 }
 function _okCip(n){
   return `<span style="font-family:monospace;font-size:.86rem;font-weight:800;color:#fff;background:#7c3aed;border:1.5px solid #6d28d9;border-radius:8px;padding:2px 10px">${n}</span>`;
 }
-function _okHesapla(){
-  const uEl=document.getElementById('okUst'),aEl=document.getElementById('okAlt'),out=document.getElementById('okOut');
+function _okHesapla(suf){
+  suf=suf||'';
+  const uEl=document.getElementById('okUst'+suf),aEl=document.getElementById('okAlt'+suf),out=document.getElementById('okOut'+suf);
   if(!out)return;
   const uT=uEl?uEl.value:'',aT=aEl?aEl.value:'';
   const u=_okSayilar(uT),a=_okSayilar(aT);
-  const bilgi=document.getElementById('okBilgi');
+  const bilgi=document.getElementById('okBilgi'+suf);
   if(bilgi)bilgi.textContent=(u.length||a.length)?`üst ${u.length} · alt ${a.length} sayı`:'';
   if(!u.length||!a.length){
     out.innerHTML='<div style="font-size:.68rem;color:var(--muted)">İki alana da sayı girin — ortak olanlar burada listelenir.</div>';
-    window._okTxt='';return;
+    window['_okTxt'+suf]='';return;
   }
   const aSet=new Set(a);
   const ortak=u.filter(n=>aSet.has(n)).sort((x,y)=>x-y);
-  window._okTxt=ortak.length?ortak.join(' '):'';
+  window['_okTxt'+suf]=ortak.length?ortak.join(' '):'';
   if(!ortak.length){
     out.innerHTML='<div style="font-size:.68rem;color:#c2410c;font-weight:700">Ortak sayı yok.</div>';
     return;
@@ -16602,8 +16624,8 @@ function _okHesapla(){
     +`<span style="font-size:.7rem;font-weight:800;color:#7c3aed">✅ Ortak ${ortak.length} sayı</span></div>`
     +`<div data-lp="${ortak.join(' ')}" style="display:flex;gap:5px;flex-wrap:wrap">${ortak.map(_okCip).join('')}</div>`;
 }
-function _okInit(){
-  _okHesapla();
+function _okInit(suf){
+  _okHesapla(suf);
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(_okInit,300));
 else setTimeout(_okInit,300);
@@ -21039,12 +21061,16 @@ function _ozetUstKart(mode,game,src,aSet,actual){
     return `<span data-num="${n}" style="display:inline-flex;font-family:monospace;font-size:.66rem;font-weight:700;color:${col};background:var(--surface2);border:1px solid ${bd};border-radius:6px;padding:2px 6px">${n}${hit?'✓':near?'~':''}</span>`;
   };
   const sfx='_'+mode;
+  // Hızlı Tahmin sayfasında (mode 'hts...' ile başlar) her alt listenin yanına 🔀 Ortak Sayı
+  // Bulucu'ya tek tıkla gönderme butonları eklenir; Basit Tahmin'de (mode 'live'/'test'/…)
+  // bu butonlar gösterilmez — o sayfada Ortak Sayı Bulucu yok.
+  const gonderliMi=String(mode).indexOf('hts')===0;
   const grp=(title,nums,colorHex,varName)=>{
     window[varName]=title+' ('+game.name+')\n'+(nums.length?nums.join(' '):'(yok)');
     return `<div style="margin-bottom:8px">`
       +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">`
       +`<span style="font-size:.62rem;font-weight:800;color:${colorHex}">${title} <span style="font-size:.54rem;color:var(--muted);font-weight:600">${nums.length} sayı</span></span>`
-      +`<button onclick="_caCopy(window.${varName})" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋</button>`
+      +`<span style="display:flex;gap:4px;align-items:center">${gonderliMi?_htsGonderBtns(nums):''}<button onclick="_caCopy(window.${varName})" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋</button></span>`
       +`</div>`
       +(nums.length?`<div style="display:flex;gap:4px;flex-wrap:wrap">${nums.map(badge).join('')}</div>`
                    :`<div style="font-size:.58rem;color:var(--muted)">—</div>`)
@@ -21091,7 +21117,22 @@ function _htsSetGame(g){
   ['','2','3'].forEach(sl=>{const e=document.getElementById('htsDateSel'+sl);if(e)e.value='';});
   _htsUret();
 }
-function _htsInit(){_htsRenderGameRow();_htsDates();_htsUret();}
+function _htsInit(){_htsRenderGameRow();_htsDates();_htsUret();_okInit('Hts');}
+// Sayfadaki bir sayı listesini (↥Üst/↧Alt butonu) tek tıkla 🔀 Ortak Sayı Bulucu'nun ilgili
+// kutusuna gönderir — kullanıcı isteği: "bu ekrandakileri o ortak bulucuda tıklamalarla
+// otomatik doldurabilmeliyim".
+function _htsOkGonder(nums,hedef){
+  const el=document.getElementById('ok'+hedef+'Hts');if(!el)return;
+  el.value=(nums||[]).join(' ');
+  _okHesapla('Hts');
+  if(typeof showToast==='function')showToast('🔀 '+(hedef==='Ust'?'Üst':'Alt')+' listeye gönderildi');
+}
+function _htsGonderBtns(nums){
+  if(!nums||!nums.length)return'';
+  const arr=nums.join(',');
+  return `<button onclick="_htsOkGonder([${arr}],'Ust')" title="🔀 Ortak Sayı Bulucu — Üst listeye gönder" style="font-size:.5rem;padding:2px 6px;border-radius:5px;border:1px solid rgba(124,58,237,.35);background:rgba(124,58,237,.08);color:#7c3aed;cursor:pointer;font-weight:700">↥Üst</button>`
+    +`<button onclick="_htsOkGonder([${arr}],'Alt')" title="🔀 Ortak Sayı Bulucu — Alt listeye gönder" style="font-size:.5rem;padding:2px 6px;border-radius:5px;border:1px solid rgba(124,58,237,.35);background:rgba(124,58,237,.08);color:#7c3aed;cursor:pointer;font-weight:700">↧Alt</button>`;
+}
 function _htsDates(){
   const draws=_kbGetDraws(_htsGame);
   let h=`<option value="">— Geçmiş test için tarih seçin —</option>`;
@@ -21188,7 +21229,7 @@ function _htsTekrarKolonHtml(D,mode,actual,gid){
   let h=`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:5px">`
     +`<span style="font-size:.6rem;font-weight:800;color:${actual?'var(--green)':'var(--accent)'}">🔁 Formüllerde Tekrar Eden Sayılar`
     +(actual?` — ${[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(actual.bonus&&actual.bonus.length)?' + '+actual.bonus.join(' '):''}`:'')+`</span>`
-    +`<button onclick="_caCopy(window.${varName});showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.56rem;padding:1px 8px;flex-shrink:0">📋</button>`
+    +`<span style="display:flex;gap:4px;align-items:center;flex-shrink:0">${_htsGonderBtns(nums)}<button onclick="_caCopy(window.${varName});showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.56rem;padding:1px 8px">📋</button></span>`
     +`</div>`;
   h+=`<div style="font-size:.55rem;color:var(--muted);margin-bottom:5px">${D.toplamFormul} formül · ${D.tekrar.length} tekrar eden sayı`
     +(net!=null?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>`:'')+`</div>`;
@@ -21213,7 +21254,7 @@ function _htsBulunanKartHtml(mode,col){
   const{algoName,numOrder}=col.bulunan;
   const varName='_htsBulunanTxt_'+mode;
   window[varName]=`🔎 Bulunan Sayılar — ${col.game.name}\n🧮 Analiz: ${algoName}\n🔴 Kırmızı Hücreler: `+(numOrder.length?numOrder.join(' '):'—');
-  h+=`<span style="display:flex;align-items:center;gap:6px"><button onclick="_htsBulunanCalistir('${mode}')" style="font-size:.56rem;padding:3px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔄</button><button onclick="_caCopy(window.${varName});showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.54rem;padding:2px 7px">📋</button></span></div>`;
+  h+=`<span style="display:flex;align-items:center;gap:4px">${_htsGonderBtns(numOrder)}<button onclick="_htsBulunanCalistir('${mode}')" style="font-size:.56rem;padding:3px 9px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🔄</button><button onclick="_caCopy(window.${varName});showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.54rem;padding:2px 7px">📋</button></span></div>`;
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:5px">🧮 Analiz: ${algoName}</div>`;
   h+=`<div style="font-size:.6rem;font-weight:800;color:#e53935;margin-bottom:4px">🔴 Kırmızı Hücreler <span style="font-size:.52rem;color:var(--muted);font-weight:600">${numOrder.length} sayı</span></div>`;
   h+=numOrder.length?`<div style="display:flex;flex-wrap:wrap;gap:4px">${numOrder.map(n=>{
