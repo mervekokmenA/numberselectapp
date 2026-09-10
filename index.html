@@ -2259,7 +2259,10 @@ function _ckSon3(scope){
   scope=scope||'';
   const gid=_ckOyun(),model=_ckModel[gid];
   if(!model){_ckRun(scope);setTimeout(()=>_ckSon3(scope),800);return;}
-  const izin=model.testTarihler;
+  // Bazı oyunların (ör. On Numara — hafta no'dan tarihe çevrilen, "güvenilmez" takvim)
+  // arşivinde aynı tarih iki kez geçebilir; testTarihler'de yinelenirse 3 sütun da AYNI
+  // geçmiş çekilişe düşüyordu. Yinelenenleri at, 3 FARKLI tarih garanti et.
+  const izin=[...new Set(model.testTarihler)];
   ['','2','3'].forEach((sl,i)=>{const e=document.getElementById('ckDate'+sl+scope);if(!e||!izin[i])return;e.value=izin[i];_ckDateTest(sl,scope);});
 }
 // Ana sayfanın en üstüne panel — oyun değişince tazelenir
@@ -12856,7 +12859,12 @@ function _kbGetDraws(gid){
     if(nums.length>=1)draws.push({date,nums,bonus});
   });
   draws.sort((a,b)=>b.date.localeCompare(a.date));
-  _kbDrawCache[gid]=draws;return draws;
+  // Bazı oyunların arşivinde (ör. On Numara — hafta no'dan tarihe çevrilen "güvenilmez"
+  // takvim) aynı tarih iki kez geçebilir; bu, "Son 3 çekiliş" gibi tarihe göre çalışan
+  // butonların aynı çekilişi tekrar tekrar seçmesine yol açar. Tekrarlanan tarihleri at.
+  const gorulen=new Set(),tekil=[];
+  draws.forEach(d=>{if(gorulen.has(d.date))return;gorulen.add(d.date);tekil.push(d);});
+  _kbDrawCache[gid]=tekil;return tekil;
 }
 
 function _kbSonHane(draws,max){
@@ -13952,7 +13960,11 @@ function _scanGetDraws(gameId){
     if(nums.length>=1)draws.push({date,nums,bonus});
   });
   draws.sort((a,b)=>b.date.localeCompare(a.date));
-  return draws;
+  // bkz. _kbGetDraws — aynı tarihin arşivde iki kez geçmesine karşı tekrarları at
+  // (saat damgalı satırlarda "date" saati de içerdiğinden gün-içi farklı çekilişler etkilenmez).
+  const gorulen=new Set(),tekil=[];
+  draws.forEach(d=>{if(gorulen.has(d.date))return;gorulen.add(d.date);tekil.push(d);});
+  return tekil;
 }
 
 function _initScanPage(){
