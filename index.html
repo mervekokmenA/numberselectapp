@@ -21483,7 +21483,6 @@ function _qtRenderAll(mode,game,prior,actual){
   const src=_qtBuildSources(game,prior);
   let h='';
   const blk=(key,html)=>{if(html)h+=`<div class="qt-blk" data-k="${key}">${html}</div>`;};
-  blk('ozetUst',_ozetUstKart(mode,game,src,aSet,actual));
   if(actual){const res=[...(actual.nums||[])].sort((a,b)=>a-b);blk('actual',`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Tüm yapılar bu tarihten ÖNCEKİ verilerle üretildi · ✓ net · ~ ±1 yakın.</div></div>`);}
   blk('nnSys',_qtNnBlock(game,prior,aSet,src));
   blk('aiBlk',_qtTicketsBlock('🤖','AI Bilet Üretici',src.aiB,game,'#0a9a6a',aSet));
@@ -23569,7 +23568,7 @@ function _btsCopyGrouped(){_qtCopyAllGrouped(_BASIT_GROUPS);}
 // anahtarıyla etiketlenir; burada anahtar bazında eşleştirilip TEK bir grid satırına yerleştirilir —
 // böylece biletlerin/analizlerin yüksekliği farklı olsa bile aynı bölüm her zaman tam yan yana durur.
 // Basit Tahmin sayfasında gösterilecek 9 analiz ve sırası (kullanıcının belirlediği liste).
-const _BASIT_KEYS=['ozetUst','actual','aiCombined','aiBlk','g0','ni','niYakInter','gulay','kesisim','aday','nihaiSection','ilkHaneSection'];
+const _BASIT_KEYS=['actual','aiCombined','aiBlk','g0','ni','niYakInter','gulay','aday','kesisim','nihaiSection','ilkHaneSection'];
 function _qtSyncPairs(){
   // Hızlı Tahmin sayfası kaldırıldı — bu üretim artık yalnızca Basit Tahmin'in btsPairGrid'ini doldurur.
   const grid=document.getElementById('btsPairGrid');
@@ -23669,9 +23668,17 @@ function _qtKbConsTop(game,prior){
   const rows=_kbConsensus(prior,game,cal);
   return rows.slice(0,game.count+6);
 }
-function _qtBuildAnalysisGroups(game,prior,src,targetDate){
+function _qtBuildAnalysisGroups(game,prior,src,targetDate,aSet){
   const groups={};
   const flat=arr=>{const s=new Set();(arr||[]).forEach(t=>{[...(t.main||[]),...(t.bonus||[])].forEach(n=>s.add(n));});return s;};
+  // 🧩 Sabit Sayılarla Kesişim — kullanıcı isteği: Nihai/İlk Hane'nin "Kaynak analiz(ler)" chip
+  // seçicisinde de seçilebilir bir kaynak olsun (kendi checkbox'ının yanında).
+  if(src.ga){
+    try{
+      const kes=_soKesisimHesapla(src.ga.topRows,src.ga.cikRows,src.ga.chainRows,aSet||null);
+      if(kes.length)groups['🧩 Sabit Sayılarla Kesişim']=new Set(kes);
+    }catch(e){}
+  }
   if(src.aiB&&src.aiB.length)groups['🤖 AI Bilet Üretici']=flat(src.aiB);
   if(src.g0&&src.g0.length)groups['🎯⁰ Gülsis Sıfır']=flat(src.g0);
   if(src.ni&&src.ni.length)groups['🏁 Nihai']=flat(src.ni);
@@ -23748,7 +23755,7 @@ function _qtNihaiSection(game,prior,src,aSet,mode,actual){
   if(!prior||!prior.length)return '';
   const rowsInfo=_soNihaiRowsFromDraw(prior[0],game);
   if(!rowsInfo)return '';
-  const groups=_qtBuildAnalysisGroups(game,prior,src,actual?actual.date:undefined);
+  const groups=_qtBuildAnalysisGroups(game,prior,src,actual?actual.date:undefined,aSet);
   _qtNihaiState[mode]={rowsInfo,game,groups,nextSet:aSet||null,actualDraw:actual||null};
   if(!(mode in _qtNihaiFilter)){
     // varsayılan: hiçbir analiz seçili değil — TÜMÜNÜN birleşimi gösterilir (kullanıcı isterse daraltır)
@@ -23828,7 +23835,7 @@ function _qtIlkHaneSection(game,prior,src,aSet,mode,actual){
   const nihaiSt=_qtNihaiState[mode];
   const rowsInfo=nihaiSt?nihaiSt.rowsInfo:_soNihaiRowsFromDraw(prior[0],game);
   if(!rowsInfo)return '';
-  const groups=nihaiSt?nihaiSt.groups:_qtBuildAnalysisGroups(game,prior,src);
+  const groups=nihaiSt?nihaiSt.groups:_qtBuildAnalysisGroups(game,prior,src,undefined,aSet);
   _qtIlkHaneState[mode]={rowsInfo,game,groups,nextSet:aSet||null,actualDraw:actual||null};
   const wrapId='qtIlkHaneWrap_'+mode;
   let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(124,58,237,.35)">`;
