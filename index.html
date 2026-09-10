@@ -14400,9 +14400,10 @@ function _listelerNewPredCore(gameId,algoId,win,n,bazDate){
   return _listelerNewPred;
 }
 // Kullanıcı isteği: bu buton artık ekrandaki 📅 geçmiş sütun listesine
-// (_listelerHistory) DOKUNMAZ — sadece güncel yeni tahmini üretir ve Kontrol'ü
-// çalıştırır. "Son 2 geçmiş oyun" artık 🔎 Bulunan Sayılar'ın kendi bağımsız
-// hesapla butonlarıyla (bkz. _listelerBulunanRender) arka planda hesaplanıyor.
+// (_listelerHistory) DOKUNMAZ — sadece güncel yeni tahmini üretir, Kontrol'ü
+// çalıştırır VE 🔎 Bulunan Sayılar'ın 3 sütununu (Yeni Tahmin + son 2 Geçmiş
+// Test) kendi bağımsız arka plan hesabıyla otomatik doldurur (her biri hâlâ
+// tek başına ✕ dokunulmadan da 🧮 Hesapla ile yeniden hesaplanabilir).
 function listelerHizliUret(){
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
   const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
@@ -14415,7 +14416,8 @@ function listelerHizliUret(){
   document.getElementById('listelerBulundu').style.display='none';
   _listelerBulCache={};
   listelerKontrol();
-  showToast('🚀 Yeni tahmin üretildi');
+  ['new','h1','h2'].forEach(_listelerBulHesapla);
+  showToast('🚀 Son 2 çekiliş + yeni tahmin üretildi');
 }
 function listelerRunNewPred(){
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
