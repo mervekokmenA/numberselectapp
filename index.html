@@ -770,7 +770,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
         style="width:64px;font-size:.8rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;text-align:center"
         oninput="this.value=Math.max(1,Math.min(10000,parseInt(this.value)||1))">
       <span style="font-size:.72rem;color:var(--muted)">bilet</span>
-      <button onclick="listelerHizliUret()" style="padding:7px 16px;background:linear-gradient(135deg,rgba(255,101,132,.22),rgba(129,140,248,.18));border:1px solid rgba(255,101,132,.5);color:#e53973;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:800" title="Yeni tahmini üretir ve Kontrol'ü otomatik çalıştırır — ekrandaki 📅 geçmiş sütun listesine dokunmaz. Bulunan Sayılar'daki son 2 geçmiş test, kendi 🧮 Hesapla butonlarıyla arka planda ayrı ayrı hesaplanır">🚀 Son 2 + Yeni Tahmin Üret</button>
+      <button onclick="listelerHizliUret()" style="padding:7px 16px;background:linear-gradient(135deg,rgba(255,101,132,.22),rgba(129,140,248,.18));border:1px solid rgba(255,101,132,.5);color:#e53973;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:800" title="Son 4 çekilişi geçmiş test olarak ekler (kırmızı hücre hesabının dayanağı), yeni tahmini üretir ve Kontrol'ü otomatik çalıştırır — Bulunan Sayılar'da son 2'si gösterilir">🚀 Son 2 + Yeni Tahmin Üret</button>
       <button onclick="listelerVeriDurumu()" style="padding:7px 14px;background:rgba(0,150,58,.09);border:1px solid rgba(0,150,58,.35);color:var(--text);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">📥 Veri Durumu</button>
       <button onclick="listelerRunBacktest()" style="padding:7px 16px;background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.08));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🔬 Geçmiş Testi Çalıştır</button>
       <input type="date" id="listelerPredDate" title="Yeni tahmin hedef tarihi" style="font-size:.72rem;background:var(--surface2);border:1px solid rgba(108,99,255,.35);color:var(--text);border-radius:6px;padding:5px 8px;max-width:130px">
@@ -14224,10 +14224,6 @@ let _listelerRedKeys=new Set();
 // "en güncel" kabul edilir; üstteki Yeni Tahmin sütunu o tarihten ÖNCEKİ verilerle
 // yeniden kurulur ve o tarihin gerçek sonucuna göre işaretlenir.
 let _listelerBazDate=null,_listelerBazActual=null,_listelerGreenKeys=new Set(),_listelerYakinKeys=new Set();
-// 🔎 Bulunan Sayılar'ın kendi bağımsız geçmiş test hesapları — ekrandaki 📅 sütun
-// listesinden (_listelerHistory) tamamen ayrı, sadece "hesapla" butonuna basılınca
-// dolan bir önbellek. key: 'new' | 'h1' | 'h2'.
-let _listelerBulCache={};
 let _lScrollLock=false;
 function _listelerAttachScrollSync(){
   document.querySelectorAll('.listeler-tickets').forEach(el=>{
@@ -14249,7 +14245,7 @@ function _initListelerPage(){
       const btn=document.createElement('button');
       btn.style.cssText='padding:5px 12px;border-radius:8px;font-size:.75rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .18s';
       btn.textContent=g.emoji+' '+g.name;
-      btn.onclick=()=>{_listelerGame=g.id;_listelerBulCache={};_listelerHighlightGame(g.id);_listelerPopulateDates();try{_oyunYay(g.id,'_listeler');}catch(e){}};
+      btn.onclick=()=>{_listelerGame=g.id;_listelerHighlightGame(g.id);_listelerPopulateDates();try{_oyunYay(g.id,'_listeler');}catch(e){}};
       grid.appendChild(btn);
     });
   }
@@ -14319,37 +14315,6 @@ function _listelerBacktestCore(gameId,testDate,algoId,win,n){
   _listelerHistory.sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:0);
   _listelerRecompute();
   return entry;
-}
-// Saf: verilen tarih için bilet üretip gerçek sonuca göre greenCells döner.
-// _listelerHistory'ye HİÇ dokunmaz (ekrandaki 📅 sütun listesinden bağımsız).
-function _listelerGreenCellsFor(gameId,testDate,algoId,win,n){
-  const game=getGame(gameId);if(!game)return null;
-  const draws=_scanGetDraws(gameId);
-  let prior=draws.filter(d=>d.date<testDate);
-  if(win!=='all')prior=prior.slice(0,parseInt(win));
-  if(!prior.length)return null;
-  const actual=draws.find(d=>d.date===testDate)||null;
-  const freq=buildFreq(prior);
-  const tickets=Array.from({length:n},()=>generateNumbers(game,algoId,freq,prior));
-  tickets.sort((a,b)=>calcTicketScore(b,game)-calcTicketScore(a,game));
-  const actualSet=actual?new Set([...(actual.nums||[]),...(actual.bonus||[])]):new Set();
-  const greenCells=new Set();
-  tickets.forEach((t,ti)=>[...t.main,...t.bonus].forEach((num,pi)=>{if(actualSet.has(num))greenCells.add(`${ti}-${pi}`);}));
-  return greenCells;
-}
-// Saf: bir referans tarihin (veya canlı/null ise en güncel durumun) kırmızı hücrelerini,
-// o tarihten ÖNCEKİ son 2 çekilişe göre hesaplar — ekrandaki 📅 geçmiş sütun listesinden
-// (_listelerHistory) tamamen bağımsız, kendi içinde kapalı bir hesap.
-function _listelerColRedKeys(gameId,algoId,win,n,refDate){
-  const draws=_scanGetDraws(gameId);
-  const basisPool=refDate?draws.filter(d=>d.date<refDate):draws;
-  if(basisPool.length<2)return null;
-  const [d1,d2]=basisPool.slice(0,2);
-  const g1=_listelerGreenCellsFor(gameId,d1.date,algoId,win,n);
-  const g2=_listelerGreenCellsFor(gameId,d2.date,algoId,win,n);
-  if(!g1||!g2)return null;
-  const redKeys=new Set([...g1].filter(k=>g2.has(k)));
-  return {redKeys,basisDates:[d1.date,d2.date]};
 }
 function listelerRunBacktest(){
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
@@ -14431,10 +14396,8 @@ function _listelerNewPredCore(gameId,algoId,win,n,bazDate){
   _listelerRedKeys=new Set();
   return _listelerNewPred;
 }
-// Kullanıcı isteği: bu buton artık ekrandaki 📅 geçmiş sütun listesine
-// (_listelerHistory) DOKUNMAZ — sadece güncel yeni tahmini üretir ve Kontrol'ü
-// çalıştırır. "Son 2 geçmiş oyun" artık 🔎 Bulunan Sayılar'ın kendi bağımsız
-// hesapla butonlarıyla (bkz. _listelerBulunanRender) arka planda hesaplanıyor.
+// Kullanıcı isteği: tek butonla son 2 çekilişi geçmiş test olarak ekle,
+// yeni tahmini üret ve (yeterli veri varsa) Kontrol'ü otomatik çalıştır.
 function listelerHizliUret(){
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
   const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
@@ -14442,12 +14405,20 @@ function listelerHizliUret(){
   const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||2000));
   const draws=_scanGetDraws(gameId);
   if(!draws||draws.length<10){showToast('⚠️ Yeterli veri yok');return;}
+  // Kırmızı hücre hesabı bir tarih için EN AZ 2 işaretli, ondan ÖNCEKİ sütun ister —
+  // "son 2 geçmiş test"in kendisi anlamlı çıkabilsin diye son 4 çekiliş eklenir
+  // (üstteki 2'si gösterilecek geçmiş testler, alttaki 2'si onların dayanağı).
+  draws.slice(0,4).forEach(d=>{
+    const dup=_listelerHistory.find(h=>h.date===d.date&&h.game.id===gameId);
+    if(dup){dup.checked=true;return;}
+    _listelerBacktestCore(gameId,d.date,algoId,win,n);
+  });
   const res=_listelerNewPredCore(gameId,algoId,win,n);
   if(!res){showToast('⚠️ Yeni tahmin üretilemedi');return;}
   document.getElementById('listelerBulundu').style.display='none';
-  _listelerBulCache={};
-  listelerKontrol();
-  showToast('🚀 Yeni tahmin üretildi');
+  _renderListelerCols();
+  if(_listelerHistory.filter(h=>h.checked).length>=2)setTimeout(listelerKontrol,30);
+  showToast('🚀 Son 2 çekiliş + yeni tahmin üretildi');
 }
 function listelerRunNewPred(){
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
@@ -14457,7 +14428,6 @@ function listelerRunNewPred(){
   const res=_listelerNewPredCore(gameId,algoId,win,n);
   if(!res){showToast('⚠️ Veri yok');return;}
   document.getElementById('listelerBulundu').style.display='none';
-  delete _listelerBulCache.new;
   _renderListelerNewPred();
 }
 
@@ -14495,13 +14465,11 @@ function listelerKontrolTarih(id){
   const res=_listelerNewPredCore(col.game.id,algoId,win,n,col.date);
   if(!res){showToast('⚠️ Bu tarihten önce yeterli veri yok');return;}
   _listelerBazDate=col.date;_listelerBazActual=col.actual||null;
-  delete _listelerBulCache.new;
   showToast('📌 Baz: '+col.date+' — tahmin bu tarihten önceki verilerle kuruldu');
   listelerKontrol();
 }
 function listelerBazTemizle(){
   _listelerBazDate=null;_listelerBazActual=null;_listelerGreenKeys=new Set();_listelerYakinKeys=new Set();
-  delete _listelerBulCache.new;
   const gameId=_listelerGame||state.selectedGame||GAMES[0].id;
   const algoId=document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
   const win=document.getElementById('listelerWindow')?.value||'30';
@@ -14560,58 +14528,36 @@ function _listelerKirmiziKolonHtml(baslik,tarihEtiket,numOrder,bazSet,bazYakin,c
                      :`<div style="font-size:.68rem;color:var(--muted)">Kırmızı hücre bulunamadı.</div>`)
     +`</div>`;
 }
-// Kullanıcı isteği: Bulunan Sayılar'daki 3 sütun (Yeni Tahmin + son 2 geçmiş test)
-// ekrandaki 📅 sütun listesinden (_listelerHistory) TAMAMEN bağımsız, kendi
-// başlarına hesaplanır — sadece kullanıcı o sütunun 🧮 Hesapla butonuna basınca
-// (arka planda, o sütunun referans tarihinden önceki son 2 çekilişe göre) çalışır.
-function _listelerBulHesaplaBtn(colKey){
-  return `<button onclick="_listelerBulHesapla('${colKey}')" style="font-size:.6rem;padding:3px 10px;border-radius:6px;border:1px solid rgba(108,99,255,.4);background:rgba(108,99,255,.12);color:var(--accent);cursor:pointer;font-weight:700">🧮 Hesapla</button>`;
-}
-function _listelerBulHesapla(colKey){
+// Kullanıcı isteği: Bulunan Sayılar da "yeni tahmin + son 2 geçmiş test" düzeninde,
+// her sütun kendi tarihine göre AYRI üretilmiş biletlerle ve kendi sonucuna göre
+// işaretlenmiş olarak yan yana görünsün.
+function _listelerBulunanRender(){
+  const el=document.getElementById('listelerBulunduKirmizi');if(!el)return;
   const gid=_listelerGame||state.selectedGame||GAMES[0].id;
   const algoId=_listelerNewPred?.algoId||document.getElementById('listelerAlgo')?.value||state.selectedAlgo;
   const win=document.getElementById('listelerWindow')?.value||'30';
   const n=Math.max(1,Math.min(10000,parseInt(document.getElementById('listelerCount')?.value)||2000));
-  const draws=_scanGetDraws(gid);
-  let refDate,tickets,actual;
-  if(colKey==='new'){
-    refDate=_listelerBazDate||null;
-    if(!_listelerNewPred){showToast('⚠️ Önce yeni tahmin yapın');return;}
-    tickets=_listelerNewPred.tickets;
-    actual=_listelerBazActual;
-  }else{
-    const idx=colKey==='h1'?0:1;
-    const col=draws[idx];
-    if(!col){showToast('⚠️ Yeterli çekiliş yok');return;}
-    refDate=col.date;
-    tickets=_listelerTicketsAsOf(gid,algoId,win,n,refDate);
-    actual=col;
-  }
-  const res=_listelerColRedKeys(gid,algoId,win,n,refDate);
-  if(!res){showToast('⚠️ Bu tarihten önce en az 2 çekiliş gerekli');return;}
-  _listelerBulCache[colKey]={refDate,tickets,actual,redKeys:res.redKeys,basisDates:res.basisDates};
-  _listelerBulunanRender();
-}
-function _listelerBulKolonHtml(colKey,baslik,copyKey){
-  const cached=_listelerBulCache[colKey];
-  if(!cached){
-    return `<div><div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px"><span style="font-size:.62rem;font-weight:800;color:var(--muted)">${baslik}</span>${_listelerBulHesaplaBtn(colKey)}</div><div style="font-size:.62rem;color:var(--muted)">Hesaplamak için butona basın.</div></div>`;
-  }
-  const gid=_listelerGame||state.selectedGame||GAMES[0].id;
-  const {numOrder,bazSet,bazYakin}=_listelerKirmiziSayilari(cached.tickets,cached.redKeys,cached.actual,gid);
-  const cek=cached.actual?[...(cached.actual.nums||[]),...(cached.actual.bonus||[])].join(' '):(cached.refDate?'sonuç yok':'canlı');
-  const tarihEtiket=(cached.refDate?cached.refDate+' — '+cek:'canlı')+` · dayanak: ${cached.basisDates.join(', ')}`;
-  let html=_listelerKirmiziKolonHtml(baslik,tarihEtiket,numOrder,bazSet,bazYakin,copyKey);
-  // Başlık satırının sağına yeniden hesapla butonu ekle
-  html=html.replace('</button>','</button>'+_listelerBulHesaplaBtn(colKey));
-  return html;
-}
-function _listelerBulunanRender(){
-  const el=document.getElementById('listelerBulunduKirmizi');if(!el)return;
   let h='';
-  h+=_listelerBulKolonHtml('new','🔮 Yeni Tahmin','_lsKirmiziTxt0');
-  h+=_listelerBulKolonHtml('h1','📅 Geçmiş Test 1','_lsKirmiziTxt1');
-  h+=_listelerBulKolonHtml('h2','📅 Geçmiş Test 2','_lsKirmiziTxt2');
+  // Sütun 1: Yeni Tahmin — mevcut canlı (ya da elle seçilmiş baz) durum, dokunulmaz
+  if(_listelerNewPred){
+    const redKeys0=_listelerRedKeys.size?_listelerRedKeys:(_listelerKirmiziHesapla(_listelerBazDate)||new Set());
+    const {numOrder,bazSet,bazYakin}=_listelerKirmiziSayilari(_listelerNewPred.tickets,redKeys0,_listelerBazActual,gid);
+    h+=_listelerKirmiziKolonHtml('🔮 Yeni Tahmin',_listelerBazDate?('baz: '+_listelerBazDate):'canlı',numOrder,bazSet,bazYakin,'_lsKirmiziTxt0');
+  }else h+='<div style="font-size:.68rem;color:var(--muted)">Önce yeni tahmin yapın.</div>';
+  // Sütun 2-3: son 2 geçmiş test tarihi — HER BİRİ o tarihten önceki verilerle
+  // kendi biletlerini üretir (lookahead yok) ve kendi gerçek sonucuna göre işaretlenir.
+  const sonIki=_listelerHistory.slice(0,2);
+  sonIki.forEach((col,i)=>{
+    const redKeys=_listelerKirmiziHesapla(col.date);
+    if(!redKeys){
+      h+=`<div><div style="font-size:.62rem;font-weight:800;color:var(--muted);margin-bottom:3px">📅 ${col.date}</div><div style="font-size:.62rem;color:var(--muted)">Bu tarihten önce en az 2 işaretli geçmiş sütun gerekli.</div></div>`;
+      return;
+    }
+    const asOfTickets=_listelerTicketsAsOf(gid,algoId,win,n,col.date)||col.tickets;
+    const {numOrder,bazSet,bazYakin}=_listelerKirmiziSayilari(asOfTickets,redKeys,col.actual,gid);
+    const cek=col.actual?[...(col.actual.nums||[]),...(col.actual.bonus||[])].join(' '):'sonuç yok';
+    h+=_listelerKirmiziKolonHtml('📅 Geçmiş Test '+(i+1),col.date+' — '+cek,numOrder,bazSet,bazYakin,'_lsKirmiziTxt'+(i+1));
+  });
   el.innerHTML=h;
 }
 function listelerKontrol(){
