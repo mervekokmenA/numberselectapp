@@ -1880,8 +1880,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div class="card">
   <div class="card-title">🔢 Hane Hesaplama</div>
   <div style="font-size:.68rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
-   Her çekilen sayı <strong>tek basamağı</strong> ve <strong>onluğu</strong>na ayrılır (90'a tümleyen — 10↔80, 20↔70,
-   30↔60, 40↔50 — hesaba dahil ama artık ayrı bir sütun olarak gösterilmiyor).
+   Her çekilen sayı <strong>tek basamağı</strong> ve <strong>onluğu</strong>na ayrılır.
    Her çekilişin altındaki <strong>🎯 Olası Sayılar</strong>, kendisinden ÖNCEKİ çekilişin hane tablosundan (basamak
    birleştirme + çapraz toplama ile) otomatik üretilir ve o çekilişin gerçek sonucuna göre ✓ net / ~ yakın işaretlenir.
    En üstteki <strong>🔮 Yeni Tahmin</strong> aynı yöntemle en güncel çekilişten üretilir (henüz sonucu yok).
@@ -13317,11 +13316,12 @@ function _hnTabloHtml(draw){
   return {html,text:satirlar.join('\n')};
 }
 // Bir çekilişin hane tablosundan olası aday sayılar üretir:
-//  · yan yana (basamak birleştirme): tek basamak + (onluk'un/tümleyenin onlar hanesi) — yalnızca
+//  · yan yana (basamak birleştirme): tek basamak + onluğun onlar hanesi — yalnızca
 //    onluğu olan (≥10) satırlarda anlamlı, çünkü tek basamaklı sayılarda onluk yok.
-//  · çapraz (toplama): bir satırın onluğu/tümleyeni + BAŞKA bir sayının tek basamağı — buradaki
+//  · çapraz (toplama): bir satırın onluğu + BAŞKA bir sayının tek basamağı — buradaki
 //    "başka sayı" tek basamaklı (1-9) çekilen bir sayı da olabilir: kendisi zaten bir "tek basamak"
 //    değeridir, sadece kendi onluğu yoktur. Onu dışlamak eksik/hatalı sonuç verir (kullanıcı uyarısı).
+// 90'a tümleyen (görünmeyen 3. sütun) hesaba katılmaz — kullanıcı isteğiyle kaldırıldı.
 // Kullanıcının elle yaptığı yöntemin otomatikleştirilmiş hali — ileriye bakış yok,
 // yalnızca kaynak çekilişin kendi sayılarından üretilir.
 function _hnAdaylar(draw,game){
@@ -13333,17 +13333,13 @@ function _hnAdaylar(draw,game){
   const cands=new Set();
   rows.forEach(r=>{
     const c1=+(''+r.tek+Math.floor(r.onluk/10));
-    const c2=+(''+r.tek+Math.floor(r.tamamlayan/10));
     if(c1>=1&&c1<=max)cands.add(c1);
-    if(c2>=1&&c2<=max)cands.add(c2);
   });
   rows.forEach(ri=>{
     satirlar.forEach(rj=>{
       if(ri===rj)return;
       const s1=ri.onluk+rj.tek;
-      const s2=ri.tamamlayan+rj.tek;
       if(s1>=1&&s1<=max)cands.add(s1);
-      if(s2>=1&&s2<=max)cands.add(s2);
     });
   });
   return [...cands].sort((a,b)=>a-b);
