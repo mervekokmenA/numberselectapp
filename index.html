@@ -410,6 +410,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-listeler" onclick="showMainPage('listeler')">📋 Listeler</button>
       <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Kazanan/Kronoloji</button>
       <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı</button>
+      <button class="nav-link" id="navBtn-hane" onclick="showMainPage('hane')">🔢 Hane Hesaplama</button>
       <button class="nav-link" id="navBtn-gulsis0" onclick="showMainPage('gulsis0')">🎯⁰ Gülsis Sıfır</button>
       <button class="nav-link" id="navBtn-haber" onclick="showMainPage('haber')">📰 Haber Yöntemleri</button>
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
@@ -1872,6 +1873,27 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <div id="kbDateOut3"></div>
   </div>
  </div>
+</div>
+
+<!-- ═══════════ PAGE: HANE HESAPLAMA ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-hane">
+ <div class="card">
+  <div class="card-title">🔢 Hane Hesaplama</div>
+  <div style="font-size:.68rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
+   Her çekilen sayı <strong>tek basamağı</strong> ve <strong>onluğu</strong>na ayrılır; onluğun yanında 90'a tümleyen karşılığı da gösterilir
+   (10↔80, 20↔70, 30↔60, 40↔50) — bu tümleyen tablo oyunun kendi maksimumundan bağımsız, sabit bir referanstır.
+   Tek basamağı bir satırın onluğuyla <strong>yan yana</strong> (basamak birleştirme) ya da başka bir satırın onluğuyla
+   <strong>çapraz toplayarak</strong> yeni aday sayılar bulmak size kalır — uygulama burada otomatik bir tahmin üretmez,
+   sadece hesaplama tablosunu hazırlar.
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
+   <div id="hnGameGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+   <span style="font-size:.68rem;color:var(--muted);margin-left:6px">Son</span>
+   <input type="number" id="hnAdet" value="15" min="1" max="60" oninput="_hnRender()" style="width:56px;font-size:.75rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;text-align:center">
+   <span style="font-size:.68rem;color:var(--muted)">çekiliş · kronolojik (eskiden yeniye)</span>
+  </div>
+ </div>
+ <div id="hnList"></div>
 </div>
 
 </div><!-- /app -->
@@ -13205,6 +13227,90 @@ function _kbDateTest(slot){
   setTimeout(()=>{try{el.innerHTML=_kbRenderBanko(prior,actual);}catch(e){el.innerHTML='<div style="padding:14px;color:#cc2222;font-size:.72rem">Hata: '+e.message+'</div>';}},30);
 }
 
+// ── 🔢 Hane Hesaplama — kullanıcının kendi elle yürüttüğü "tek basamak + onluk
+// + 90'a tümleyen" tablosu. Uygulama yalnızca tabloyu hazırlar; basamakları yan
+// yana birleştirip (ör. 4 ve 30 → 43) ya da çapraz toplayıp (ör. 50+4=54) yeni
+// aday sayı bulmak kullanıcıya kalır — burada otomatik bir tahmin üretilmez.
+let _hnGame=null;
+function _hnInit(){
+  _hnGame=_hnGame||state.selectedGame||GAMES[0].id;
+  const grid=document.getElementById('hnGameGrid');
+  if(grid&&grid.childNodes.length===0){
+    GAMES.forEach(g=>{
+      const btn=document.createElement('button');
+      btn.style.cssText='padding:5px 12px;border-radius:8px;font-size:.75rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .18s';
+      btn.textContent=g.emoji+' '+g.name;
+      btn.onclick=()=>{_hnGame=g.id;_hnHighlight();_hnRender();};
+      grid.appendChild(btn);
+    });
+  }
+  _hnHighlight();
+  _hnRender();
+}
+function _hnHighlight(){
+  const grid=document.getElementById('hnGameGrid');if(!grid)return;
+  grid.querySelectorAll('button').forEach((btn,i)=>{
+    const g=GAMES[i];if(!g)return;
+    const on=g.id===_hnGame;
+    btn.style.background=on?'rgba(129,140,248,.25)':'var(--surface2)';
+    btn.style.borderColor=on?'rgba(129,140,248,.55)':'var(--border)';
+    btn.style.color=on?'var(--accent)':'var(--muted)';
+    btn.style.fontWeight=on?'700':'400';
+  });
+}
+// Bir sayının tek basamağı + onluğu + onluğun 90'a tümleyeni. Tek basamaklı
+// sayılarda (1-9) onluk yoktur, sayı olduğu gibi gösterilir.
+function _hnSatir(n){
+  if(n<10)return {tek:n,onluk:null,tamamlayan:null};
+  const onluk=Math.floor(n/10)*10;
+  return {tek:n%10,onluk,tamamlayan:90-onluk};
+}
+function _hnRender(){
+  const el=document.getElementById('hnList');if(!el)return;
+  const gid=_hnGame,game=getGame(gid);
+  const draws=_kbGetDraws(gid)||[];
+  if(!game||!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Veri yok.</div>';return;}
+  const adet=Math.max(1,Math.min(60,parseInt(document.getElementById('hnAdet')?.value)||15));
+  // Kronolojik (eskiden yeniye) göstermek için son N çekilişi al, sırayı ters çevir.
+  const son=draws.slice(0,adet).slice().reverse();
+  let h='';
+  son.forEach(d=>{
+    const nums=[...(d.nums||[])].sort((a,b)=>a-b);
+    const satirlar=[];
+    let tabloH='';
+    nums.forEach(n=>{
+      const r=_hnSatir(n);
+      if(r.onluk===null){
+        tabloH+=`<div style="font-family:monospace;font-size:.8rem;font-weight:800;color:var(--text);padding:2px 0">${n}</div>`;
+        satirlar.push(''+n);
+      }else{
+        tabloH+=`<div style="display:flex;gap:16px;align-items:baseline;font-family:monospace;font-size:.8rem;padding:2px 0">`
+          +`<span style="font-weight:800;color:var(--accent);min-width:20px">${r.tek}</span>`
+          +`<span style="color:var(--text);min-width:24px">${r.onluk}</span>`
+          +`<span style="color:var(--muted)">${r.tamamlayan}</span>`
+          +`</div>`;
+        satirlar.push(`${r.tek}  ${r.onluk}  ${r.tamamlayan}`);
+      }
+    });
+    const baslik=`📅 ${d.date}  ${nums.join(' ')}${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}`;
+    window['_hnTxt_'+d.date]=baslik+'\n'+satirlar.join('\n');
+    h+=`<div class="card" style="margin-bottom:10px">`
+      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`
+      +`<span style="font-size:.7rem;font-weight:800;color:var(--accent)">📅 ${d.date}</span>`
+      +`<span style="font-family:monospace;font-size:.76rem;color:var(--text)">${nums.join(' ')}${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</span>`
+      +`<button onclick="_hnCopy('${d.date}')" class="copy-btn" style="font-size:.58rem;padding:2px 9px">📋</button>`
+      +`</div>`
+      +`<div>${tabloH}</div>`
+      +`</div>`;
+  });
+  el.innerHTML=h;
+}
+function _hnCopy(date){
+  const t=window['_hnTxt_'+date];
+  if(!t){showToast('⚠️ Kopyalanamadı');return;}
+  _caCopy(t);showToast('📋 Kopyalandı');
+}
+
 // Gülsis Sıfır kapsama-optimal bilet grubu üreticisi — Kapsamlı'ya ayrı bir mod olarak entegre.
 // Konsensüsü HİÇ etkilemez; Gülsis Sıfır motorunu (_g0GenBundle) Kapsamlı'nın seçili oyununda çalıştırır.
 let _kbG0Tickets=null;
@@ -13795,8 +13901,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -13805,6 +13911,7 @@ function _pageInit(id){
   if(id==='kazanan')_initKazananPage();
   if(id==='kazanan')setTimeout(_orInit,60);
   if(id==='kapsamli'){_kbGame=state.selectedGame||_kbGame;_kbInit();}
+  if(id==='hane')_hnInit();
   if(id==='soz')_soInit();
   if(id==='gulsis0')_g0Init();
   if(id==='nihai')_niInit();
@@ -13852,11 +13959,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
