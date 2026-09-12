@@ -1882,15 +1882,13 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="font-size:.68rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
    Her çekilen sayı <strong>tek basamağı</strong> ve <strong>onluğu</strong>na ayrılır; onluğun yanında 90'a tümleyen karşılığı da gösterilir
    (10↔80, 20↔70, 30↔60, 40↔50) — bu tümleyen tablo oyunun kendi maksimumundan bağımsız, sabit bir referanstır.
-   Tek basamağı bir satırın onluğuyla <strong>yan yana</strong> (basamak birleştirme) ya da başka bir satırın onluğuyla
-   <strong>çapraz toplayarak</strong> yeni aday sayılar bulmak size kalır — uygulama burada otomatik bir tahmin üretmez,
-   sadece hesaplama tablosunu hazırlar.
+   Her çekilişin altındaki <strong>🎯 Olası Sayılar</strong>, kendisinden ÖNCEKİ çekilişin hane tablosundan (basamak
+   birleştirme + çapraz toplama ile) otomatik üretilir ve o çekilişin gerçek sonucuna göre ✓ net / ~ yakın işaretlenir.
+   En üstteki <strong>🔮 Yeni Tahmin</strong> aynı yöntemle en güncel çekilişten üretilir (henüz sonucu yok).
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
    <div id="hnGameGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div>
-   <span style="font-size:.68rem;color:var(--muted);margin-left:6px">Son</span>
-   <input type="number" id="hnAdet" value="15" min="1" max="60" oninput="_hnRender()" style="width:56px;font-size:.75rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;text-align:center">
-   <span style="font-size:.68rem;color:var(--muted)">çekiliş · kronolojik (eskiden yeniye)</span>
+   <span style="font-size:.68rem;color:var(--muted);margin-left:6px">Son 15 çekiliş · en yeni en üstte</span>
   </div>
  </div>
  <div id="hnList"></div>
@@ -13299,24 +13297,71 @@ function _hnSatir(n){
   const onluk=Math.floor(n/10)*10;
   return {tek:n%10,onluk,tamamlayan:90-onluk};
 }
+// Bir çekilişin hane tablosundan (yalnızca onluğu olan satırlar) olası aday sayılar üretir:
+//  · yan yana (basamak birleştirme): tek basamak + (onluk'un/tümleyenin onlar hanesi)
+//  · çapraz (toplama): bir satırın onluğu/tümleyeni + BAŞKA bir satırın tek basamağı
+// Kullanıcının elle yaptığı yöntemin otomatikleştirilmiş hali — ileriye bakış yok,
+// yalnızca kaynak çekilişin kendi sayılarından üretilir.
+function _hnAdaylar(draw,game){
+  if(!draw)return [];
+  const nums=[...(draw.nums||[])];
+  const rows=nums.map(_hnSatir).filter(r=>r.onluk!==null);
+  const max=game.max;
+  const cands=new Set();
+  rows.forEach(r=>{
+    const c1=+(''+r.tek+Math.floor(r.onluk/10));
+    const c2=+(''+r.tek+Math.floor(r.tamamlayan/10));
+    if(c1>=1&&c1<=max)cands.add(c1);
+    if(c2>=1&&c2<=max)cands.add(c2);
+  });
+  rows.forEach(ri=>{
+    rows.forEach(rj=>{
+      if(ri===rj)return;
+      const s1=ri.onluk+rj.tek;
+      const s2=ri.tamamlayan+rj.tek;
+      if(s1>=1&&s1<=max)cands.add(s1);
+      if(s2>=1&&s2<=max)cands.add(s2);
+    });
+  });
+  return [...cands].sort((a,b)=>a-b);
+}
+function _hnAdayChip(n,aSet,ySet){
+  const net=aSet&&aSet.has(n);
+  const yak=!net&&ySet&&ySet.has(n);
+  const bg=net?'rgba(0,230,118,.18)':yak?'rgba(251,140,0,.18)':'var(--surface2)';
+  const bd=net?'rgba(0,200,100,.5)':yak?'rgba(230,81,0,.45)':'var(--border)';
+  const fg=net?'var(--green)':yak?'#e65100':'var(--text)';
+  return `<span style="display:inline-block;font-family:monospace;font-size:.76rem;font-weight:700;color:${fg};background:${bg};border:1px solid ${bd};padding:3px 8px;border-radius:7px">${n}${net?'✓':yak?'~':''}</span>`;
+}
 function _hnRender(){
   const el=document.getElementById('hnList');if(!el)return;
   const gid=_hnGame,game=getGame(gid);
   const draws=_kbGetDraws(gid)||[];
   if(!game||!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Veri yok.</div>';return;}
-  const adet=Math.max(1,Math.min(60,parseInt(document.getElementById('hnAdet')?.value)||15));
-  // Kronolojik (eskiden yeniye) göstermek için son N çekilişi al, sırayı ters çevir.
-  const son=draws.slice(0,adet).slice().reverse();
   let h='';
-  son.forEach(d=>{
+  // 🔮 Yeni Tahmin — en güncel çekilişin hane tablosundan üretilen olası sayılar (henüz sonuç yok, işaretlenmez)
+  const yeniCands=_hnAdaylar(draws[0],game);
+  window._hnTxtYeni=`🔮 Yeni Tahmin (${game.name} — ${draws[0].date} hanesinden)\n`+yeniCands.join(' ');
+  h+=`<div class="card" style="margin-bottom:12px;border-color:rgba(124,58,237,.4)">`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`
+    +`<span style="font-size:.74rem;font-weight:800;color:#7c3aed">🔮 Yeni Tahmin</span>`
+    +`<span style="font-size:.6rem;color:var(--muted)">canlı · ${draws[0].date} hanesinden</span>`
+    +`<button onclick="_hnCopy('Yeni')" class="copy-btn" style="font-size:.58rem;padding:2px 9px">📋</button>`
+    +`</div>`
+    +`<div style="font-size:.58rem;color:var(--muted);margin-bottom:6px">${yeniCands.length} sayı</div>`
+    +`<div style="display:flex;flex-wrap:wrap;gap:5px">${yeniCands.map(c=>_hnAdayChip(c,null,null)).join('')}</div>`
+    +`</div>`;
+  const n=Math.min(15,draws.length);
+  for(let i=0;i<n;i++){
+    const d=draws[i];
     const nums=[...(d.nums||[])].sort((a,b)=>a-b);
     const satirlar=[];
     let tabloH='';
-    nums.forEach(n=>{
-      const r=_hnSatir(n);
+    nums.forEach(nn=>{
+      const r=_hnSatir(nn);
       if(r.onluk===null){
-        tabloH+=`<div style="font-family:monospace;font-size:.8rem;font-weight:800;color:var(--text);padding:2px 0">${n}</div>`;
-        satirlar.push(''+n);
+        tabloH+=`<div style="font-family:monospace;font-size:.8rem;font-weight:800;color:var(--text);padding:2px 0">${nn}</div>`;
+        satirlar.push(''+nn);
       }else{
         tabloH+=`<div style="display:flex;gap:16px;align-items:baseline;font-family:monospace;font-size:.8rem;padding:2px 0">`
           +`<span style="font-weight:800;color:var(--accent);min-width:20px">${r.tek}</span>`
@@ -13326,21 +13371,42 @@ function _hnRender(){
         satirlar.push(`${r.tek}  ${r.onluk}  ${r.tamamlayan}`);
       }
     });
+    // 🎯 Olası Sayılar — BİR ÖNCEKİ çekilişin hane tablosundan üretilir, BU çekilişin
+    // gerçek sonucuna göre net/yakın işaretlenir (ileriye bakış yok).
+    const onceki=draws[i+1]||null;
+    let adayH,adayTxt='';
+    if(onceki){
+      const cands=_hnAdaylar(onceki,game);
+      const aSet=new Set([...nums,...(d.bonus||[])]);
+      const ySet=new Set();
+      aSet.forEach(x=>{[x-1,x+1].forEach(y=>{if(y>=1&&y<=game.max&&!aSet.has(y))ySet.add(y);});});
+      const net=cands.filter(c=>aSet.has(c)).length;
+      const yak=cands.filter(c=>!aSet.has(c)&&ySet.has(c)).length;
+      adayH=`<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border)">`
+        +`<div style="font-size:.64rem;font-weight:800;color:var(--accent);margin-bottom:3px">🎯 Olası Sayılar <span style="font-weight:600;color:var(--muted)">(${onceki.date} hanesinden)</span></div>`
+        +`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">${net} net${yak?' · '+yak+' yakın':''} / ${cands.length} sayı</div>`
+        +`<div style="display:flex;flex-wrap:wrap;gap:5px">${cands.map(c=>_hnAdayChip(c,aSet,ySet)).join('')}</div>`
+        +`</div>`;
+      adayTxt=`\n🎯 Olası Sayılar (${onceki.date} hanesinden) — ${net} net${yak?', '+yak+' yakın':''}\n`+cands.join(' ');
+    }else{
+      adayH=`<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);font-size:.6rem;color:var(--muted)">Bu çekilişten önce yeterli veri yok.</div>`;
+    }
     const baslik=`📅 ${d.date}  ${nums.join(' ')}${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}`;
-    window['_hnTxt_'+d.date]=baslik+'\n'+satirlar.join('\n');
+    window['_hnTxt'+i]=baslik+'\n'+satirlar.join('\n')+adayTxt;
     h+=`<div class="card" style="margin-bottom:10px">`
       +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`
       +`<span style="font-size:.7rem;font-weight:800;color:var(--accent)">📅 ${d.date}</span>`
       +`<span style="font-family:monospace;font-size:.76rem;color:var(--text)">${nums.join(' ')}${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</span>`
-      +`<button onclick="_hnCopy('${d.date}')" class="copy-btn" style="font-size:.58rem;padding:2px 9px">📋</button>`
+      +`<button onclick="_hnCopy('${i}')" class="copy-btn" style="font-size:.58rem;padding:2px 9px">📋</button>`
       +`</div>`
       +`<div>${tabloH}</div>`
+      +adayH
       +`</div>`;
-  });
+  }
   el.innerHTML=h;
 }
-function _hnCopy(date){
-  const t=window['_hnTxt_'+date];
+function _hnCopy(key){
+  const t=window['_hnTxt'+key];
   if(!t){showToast('⚠️ Kopyalanamadı');return;}
   _caCopy(t);showToast('📋 Kopyalandı');
 }
