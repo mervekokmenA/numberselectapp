@@ -13355,27 +13355,30 @@ function _hnRender(){
   for(let i=0;i<n;i++){
     const d=draws[i];
     const nums=[...(d.nums||[])].sort((a,b)=>a-b);
-    const satirlar=[];
-    let tabloH='';
-    nums.forEach(nn=>{
-      const r=_hnSatir(nn);
-      if(r.onluk===null){
-        tabloH+=`<div style="font-family:monospace;font-size:.8rem;font-weight:800;color:var(--text);padding:2px 0">${nn}</div>`;
-        satirlar.push(''+nn);
-      }else{
-        tabloH+=`<div style="display:flex;gap:16px;align-items:baseline;font-family:monospace;font-size:.8rem;padding:2px 0">`
-          +`<span style="font-weight:800;color:var(--accent);min-width:20px">${r.tek}</span>`
-          +`<span style="color:var(--text);min-width:24px">${r.onluk}</span>`
-          +`<span style="color:var(--muted)">${r.tamamlayan}</span>`
-          +`</div>`;
-        satirlar.push(`${r.tek}  ${r.onluk}  ${r.tamamlayan}`);
-      }
-    });
-    // 🎯 Olası Sayılar — BİR ÖNCEKİ çekilişin hane tablosundan üretilir, BU çekilişin
-    // gerçek sonucuna göre net/yakın işaretlenir (ileriye bakış yok).
+    // Kart, "${d.date}" çekilişinin GERÇEK sonucunu başlıkta gösterir; ama hane
+    // tablosu ve Olası Sayılar hep BİR ÖNCEKİ çekilişten (draws[i+1]) üretilir —
+    // yani burada görünen basamak ayrımları, altındaki adayları üreten KAYNAKTIR,
+    // "${d.date}"'ın kendi sonucunun basamakları DEĞİLDİR (kullanıcı isteği).
     const onceki=draws[i+1]||null;
-    let adayH,adayTxt='';
+    let tabloH='',satirlar=[],adayH,adayTxt='';
     if(onceki){
+      const oncekiNums=[...(onceki.nums||[])].sort((a,b)=>a-b);
+      oncekiNums.forEach(nn=>{
+        const r=_hnSatir(nn);
+        if(r.onluk===null){
+          tabloH+=`<div style="font-family:monospace;font-size:.8rem;font-weight:800;color:var(--text);padding:2px 0">${nn}</div>`;
+          satirlar.push(''+nn);
+        }else{
+          tabloH+=`<div style="display:flex;gap:16px;align-items:baseline;font-family:monospace;font-size:.8rem;padding:2px 0">`
+            +`<span style="font-weight:800;color:var(--accent);min-width:20px">${r.tek}</span>`
+            +`<span style="color:var(--text);min-width:24px">${r.onluk}</span>`
+            +`<span style="color:var(--muted)">${r.tamamlayan}</span>`
+            +`</div>`;
+          satirlar.push(`${r.tek}  ${r.onluk}  ${r.tamamlayan}`);
+        }
+      });
+      // 🎯 Olası Sayılar — BİR ÖNCEKİ çekilişin (yukarıdaki hane tablosunun) sayılarından
+      // üretilir, BU çekilişin gerçek sonucuna göre net/yakın işaretlenir (ileriye bakış yok).
       const cands=_hnAdaylar(onceki,game);
       const aSet=new Set([...nums,...(d.bonus||[])]);
       const ySet=new Set();
@@ -13383,22 +13386,24 @@ function _hnRender(){
       const net=cands.filter(c=>aSet.has(c)).length;
       const yak=cands.filter(c=>!aSet.has(c)&&ySet.has(c)).length;
       adayH=`<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border)">`
-        +`<div style="font-size:.64rem;font-weight:800;color:var(--accent);margin-bottom:3px">🎯 Olası Sayılar <span style="font-weight:600;color:var(--muted)">(${onceki.date} hanesinden)</span></div>`
+        +`<div style="font-size:.64rem;font-weight:800;color:var(--accent);margin-bottom:3px">🎯 Olası Sayılar</div>`
         +`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">${net} net${yak?' · '+yak+' yakın':''} / ${cands.length} sayı</div>`
         +`<div style="display:flex;flex-wrap:wrap;gap:5px">${cands.map(c=>_hnAdayChip(c,aSet,ySet)).join('')}</div>`
         +`</div>`;
-      adayTxt=`\n🎯 Olası Sayılar (${onceki.date} hanesinden) — ${net} net${yak?', '+yak+' yakın':''}\n`+cands.join(' ');
+      adayTxt=`\n🎯 Olası Sayılar — ${net} net${yak?', '+yak+' yakın':''}\n`+cands.join(' ');
     }else{
-      adayH=`<div style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);font-size:.6rem;color:var(--muted)">Bu çekilişten önce yeterli veri yok.</div>`;
+      tabloH='<div style="font-size:.6rem;color:var(--muted)">Bu çekilişten önce yeterli veri yok.</div>';
+      adayH='';
     }
-    const baslik=`📅 ${d.date}  ${nums.join(' ')}${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}`;
+    const baslik=`📅 ${d.date}  ${nums.join(' ')}${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}`+(onceki?` (hane: ${onceki.date})`:'');
     window['_hnTxt'+i]=baslik+'\n'+satirlar.join('\n')+adayTxt;
     h+=`<div class="card" style="margin-bottom:10px">`
-      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`
+      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:2px">`
       +`<span style="font-size:.7rem;font-weight:800;color:var(--accent)">📅 ${d.date}</span>`
       +`<span style="font-family:monospace;font-size:.76rem;color:var(--text)">${nums.join(' ')}${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</span>`
       +`<button onclick="_hnCopy('${i}')" class="copy-btn" style="font-size:.58rem;padding:2px 9px">📋</button>`
       +`</div>`
+      +(onceki?`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">hane: ${onceki.date} sonucundan</div>`:'')
       +`<div>${tabloH}</div>`
       +adayH
       +`</div>`;
