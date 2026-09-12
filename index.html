@@ -13297,15 +13297,19 @@ function _hnSatir(n){
   const onluk=Math.floor(n/10)*10;
   return {tek:n%10,onluk,tamamlayan:90-onluk};
 }
-// Bir çekilişin hane tablosundan (yalnızca onluğu olan satırlar) olası aday sayılar üretir:
-//  · yan yana (basamak birleştirme): tek basamak + (onluk'un/tümleyenin onlar hanesi)
-//  · çapraz (toplama): bir satırın onluğu/tümleyeni + BAŞKA bir satırın tek basamağı
+// Bir çekilişin hane tablosundan olası aday sayılar üretir:
+//  · yan yana (basamak birleştirme): tek basamak + (onluk'un/tümleyenin onlar hanesi) — yalnızca
+//    onluğu olan (≥10) satırlarda anlamlı, çünkü tek basamaklı sayılarda onluk yok.
+//  · çapraz (toplama): bir satırın onluğu/tümleyeni + BAŞKA bir sayının tek basamağı — buradaki
+//    "başka sayı" tek basamaklı (1-9) çekilen bir sayı da olabilir: kendisi zaten bir "tek basamak"
+//    değeridir, sadece kendi onluğu yoktur. Onu dışlamak eksik/hatalı sonuç verir (kullanıcı uyarısı).
 // Kullanıcının elle yaptığı yöntemin otomatikleştirilmiş hali — ileriye bakış yok,
 // yalnızca kaynak çekilişin kendi sayılarından üretilir.
 function _hnAdaylar(draw,game){
   if(!draw)return [];
   const nums=[...(draw.nums||[])];
-  const rows=nums.map(_hnSatir).filter(r=>r.onluk!==null);
+  const satirlar=nums.map(_hnSatir);
+  const rows=satirlar.filter(r=>r.onluk!==null);
   const max=game.max;
   const cands=new Set();
   rows.forEach(r=>{
@@ -13315,7 +13319,7 @@ function _hnAdaylar(draw,game){
     if(c2>=1&&c2<=max)cands.add(c2);
   });
   rows.forEach(ri=>{
-    rows.forEach(rj=>{
+    satirlar.forEach(rj=>{
       if(ri===rj)return;
       const s1=ri.onluk+rj.tek;
       const s2=ri.tamamlayan+rj.tek;
