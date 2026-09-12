@@ -411,6 +411,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-kazanan" onclick="showMainPage('kazanan')">🏆 Kazanan/Kronoloji</button>
       <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı</button>
       <button class="nav-link" id="navBtn-hane" onclick="showMainPage('hane')">🔢 Hane Hesaplama</button>
+      <button class="nav-link" id="navBtn-deneme" onclick="showMainPage('deneme')">🧪 Deneme</button>
       <button class="nav-link" id="navBtn-gulsis0" onclick="showMainPage('gulsis0')">🎯⁰ Gülsis Sıfır</button>
       <button class="nav-link" id="navBtn-haber" onclick="showMainPage('haber')">📰 Haber Yöntemleri</button>
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
@@ -1892,6 +1893,24 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
  </div>
  <div id="hnList"></div>
+</div>
+
+<!-- ═══════════ PAGE: DENEME ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-deneme">
+ <div class="card">
+  <div class="card-title">🧪 Deneme</div>
+  <div style="font-size:.68rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
+   Bu sayfa yalnızca deneme amaçlı — Hane Hesaplama yönteminin farklı varyasyonlarını yan yana
+   karşılaştırır. Geri testte hiçbiri rastgeleyi anlamlı şekilde geçmiyor (bkz. sohbet), ama kendi
+   gözlemlerinizle karşılaştırmak isterseniz burada. Hiçbir varyanta istatistiksel "daha iyi" etiketi
+   konmadı — kendiniz karar verin.
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:4px">
+   <div id="dnGameGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+   <span style="font-size:.68rem;color:var(--muted);margin-left:6px">Son 15 çekiliş · en yeni en üstte</span>
+  </div>
+ </div>
+ <div id="dnList"></div>
 </div>
 
 </div><!-- /app -->
@@ -13429,6 +13448,133 @@ function _hnCopy(key){
   _caCopy(t);showToast('📋 Kopyalandı');
 }
 
+// ═══════════ 🧪 DENEME — Hane Hesaplama'nın farklı varyasyonlarını yan yana karşılaştırma ═══════════
+// Kullanıcı isteği: "az sayıda daha iyi sonuç bulan analizler var mı" sorusuna 450 geçmiş çekilişlik
+// (3 oyun × 150) walk-forward geri testle yanıt arandı — HİÇBİR varyant rastgeleyi anlamlı şekilde
+// geçmedi (net/havuz oranı hep rastgele havuz oranına yakın çıktı). Bu sayfa SADECE deneme/gözlem
+// amaçlı: hiçbir varyanta istatistik/"daha iyi" etiketi konmaz, kullanıcı kendi gözlemiyle karşılaştırır.
+let _dnGame=null;
+function _dnInit(){
+  _dnGame=_dnGame||state.selectedGame||GAMES[0].id;
+  const grid=document.getElementById('dnGameGrid');
+  if(grid&&grid.childNodes.length===0){
+    GAMES.forEach(g=>{
+      const btn=document.createElement('button');
+      btn.style.cssText='padding:5px 12px;border-radius:8px;font-size:.75rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .18s';
+      btn.textContent=g.emoji+' '+g.name;
+      btn.onclick=()=>{_dnGame=g.id;_dnHighlight();_dnRender();};
+      grid.appendChild(btn);
+    });
+  }
+  _dnHighlight();
+  _dnRender();
+}
+function _dnHighlight(){
+  const grid=document.getElementById('dnGameGrid');if(!grid)return;
+  grid.querySelectorAll('button').forEach((btn,i)=>{
+    const g=GAMES[i];if(!g)return;
+    const on=g.id===_dnGame;
+    btn.style.background=on?'rgba(124,58,237,.25)':'var(--surface2)';
+    btn.style.borderColor=on?'rgba(124,58,237,.55)':'var(--border)';
+    btn.style.color=on?'#7c3aed':'var(--muted)';
+    btn.style.fontWeight=on?'700':'400';
+  });
+}
+// Hane Hesaplama'nın (_hnAdaylar) genelleştirilmiş hali: yan yana birleştirme / çapraz toplama /
+// mutlak fark anahtarları + tümleyen dahil/hariç + tek basamaklı sayıların çapraz toplamaya
+// katılıp katılmayacağı + "en az N kombinasyondan üretildi" oy filtresi.
+function _dnGenV(draw,game,opts){
+  const all=(draw.nums||[]).map(_hnSatir);
+  const rows=all.filter(r=>r.onluk!==null);
+  const max=game.max;
+  const cnt={};
+  const add=n=>{if(n>=1&&n<=max)cnt[n]=(cnt[n]||0)+1;};
+  if(opts.concat){
+    rows.forEach(r=>{
+      add(+(''+r.tek+Math.floor(r.onluk/10)));
+      if(opts.useTamamlayan)add(+(''+r.tek+Math.floor(r.tamamlayan/10)));
+    });
+  }
+  if(opts.cross){
+    rows.forEach(ri=>{
+      (opts.crossIncludeSingles?all:rows).forEach(rj=>{
+        if(ri===rj)return;
+        add(ri.onluk+rj.tek);
+        if(opts.useTamamlayan)add(ri.tamamlayan+rj.tek);
+      });
+    });
+  }
+  if(opts.diff){
+    rows.forEach(ri=>{
+      (opts.crossIncludeSingles?all:rows).forEach(rj=>{
+        if(ri===rj)return;
+        add(Math.abs(ri.onluk-rj.tek));
+      });
+    });
+  }
+  let list=Object.keys(cnt).map(Number);
+  if(opts.minVotes)list=list.filter(n=>cnt[n]>=opts.minVotes);
+  return list.sort((a,b)=>a-b);
+}
+const _DN_VARYANT=[
+  {key:'v0',name:'Mevcut (Hane Hesaplama)',opts:{concat:true,cross:true,useTamamlayan:false,crossIncludeSingles:true}},
+  {key:'v1',name:'Sadece yan yana birleştirme',opts:{concat:true,cross:false,useTamamlayan:false,crossIncludeSingles:true}},
+  {key:'v2',name:'Sadece çapraz toplama',opts:{concat:false,cross:true,useTamamlayan:false,crossIncludeSingles:true}},
+  {key:'v3',name:'Tümleyen dahil (eski hâli)',opts:{concat:true,cross:true,useTamamlayan:true,crossIncludeSingles:true}},
+  {key:'v4',name:'Yalnızca çok-oylu sayılar (≥2)',opts:{concat:true,cross:true,useTamamlayan:false,crossIncludeSingles:true,minVotes:2}},
+  {key:'v5',name:'Çaprazda tek basamaklıları hariç tut',opts:{concat:true,cross:true,useTamamlayan:false,crossIncludeSingles:false}},
+  {key:'v6',name:'Onluk−tek farkı (mutlak)',opts:{concat:false,cross:false,diff:true,crossIncludeSingles:true}},
+];
+function _dnVaryantSatirHtml(vname,cands,aSet,ySet){
+  let net=0,yak=0;
+  if(aSet){cands.forEach(n=>{if(aSet.has(n))net++;else if(ySet&&ySet.has(n))yak++;});}
+  const ozet=aSet?`<span style="font-size:.56rem;color:var(--muted)">${net} net${yak?' · '+yak+' yakın':''} / ${cands.length} sayı</span>`
+                 :`<span style="font-size:.56rem;color:var(--muted)">${cands.length} sayı</span>`;
+  const chips=cands.map(n=>{
+    const hit=aSet&&aSet.has(n),nr=aSet&&!hit&&ySet&&ySet.has(n);
+    return `<span style="font-family:monospace;font-size:.68rem;font-weight:${hit||nr?800:500};color:${hit?'var(--green)':nr?'#c2410c':'var(--text)'};background:${hit?'rgba(0,230,118,.14)':nr?'rgba(194,65,12,.08)':'var(--surface2)'};border:1px solid ${hit?'rgba(0,200,100,.45)':nr?'rgba(194,65,12,.3)':'var(--border)'};padding:2px 6px;border-radius:6px">${n}${hit?'✓':nr?'~':''}</span>`;
+  }).join('');
+  return `<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border)">`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:3px"><span style="font-size:.62rem;font-weight:700;color:var(--text)">${vname}</span>${ozet}</div>`
+    +`<div style="display:flex;flex-wrap:wrap;gap:4px">${chips||'<span style="font-size:.6rem;color:var(--muted)">—</span>'}</div>`
+    +`</div>`;
+}
+function _dnKartHtml(baslik,tarihEtiket,source,actualDraw,game){
+  const aSet=actualDraw?new Set([...(actualDraw.nums||[]),...(actualDraw.bonus||[])]):null;
+  const ySet=new Set();
+  if(aSet)aSet.forEach(x=>{[x-1,x+1].forEach(y=>{if(y>=1&&y<=game.max&&!aSet.has(y))ySet.add(y);});});
+  let h=`<div class="card" style="margin-bottom:10px">`;
+  h+=`<div style="font-size:.7rem;font-weight:800;color:var(--accent);margin-bottom:2px">${baslik}</div>`;
+  h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px">${tarihEtiket}</div>`;
+  _DN_VARYANT.forEach(v=>{
+    const cands=_dnGenV(source,game,v.opts);
+    h+=_dnVaryantSatirHtml(v.name,cands,aSet,ySet);
+  });
+  h+=`</div>`;
+  return h;
+}
+function _dnRender(){
+  const el=document.getElementById('dnList');if(!el)return;
+  const gid=_dnGame,game=getGame(gid);
+  const draws=_kbGetDraws(gid)||[];
+  if(!game||!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Veri yok.</div>';return;}
+  let h='';
+  h+=_dnKartHtml('🔮 Yeni Tahmin','canlı · '+draws[0].date+' hanesinden',draws[0],null,game);
+  const n=Math.min(15,draws.length);
+  for(let i=0;i<n;i++){
+    const d=draws[i];
+    const onceki=draws[i+1]||null;
+    if(!onceki){
+      h+=`<div class="card" style="margin-bottom:10px"><div style="font-size:.7rem;font-weight:800;color:var(--accent)">📅 ${d.date}</div><div style="font-size:.6rem;color:var(--muted)">Bu çekilişten önce yeterli veri yok.</div></div>`;
+      continue;
+    }
+    const nums=[...(d.nums||[])].sort((a,b)=>a-b);
+    const baslik=`📅 ${d.date}  ${nums.join(' ')}${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}`;
+    h+=_dnKartHtml(baslik,'hane: '+onceki.date+' sonucundan',onceki,d,game);
+  }
+  el.innerHTML=h;
+}
+
 // Gülsis Sıfır kapsama-optimal bilet grubu üreticisi — Kapsamlı'ya ayrı bir mod olarak entegre.
 // Konsensüsü HİÇ etkilemez; Gülsis Sıfır motorunu (_g0GenBundle) Kapsamlı'nın seçili oyununda çalıştırır.
 let _kbG0Tickets=null;
@@ -14019,8 +14165,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','deneme','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',deneme:'🧪 Deneme',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -14030,6 +14176,7 @@ function _pageInit(id){
   if(id==='kazanan')setTimeout(_orInit,60);
   if(id==='kapsamli'){_kbGame=state.selectedGame||_kbGame;_kbInit();}
   if(id==='hane')_hnInit();
+  if(id==='deneme')_dnInit();
   if(id==='soz')_soInit();
   if(id==='gulsis0')_g0Init();
   if(id==='nihai')_niInit();
@@ -14077,11 +14224,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-deneme','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-deneme','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
