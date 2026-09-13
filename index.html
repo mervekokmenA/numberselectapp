@@ -1907,6 +1907,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
    <div id="dnGameGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+   <button onclick="_dnCopyAllYeni()" style="padding:6px 14px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.4);color:#7c3aed;border-radius:8px;cursor:pointer;font-size:.72rem;font-weight:700">📋 Tüm Yeni Tahminleri Kopyala</button>
   </div>
   <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:center">
    <div style="font-size:.66rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
@@ -13630,14 +13631,29 @@ function _dnDates(){
   ['','2','3'].forEach(sl=>{const e=document.getElementById('dnDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
 }
 function _dnDateTest(){ _dnRender(); }
-function _dnKolonHtml(baslik,tarihEtiket,source,prior,actualDraw,v,game){
-  let h=`<div><div style="font-size:.62rem;font-weight:800;color:var(--accent);margin-bottom:2px">${baslik}</div>`;
+function _dnCopy(key){
+  const t=window['_dnTxt_'+key];
+  if(!t){showToast('⚠️ Kopyalanamadı');return;}
+  _caCopy(t);showToast('📋 Kopyalandı');
+}
+// Sayfadaki her varyantın 🔮 Yeni Tahmin sütununu (col index 0) tek seferde kopyalar.
+function _dnCopyAllYeni(){
+  const parts=_DN_VARYANT.map(v=>window['_dnTxt_'+v.key+'_0']).filter(Boolean);
+  if(!parts.length){showToast('⚠️ Önce oyun/veri seçili olsun');return;}
+  _caCopy(parts.join('\n\n'));
+  showToast('📋 Tüm Yeni Tahminler kopyalandı');
+}
+function _dnKolonHtml(baslik,tarihEtiket,source,prior,actualDraw,v,game,copyKey){
+  let h=`<div><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:2px">`
+    +`<span style="font-size:.62rem;font-weight:800;color:var(--accent)">${baslik}</span>`
+    +`<button onclick="_dnCopy('${copyKey}')" class="copy-btn" style="font-size:.54rem;padding:1px 7px;flex-shrink:0">📋</button></div>`;
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">${tarihEtiket}</div>`;
-  if(!source){h+='<div style="font-size:.58rem;color:var(--muted)">Yeterli veri yok.</div></div>';return h;}
+  if(!source){window['_dnTxt_'+copyKey]='';h+='<div style="font-size:.58rem;color:var(--muted)">Yeterli veri yok.</div></div>';return h;}
   const aSet=actualDraw?new Set([...(actualDraw.nums||[]),...(actualDraw.bonus||[])]):null;
   const ySet=new Set();
   if(aSet)aSet.forEach(x=>{[x-1,x+1].forEach(y=>{if(y>=1&&y<=game.max&&!aSet.has(y))ySet.add(y);});});
   const cands=v.needsPrior?v.fn(source,game,prior):(v.fn?v.fn(source,game):_dnGenV(source,game,v.opts));
+  window['_dnTxt_'+copyKey]=`${v.name} — ${baslik}\n${tarihEtiket}\n`+cands.join(' ');
   h+=_dnCandHtml(cands,aSet,ySet);
   h+='</div>';
   return h;
@@ -13657,9 +13673,9 @@ function _dnVaryantKartHtml(v,gid,game,draws){
   let h=`<div class="card" style="margin-bottom:12px">`;
   h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">${v.name}</div>`;
   h+=`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start">`;
-  cols.forEach(c=>{
+  cols.forEach((c,ci)=>{
     if(!c){h+='<div style="font-size:.6rem;color:var(--muted)">—</div>';return;}
-    h+=_dnKolonHtml(c.baslik,c.tarih,c.source,c.prior,c.actual,v,game);
+    h+=_dnKolonHtml(c.baslik,c.tarih,c.source,c.prior,c.actual,v,game,v.key+'_'+ci);
   });
   h+='</div></div>';
   return h;
