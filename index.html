@@ -13643,16 +13643,23 @@ function _dnCopyAllYeni(){
   _caCopy(parts.join('\n\n'));
   showToast('📋 Tüm Yeni Tahminler kopyalandı');
 }
-function _dnKolonHtml(baslik,tarihEtiket,source,prior,actualDraw,v,game,copyKey){
+// Kullanıcı isteği: 🔮 Yeni Tahmin sütunlarına checkbox — işaretlenen varyantların Yeni Tahmin
+// aday listeleri arasındaki ORTAK sayıları bulmak için (Basit Tahmin'in Analiz Filtresi'ndeki
+// kesişim mantığıyla aynı fikir, burada Deneme'nin kendi varyantları arasında).
+let _dnSelected=new Set();
+let _dnYeniCands={};
+function _dnKolonHtml(baslik,tarihEtiket,source,prior,actualDraw,v,game,copyKey,isYeni){
+  const cbHtml=isYeni?`<input type="checkbox" onchange="_dnToggleSel('${v.key}')" ${_dnSelected.has(v.key)?'checked':''} title="Ortak sayılar için seç" style="cursor:pointer;flex-shrink:0">`:'';
   let h=`<div><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:2px">`
-    +`<span style="font-size:.62rem;font-weight:800;color:var(--accent)">${baslik}</span>`
-    +`<button onclick="_dnCopy('${copyKey}')" class="copy-btn" style="font-size:.54rem;padding:1px 7px;flex-shrink:0">📋</button></div>`;
+    +`<span style="display:flex;align-items:center;gap:5px;min-width:0"><span style="font-size:.62rem;font-weight:800;color:var(--accent)">${baslik}</span></span>`
+    +`<span style="display:flex;align-items:center;gap:5px;flex-shrink:0">${cbHtml}<button onclick="_dnCopy('${copyKey}')" class="copy-btn" style="font-size:.54rem;padding:1px 7px">📋</button></span></div>`;
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">${tarihEtiket}</div>`;
-  if(!source){window['_dnTxt_'+copyKey]='';h+='<div style="font-size:.58rem;color:var(--muted)">Yeterli veri yok.</div></div>';return h;}
+  if(!source){window['_dnTxt_'+copyKey]='';if(isYeni)delete _dnYeniCands[v.key];h+='<div style="font-size:.58rem;color:var(--muted)">Yeterli veri yok.</div></div>';return h;}
   const aSet=actualDraw?new Set([...(actualDraw.nums||[]),...(actualDraw.bonus||[])]):null;
   const ySet=new Set();
   if(aSet)aSet.forEach(x=>{[x-1,x+1].forEach(y=>{if(y>=1&&y<=game.max&&!aSet.has(y))ySet.add(y);});});
   const cands=v.needsPrior?v.fn(source,game,prior):(v.fn?v.fn(source,game):_dnGenV(source,game,v.opts));
+  if(isYeni)_dnYeniCands[v.key]=cands;
   window['_dnTxt_'+copyKey]=`${v.name} — ${baslik}\n${tarihEtiket}\n`+cands.join(' ');
   h+=_dnCandHtml(cands,aSet,ySet);
   h+='</div>';
@@ -13675,10 +13682,30 @@ function _dnVaryantKartHtml(v,gid,game,draws){
   h+=`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start">`;
   cols.forEach((c,ci)=>{
     if(!c){h+='<div style="font-size:.6rem;color:var(--muted)">—</div>';return;}
-    h+=_dnKolonHtml(c.baslik,c.tarih,c.source,c.prior,c.actual,v,game,v.key+'_'+ci);
+    h+=_dnKolonHtml(c.baslik,c.tarih,c.source,c.prior,c.actual,v,game,v.key+'_'+ci,ci===0);
   });
   h+='</div></div>';
   return h;
+}
+function _dnToggleSel(key){
+  if(_dnSelected.has(key))_dnSelected.delete(key);else _dnSelected.add(key);
+  _dnRenderOrtak();
+}
+function _dnRenderOrtak(){
+  const el=document.getElementById('dnOrtak');if(!el)return;
+  const secili=[..._dnSelected].filter(k=>_dnYeniCands[k]);
+  if(secili.length<2){
+    window._dnTxt_ortak='';
+    el.innerHTML=`<div style="font-size:.62rem;color:var(--muted)">Ortak sayıları görmek için en az 2 "Yeni Tahmin" checkbox'ı işaretleyin.</div>`;
+    return;
+  }
+  let inter=[..._dnYeniCands[secili[0]]];
+  secili.slice(1).forEach(k=>{const s=new Set(_dnYeniCands[k]);inter=inter.filter(n=>s.has(n));});
+  inter.sort((a,b)=>a-b);
+  const isimler=secili.map(k=>_DN_VARYANT.find(v=>v.key===k)?.name||k);
+  window._dnTxt_ortak=`🔗 Ortak Sayılar — ${isimler.join(' × ')}\n`+(inter.join(' ')||'(ortak sayı yok)');
+  el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">${isimler.join(' × ')} (${inter.length} ortak sayı)</div>`
+    +`<div style="display:flex;flex-wrap:wrap;gap:5px">${inter.length?inter.map(n=>`<span style="font-family:monospace;font-size:.74rem;font-weight:700;color:var(--accent);background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.35);padding:3px 8px;border-radius:7px">${n}</span>`).join(''):'<span style="font-size:.62rem;color:var(--muted)">Ortak sayı yok.</span>'}</div>`;
 }
 function _dnRender(){
   const el=document.getElementById('dnList');if(!el)return;
@@ -13686,9 +13713,16 @@ function _dnRender(){
   const draws=_kbGetDraws(gid)||[];
   if(!game||!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Veri yok.</div>';return;}
   _dnDates();
+  _dnYeniCands={};
   let h='';
+  h+=`<div class="card" style="margin-bottom:12px;border-color:rgba(124,58,237,.4)">`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px">`
+    +`<span style="font-size:.72rem;font-weight:800;color:#7c3aed">🔗 Ortak Sayılar (Yeni Tahmin)</span>`
+    +`<button onclick="_dnCopy('ortak')" class="copy-btn" style="font-size:.58rem;padding:2px 9px">📋</button>`
+    +`</div><div id="dnOrtak"></div></div>`;
   _DN_VARYANT.forEach(v=>{h+=_dnVaryantKartHtml(v,gid,game,draws);});
   el.innerHTML=h;
+  _dnRenderOrtak();
 }
 
 // Gülsis Sıfır kapsama-optimal bilet grubu üreticisi — Kapsamlı'ya ayrı bir mod olarak entegre.
