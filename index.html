@@ -412,6 +412,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-kapsamli" onclick="showMainPage('kapsamli')">🧭 Kapsamlı</button>
       <button class="nav-link" id="navBtn-hane" onclick="showMainPage('hane')">🔢 Hane Hesaplama</button>
       <button class="nav-link" id="navBtn-deneme" onclick="showMainPage('deneme')">🧪 Deneme</button>
+      <button class="nav-link" id="navBtn-karne" onclick="showMainPage('karne')">📋 Karne</button>
       <button class="nav-link" id="navBtn-gulsis0" onclick="showMainPage('gulsis0')">🎯⁰ Gülsis Sıfır</button>
       <button class="nav-link" id="navBtn-haber" onclick="showMainPage('haber')">📰 Haber Yöntemleri</button>
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
@@ -1917,6 +1918,35 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
  </div>
  <div id="dnList"></div>
+</div>
+
+<!-- ═══════════ PAGE: KARNE ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-karne">
+ <div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+   <div class="card-title" style="margin:0">📋 Analiz Karnesi</div>
+   <button onclick="_krnCopy()" class="copy-btn" style="font-size:.6rem;padding:3px 10px">📋 Kopyala</button>
+  </div>
+  <div style="font-size:.68rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
+   Uygulamadaki her analiz burada <strong>aynı yöntemle</strong> ölçülür: geçmiş çekilişler üzerinde,
+   ileriye bakış olmadan (her tahmin yalnızca kendinden ÖNCEKİ verilerle üretilir), sonra gerçek sonuçla
+   karşılaştırılır. Her analiz <strong>kendi boyutuna ait rastgele referansla</strong> kıyaslanır —
+   büyük havuzun çok net bulması marifet değildir, asıl soru aynı büyüklükte rastgele bir seçimden
+   daha iyi olup olmadığıdır. <strong>z</strong> sütunu bunu söyler — farkın kaç standart hata olduğunu:
+   <strong style="color:var(--green)">z ≥ +2</strong> gerçek avantaj, <strong>|z| &lt; 2</strong> fark
+   ölçüm gürültüsünden ayırt edilemez, <strong style="color:#c2410c">z ≤ −2</strong> rastgeleden kötü.
+   Az çekilişle ölçüm yanıltır; <strong>en az 100 çekiliş</strong> seçin.
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+   <div id="krnGameGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+   <span style="font-size:.68rem;color:var(--muted);margin-left:6px">Son</span>
+   <input type="number" id="krnAdet" value="100" min="5" max="150" style="width:60px;font-size:.75rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;text-align:center">
+   <span style="font-size:.68rem;color:var(--muted)">çekiliş</span>
+   <button onclick="_krnCalistir()" style="padding:6px 16px;background:rgba(0,150,58,.12);border:1px solid rgba(0,150,58,.45);color:var(--green);border-radius:8px;cursor:pointer;font-size:.74rem;font-weight:800">▶ Karneyi Çalıştır</button>
+   <span id="krnDurum" style="font-size:.66rem;color:var(--muted)"></span>
+  </div>
+ </div>
+ <div class="card"><div id="krnOut"></div></div>
 </div>
 
 </div><!-- /app -->
@@ -13735,6 +13765,206 @@ function _dnRender(){
   _dnRenderOrtak();
 }
 
+// ═══════════ 📋 KARNE — her analizin ÖLÇÜLMÜŞ başarısı (walk-forward, ileriye bakışsız) ═══════════
+// Amaç: "hangi analiz gerçekten sinyal taşıyor?" sorusunu tahminle değil VERİYLE yanıtlamak.
+// Her analiz, KENDİ boyutuna ait rastgele referansla kıyaslanır:
+//   · havuz tipi → aynı büyüklükte rastgele bir sayı havuzu (hipergeometrik)
+//   · bilet tipi → aynı sayıda rastgele bilet, en iyisi alınır (Monte Carlo)
+// "kat" sütunu bu kıyasın sonucudur: 1.00 = rastgeleden farksız, >1 = gerçek avantaj.
+// Tek yerde, tek yöntemle ölçülür ki analizler birbiriyle dürüstçe kıyaslanabilsin.
+let _KRN_LF=[0,0];
+function _krnLogFact(n){for(let i=_KRN_LF.length;i<=n;i++)_KRN_LF[i]=_KRN_LF[i-1]+Math.log(i);return _KRN_LF[n];}
+function _krnLogC(n,k){if(k<0||k>n)return -Infinity;return _krnLogFact(n)-_krnLogFact(k)-_krnLogFact(n-k);}
+// Rastgele seçilmiş `havuz` boyutunda bir kümenin en az 3 kazanan sayı içerme olasılığı
+function _krnHavuzGE3(havuz,max,kazanan){
+  if(havuz<3||kazanan<3||havuz>max)return 0;
+  let p=0;const ust=Math.min(havuz,kazanan);
+  for(let k=3;k<=ust;k++)p+=Math.exp(_krnLogC(kazanan,k)+_krnLogC(max-kazanan,havuz-k)-_krnLogC(max,havuz));
+  return Math.max(0,Math.min(1,p));
+}
+// Rastgele K biletin EN İYİSİNİN neti — Monte Carlo (oyun+K başına bir kez hesaplanıp saklanır)
+const _KRN_MC={};
+// ÖNEMLİ: rastgele bilet, gerçek biletin YAPISINI birebir taklit etmeli — ana sayılar + (varsa)
+// joker/süperstar. Joker sayılmazsa gerçek bilet rastgeleden 1 sayı fazla olur ve avantaj YAPAY
+// olarak şişer (bu hata ilk ölçümde yakalandı: jokeri olmayan Süper Loto'da avantaj görünmüyor,
+// jokerli oyunlarda görünüyordu — sebep tahmin gücü değil, eksik referanstı).
+function _krnRastgeleBilet(game,K,kazanan){
+  const anahtar=game.id+'|'+K+'|'+kazanan;
+  if(_KRN_MC[anahtar])return _KRN_MC[anahtar];
+  const max=game.max,cnt=game.count,bC=game.bonusCount||0,bM=game.bonusMax||max,TUR=2000;
+  const anaKazanan=Math.max(1,kazanan-bC);
+  let netTop=0,ge3=0;
+  for(let t=0;t<TUR;t++){
+    const kz=new Set();while(kz.size<anaKazanan)kz.add(1+Math.floor(Math.random()*max));
+    for(let j=0;j<bC;j++)kz.add(1+Math.floor(Math.random()*bM));
+    let enIyi=0;
+    for(let b=0;b<K;b++){
+      const bil=new Set();while(bil.size<cnt)bil.add(1+Math.floor(Math.random()*max));
+      for(let j=0;j<bC;j++)bil.add(1+Math.floor(Math.random()*bM));
+      let net=0;bil.forEach(n=>{if(kz.has(n))net++;});
+      if(net>enIyi)enIyi=net;
+    }
+    netTop+=enIyi;if(enIyi>=3)ge3++;
+  }
+  return _KRN_MC[anahtar]={net:netTop/TUR,ge3:ge3/TUR};
+}
+// Ölçülecek analizler. Pahalı kaynaklar (_qtBuildSources) çekiliş başına BİR kez üretilip paylaşılır.
+const _KRN_ANALIZ=[
+  {ad:'🤖 AI Bilet Üretici',tip:'bilet',fn:(g,p,s)=>s.aiB},
+  {ad:'🎯⁰ Gülsis Sıfır',tip:'bilet',fn:(g,p,s)=>s.g0},
+  {ad:'🏁 Nihai',tip:'bilet',fn:(g,p,s)=>s.ni},
+  {ad:"📈 12'li 3+ Kapsama",tip:'bilet',fn:(g,p,s)=>s.yak},
+  {ad:'🧠 Birleşik AI',tip:'bilet',fn:(g,p,s)=>{
+    const C=_qtCombineWeights(g,p,s,true);
+    return _niGenBundle(g,p,_QT_BUNDLE_K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});
+  }},
+  {ad:'🔮 Gülay Fark-Analizi',tip:'havuz',fn:(g,p,s)=>[..._soGulayCandSet(s.ga)]},
+  {ad:'🧩 Sabit Sayılarla Kesişim',tip:'havuz',fn:(g,p,s)=>s.ga?_soKesisimHesapla(s.ga.topRows,s.ga.cikRows,s.ga.chainRows,null):[]},
+  {ad:'🔗 Nihai × 3+ Kesişim',tip:'havuz',fn:(g,p,s)=>_qtNihaiYakSet(s)},
+  {ad:'🧭 Kapsamlı Konsensüs',tip:'havuz',fn:(g,p)=>_qtKbConsTop(g,p).map(r=>r.n)},
+  {ad:'🎰 Aday Sayılar',tip:'havuz',fn:(g,p)=>_qtAdayData(g,p).consArr.slice(0,g.count*3).map(c=>c.n)},
+  {ad:'🧮 Formül Sistemi',tip:'havuz',fn:(g,p)=>[..._qtFormulData(g,p).union]},
+  {ad:'🔄 Dönüşümler',tip:'havuz',fn:(g,p)=>{const s=new Set();_TR_DEFS.forEach(d=>_trCands(d,p[0],g.max,false).forEach(n=>s.add(n)));return [...s];}},
+  {ad:'🔢 Hane Hesaplama',tip:'havuz',fn:(g,p)=>_hnAdaylar(p[0],g)},
+  {ad:'🔑 Anahtar Şablon',tip:'havuz',fn:(g,p)=>_dnAnahtarSablon(p,g)},
+  {ad:'🔬 Araştırma Şampiyonu',tip:'havuz',fn:(g,p)=>{
+    if(p.length<30)return [];
+    const w=(_MR_CHAMP[g.id]||_mrRepeatW)(p.slice(0,30),g.max);
+    return _mrTopW(w,g.max,g.count*3);
+  }},
+];
+let _krnGame=null,_krnSonuc=null,_krnCalisiyor=false;
+function _krnInit(){
+  _krnGame=_krnGame||state.selectedGame||GAMES[0].id;
+  const grid=document.getElementById('krnGameGrid');
+  if(grid&&grid.childNodes.length===0){
+    GAMES.forEach(g=>{
+      const btn=document.createElement('button');
+      btn.style.cssText='padding:5px 12px;border-radius:8px;font-size:.75rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .18s';
+      btn.textContent=g.emoji+' '+g.name;
+      btn.onclick=()=>{_krnGame=g.id;_krnHighlight();_krnSonuc=null;_krnRender();};
+      grid.appendChild(btn);
+    });
+  }
+  _krnHighlight();_krnRender();
+}
+function _krnHighlight(){
+  const grid=document.getElementById('krnGameGrid');if(!grid)return;
+  grid.querySelectorAll('button').forEach((btn,i)=>{
+    const g=GAMES[i];if(!g)return;const on=g.id===_krnGame;
+    btn.style.background=on?'rgba(0,150,58,.18)':'var(--surface2)';
+    btn.style.borderColor=on?'rgba(0,150,58,.5)':'var(--border)';
+    btn.style.color=on?'var(--green)':'var(--muted)';
+    btn.style.fontWeight=on?'700':'400';
+  });
+}
+function _krnCalistir(){
+  if(_krnCalisiyor)return;
+  const gid=_krnGame||state.selectedGame||GAMES[0].id;
+  const game=getGame(gid),draws=_kbGetDraws(gid)||[];
+  const N=Math.max(5,Math.min(150,parseInt(document.getElementById('krnAdet')?.value)||30));
+  if(draws.length<N+60){showToast('⚠️ Bu oyunda yeterli geçmiş veri yok');return;}
+  _krnCalisiyor=true;
+  const birikim={};
+  _KRN_ANALIZ.forEach(a=>birikim[a.ad]={ad:a.ad,tip:a.tip,n:0,boyut:0,net:0,ge3:0});
+  let i=0,olculen=0;
+  const d0=draws[0]||{},kazanan=((d0.nums||[]).length+(d0.bonus||[]).length)||game.count;
+  const adim=()=>{
+    const actual=draws[i],prior=draws.slice(i+1);
+    if(actual&&prior.length>=60){
+      const kzSet=new Set([...(actual.nums||[]),...(actual.bonus||[])]);
+      let src=null;
+      try{src=_qtBuildSources(game,prior);}catch(e){src=null;}
+      if(src){
+        _KRN_ANALIZ.forEach(a=>{
+          const b=birikim[a.ad];
+          let cikti=null;
+          try{cikti=a.fn(game,prior,src);}catch(e){return;}
+          if(!cikti||!cikti.length)return;
+          if(a.tip==='bilet'){
+            let enIyi=0;
+            cikti.forEach(t=>{let net=0;[...(t.main||[]),...(t.bonus||[])].forEach(n=>{if(kzSet.has(n))net++;});if(net>enIyi)enIyi=net;});
+            b.n++;b.boyut+=cikti.length;b.net+=enIyi;if(enIyi>=3)b.ge3++;
+          }else{
+            const hav=[...new Set(cikti)];
+            let net=0;hav.forEach(n=>{if(kzSet.has(n))net++;});
+            b.n++;b.boyut+=hav.length;b.net+=net;if(net>=3)b.ge3++;
+          }
+        });
+        olculen++;
+      }
+    }
+    i++;
+    const el=document.getElementById('krnDurum');
+    if(el)el.textContent='⏳ '+i+' / '+N+' çekiliş ölçüldü…';
+    if(i<N){setTimeout(adim,0);return;}
+    _krnCalisiyor=false;
+    if(el)el.textContent='';
+    _krnSonuc={game,N:olculen,kazanan,satir:Object.values(birikim).filter(b=>b.n>0)};
+    _krnRender();
+  };
+  setTimeout(adim,0);
+}
+function _krnRender(){
+  const el=document.getElementById('krnOut');if(!el)return;
+  const S=_krnSonuc;
+  if(!S){el.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:14px 0">Ölçümü başlatmak için <strong>▶ Karneyi Çalıştır</strong>\'a basın. Her analiz, seçtiğiniz sayıda geçmiş çekiliş üzerinde ileriye bakış olmadan test edilir.</div>';return;}
+  const game=S.game,kz=S.kazanan;
+  const satir=S.satir.map(b=>{
+    const ortBoyut=b.boyut/b.n,ortNet=b.net/b.n,ge3=b.ge3/b.n;
+    let rNet,rGe3,oran,rOran;
+    if(b.tip==='bilet'){
+      const mc=_krnRastgeleBilet(game,Math.max(1,Math.round(ortBoyut)),kz);
+      rNet=mc.net;rGe3=mc.ge3;oran=ortNet;rOran=rNet;
+    }else{
+      rOran=kz/game.max;oran=ortBoyut?ortNet/ortBoyut:0;
+      rNet=ortBoyut*rOran;rGe3=_krnHavuzGE3(Math.round(ortBoyut),game.max,kz);
+    }
+    // Gürültüyü avantaj sanmamak için: gözlenen 3+ oranı, rastgele oranın kaç standart
+    // hata üstünde? |z|<2 ise fark ölçüm gürültüsünden ayırt EDİLEMEZ.
+    const se=Math.sqrt(Math.max(1e-9,rGe3*(1-rGe3)/Math.max(1,b.n)));
+    const z=(ge3-rGe3)/se;
+    return {...b,ortBoyut,ortNet,ge3,rNet,rGe3,z,kat:rOran?oran/rOran:0};
+  }).sort((a,b)=>b.z-a.z);
+  const renk=z=>z>=2?'var(--green)':z<=-2?'#c2410c':'var(--muted)';
+  const yorum=z=>z>=2?'✓ rastgeleden İYİ':z<=-2?'✗ rastgeleden kötü':'— ayırt edilemiyor';
+  const iyi=satir.filter(r=>r.z>=2).length;
+  let h=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px;line-height:1.6">`
+    +`<strong style="color:var(--text)">${game.emoji} ${game.name}</strong> · ${S.N} çekiliş · ileriye bakış yok. `
+    +`Her analiz <strong>kendi boyutuna ait rastgele referansla</strong> kıyaslanır. `
+    +`<strong>z</strong> = farkın kaç standart hata olduğu; <strong>|z| &lt; 2 ise fark ölçüm gürültüsünden ayırt edilemez.</strong></div>`;
+  h+=`<div style="font-size:.66rem;font-weight:800;margin-bottom:10px;color:${iyi?'var(--green)':'var(--muted)'}">`
+    +`Sonuç: ${satir.length} analizden <strong>${iyi}</strong> tanesi rastgeleden ölçülebilir şekilde iyi.</div>`;
+  if(S.N<100)h+=`<div style="font-size:.62rem;color:#c2410c;margin-bottom:10px">⚠️ ${S.N} çekiliş az — bu ölçekte ±%10 dalgalanma normaldir. Güvenilir sonuç için <strong>en az 100 çekiliş</strong> seçin.</div>`;
+  h+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.66rem">`
+    +`<tr style="text-align:left;color:var(--muted);font-size:.6rem">`
+    +`<th style="padding:5px 6px">Analiz</th><th style="padding:5px 6px">Tip</th>`
+    +`<th style="padding:5px 6px;text-align:right">Boyut</th>`
+    +`<th style="padding:5px 6px;text-align:right">Net</th>`
+    +`<th style="padding:5px 6px;text-align:right">Rastgele net</th>`
+    +`<th style="padding:5px 6px;text-align:right">3+ oranı</th>`
+    +`<th style="padding:5px 6px;text-align:right">Rastgele 3+</th>`
+    +`<th style="padding:5px 6px;text-align:right">z</th>`
+    +`<th style="padding:5px 6px">Sonuç</th></tr>`;
+  satir.forEach(r=>{
+    h+=`<tr style="border-top:1px solid var(--border)">`
+      +`<td style="padding:5px 6px;font-weight:700;color:var(--text)">${r.ad}</td>`
+      +`<td style="padding:5px 6px;color:var(--muted)">${r.tip==='bilet'?'bilet':'havuz'}</td>`
+      +`<td style="padding:5px 6px;text-align:right;font-family:monospace">${r.ortBoyut.toFixed(1)}</td>`
+      +`<td style="padding:5px 6px;text-align:right;font-family:monospace;font-weight:700">${r.ortNet.toFixed(2)}</td>`
+      +`<td style="padding:5px 6px;text-align:right;font-family:monospace;color:var(--muted)">${r.rNet.toFixed(2)}</td>`
+      +`<td style="padding:5px 6px;text-align:right;font-family:monospace;font-weight:700">%${(100*r.ge3).toFixed(0)}</td>`
+      +`<td style="padding:5px 6px;text-align:right;font-family:monospace;color:var(--muted)">%${(100*r.rGe3).toFixed(0)}</td>`
+      +`<td style="padding:5px 6px;text-align:right;font-family:monospace;font-weight:800;color:${renk(r.z)}">${(r.z>=0?'+':'')+r.z.toFixed(1)}</td>`
+      +`<td style="padding:5px 6px;color:${renk(r.z)};font-size:.6rem;white-space:nowrap">${yorum(r.z)}</td></tr>`;
+  });
+  h+=`</table></div>`;
+  const satirTxt=satir.map(r=>`${r.ad} · ${r.tip} · boyut ${r.ortBoyut.toFixed(1)} · net ${r.ortNet.toFixed(2)} (rastgele ${r.rNet.toFixed(2)}) · 3+ %${(100*r.ge3).toFixed(0)} (rastgele %${(100*r.rGe3).toFixed(0)}) · z ${(r.z>=0?'+':'')+r.z.toFixed(1)} · ${yorum(r.z)}`).join('\n');
+  window._krnTxt=`📋 Analiz Karnesi — ${game.name} · ${S.N} çekiliş\n${satir.length} analizden ${iyi} tanesi rastgeleden ölçülebilir şekilde iyi.\n`+satirTxt;
+  el.innerHTML=h;
+}
+function _krnCopy(){const t=window._krnTxt;if(!t){showToast('⚠️ Önce karneyi çalıştırın');return;}_caCopy(t);showToast('📋 Kopyalandı');}
+
 // Gülsis Sıfır kapsama-optimal bilet grubu üreticisi — Kapsamlı'ya ayrı bir mod olarak entegre.
 // Konsensüsü HİÇ etkilemez; Gülsis Sıfır motorunu (_g0GenBundle) Kapsamlı'nın seçili oyununda çalıştırır.
 let _kbG0Tickets=null;
@@ -14325,8 +14555,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','deneme','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',deneme:'🧪 Deneme',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','deneme','karne','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',deneme:'🧪 Deneme',karne:'📋 Karne',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -14337,6 +14567,7 @@ function _pageInit(id){
   if(id==='kapsamli'){_kbGame=state.selectedGame||_kbGame;_kbInit();}
   if(id==='hane')_hnInit();
   if(id==='deneme')_dnInit();
+  if(id==='karne')_krnInit();
   if(id==='soz')_soInit();
   if(id==='gulsis0')_g0Init();
   if(id==='nihai')_niInit();
@@ -14384,11 +14615,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-deneme','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-deneme','page-karne','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-deneme','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-deneme','navBtn-karne','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
