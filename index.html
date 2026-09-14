@@ -13668,6 +13668,13 @@ function _dnKolonHtml(baslik,tarihEtiket,source,prior,actualDraw,v,game,copyKey,
   h+='</div>';
   return h;
 }
+// Geçmiş test tarihi SEÇİLMEMİŞ sütunlar hiç çizilmesin — eskiden boş "—" kutuları
+// ekranda kocaman boşluk bırakıyordu. Izgara yalnızca dolu sütun kadar kolona daralır.
+// (Hızlı Tahmin ve Çekirdek Motor zaten böyle çalışıyordu; aynı davranış diğer ekranlara da.)
+function _doluKolonlar(kolonlar){
+  const dolu=kolonlar.filter(Boolean);
+  return {kolonlar:dolu,tpl:'repeat('+Math.max(1,dolu.length)+',minmax(0,1fr))'};
+}
 function _dnVaryantKartHtml(v,gid,game,draws){
   const live=draws[0];
   const cols=[{baslik:'🔮 Yeni Tahmin',tarih:'canlı · '+live.date+' hanesinden',source:live,prior:draws.slice(1),actual:null}];
@@ -13680,11 +13687,11 @@ function _dnVaryantKartHtml(v,gid,game,draws){
     const cek=[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')+(actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):'');
     cols.push({baslik:'📊 Geçmiş Test '+(i+1),tarih:actual.date+' — '+cek,source,prior,actual});
   });
+  const G=_doluKolonlar(cols);
   let h=`<div class="card" style="margin-bottom:12px">`;
   h+=`<div style="font-size:.72rem;font-weight:800;color:var(--text);margin-bottom:8px">${v.name}</div>`;
-  h+=`<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;align-items:start">`;
-  cols.forEach((c,ci)=>{
-    if(!c){h+='<div style="font-size:.6rem;color:var(--muted)">—</div>';return;}
+  h+=`<div style="display:grid;grid-template-columns:${G.tpl};gap:12px;align-items:start">`;
+  G.kolonlar.forEach((c,ci)=>{
     h+=_dnKolonHtml(c.baslik,c.tarih,c.source,c.prior,c.actual,v,game,v.key+'_'+ci,ci===0);
   });
   h+='</div></div>';
@@ -27909,10 +27916,12 @@ function _xkTestRender(){
     +`<span style="font-size:.7rem;font-weight:800;color:#0a9a6a">✅ birebir: ${tB.net}/${tB.adet} tuttu (%${yuz(tB)})</span>`
     +`<span style="font-size:.7rem;font-weight:800;color:#c2410c">🔶 yakın: ${tY.net}/${tY.adet} (%${yuz(tY)})</span>`
     +`<span style="font-size:.7rem;font-weight:800;color:var(--muted)">⬜ eşleşmeyen: ${tN.net}/${tN.adet} (%${yuz(tN)})</span></div>`:'';
+  // Seçilmemiş geçmiş test sütunları hiç çizilmez (boş kutu = ekranda gereksiz boşluk).
+  const G=_doluKolonlar(kol);
   out.innerHTML=ustBar
-    +`<div class="xk-date" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start">`
+    +`<div class="xk-date" style="display:grid;grid-template-columns:repeat(${G.kolonlar.length+1},minmax(0,1fr));gap:14px;align-items:start">`
     +`<div>${_xkYeniKolon()}</div>`
-    +kol.map(D=>`<div>${_xkTestKolon(D)}</div>`).join('')+`</div>`;
+    +G.kolonlar.map(D=>`<div>${_xkTestKolon(D)}</div>`).join('')+`</div>`;
 }
 
 function _xkInit(){
@@ -28291,11 +28300,11 @@ function _etkKolonHtml(D,baslik,ilk){
 function _etkRender(){
   const out=document.getElementById('etkOut');if(!out)return;
   const g=getGame(_exGame);if(!g){out.innerHTML='';return;}
-  out.innerHTML=`<div class="ex-tekrar-date" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start">`
+  // Seçilmemiş geçmiş test sütunları hiç çizilmez (boş "—" kutusu = ekranda gereksiz boşluk).
+  const testler=[[_etkData.t1,'📅 Geçmiş 1'],[_etkData.t2,'📅 Geçmiş 2'],[_etkData.t3,'📅 Geçmiş 3']].filter(t=>t[0]);
+  out.innerHTML=`<div class="ex-tekrar-date" style="display:grid;grid-template-columns:repeat(${testler.length+1},minmax(0,1fr));gap:14px;align-items:start">`
     +`<div>${_etkKolonHtml(_etkData.live,'🔮 Yeni Tahmin',true)}</div>`
-    +`<div>${_etkKolonHtml(_etkData.t1,'📅 Geçmiş 1')}</div>`
-    +`<div>${_etkKolonHtml(_etkData.t2,'📅 Geçmiş 2')}</div>`
-    +`<div>${_etkKolonHtml(_etkData.t3,'📅 Geçmiş 3')}</div>`
+    +testler.map(([D,ad])=>`<div>${_etkKolonHtml(D,ad)}</div>`).join('')
     +`</div>`;
 }
 function _etkTarihler(){
