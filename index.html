@@ -413,6 +413,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-hane" onclick="showMainPage('hane')">🔢 Hane Hesaplama</button>
       <button class="nav-link" id="navBtn-deneme" onclick="showMainPage('deneme')">🧪 Deneme</button>
       <button class="nav-link" id="navBtn-karne" onclick="showMainPage('karne')">📋 Karne</button>
+      <button class="nav-link" id="navBtn-fad" onclick="showMainPage('fad')">🔠 FAD Şablon</button>
       <button class="nav-link" id="navBtn-gulsis0" onclick="showMainPage('gulsis0')">🎯⁰ Gülsis Sıfır</button>
       <button class="nav-link" id="navBtn-haber" onclick="showMainPage('haber')">📰 Haber Yöntemleri</button>
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
@@ -1947,6 +1948,43 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
  </div>
  <div class="card"><div id="krnOut"></div></div>
+</div>
+
+<!-- ═══════════ PAGE: FAD ŞABLON ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-fad">
+ <div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+   <div class="card-title" style="margin:0">🔠 FAD Şablon</div>
+   <button onclick="_fadCopy()" class="copy-btn" style="font-size:.6rem;padding:3px 10px">📋 Tümünü Kopyala</button>
+  </div>
+  <div style="font-size:.68rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
+   Bu sayfada <strong>yalnızca dört liste</strong> vardır: ÇOK GELENLER, ÇOKTAN GELMEYENLER,
+   ARTIDA ÇOKTAN GELMEYENLER ve ANAHTAR ŞABLON. Başka hiçbir analiz karışmaz.
+   Şablon bir <strong>sıralamadır</strong> — çekilişin sayılarının, çok gelenler sırasına göre
+   kendi aralarındaki dizilişi (permütasyon).
+   Listeler seçtiğiniz <strong>pencere</strong> üzerinden hesaplanır; pencereyi değiştirmek
+   sıralamayı da değiştirir, çünkü "çok gelen" ve "çoktan gelmeyen" tanımı hangi çekilişlere
+   baktığınıza bağlıdır.
+   <br><span style="color:#c2410c">Not:</span> <strong>ARTIDA ÇOKTAN GELMEYENLER</strong> listesi
+   kaynak paylaşımla <strong>birebir</strong> aynı çıkıyor — kural ve veri doğrulanmış durumda.
+   Ana havuzun iki listesi ise kaynakla tam örtüşmüyor: denenen hiçbir pencere (50/100/200/500/tümü)
+   oradaki sıralamayı üretmedi, yani kaynak farklı bir veri ya da açıklanmamış bir kural kullanıyor.
+   Şablon bu sıralamadan türediği için o da kaynaktakinden farklı çıkabilir. Burada gösterilen
+   her sayının nasıl hesaplandığı yukarıda yazılıdır.
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+   <div id="fadGameGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+   <span style="font-size:.68rem;color:var(--muted);margin-left:6px">Pencere</span>
+   <select id="fadPencere" onchange="_fadPencereDegis(this.value)" style="font-size:.72rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px">
+    <option value="0">Tüm geçmiş</option>
+    <option value="50">Son 50 çekiliş</option>
+    <option value="100">Son 100 çekiliş</option>
+    <option value="200">Son 200 çekiliş</option>
+    <option value="500">Son 500 çekiliş</option>
+   </select>
+  </div>
+ </div>
+ <div id="fadOut"></div>
 </div>
 
 </div><!-- /app -->
@@ -13965,6 +14003,194 @@ function _krnRender(){
 }
 function _krnCopy(){const t=window._krnTxt;if(!t){showToast('⚠️ Önce karneyi çalıştırın');return;}_caCopy(t);showToast('📋 Kopyalandı');}
 
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔠 FAD ŞABLON — kaynak paylaşımlardaki dört listenin birebir karşılığı.
+// Tanımlar burada AÇIKÇA yazılıdır ki sayfadaki her sayının nereden geldiği belli olsun:
+//   • ÇOK GELENLER              → ana havuzdaki her sayının seçili pencerede kaç kez çıktığı, çoktan aza.
+//   • ÇOKTAN GELMEYENLER        → en son ne zaman çıktığına göre, en uzun süredir gelmeyenden başlayarak.
+//   • ARTIDA ÇOKTAN GELMEYENLER → aynı kural, artı/joker havuzu için (yalnızca artı topu olan oyunlarda).
+//   • ANAHTAR ŞABLON            → çekilişin SIRALAMASI (permütasyon): sayıları küçükten büyüğe diz,
+//     her birini ÇOK GELENLER sırasındaki yeriyle değiştir, sonra bu yerleri kendi aralarında sırala.
+//     Sonuç 0..k-1 permütasyonudur; 0 = o çekilişteki "en çok gelen" sayı, k-1 = "en az gelen".
+// ═══════════════════════════════════════════════════════════════════════════
+let _fadGame=null,_fadPencere=0;
+// Bir çekilişin şablonu: küçükten büyüğe dizilmiş sayıların, frekans sırasındaki yerlerine göre rütbesi.
+function _fadSablon(nums,rankOf){
+  const s=[...new Set(nums||[])].sort((a,b)=>a-b);
+  if(!s.length)return null;
+  const r=s.map(n=>rankOf[n]);
+  if(r.some(x=>x==null))return null;
+  const sirali=[...r].sort((a,b)=>a-b);
+  return r.map(x=>sirali.indexOf(x));
+}
+// k! permütasyonun tamamı — hiç görülmemiş şablonları bulmak için (k≤8 ⇒ en fazla 40320).
+function _fadTumPerm(k){
+  const out=[];const cur=[];const kul=new Array(k).fill(false);
+  (function rec(){
+    if(cur.length===k){out.push(cur.join('-'));return;}
+    for(let i=0;i<k;i++){if(kul[i])continue;kul[i]=true;cur.push(i);rec();cur.pop();kul[i]=false;}
+  })();
+  return out;
+}
+function _fadHesapla(gid){
+  const game=getGame(gid);
+  let draws=_kbGetDraws(gid)||[];
+  if(_fadPencere>0)draws=draws.slice(0,_fadPencere);
+  if(!draws.length)return null;
+  const max=game.max,hepsi=Array.from({length:max},(_,i)=>i+1);
+  const say={},son={};
+  hepsi.forEach(n=>{say[n]=0;son[n]=Infinity;});
+  draws.forEach((d,i)=>(d.nums||[]).forEach(n=>{if(say[n]!=null){say[n]++;if(son[n]===Infinity)son[n]=i;}}));
+  const cok=[...hepsi].sort((a,b)=>say[b]-say[a]||a-b);
+  const gelmeyen=[...hepsi].sort((a,b)=>son[b]-son[a]||a-b);
+  let arti=null;
+  if(game.bonusCount){
+    const bh=Array.from({length:game.bonusMax},(_,i)=>i+1),bsay={},bson={};
+    bh.forEach(n=>{bsay[n]=0;bson[n]=Infinity;});
+    draws.forEach((d,i)=>(d.bonus||[]).forEach(n=>{if(bsay[n]!=null){bsay[n]++;if(bson[n]===Infinity)bson[n]=i;}}));
+    arti={sira:[...bh].sort((a,b)=>bson[b]-bson[a]||a-b),say:bsay,son:bson};
+  }
+  const rankOf={};cok.forEach((n,i)=>rankOf[n]=i);
+  const k=[...new Set(draws[0].nums||[])].length||game.count;
+  let sablon=null;
+  if(k>=2&&k<=8){
+    const tally={};
+    draws.forEach((d,i)=>{
+      const s=_fadSablon(d.nums,rankOf);if(!s||s.length!==k)return;
+      const key=s.join('-');
+      if(!tally[key])tally[key]={key,s,adet:0,sonIdx:i,sonTarih:d.date};
+      tally[key].adet++;
+    });
+    const gorulen=Object.values(tally).sort((a,b)=>b.adet-a.adet||a.sonIdx-b.sonIdx);
+    const tum=_fadTumPerm(k);
+    const hic=tum.filter(key=>!tally[key]);
+    sablon={k,gorulen,hic,toplamPerm:tum.length,
+            son:_fadSablon(draws[0].nums,rankOf),sonTarih:draws[0].date};
+  }
+  return {game,draws,k,cok,say,gelmeyen,son,arti,sablon,rankOf};
+}
+function _fadInit(){
+  _fadGame=_fadGame||state.selectedGame||GAMES[0].id;
+  const grid=document.getElementById('fadGameGrid');
+  if(grid&&grid.childNodes.length===0){
+    GAMES.forEach(g=>{
+      const btn=document.createElement('button');
+      btn.style.cssText='padding:5px 12px;border-radius:8px;font-size:.75rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .18s';
+      btn.textContent=g.emoji+' '+g.name;
+      btn.onclick=()=>{_fadGame=g.id;_fadHighlight();_fadRender();};
+      grid.appendChild(btn);
+    });
+  }
+  _fadHighlight();_fadRender();
+}
+function _fadHighlight(){
+  const grid=document.getElementById('fadGameGrid');if(!grid)return;
+  grid.querySelectorAll('button').forEach((btn,i)=>{
+    const g=GAMES[i];if(!g)return;const on=g.id===_fadGame;
+    btn.style.background=on?'rgba(0,150,58,.18)':'var(--surface2)';
+    btn.style.borderColor=on?'rgba(0,150,58,.5)':'var(--border)';
+    btn.style.color=on?'var(--green)':'var(--muted)';
+    btn.style.fontWeight=on?'700':'400';
+  });
+}
+function _fadPencereDegis(v){_fadPencere=parseInt(v)||0;_fadRender();}
+// Sayı rozeti: üstte sayı, altında küçük gri açıklama (adet ya da kaç çekiliştir gelmediği).
+function _fadRozet(n,alt){
+  return `<div style="display:flex;flex-direction:column;align-items:center;gap:1px;min-width:30px">`
+    +`<span style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);font-size:.7rem;font-weight:800;color:var(--text)">${n}</span>`
+    +`<span style="font-size:.52rem;color:var(--muted)">${alt}</span></div>`;
+}
+function _fadBolum(baslik,aciklama,rozetler,hamMetin){
+  return `<div class="card" style="margin-bottom:12px">`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">`
+    +`<div style="font-size:.74rem;font-weight:800;color:var(--text)">${baslik}</div>`
+    +`<button onclick="_caCopy(this.dataset.t);showToast('📋 Kopyalandı')" data-t="${hamMetin.replace(/"/g,'&quot;')}" class="copy-btn" style="font-size:.58rem;padding:3px 10px">📋 Kopyala</button></div>`
+    +`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.5">${aciklama}</div>`
+    +`<div style="display:flex;flex-wrap:wrap;gap:6px">${rozetler}</div>`
+    +`<div style="margin-top:8px;font-family:monospace;font-size:.6rem;color:var(--muted);word-break:break-word">[ ${hamMetin} ]</div></div>`;
+}
+function _fadRender(){
+  const el=document.getElementById('fadOut');if(!el)return;
+  const D=_fadHesapla(_fadGame||state.selectedGame||GAMES[0].id);
+  if(!D){el.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:14px 0">Bu oyunda geçmiş veri yok.</div>';return;}
+  const g=D.game,n=D.draws.length;
+  const bekle=x=>x===Infinity?'hiç':String(x);
+  let h=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;line-height:1.6">`
+    +`<strong style="color:var(--text)">${g.emoji} ${g.name}</strong> · ${n} çekiliş`
+    +`${D.draws[0]&&D.draws[0].date?' · son çekiliş '+D.draws[0].date:''}. `
+    +`Sayı altındaki küçük yazı: çok gelenlerde <strong>kaç kez geldiği</strong>, gelmeyenlerde `
+    +`<strong>kaç çekiliştir gelmediği</strong> (0 = en son çekilişte geldi, "hiç" = bu pencerede hiç gelmedi).</div>`;
+  const metinler=[];
+  const cokTxt=D.cok.join(' ');
+  metinler.push('ÇOK GELENLER\n[ '+cokTxt+' ]');
+  h+=_fadBolum('📈 ÇOK GELENLER',
+    'Ana havuzdaki tüm sayılar, bu pencerede <strong>kaç kez çıktığına</strong> göre çoktan aza. Eşitlikte küçük sayı önce.',
+    D.cok.map(x=>_fadRozet(x,D.say[x])).join(''),cokTxt);
+  const gelTxt=D.gelmeyen.join(' ');
+  metinler.push('ÇOKTAN GELMEYENLER\n[ '+gelTxt+' ]');
+  h+=_fadBolum('⏳ ÇOKTAN GELMEYENLER',
+    'Tüm sayılar, <strong>en son ne zaman çıktığına</strong> göre — en uzun süredir gelmeyen başta.',
+    D.gelmeyen.map(x=>_fadRozet(x,bekle(D.son[x]))).join(''),gelTxt);
+  if(D.arti){
+    const aTxt=D.arti.sira.join(' ');
+    metinler.push('ARTIDA ÇOKTAN GELMEYENLER\n[ '+aTxt+' ]');
+    h+=_fadBolum('➕ ARTIDA ÇOKTAN GELMEYENLER',
+      `Aynı kural, <strong>artı topu havuzu (1–${g.bonusMax})</strong> için.`,
+      D.arti.sira.map(x=>_fadRozet(x,bekle(D.arti.son[x]))).join(''),aTxt);
+  }else{
+    h+=`<div class="card" style="margin-bottom:12px"><div style="font-size:.74rem;font-weight:800;color:var(--text);margin-bottom:4px">➕ ARTIDA ÇOKTAN GELMEYENLER</div>`
+      +`<div style="font-size:.62rem;color:var(--muted)">${g.name} oyununda artı/joker topu yok — bu liste yalnızca artı topu olan oyunlarda vardır.</div></div>`;
+  }
+  // ── ANAHTAR ŞABLON ──
+  h+=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">`
+    +`<div style="font-size:.74rem;font-weight:800;color:var(--text)">🔑 ANAHTAR ŞABLON</div></div>`;
+  if(!D.sablon){
+    h+=`<div style="font-size:.62rem;color:var(--muted);line-height:1.6">${g.name} çekilişinde <strong>${D.k}</strong> sayı var; `
+      +`${D.k} elemanlı sıralama sayısı ${D.k}! kadardır ve bu ölçekte şablon istatistiği anlamlı değildir. `
+      +`Bu bölüm yalnızca 8 ve daha az sayı çekilen oyunlarda hesaplanır.</div></div>`;
+  }else{
+    const S=D.sablon;
+    const perm=a=>a.map(x=>`<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);font-size:.66rem;font-weight:800;color:var(--text);margin-right:4px">${x}</span>`).join('');
+    h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.55">`
+      +`Şablon bir <strong>sıralamadır (permütasyon)</strong>: çekilişin sayılarını küçükten büyüğe diz, her birini `
+      +`<strong>ÇOK GELENLER</strong> sırasındaki yeriyle değiştir, sonra bu yerleri kendi aralarında sırala. `
+      +`<strong>0</strong> = o çekilişteki en çok gelen sayı, <strong>${S.k-1}</strong> = en az gelen. `
+      +`Sıralama referansı, yukarıdaki güncel ÇOK GELENLER listesidir.</div>`;
+    const sonTxt=S.son?S.son.join(' '):'—';
+    h+=`<div style="margin-bottom:10px"><div style="font-size:.62rem;color:var(--muted);margin-bottom:4px">Son çekilişin şablonu${S.sonTarih?' ('+S.sonTarih+')':''}:</div>`
+      +`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">${S.son?perm(S.son):''}`
+      +`<span style="font-family:monospace;font-size:.62rem;color:var(--muted)">[ ${sonTxt} ]</span></div></div>`;
+    metinler.push('ANAHTAR ŞABLON — son çekiliş\n[ '+sonTxt+' ]');
+    h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:6px">`
+      +`${S.toplamPerm} olası şablondan <strong style="color:var(--text)">${S.gorulen.length}</strong> tanesi bu pencerede görüldü, `
+      +`<strong style="color:var(--text)">${S.hic.length}</strong> tanesi <strong>hiç</strong> görülmedi.</div>`;
+    h+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.64rem">`
+      +`<tr style="text-align:left;color:var(--muted);font-size:.58rem"><th style="padding:4px 6px">#</th>`
+      +`<th style="padding:4px 6px">Şablon</th><th style="padding:4px 6px;text-align:right">Kaç kez</th>`
+      +`<th style="padding:4px 6px;text-align:right">Oran</th><th style="padding:4px 6px">En son</th></tr>`;
+    S.gorulen.slice(0,20).forEach((r,i)=>{
+      h+=`<tr style="border-top:1px solid var(--border)">`
+        +`<td style="padding:4px 6px;color:var(--muted)">${i+1}</td>`
+        +`<td style="padding:4px 6px">${perm(r.s)}</td>`
+        +`<td style="padding:4px 6px;text-align:right;font-family:monospace;font-weight:700">${r.adet}</td>`
+        +`<td style="padding:4px 6px;text-align:right;font-family:monospace;color:var(--muted)">%${(100*r.adet/n).toFixed(1)}</td>`
+        +`<td style="padding:4px 6px;color:var(--muted);font-size:.58rem">${r.sonTarih||('#'+r.sonIdx)}</td></tr>`;
+    });
+    h+=`</table></div>`;
+    metinler.push('ANAHTAR ŞABLON — en çok görülenler\n'+S.gorulen.slice(0,20).map((r,i)=>`${i+1}. [ ${r.s.join(' ')} ] ${r.adet} kez`).join('\n'));
+    if(S.hic.length){
+      h+=`<div style="margin-top:10px;font-size:.62rem;color:var(--muted);margin-bottom:4px">Hiç görülmemiş şablonlar (ilk 20):</div>`
+        +`<div style="font-family:monospace;font-size:.6rem;color:var(--muted);line-height:1.8">`
+        +S.hic.slice(0,20).map(k=>'[ '+k.split('-').join(' ')+' ]').join(' &nbsp; ')+`</div>`;
+      metinler.push('ANAHTAR ŞABLON — hiç görülmeyenler (ilk 20)\n'+S.hic.slice(0,20).map(k=>'[ '+k.split('-').join(' ')+' ]').join('\n'));
+    }
+    h+=`</div>`;
+  }
+  window._fadTxt=`🔠 FAD Şablon — ${g.name} · ${n} çekiliş\n\n`+metinler.join('\n\n');
+  el.innerHTML=h;
+}
+function _fadCopy(){const t=window._fadTxt;if(!t){showToast('⚠️ Veri yok');return;}_caCopy(t);showToast('📋 Kopyalandı');}
+
 // Gülsis Sıfır kapsama-optimal bilet grubu üreticisi — Kapsamlı'ya ayrı bir mod olarak entegre.
 // Konsensüsü HİÇ etkilemez; Gülsis Sıfır motorunu (_g0GenBundle) Kapsamlı'nın seçili oyununda çalıştırır.
 let _kbG0Tickets=null;
@@ -14555,8 +14781,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','deneme','karne','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',deneme:'🧪 Deneme',karne:'📋 Karne',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','deneme','karne','fad','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',deneme:'🧪 Deneme',karne:'📋 Karne',fad:'🔠 FAD Şablon',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -14568,6 +14794,7 @@ function _pageInit(id){
   if(id==='hane')_hnInit();
   if(id==='deneme')_dnInit();
   if(id==='karne')_krnInit();
+  if(id==='fad')_fadInit();
   if(id==='soz')_soInit();
   if(id==='gulsis0')_g0Init();
   if(id==='nihai')_niInit();
@@ -14615,11 +14842,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-deneme','page-karne','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-deneme','page-karne','page-fad','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-deneme','navBtn-karne','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-deneme','navBtn-karne','navBtn-fad','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
