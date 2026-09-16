@@ -14233,10 +14233,16 @@ function _fadKart(id,renk,baslik,aciklama,kolonlar,govdeler,hamMetin,gameName){
     +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`
     +`<div style="font-size:.82rem;font-weight:800;color:var(--text)">${baslik}</div>`
     +`<button onclick="_caCopy(this.dataset.t);showToast('📋 Kopyalandı')" data-t="${hamMetin.replace(/"/g,'&quot;')}" class="copy-btn" style="font-size:.6rem;padding:4px 12px;font-weight:700">📋 Kopyala</button></div>`
-    +`<div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;line-height:1.6">${aciklama}</div>`
-    +`<div style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`;
-  kolonlar.forEach((k,i)=>{h+=`<div style="min-width:0">${_fadKolonBas(k,gameName)}${govdeler[i]}</div>`;});
-  return h+`</div></div>`;
+    +`<div style="font-size:.63rem;color:var(--muted);margin-bottom:12px;line-height:1.6">${aciklama}</div>`;
+  // Başlık ve gövde İKİ AYRI ızgara satırı: sütun başlıkları (Güncel'de tek satır, Geçmiş'te
+  // "Gerçek çekiliş" ile iki satır) farklı yükseklikte olduğu için TEK ızgarada birleştirilirse
+  // sayı satırları sütunlar arasında hizasız kayar. İki ayrı grid'de her satır kendi içinde
+  // stretch olur — başlık satırı en uzun başlığa göre eşitlenir, gövde satırı hep aynı hizada başlar.
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:14px;margin-bottom:6px">`
+    +kolonlar.map(k=>`<div style="min-width:0">${_fadKolonBas(k,gameName)}</div>`).join('')+`</div>`;
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`
+    +govdeler.map(gv=>`<div style="min-width:0">${gv}</div>`).join('')+`</div>`;
+  return h+`</div>`;
 }
 // ── ŞABLONDAN SAYI ──
 // Önemli: bir şablon TEK BAŞINA sayı vermez. Şablon "hangi sayılar" değil, seçilen sayıların
@@ -14358,52 +14364,80 @@ function _fadSablonKolon(D,k,n){
     +S.hic.slice(0,8).map(x=>x.split('-').join(' ')).join('  ')+`</div></div>`;
   return h;
 }
-// ── Genel özet: seçili oyunun Güncel penceresinden hızlı bakış ──
-function _fadOzetKart(D,game,kol0){
-  const top=(arr,alt,n)=>arr.slice(0,n).map((x,i)=>_fadRozet(x,alt(x),'',i===0)).join('');
-  let h=`<div class="card" style="margin-bottom:14px;background:linear-gradient(135deg,rgba(124,58,237,.06),transparent)">`
-    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">`
-    +`<div style="font-size:.82rem;font-weight:800;color:var(--text)">🎯 Genel Özet — ${game.emoji} ${game.name}</div>`
-    +`<div style="display:flex;gap:14px;flex-wrap:wrap;font-size:.6rem;color:var(--muted)">`
-    +`<span><strong style="color:var(--text)">${D.draws.length}</strong> çekiliş pencere</span>`
-    +`<span>son çekiliş <strong style="color:var(--text)">${kol0.tarih||'—'}</strong></span></div></div>`
-    +`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">`;
-  h+=`<div><div style="font-size:.58rem;font-weight:700;color:var(--muted);margin-bottom:6px">📈 En çok gelen 5</div>`
-    +`<div style="display:flex;gap:5px;flex-wrap:wrap">${top(D.cok,x=>D.say[x],5)}</div></div>`;
+// ── Genel özet: seçili oyunun her sütununda (Güncel + geçmiş testler) hızlı bakış ──
+// Diğer kartlarla AYNI iki-satır ızgara deseni: başlık satırı ayrı, gövde satırı ayrı —
+// böylece Güncel'in kısa başlığı ile Geçmiş'in "Gerçek çekiliş" satırlı uzun başlığı
+// gövdeleri farklı hizaya kaydırmaz.
+function _fadOzetKart(Ds,kol,game){
   const bekle=x=>x===Infinity?'hiç':String(x);
-  h+=`<div><div style="font-size:.58rem;font-weight:700;color:var(--muted);margin-bottom:6px">⏳ En uzun süredir gelmeyen 5</div>`
-    +`<div style="display:flex;gap:5px;flex-wrap:wrap">${top(D.gelmeyen,bekle,5)}</div></div>`;
-  if(D.arti)h+=`<div><div style="font-size:.58rem;font-weight:700;color:var(--muted);margin-bottom:6px">➕ Artıda en uzun süredir gelmeyen 5</div>`
-    +`<div style="display:flex;gap:5px;flex-wrap:wrap">${top(D.arti.sira,x=>bekle(D.arti.son[x]),5)}</div></div>`;
-  if(D.sablon){
-    const sab=_fadSablon(kol0.hedef.nums,D.rankOf);
-    const key=sab?sab.join('-'):null,rec=key?D.sablon.tally[key]:null;
-    const sira=rec?D.sablon.gorulen.findIndex(r=>r.key===key)+1:null;
-    h+=`<div><div style="font-size:.58rem;font-weight:700;color:var(--muted);margin-bottom:6px">🔑 Güncel şablon</div>`
-      +`<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">`
-      +(sab?sab.map(x=>`<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:rgba(124,58,237,.14);border:1px solid rgba(124,58,237,.4);font-size:.64rem;font-weight:800;color:var(--text)">${x}</span>`).join(''):'—')
-      +`</div><div style="font-size:.56rem;color:var(--muted);margin-top:5px">`
-      +(rec?`${rec.adet} kez görülmüş — en sık ${D.sablon.gorulen.length} içinde ${sira}. sırada`:'daha önce hiç görülmemiş')+`</div></div>`;
-  }
+  const tpl='repeat('+Math.max(1,kol.length)+',minmax(0,1fr))';
+  const top=(arr,alt,aSet,ySet,n)=>arr.slice(0,n).map((x,i)=>_fadRozet(x,alt(x),_fadDurum(x,aSet,ySet),i===0)).join('');
+  let h=`<div class="card" id="fadSecOzet" style="margin-bottom:14px;background:linear-gradient(135deg,rgba(124,58,237,.06),transparent);scroll-margin-top:70px">`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`
+    +`<div style="font-size:.82rem;font-weight:800;color:var(--text)">🎯 Genel Özet — ${game.emoji} ${game.name}</div>`
+    +`<div style="font-size:.6rem;color:var(--muted)"><strong style="color:var(--text)">${Ds[0].draws.length}</strong> çekiliş pencere (Güncel)</div></div>`
+    +`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px;line-height:1.6">Her sütunun en çok gelen/gelmeyen ilk 5'i ve o sütunun şablonu — 🔮 Güncel için tahmine, 📅 Geçmiş sütunları için o günün gerçek sonucuna göre (yeşil ✓ = net, turuncu ~ = ±1 yakın).</div>`;
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:14px;margin-bottom:6px">`
+    +kol.map(k=>`<div style="min-width:0">${_fadKolonBas(k,game.name)}</div>`).join('')+`</div>`;
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`;
+  kol.forEach((k,i)=>{
+    const D=Ds[i];
+    const aSet=k.actual?new Set(k.actual.nums||[]):null;
+    const ySet=_fadYakinSet(aSet,game.max);
+    const aBonus=k.actual?new Set(k.actual.bonus||[]):null;
+    const yBonus=_fadYakinSet(aBonus,game.bonusMax||game.max);
+    let c=`<div style="min-width:0;display:flex;flex-direction:column;gap:10px">`;
+    c+=`<div><div style="font-size:.56rem;font-weight:700;color:var(--muted);margin-bottom:5px">📈 En çok gelen 5</div>`
+      +`<div style="display:flex;gap:5px;flex-wrap:wrap">${top(D.cok,x=>D.say[x],aSet,ySet,5)}</div></div>`;
+    c+=`<div><div style="font-size:.56rem;font-weight:700;color:var(--muted);margin-bottom:5px">⏳ En uzun süredir gelmeyen 5</div>`
+      +`<div style="display:flex;gap:5px;flex-wrap:wrap">${top(D.gelmeyen,bekle,aSet,ySet,5)}</div></div>`;
+    if(D.arti)c+=`<div><div style="font-size:.56rem;font-weight:700;color:var(--muted);margin-bottom:5px">➕ Artıda en uzun süredir gelmeyen 5</div>`
+      +`<div style="display:flex;gap:5px;flex-wrap:wrap">${top(D.arti.sira,x=>bekle(D.arti.son[x]),aBonus,yBonus,5)}</div></div>`;
+    if(D.sablon&&k.hedef){
+      const sab=_fadSablon(k.hedef.nums,D.rankOf);
+      const key=sab?sab.join('-'):null,rec=key?D.sablon.tally[key]:null;
+      const sira=rec?D.sablon.gorulen.findIndex(r=>r.key===key)+1:null;
+      c+=`<div><div style="font-size:.56rem;font-weight:700;color:var(--muted);margin-bottom:5px">🔑 ${k.actual?'Gerçek':'Güncel'} şablon</div>`
+        +`<div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">`
+        +(sab?sab.map(x=>`<span style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:6px;background:rgba(124,58,237,.14);border:1px solid rgba(124,58,237,.4);font-size:.6rem;font-weight:800;color:var(--text)">${x}</span>`).join(''):'—')
+        +`</div><div style="font-size:.54rem;color:var(--muted);margin-top:5px">`
+        +(rec?`${rec.adet} kez görülmüş — en sık ${D.sablon.gorulen.length} içinde ${sira}. sırada`:'daha önce hiç görülmemiş')+`</div></div>`;
+    }
+    h+=c+`</div>`;
+  });
   return h+`</div></div>`;
 }
 // ── Öne çıkanlar: hem sık gelen hem uzun süredir gelmeyen sayılar (açıklayıcı kesişim, tahmin değil) ──
-function _fadOneCikanKart(D,game){
-  const ilk=Math.max(3,Math.round(D.cok.length/3));
-  const cokSet=new Set(D.cok.slice(0,ilk));
-  const kesisim=D.gelmeyen.slice(0,ilk).filter(n=>cokSet.has(n));
-  let h=`<div class="card" style="margin-bottom:14px;border-left:3px solid #7c3aed">`
+// Her sütun KENDİ penceresinden hesaplanır — Geçmiş sütunlarında o günden ÖNCEKİ verilerle
+// (ileriye bakış yok), sonra o günün gerçek sonucuna göre net/yakın işaretlenir.
+function _fadOneCikanKart(Ds,kol,game){
+  const tpl='repeat('+Math.max(1,kol.length)+',minmax(0,1fr))';
+  let h=`<div class="card" id="fadSecOne" style="margin-bottom:14px;border-left:3px solid #7c3aed;scroll-margin-top:70px">`
     +`<div style="font-size:.82rem;font-weight:800;color:var(--text);margin-bottom:6px">🔗 Öne Çıkanlar — hem sık gelen hem uzun süredir gelmeyen</div>`
     +`<div style="font-size:.62rem;color:var(--muted);margin-bottom:10px;line-height:1.6">`
-    +`ÇOK GELENLER'in ilk ${ilk}'i ile ÇOKTAN GELMEYENLER'in ilk ${ilk}'inin <strong style="color:var(--text)">kesişimi</strong> —`
-    +` tarihsel olarak sık çıkmış ama son zamanlarda uzun süredir gelmeyen sayılar. Bu, iki listenin sade bir`
+    +`Her sütunda, o sütunun ÇOK GELENLER'inin ilk üçte biri ile ÇOKTAN GELMEYENLER'inin ilk üçte birinin <strong style="color:var(--text)">kesişimi</strong> —`
+    +` tarihsel olarak sık çıkmış ama o pencerede uzun süredir gelmemiş sayılar. Bu, iki listenin sade bir`
     +` çakışmasıdır; Karne sayfasındaki ölçümlerde bu tür kesişimlerin rastgeleyi geçtiği doğrulanmadı —`
-    +` <strong style="color:var(--text)">tahmin değil, betimleyici bir bakış açısıdır</strong>.`;
-  h+=(kesisim.length?_fadKop(`🔗 Öne Çıkanlar (hem sık hem uzun süredir gelmeyen) — ${game.name}`,kesisim.join(' '),'Kopyala'):'')+`</div>`;
-  h+=kesisim.length
-    ? `<div style="display:flex;gap:6px;flex-wrap:wrap">`+kesisim.map(n=>_fadRozet(n,'#'+(D.cok.indexOf(n)+1)+' · '+(D.son[n]===Infinity?'hiç':D.son[n]),'',true)).join('')+`</div>`
-    : `<div style="font-size:.6rem;color:var(--muted)">Bu pencerede kesişim yok.</div>`;
-  return h+`</div>`;
+    +` <strong style="color:var(--text)">tahmin değil, betimleyici bir bakış açısıdır</strong>.</div>`;
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:14px;margin-bottom:6px">`
+    +kol.map(k=>`<div style="min-width:0">${_fadKolonBas(k,game.name)}</div>`).join('')+`</div>`;
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:14px;align-items:start">`;
+  kol.forEach((k,i)=>{
+    const D=Ds[i];
+    const ilk=Math.max(3,Math.round(D.cok.length/3));
+    const cokSet=new Set(D.cok.slice(0,ilk));
+    const kesisim=D.gelmeyen.slice(0,ilk).filter(n=>cokSet.has(n));
+    const aSet=k.actual?new Set(k.actual.nums||[]):null;
+    const ySet=_fadYakinSet(aSet,game.max);
+    const kolon=k.baslik+(k.tarih?' · '+k.tarih:'');
+    let c='<div style="min-width:0">';
+    if(kesisim.length)c+=_fadKop(`🔗 Öne Çıkanlar — ${game.name} · ${kolon}`,kesisim.join(' '),'Kopyala')+`<div style="height:6px"></div>`;
+    c+=kesisim.length
+      ? `<div style="display:flex;gap:5px;flex-wrap:wrap">`+kesisim.map(n=>_fadRozet(n,'#'+(D.cok.indexOf(n)+1)+' · '+(D.son[n]===Infinity?'hiç':D.son[n]),_fadDurum(n,aSet,ySet),true)).join('')+`</div>`
+      : `<div style="font-size:.58rem;color:var(--muted)">Bu pencerede kesişim yok.</div>`;
+    h+=c+'</div>';
+  });
+  return h+`</div></div>`;
 }
 function _fadRender(){
   const el=document.getElementById('fadOut');if(!el)return;
@@ -14417,8 +14451,8 @@ function _fadRender(){
   const yAna=k=>_fadYakinSet(aSet(k),game.max);
   const yArti=k=>_fadYakinSet(aBonus(k),game.bonusMax||game.max);
   const metin=[];
-  let h=_fadOzetKart(Ds[0],game,kol[0]);
-  h+=_fadOneCikanKart(Ds[0],game);
+  let h=_fadOzetKart(Ds,kol,game);
+  h+=_fadOneCikanKart(Ds,kol,game);
   h+=`<div style="font-size:.63rem;color:var(--muted);margin-bottom:14px;line-height:1.7;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 13px">`
     +`<strong style="color:var(--text)">${game.emoji} ${game.name}</strong> · `
     +`🔮 Güncel sütunu ${kol[0].draws.length} çekiliş. Geçmiş test sütunlarında listeler `
