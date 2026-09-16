@@ -413,6 +413,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-hane" onclick="showMainPage('hane')">🔢 Hane Hesaplama</button>
       <button class="nav-link" id="navBtn-deneme" onclick="showMainPage('deneme')">🧪 Deneme</button>
       <button class="nav-link" id="navBtn-karne" onclick="showMainPage('karne')">📋 Karne</button>
+      <button class="nav-link" id="navBtn-fad" onclick="showMainPage('fad')">🔠 FAD Şablon</button>
       <button class="nav-link" id="navBtn-gulsis0" onclick="showMainPage('gulsis0')">🎯⁰ Gülsis Sıfır</button>
       <button class="nav-link" id="navBtn-haber" onclick="showMainPage('haber')">📰 Haber Yöntemleri</button>
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
@@ -1947,6 +1948,28 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
  </div>
  <div class="card"><div id="krnOut"></div></div>
+</div>
+
+<!-- ═══════════ PAGE: FAD ŞABLON ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-fad">
+ <div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+   <div class="card-title" style="margin:0">🔠 FAD Şablon</div>
+   <button onclick="_fadCopy()" class="copy-btn" style="font-size:.62rem;padding:4px 12px;font-weight:700">📋 Tümünü Kopyala</button>
+  </div>
+  <div style="font-size:.7rem;color:var(--text);line-height:1.7;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">
+   Bu sayfa, verdiğiniz <strong>6 Excel formülünü</strong> Süper Loto'nun (max <strong>60</strong>)
+   geçmişteki <strong>her çekilişteki her sayısına</strong> (C43 yerine sırayla her sayı) uygular.
+   Her formül kendi listesini üretir; aynı sonuç birden çok girdide çıkarsa <strong>bir kez</strong> yazılır.
+   <div style="margin-top:8px;color:var(--muted)">
+    <code>PERMUT(n,1)</code> = n, <code>PERMUT(n,2)</code> = n·(n−1) — <code>IFERROR(...,0)</code> gereği
+    n&lt;2 olduğunda (PERMUT 2 seçemediği için) sonuç 0 sayılır. <code>MOD</code> sonucu Excel'de 0–59
+    arasıdır; Süper Loto 1–60 çektiği için <strong>0 çıkan sonuç 60 sayılır</strong> (standart modüler
+    dönüşüm) — bu dönüşüm aşağıda açıkça belirtilir.
+   </div>
+  </div>
+  <div id="fadOut"></div>
+ </div>
 </div>
 
 
@@ -13970,6 +13993,71 @@ function _krnRender(){
 function _krnCopy(){const t=window._krnTxt;if(!t){showToast('⚠️ Önce karneyi çalıştırın');return;}_caCopy(t);showToast('📋 Kopyalandı');}
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 🔠 FAD ŞABLON — kullanıcının verdiği 6 Excel formülü, Süper Loto'nun geçmişteki her
+// çekilişteki her sayısına (C43 yerine sırayla) uygulanır. Excel semantiği birebir:
+//   PERMUT(n,1) = n                (n≥1 için hep geçerli, n hep ≥1 olduğu için hiç 0 olmaz)
+//   PERMUT(n,2) = n·(n−1)          (n<2 ise Excel #NUM! verir → IFERROR(...,0) ile 0 sayılır)
+// MOD(x,60) Excel'de 0..59 döner; Süper Loto 1..60 çektiği için 0 → 60 kabul edilir
+// (klasik modüler loto dönüşümü) — bu dönüşüm ekranda ayrıca belirtilir.
+// ═══════════════════════════════════════════════════════════════════════════
+const _FAD_FORMULLER=[
+  {ad:'Formül 1',metin:'=MOD(IFERROR(PERMUT(C43;1);0)+33;60)',k:1,ekle:33},
+  {ad:'Formül 2',metin:'=MOD(IFERROR(PERMUT(C43;2);0)+33;60)',k:2,ekle:33},
+  {ad:'Formül 3',metin:'=MOD(IFERROR(PERMUT(C43;1);0)+7;60)', k:1,ekle:7},
+  {ad:'Formül 4',metin:'=MOD(IFERROR(PERMUT(C43;2);0)+5;60)', k:2,ekle:5},
+  {ad:'Formül 5',metin:'=MOD(IFERROR(PERMUT(C43;1);0)+3;60)', k:1,ekle:3},
+  {ad:'Formül 6',metin:'=MOD(IFERROR(PERMUT(C43;2);0)+3;60)', k:2,ekle:3},
+];
+// Excel PERMUT(n,k) = n! / (n-k)! ; n<k veya n<0 ise Excel #NUM! hatası verir.
+function _fadPermut(n,k){
+  if(n==null||n<0||k<0||k>n)return null;   // IFERROR bu durumda devreye girer
+  let r=1;for(let i=0;i<k;i++)r*=(n-i);
+  return r;
+}
+function _fadUygula(n,k,ekle){
+  const p=_fadPermut(n,k);
+  const taban=(p==null?0:p)+ekle;
+  let m=taban%60;if(m<0)m+=60;
+  return m===0?60:m;   // Excel MOD 0..59 döner; Süper Loto 1..60 çektiği için 0 → 60
+}
+function _fadInit(){_fadRender();}
+function _fadRender(){
+  const el=document.getElementById('fadOut');if(!el)return;
+  const draws=_kbGetDraws('super')||[];
+  if(!draws.length){el.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:14px 0">Süper Loto için geçmiş veri yok.</div>';return;}
+  // "Önceki tüm çekilişteki tüm sayılar": geçmişte en az bir kez çıkmış her sayı, küçükten büyüğe.
+  const gorulmusSet=new Set();
+  draws.forEach(d=>(d.nums||[]).forEach(n=>gorulmusSet.add(n)));
+  const girdiler=[...gorulmusSet].sort((a,b)=>a-b);
+  const metin=[];
+  let h=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:12px">`
+    +`Süper Loto geçmişinde çıkmış <strong style="color:var(--text)">${girdiler.length}</strong> farklı sayı `
+    +`(<strong style="color:var(--text)">${draws.length}</strong> çekiliş) girdi olarak kullanıldı: `
+    +`<span style="font-family:monospace">${girdiler.join(' ')}</span></div>`;
+  _FAD_FORMULLER.forEach(f=>{
+    const sonucSet=new Set();
+    girdiler.forEach(n=>sonucSet.add(_fadUygula(n,f.k,f.ekle)));
+    const sonuclar=[...sonucSet].sort((a,b)=>a-b);
+    const ham=sonuclar.join(' ');
+    h+=`<div class="card" style="margin-bottom:12px">`
+      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">`
+      +`<div style="font-size:.74rem;font-weight:800;color:var(--text)">🔑 ${f.ad}</div>`
+      +`<button onclick="_caCopy(this.dataset.t);showToast('📋 Kopyalandı')" data-t="${(f.ad+' — Süper Loto\n'+f.metin+'\n\n'+ham).replace(/"/g,'&quot;')}" class="copy-btn" style="font-size:.58rem;padding:3px 10px">📋 Kopyala</button></div>`
+      +`<div style="font-family:monospace;font-size:.6rem;color:var(--muted);margin-bottom:8px">${f.metin}</div>`
+      +`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">${girdiler.length} girdiden <strong style="color:var(--text)">${sonuclar.length}</strong> benzersiz sonuç</div>`
+      +`<div style="display:flex;flex-wrap:wrap;gap:6px">`
+      +sonuclar.map(n=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);font-size:.68rem;font-weight:800;color:var(--text)">${n}</span>`).join('')
+      +`</div>`
+      +`<div style="margin-top:8px;font-family:monospace;font-size:.58rem;color:var(--muted);opacity:.8">${ham}</div>`
+      +`</div>`;
+    metin.push(`${f.ad} — ${f.metin}\n${ham}`);
+  });
+  window._fadTxt=`🔠 FAD Şablon — Süper Loto\n\n`+metin.join('\n\n');
+  el.innerHTML=h;
+}
+function _fadCopy(){const t=window._fadTxt;if(!t){showToast('⚠️ Veri yok');return;}_caCopy(t);showToast('📋 Kopyalandı');}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // 🔠 FAD ŞABLON — kaynak paylaşımlardaki dört listenin birebir karşılığı.
 // Tanımlar burada AÇIKÇA yazılıdır ki sayfadaki her sayının nereden geldiği belli olsun:
 //   • ÇOK GELENLER              → ana havuzdaki her sayının seçili pencerede kaç kez çıktığı, çoktan aza.
@@ -14570,8 +14658,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','deneme','karne','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',deneme:'🧪 Deneme',karne:'📋 Karne',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','deneme','karne','fad','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',deneme:'🧪 Deneme',karne:'📋 Karne',fad:'🔠 FAD Şablon',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -14583,6 +14671,7 @@ function _pageInit(id){
   if(id==='hane')_hnInit();
   if(id==='deneme')_dnInit();
   if(id==='karne')_krnInit();
+  if(id==='fad')_fadInit();
   if(id==='soz')_soInit();
   if(id==='gulsis0')_g0Init();
   if(id==='nihai')_niInit();
@@ -14630,11 +14719,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-deneme','page-karne','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-deneme','page-karne','page-fad','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-deneme','navBtn-karne','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-deneme','navBtn-karne','navBtn-fad','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
