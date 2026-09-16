@@ -14279,6 +14279,46 @@ function _fadSablonAdaylar(D,sab,limit){
   return sec;
 }
 // ŞABLON sütunu: hedef çekilişin sıralaması + o sıralamanın geçmişteki yeri.
+// Tek bir şablonun tam bloğu: sıralaması, kaç kez görülüp kaçıncı sırada olduğu, o şablonla
+// çıkmış çekilişlerde en çok geçen sayılar + örnek çekilişler (kopyalanabilir), ve o şablona
+// uyan sayı grupları. Hem HEDEF çekilişin hem de bir önceki çekilişin şablonu için kullanılır —
+// böylece "en çok geçen sayılar" bölümü Güncel'de olduğu gibi geçmiş test sütunlarında da vardır.
+function _fadSablonBir(D,g,sab,perm,aSet,ySet,kolon,baslikTxt,gercekMi,adayLimit){
+  if(!sab)return `<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px">Bu sütun için yeterli veri yok.</div>`;
+  const S=D.sablon,key=sab.join('-'),rec=S.tally[key];
+  const sira=S.gorulen.findIndex(r=>r.key===key);
+  let h=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:3px">${baslikTxt}:</div>`
+    +`<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:5px">${perm(sab,gercekMi)}`
+    +`<span style="font-family:monospace;font-size:.58rem;color:var(--muted)">[ ${sab.join(' ')} ]</span>`
+    +_fadKop(`🔑 ${baslikTxt} — ${g.name} · ${kolon}`,sab.join(' '),'Şablon')+`</div>`;
+  h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.5">`
+    +(rec?`Bu şablon önceki verilerde <strong style="color:var(--text)">${rec.adet}</strong> kez görülmüş — `
+         +`en sık ${S.gorulen.length} şablon içinde <strong style="color:var(--text)">${sira+1}.</strong> sırada.`
+        :`<strong style="color:#c2410c">Bu şablon önceki verilerde hiç görülmemiş.</strong>`)
+    +`</div>`;
+  // Bu şablonun SAYI karşılığı — kullanıcı permütasyonu değil sayıyı görmek istiyor.
+  if(rec){
+    const enCok=Object.entries(rec.sayac).map(([n,c])=>[+n,c]).sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,S.k*2);
+    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:3px">Bu şablonla çıkmış çekilişlerde en çok geçen sayılar:`
+      +_fadKop(`🔑 Şablonla En Çok Geçen Sayılar — ${g.name} · ${kolon} · ${baslikTxt}`,enCok.map(([n])=>n).join(' '),'Kopyala')+`</div>`
+      +`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px">`
+      +enCok.map(([n,c])=>_fadRozet(n,c+'×',_fadDurum(n,aSet,ySet))).join('')+`</div>`
+      +`<div style="font-size:.54rem;color:var(--muted);margin-bottom:8px;line-height:1.5">Bu şablonla çıkan çekilişler: `
+      +_fadKop(`🔑 Şablonla Çıkan Çekilişler — ${g.name} · ${kolon} · ${baslikTxt}`,rec.ornekler.map(o=>o.date+'  '+o.nums.join(' ')).join('\n'),'Kopyala')+' '
+      +rec.ornekler.map(o=>`<span style="white-space:nowrap">${o.date} [${o.nums.join(' ')}]</span>`).join(' · ')+`</div>`;
+  }
+  const adaylar=_fadSablonAdaylar(D,sab,adayLimit||8);
+  h+=`<div style="font-size:.6rem;color:var(--text);font-weight:700;margin-bottom:6px;margin-top:6px">`
+    +`Şablona uyan sayı grupları <span style="font-weight:400;color:var(--muted)">(çok gelenlerin ilk ${_fadHavuzBoyu(S.k,D.cok.length)} sayısından, en çok gelenler önce)</span>`
+    +(adaylar.length?_fadKop(`🔑 Şablona Uyan Sayı Grupları — ${g.name} · ${kolon} · ${baslikTxt}`,adaylar.map((gr,gi)=>(gi+1)+'. '+gr.join(' ')).join('\n'),'Tümü'):'')+`</div>`;
+  h+=adaylar.length
+    ? `<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">`+adaylar.map((grp,gi)=>`<div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 7px">`
+        +`<span style="font-size:.54rem;color:var(--muted);min-width:13px">${gi+1}.</span>`
+        +`<div style="display:flex;flex-wrap:wrap;gap:4px;flex:1">${grp.map(n=>_fadRozet(n,D.say[n],_fadDurum(n,aSet,ySet))).join('')}</div>`
+        +_fadKop(`🔑 Şablona Uyan Grup #${gi+1} — ${g.name} · ${kolon} · ${baslikTxt}`,grp.join(' '))+`</div>`).join('')+`</div>`
+    : `<div style="font-size:.56rem;color:var(--muted);margin-bottom:10px">Bu havuzda şablona uyan grup bulunamadı.</div>`;
+  return h;
+}
 function _fadSablonKolon(D,k,n){
   const g=D.game;
   if(!D.sablon)return `<div style="font-size:.58rem;color:var(--muted);line-height:1.6">`
@@ -14292,39 +14332,21 @@ function _fadSablonKolon(D,k,n){
   const kolon=k.baslik+(k.hedef&&k.hedef.date?' · '+k.hedef.date:'');
   let h='';
   if(sab){
-    const key=sab.join('-'),rec=S.tally[key];
-    const sira=S.gorulen.findIndex(r=>r.key===key);
-    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:3px">`
-      +`${k.actual?'Gerçek çekilişin şablonu':'Son çekilişin şablonu'}${k.hedef.date?' ('+k.hedef.date+')':''}:</div>`
-      +`<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:5px">${perm(sab,!!k.actual)}`
-      +`<span style="font-family:monospace;font-size:.58rem;color:var(--muted)">[ ${sab.join(' ')} ]</span>`
-      +_fadKop(`🔑 Anahtar Şablon — ${g.name} · ${kolon}`,sab.join(' '),'Şablon')+`</div>`;
-    h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.5">`
-      +(rec?`Bu şablon önceki verilerde <strong style="color:var(--text)">${rec.adet}</strong> kez görülmüş — `
-           +`en sık ${S.gorulen.length} şablon içinde <strong style="color:var(--text)">${sira+1}.</strong> sırada.`
-          :`<strong style="color:#c2410c">Bu şablon önceki verilerde hiç görülmemiş.</strong>`)
-      +`</div>`;
-    // Bu şablonun SAYI karşılığı — kullanıcı permütasyonu değil sayıyı görmek istiyor.
-    if(rec){
-      const enCok=Object.entries(rec.sayac).map(([n,c])=>[+n,c]).sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,S.k*2);
-      h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:3px">Bu şablonla çıkmış çekilişlerde en çok geçen sayılar:`
-        +_fadKop(`🔑 Şablonla En Çok Geçen Sayılar — ${g.name} · ${kolon}`,enCok.map(([n])=>n).join(' '),'Kopyala')+`</div>`
-        +`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:5px">`
-        +enCok.map(([n,c])=>_fadRozet(n,c+'×',_fadDurum(n,aSet,ySet))).join('')+`</div>`
-        +`<div style="font-size:.54rem;color:var(--muted);margin-bottom:8px;line-height:1.5">Bu şablonla çıkan çekilişler: `
-        +_fadKop(`🔑 Şablonla Çıkan Çekilişler — ${g.name} · ${kolon}`,rec.ornekler.map(o=>o.date+'  '+o.nums.join(' ')).join('\n'),'Kopyala')+' '
-        +rec.ornekler.map(o=>`<span style="white-space:nowrap">${o.date} [${o.nums.join(' ')}]</span>`).join(' · ')+`</div>`;
+    h+=_fadSablonBir(D,g,sab,perm,aSet,ySet,kolon,
+      `${k.actual?'Gerçek çekilişin şablonu':'Son çekilişin şablonu'}${k.hedef.date?' ('+k.hedef.date+')':''}`,
+      !!k.actual,8);
+    // ⏮ Bir önceki çekilişin şablonu — Güncel'de draws[0] hedefin KENDİSİ olduğu için bir önceki
+    // draws[1]'dir; Geçmiş sütunlarında draws zaten hedeften ÖNCEKİ verilerle kurulu, o yüzden
+    // draws[0] doğrudan bir önceki çekiliştir. İkisi de AYNI referans çerçevesiyle (D.rankOf,
+    // bu sütunun kendi penceresi) hesaplanır.
+    const oncekiDraw=k.actual?k.draws[0]:k.draws[1];
+    if(oncekiDraw){
+      const sabOnceki=_fadSablon(oncekiDraw.nums,D.rankOf);
+      h+=`<div style="margin-top:6px;padding-top:10px;border-top:1px dashed var(--border)">`
+        +_fadSablonBir(D,g,sabOnceki,perm,null,null,kolon,
+          `⏮ Bir önceki çekilişin şablonu (${oncekiDraw.date})`,true,5)
+        +`</div>`;
     }
-    const adaylar=_fadSablonAdaylar(D,sab,8);
-    h+=`<div style="font-size:.6rem;color:var(--text);font-weight:700;margin-bottom:6px;margin-top:6px">`
-      +`Şablona uyan sayı grupları <span style="font-weight:400;color:var(--muted)">(çok gelenlerin ilk ${_fadHavuzBoyu(S.k,D.cok.length)} sayısından, en çok gelenler önce)</span>`
-      +(adaylar.length?_fadKop(`🔑 Şablona Uyan Sayı Grupları — ${g.name} · ${kolon}`,adaylar.map((gr,gi)=>(gi+1)+'. '+gr.join(' ')).join('\n'),'Tümü'):'')+`</div>`;
-    h+=adaylar.length
-      ? `<div style="display:flex;flex-direction:column;gap:5px;margin-bottom:10px">`+adaylar.map((grp,gi)=>`<div style="display:flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border);border-radius:7px;padding:5px 7px">`
-          +`<span style="font-size:.54rem;color:var(--muted);min-width:13px">${gi+1}.</span>`
-          +`<div style="display:flex;flex-wrap:wrap;gap:4px;flex:1">${grp.map(n=>_fadRozet(n,D.say[n],_fadDurum(n,aSet,ySet))).join('')}</div>`
-          +_fadKop(`🔑 Şablona Uyan Grup #${gi+1} — ${g.name} · ${kolon}`,grp.join(' '))+`</div>`).join('')+`</div>`
-      : `<div style="font-size:.56rem;color:var(--muted);margin-bottom:10px">Bu havuzda şablona uyan grup bulunamadı.</div>`;
   }
   h+=`<div style="font-size:.62rem;color:var(--text);margin-bottom:8px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:6px 9px">`
     +`${S.toplamPerm} olası şablondan <strong>${S.gorulen.length}</strong> görüldü, `
@@ -14448,9 +14470,10 @@ function _fadRender(){
   const yAna=k=>_fadYakinSet(aSet(k),game.max);
   const yArti=k=>_fadYakinSet(aBonus(k),game.bonusMax||game.max);
   const metin=[];
-  let h=_fadOzetKart(Ds,kol,game);
-  h+=_fadOneCikanKart(Ds,kol,game);
-  h+=`<div style="font-size:.63rem;color:var(--muted);margin-bottom:14px;line-height:1.7;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 13px">`
+  // Sütun bağlamı — her liste kolonunun kopyalama başlığında kullanılır (uygulama standardı:
+  // "Başlık\nİçerik", çıplak sayı değil — bkz. _hnTxt, _qtTicketsBlock).
+  const kolCtx=k=>k.baslik+(k.tarih?' · '+k.tarih:'');
+  let h=`<div style="font-size:.63rem;color:var(--muted);margin-bottom:14px;line-height:1.7;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:10px 13px">`
     +`<strong style="color:var(--text)">${game.emoji} ${game.name}</strong> · `
     +`🔮 Güncel sütunu ${kol[0].draws.length} çekiliş. Geçmiş test sütunlarında listeler `
     +`<strong>yalnızca o tarihten önceki</strong> çekilişlerle kurulur, sonra o günün gerçek sonucuyla `
@@ -14459,9 +14482,21 @@ function _fadRender(){
     +`<span style="color:#c2410c;font-weight:700">turuncu ~ = ±1 yakın</span> · gri = çıkmadı.<br>`
     +`Sayı altındaki küçük yazı: çok gelenlerde <strong>kaç kez geldiği</strong>, gelmeyenlerde `
     +`<strong>kaç çekiliştir gelmediği</strong> (0 = bir önceki çekilişte geldi, "hiç" = bu pencerede hiç gelmedi).</div>`;
-  // Sütun bağlamı — her liste kolonunun kopyalama başlığında kullanılır (uygulama standardı:
-  // "Başlık\nİçerik", çıplak sayı değil — bkz. _hnTxt, _qtTicketsBlock).
-  const kolCtx=k=>k.baslik+(k.tarih?' · '+k.tarih:'');
+  // 0) ANAHTAR ŞABLON — sayfanın en üstünde (kullanıcı isteği). Her sütunda hem hedef
+  // çekilişin hem bir önceki çekilişin şablonu, ikisinin de sayı karşılığıyla birlikte.
+  h+=_fadKart('fadSec4','#7c3aed','🔑 ANAHTAR ŞABLON',
+    'Şablon bir <strong>sıralamadır (permütasyon)</strong>: çekilişin sayılarını küçükten büyüğe diz, her birini '
+    +'<strong>ÇOK GELENLER</strong> sırasındaki yeriyle değiştir, sonra bu yerleri kendi aralarında sırala. '
+    +'<strong>0</strong> = o çekilişteki en çok gelen sayı. Geçmiş test sütunlarında gösterilen şablon, o günün '
+    +'<strong>gerçek</strong> çekilişinden çıkarılmıştır; sıklığı ise yalnızca o günden önceki verilerden. '
+    +'Her sütunda ayrıca <strong>bir önceki çekilişin</strong> şablonu da gösterilir.',
+    kol,Ds.map((D,i)=>_fadSablonKolon(D,kol[i],D.draws.length)),
+    'ANAHTAR ŞABLON — '+game.name+'\n\n'+kol.map((k,i)=>{const s=k.hedef?_fadSablon(k.hedef.nums,Ds[i].rankOf):null;
+      return `${kolCtx(k)}:\n${s?s.join(' '):'—'}`;}).join('\n\n'),game.name);
+  metin.push('ANAHTAR ŞABLON\n'+kol.map((k,i)=>{const s=k.hedef?_fadSablon(k.hedef.nums,Ds[i].rankOf):null;
+    return `${kolCtx(k)}: ${s?s.join(' '):'—'}`;}).join('\n'));
+  h+=_fadOzetKart(Ds,kol,game);
+  h+=_fadOneCikanKart(Ds,kol,game);
   // 1) ÇOK GELENLER
   h+=_fadKart('fadSec1','#22c55e','📈 ÇOK GELENLER',
     'Ana havuzdaki tüm sayılar, o sütunun penceresinde <strong>kaç kez çıktığına</strong> göre çoktan aza. Eşitlikte küçük sayı önce.',
@@ -14485,22 +14520,12 @@ function _fadRender(){
     h+=`<div class="card" id="fadSec3" style="margin-bottom:14px;border-left:3px solid #ef4444;scroll-margin-top:70px"><div style="font-size:.82rem;font-weight:800;color:var(--text);margin-bottom:4px">➕ ARTIDA ÇOKTAN GELMEYENLER</div>`
       +`<div style="font-size:.62rem;color:var(--muted)">${game.name} oyununda artı/joker topu yok — bu liste yalnızca artı topu olan oyunlarda vardır.</div></div>`;
   }
-  // 4) ANAHTAR ŞABLON
-  h+=_fadKart('fadSec4','#7c3aed','🔑 ANAHTAR ŞABLON',
-    'Şablon bir <strong>sıralamadır (permütasyon)</strong>: çekilişin sayılarını küçükten büyüğe diz, her birini '
-    +'<strong>ÇOK GELENLER</strong> sırasındaki yeriyle değiştir, sonra bu yerleri kendi aralarında sırala. '
-    +'<strong>0</strong> = o çekilişteki en çok gelen sayı. Geçmiş test sütunlarında gösterilen şablon, o günün '
-    +'<strong>gerçek</strong> çekilişinden çıkarılmıştır; sıklığı ise yalnızca o günden önceki verilerden.',
-    kol,Ds.map((D,i)=>_fadSablonKolon(D,kol[i],D.draws.length)),
-    'ANAHTAR ŞABLON — '+game.name+'\n\n'+kol.map((k,i)=>{const s=k.hedef?_fadSablon(k.hedef.nums,Ds[i].rankOf):null;
-      return `${kolCtx(k)}:\n${s?s.join(' '):'—'}`;}).join('\n\n'),game.name);
-  metin.push('ANAHTAR ŞABLON\n'+kol.map((k,i)=>{const s=k.hedef?_fadSablon(k.hedef.nums,Ds[i].rankOf):null;
-    return `${kolCtx(k)}: ${s?s.join(' '):'—'}`;}).join('\n'));
   window._fadTxt=`🔠 FAD Şablon — ${game.name}\n\n`+metin.join('\n\n');
   el.innerHTML=h;
   const nav=document.getElementById('fadNav');
-  if(nav)nav.innerHTML=[['fadSec1','📈 Çok Gelenler','#22c55e'],['fadSec2','⏳ Çoktan Gelmeyenler','#f59e0b'],
-    ['fadSec3','➕ Artıda Gelmeyenler','#ef4444'],['fadSec4','🔑 Anahtar Şablon','#7c3aed']]
+  if(nav)nav.innerHTML=[['fadSec4','🔑 Anahtar Şablon','#7c3aed'],['fadSecOzet','🎯 Genel Özet','#8b5cf6'],
+    ['fadSecOne','🔗 Öne Çıkanlar','#a855f7'],['fadSec1','📈 Çok Gelenler','#22c55e'],
+    ['fadSec2','⏳ Çoktan Gelmeyenler','#f59e0b'],['fadSec3','➕ Artıda Gelmeyenler','#ef4444']]
     .map(([id,lbl,c])=>`<button onclick="document.getElementById('${id}')?.scrollIntoView({behavior:'smooth',block:'start'})" `
       +`style="font-size:.62rem;font-weight:700;padding:5px 11px;border-radius:7px;cursor:pointer;background:${c}1a;border:1px solid ${c}55;color:${c}">${lbl}</button>`).join('');
 }
