@@ -14077,7 +14077,7 @@ function _fadDateOptionsHtml(draws,secili){
   });
   return h;
 }
-function _fadDateTest(){_fadRender();}
+function _fadDateTest(){_fadRenderSonuclar();}
 // Sütunlar: 🔮 Yeni Tahmin (tüm geçmiş) + seçili geçmiş testler (o tarihten ÖNCEKİ verilerle) —
 // diğer sayfalardaki (Deneme, Kapsamlı) desenin AYNISI.
 function _fadKolonlar(oid,tarihler){
@@ -14098,30 +14098,29 @@ function _fadGirdiler(draws){
   const set=new Set();draws.forEach(d=>(d.nums||[]).forEach(n=>set.add(n)));
   return [...set].sort((a,b)=>a-b);
 }
-function _fadInit(){_fadRender();}
-function _fadRender(){
+// Sayfa iskeleti (oyun başlığı + tarih seçiciler) BİR KEZ kurulur ve BİR DAHA DOKUNULMAZ.
+// Önceki hata buradaydı: her tarih seçiminde TÜM #fadOut yeniden çiziliyordu — bu da <select>
+// elemanlarının kendisini yok edip yeniden yaratıyordu. "Son 3 çekilişi doldur" düğmesi sırayla
+// 1./2./3. seçiciye değer atayıp 'change' tetikliyor; 1. seçicinin change'i DOM'u yok edince
+// 2./3. seçicilere tutulan referanslar kopuyor ve onlara yazılan değer hiçbir yere gitmiyordu.
+// Çözüm: <select> elemanları kalıcı, yalnızca sonuç kartları (fadRes_<oid>) yeniden çiziliyor.
+function _fadInit(){
   const el=document.getElementById('fadOut');if(!el)return;
-  // Yeniden çizmeden ÖNCE mevcut seçili tarihleri oku — aksi halde her render'da sıfırlanır
-  // (select'ler #fadOut'un içinde, her _fadRender çağrısında yeniden üretiliyor).
-  const oncekiTarihler={};
-  _fadOyunlar().forEach(oid=>{oncekiTarihler[oid]=['','2','3'].map(sl=>document.getElementById('fadDate_'+oid+sl)?.value||'');});
-  const metin=[];let h='';
+  if(el.dataset.fadBuilt){_fadRenderSonuclar();return;}
+  let h='';
   _fadOyunlar().forEach(oid=>{
     const g=getGame(oid),draws=_kbGetDraws(oid)||[];
     if(!draws.length){h+=`<div style="font-size:.7rem;color:var(--muted);padding:6px 0">${g?g.name:oid} için geçmiş veri yok.</div>`;return;}
-    const tarihler=oncekiTarihler[oid];
-    const kol=_fadKolonlar(oid,tarihler);
     const buOyunDeneme=_FAD_FORMULLER.some(f=>f.oyun===oid&&f.deneme);
-    const kolCtx=k=>k.baslik+(k.tarih?' · '+k.tarih:'');
     h+=`<div style="display:flex;align-items:center;gap:8px;margin:14px 0 4px">`
       +`<div style="font-size:.68rem;font-weight:800;color:var(--text)">${g.emoji} ${g.name}</div>`
       +(buOyunDeneme?`<span style="font-size:.56rem;font-weight:700;color:#c2410c;background:rgba(194,65,12,.1);border:1px solid rgba(194,65,12,.3);border-radius:5px;padding:1px 7px">DENEME — siz vermediniz, aynı kalıp başka oyuna uygulandı</span>`:'')
       +`</div>`;
     // Geçmiş test tarih seçiciler — diğer sayfalardaki desenin BİREBİR aynısı: "🔮 Yeni Tahmin"
-    // etiketi + 3 tarih seçici, sonuçların hemen ÜSTÜNDE, o oyuna özel.
+    // etiketi + 3 tarih seçici, sonuçların hemen ÜSTÜNDE, o oyuna özel. Bu satır kalıcıdır.
     h+=`<div style="display:grid;grid-template-columns:110px repeat(3,minmax(0,1fr));gap:8px;align-items:center;margin-bottom:8px">`
       +`<div style="font-size:.66rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>`
-      +[0,1,2].map(i=>`<select id="fadDate_${oid}${i?i+1:''}" onchange="_fadDateTest()" style="min-width:0;font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 7px">${_fadDateOptionsHtml(draws,tarihler[i])}</select>`).join('')
+      +[0,1,2].map(i=>`<select id="fadDate_${oid}${i?i+1:''}" onchange="_fadDateTest()" style="min-width:0;font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 7px">${_fadDateOptionsHtml(draws,'')}</select>`).join('')
       +`</div>`;
     h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px;line-height:1.6">`
       +`🔮 Yeni Tahmin sütunu geçmişteki TÜM sayıları girdi alır. Geçmiş test sütunlarında girdiler `
@@ -14129,6 +14128,22 @@ function _fadRender(){
       +`sonucuyla karşılaştırılır — <strong>ileriye bakış yok</strong>. `
       +`<span style="color:var(--green);font-weight:700">yeşil ✓ = net</span> · `
       +`<span style="color:#c2410c;font-weight:700">turuncu ~ = ±1 yakın</span> · gri = çıkmadı.</div>`;
+    h+=`<div id="fadRes_${oid}"></div>`;
+  });
+  el.innerHTML=h;
+  el.dataset.fadBuilt='1';
+  _fadRenderSonuclar();
+}
+function _fadRenderSonuclar(){
+  const metin=[];
+  _fadOyunlar().forEach(oid=>{
+    const g=getGame(oid),draws=_kbGetDraws(oid)||[];
+    const res=document.getElementById('fadRes_'+oid);
+    if(!draws.length||!res)return;
+    const tarihler=['','2','3'].map(sl=>document.getElementById('fadDate_'+oid+sl)?.value||'');
+    const kol=_fadKolonlar(oid,tarihler);
+    const kolCtx=k=>k.baslik+(k.tarih?' · '+k.tarih:'');
+    let h='';
     const tpl='repeat('+kol.length+',minmax(0,1fr))';
     _FAD_FORMULLER.filter(f=>f.oyun===oid).forEach(f=>{
       const veri=kol.map(k=>{
@@ -14175,22 +14190,11 @@ function _fadRender(){
         }).join('')+`</div></div>`;
       metin.push(`${f.ad}\n${f.metin}\n\n${hamTum}`);
     });
+    res.innerHTML=h;
   });
   window._fadTxt=`🔠 FAD Şablon\n\n`+metin.join('\n\n');
-  el.innerHTML=h;
 }
 function _fadCopy(){const t=window._fadTxt;if(!t){showToast('⚠️ Veri yok');return;}_caCopy(t);showToast('📋 Kopyalandı');}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// 🔠 FAD ŞABLON — kaynak paylaşımlardaki dört listenin birebir karşılığı.
-// Tanımlar burada AÇIKÇA yazılıdır ki sayfadaki her sayının nereden geldiği belli olsun:
-//   • ÇOK GELENLER              → ana havuzdaki her sayının seçili pencerede kaç kez çıktığı, çoktan aza.
-//   • ÇOKTAN GELMEYENLER        → en son ne zaman çıktığına göre, en uzun süredir gelmeyenden başlayarak.
-//   • ARTIDA ÇOKTAN GELMEYENLER → aynı kural, artı/joker havuzu için (yalnızca artı topu olan oyunlarda).
-//   • ANAHTAR ŞABLON            → çekilişin SIRALAMASI (permütasyon): sayıları küçükten büyüğe diz,
-//     her birini ÇOK GELENLER sırasındaki yeriyle değiştir, sonra bu yerleri kendi aralarında sırala.
-//     Sonuç 0..k-1 permütasyonudur; 0 = o çekilişteki "en çok gelen" sayı, k-1 = "en az gelen".
-// ═══════════════════════════════════════════════════════════════════════════
 
 // Gülsis Sıfır kapsama-optimal bilet grubu üreticisi — Kapsamlı'ya ayrı bir mod olarak entegre.
 // Konsensüsü HİÇ etkilemez; Gülsis Sıfır motorunu (_g0GenBundle) Kapsamlı'nın seçili oyununda çalıştırır.
