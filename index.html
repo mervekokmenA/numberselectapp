@@ -1972,8 +1972,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     sayılarına tek tek uygulanır.
    </div>
   </div>
-  <div style="font-size:.6rem;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Geçmiş test tarihleri (oyun başına)</div>
-  <div id="fadDateBlok" style="display:flex;flex-direction:column;gap:8px"></div>
  </div>
  <div id="fadOut"></div>
 </div>
@@ -14065,23 +14063,23 @@ function _fadRozet(n,durum){
   return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border-radius:50%;${st};font-size:.68rem;font-weight:800">${n}${im}</span>`;
 }
 // ── 3'lü geçmiş test iskeleti (uygulamanın her yerindeki standart) — oyun başına ──
-function _fadDates(oid){
-  const draws=_kbGetDraws(oid)||[];
+// Tarih seçici seçenekleri (ham option listesi) — mevcut seçim varsa "selected" olarak korunur.
+function _fadDateOptionsHtml(draws,secili){
   let h='<option value="">— Geçmiş test için tarih seçin —</option>';
   draws.forEach((d,i)=>{
     if(draws.length-i-1<20)return;   // testin arkasında en az 20 çekiliş kalsın
-    h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]</option>`;
+    h+=`<option value="${d.date}"${d.date===secili?' selected':''}>🎯 ${d.date}  [${(d.nums||[]).join(' ')}]</option>`;
   });
-  ['','2','3'].forEach(sl=>{const e=document.getElementById('fadDate_'+oid+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv&&[...e.options].some(o=>o.value===pv))e.value=pv;});
+  return h;
 }
 function _fadDateTest(){_fadRender();}
-// Sütunlar: 🔮 Güncel (tüm geçmiş) + seçili geçmiş testler (o tarihten ÖNCEKİ verilerle).
-function _fadKolonlar(oid){
+// Sütunlar: 🔮 Yeni Tahmin (tüm geçmiş) + seçili geçmiş testler (o tarihten ÖNCEKİ verilerle) —
+// diğer sayfalardaki (Deneme, Kapsamlı) desenin AYNISI.
+function _fadKolonlar(oid,tarihler){
   const draws=_kbGetDraws(oid)||[];
   const kol=[];
-  if(draws.length)kol.push({baslik:'🔮 Güncel',tarih:draws[0].date,draws:draws,actual:null});
-  ['','2','3'].forEach((sl,i)=>{
-    const v=document.getElementById('fadDate_'+oid+sl)?.value||'';
+  if(draws.length)kol.push({baslik:'🔮 Yeni Tahmin',tarih:draws[0].date,draws:draws,actual:null});
+  tarihler.forEach((v,i)=>{
     if(!v)return;
     const idx=draws.findIndex(d=>d.date===v);
     if(idx<0)return;
@@ -14095,35 +14093,33 @@ function _fadGirdiler(draws){
   const set=new Set();draws.forEach(d=>(d.nums||[]).forEach(n=>set.add(n)));
   return [...set].sort((a,b)=>a-b);
 }
-function _fadInit(){
-  const blok=document.getElementById('fadDateBlok');
-  if(blok&&blok.childNodes.length===0){
-    _fadOyunlar().forEach(oid=>{
-      const g=getGame(oid);
-      const row=document.createElement('div');
-      row.style.cssText='display:grid;grid-template-columns:110px repeat(3,minmax(0,1fr));gap:8px;align-items:center';
-      row.innerHTML=`<div style="font-size:.64rem;font-weight:800;color:var(--text)">${g.emoji} ${g.name}</div>`
-        +['','2','3'].map(sl=>`<select id="fadDate_${oid}${sl}" onchange="_fadDateTest()" style="min-width:0;font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 7px"></select>`).join('');
-      blok.appendChild(row);
-    });
-  }
-  _fadOyunlar().forEach(oid=>_fadDates(oid));
-  _fadRender();
-}
+function _fadInit(){_fadRender();}
 function _fadRender(){
   const el=document.getElementById('fadOut');if(!el)return;
+  // Yeniden çizmeden ÖNCE mevcut seçili tarihleri oku — aksi halde her render'da sıfırlanır
+  // (select'ler #fadOut'un içinde, her _fadRender çağrısında yeniden üretiliyor).
+  const oncekiTarihler={};
+  _fadOyunlar().forEach(oid=>{oncekiTarihler[oid]=['','2','3'].map(sl=>document.getElementById('fadDate_'+oid+sl)?.value||'');});
   const metin=[];let h='';
   _fadOyunlar().forEach(oid=>{
-    const g=getGame(oid),kol=_fadKolonlar(oid);
-    if(!kol.length){h+=`<div style="font-size:.7rem;color:var(--muted);padding:6px 0">${g?g.name:oid} için geçmiş veri yok.</div>`;return;}
+    const g=getGame(oid),draws=_kbGetDraws(oid)||[];
+    if(!draws.length){h+=`<div style="font-size:.7rem;color:var(--muted);padding:6px 0">${g?g.name:oid} için geçmiş veri yok.</div>`;return;}
+    const tarihler=oncekiTarihler[oid];
+    const kol=_fadKolonlar(oid,tarihler);
     const buOyunDeneme=_FAD_FORMULLER.some(f=>f.oyun===oid&&f.deneme);
     const kolCtx=k=>k.baslik+(k.tarih?' · '+k.tarih:'');
     h+=`<div style="display:flex;align-items:center;gap:8px;margin:14px 0 4px">`
       +`<div style="font-size:.68rem;font-weight:800;color:var(--text)">${g.emoji} ${g.name}</div>`
       +(buOyunDeneme?`<span style="font-size:.56rem;font-weight:700;color:#c2410c;background:rgba(194,65,12,.1);border:1px solid rgba(194,65,12,.3);border-radius:5px;padding:1px 7px">DENEME — siz vermediniz, aynı kalıp başka oyuna uygulandı</span>`:'')
       +`</div>`;
+    // Geçmiş test tarih seçiciler — diğer sayfalardaki desenin BİREBİR aynısı: "🔮 Yeni Tahmin"
+    // etiketi + 3 tarih seçici, sonuçların hemen ÜSTÜNDE, o oyuna özel.
+    h+=`<div style="display:grid;grid-template-columns:110px repeat(3,minmax(0,1fr));gap:8px;align-items:center;margin-bottom:8px">`
+      +`<div style="font-size:.66rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>`
+      +[0,1,2].map(i=>`<select id="fadDate_${oid}${i?i+1:''}" onchange="_fadDateTest()" style="min-width:0;font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 7px">${_fadDateOptionsHtml(draws,tarihler[i])}</select>`).join('')
+      +`</div>`;
     h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px;line-height:1.6">`
-      +`🔮 Güncel sütunu geçmişteki TÜM sayıları girdi alır. Geçmiş test sütunlarında girdiler `
+      +`🔮 Yeni Tahmin sütunu geçmişteki TÜM sayıları girdi alır. Geçmiş test sütunlarında girdiler `
       +`<strong>yalnızca o tarihten önceki</strong> çekilişlerdendir, sonra formül sonuçları o günün gerçek `
       +`sonucuyla karşılaştırılır — <strong>ileriye bakış yok</strong>. `
       +`<span style="color:var(--green);font-weight:700">yeşil ✓ = net</span> · `
