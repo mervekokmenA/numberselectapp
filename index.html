@@ -1958,14 +1958,18 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button onclick="_fadCopy()" class="copy-btn" style="font-size:.62rem;padding:4px 12px;font-weight:700">📋 Tümünü Kopyala</button>
   </div>
   <div style="font-size:.7rem;color:var(--text);line-height:1.7;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">
-   Bu sayfa, verdiğiniz <strong>6 Excel formülünü</strong> Süper Loto'nun (max <strong>60</strong>)
-   geçmişteki <strong>her çekilişteki her sayısına</strong> (C43 yerine sırayla her sayı) uygular.
+   Bu sayfa, verdiğiniz <strong>Excel formüllerini</strong> ilgili oyunun geçmişteki
+   <strong>her çekilişteki her sayısına</strong> (C43/C132/C133 yerine sırayla her sayı) uygular.
    Her formül kendi listesini üretir; aynı sonuç birden çok girdide çıkarsa <strong>bir kez</strong> yazılır.
    <div style="margin-top:8px;color:var(--muted)">
-    <code>PERMUT(n,1)</code> = n, <code>PERMUT(n,2)</code> = n·(n−1) — <code>IFERROR(...,0)</code> gereği
-    n&lt;2 olduğunda (PERMUT 2 seçemediği için) sonuç 0 sayılır. <code>MOD</code> sonucu Excel'de 0–59
-    arasıdır; Süper Loto 1–60 çektiği için <strong>0 çıkan sonuç 60 sayılır</strong> (standart modüler
-    dönüşüm) — bu dönüşüm aşağıda açıkça belirtilir.
+    <code>PERMUT(n,k)</code> = n!/(n−k)! — <code>IFERROR(...,0)</code> gereği n&lt;k olduğunda
+    (o kadar seçim yapılamadığı için) sonuç 0 sayılır. <code>MOD</code> sonucu Excel'de 0'dan
+    (mod−1)'e kadardır; oyun 1'den mod'a kadar çektiği için <strong>0 çıkan sonuç mod'un kendisi
+    sayılır</strong> (standart modüler dönüşüm, örn. Süper Loto'da 0→60, Şans Topu'nda 0→34) —
+    bu dönüşüm aşağıda açıkça belirtilir.
+    <br>Formüllerdeki hücre adı (C43, C132, C133…) yalnızca kaynak dosyadaki konumdur; hepsi aynı
+    rolü oynar — <strong>geçmişte çıkmış bir sayı</strong> — ve her formül o oyunun TÜM geçmiş
+    sayılarına tek tek uygulanır.
    </div>
   </div>
   <div id="fadOut"></div>
@@ -13994,20 +13998,26 @@ function _krnRender(){
 function _krnCopy(){const t=window._krnTxt;if(!t){showToast('⚠️ Önce karneyi çalıştırın');return;}_caCopy(t);showToast('📋 Kopyalandı');}
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 🔠 FAD ŞABLON — kullanıcının verdiği 6 Excel formülü, Süper Loto'nun geçmişteki her
-// çekilişteki her sayısına (C43 yerine sırayla) uygulanır. Excel semantiği birebir:
-//   PERMUT(n,1) = n                (n≥1 için hep geçerli, n hep ≥1 olduğu için hiç 0 olmaz)
-//   PERMUT(n,2) = n·(n−1)          (n<2 ise Excel #NUM! verir → IFERROR(...,0) ile 0 sayılır)
-// MOD(x,60) Excel'de 0..59 döner; Süper Loto 1..60 çektiği için 0 → 60 kabul edilir
+// 🔠 FAD ŞABLON — kullanıcının verdiği Excel formülleri, oyunun geçmişteki her
+// çekilişteki her sayısına (C43/C132/C133 yerine sırayla) uygulanır. Excel semantiği birebir:
+//   PERMUT(n,k) = n!/(n-k)!        (n<k veya n<0 ise Excel #NUM! verir → IFERROR(...,0) ile 0 sayılır)
+// MOD(x,mod) Excel'de 0..mod-1 döner; oyun 1..mod arası çektiği için 0 → mod kabul edilir
 // (klasik modüler loto dönüşümü) — bu dönüşüm ekranda ayrıca belirtilir.
+// Formüllerde geçen hücre adı (C43, C132, C133...) sadece kaynak spreadsheet'teki konumdur;
+// hepsi aynı rolü oynar — "geçmişte çıkmış BİR sayı" — ve her biri o oyunun TÜM geçmiş
+// sayılarına tek tek uygulanır (kullanıcı isteği). İki formülün C132/C133 gibi farklı hücre
+// adı kullanması bu yüzden sonucu değiştirmez; ikisi de aynı girdi kümesine uygulanır.
 // ═══════════════════════════════════════════════════════════════════════════
 const _FAD_FORMULLER=[
-  {ad:'Formül 1',metin:'=MOD(IFERROR(PERMUT(C43;1);0)+33;60)',k:1,ekle:33},
-  {ad:'Formül 2',metin:'=MOD(IFERROR(PERMUT(C43;2);0)+33;60)',k:2,ekle:33},
-  {ad:'Formül 3',metin:'=MOD(IFERROR(PERMUT(C43;1);0)+7;60)', k:1,ekle:7},
-  {ad:'Formül 4',metin:'=MOD(IFERROR(PERMUT(C43;2);0)+5;60)', k:2,ekle:5},
-  {ad:'Formül 5',metin:'=MOD(IFERROR(PERMUT(C43;1);0)+3;60)', k:1,ekle:3},
-  {ad:'Formül 6',metin:'=MOD(IFERROR(PERMUT(C43;2);0)+3;60)', k:2,ekle:3},
+  {oyun:'super',mod:60,ad:'Süper Loto — Formül 1',metin:'=MOD(IFERROR(PERMUT(C43;1);0)+33;60)',k:1,ekle:33},
+  {oyun:'super',mod:60,ad:'Süper Loto — Formül 2',metin:'=MOD(IFERROR(PERMUT(C43;2);0)+33;60)',k:2,ekle:33},
+  {oyun:'super',mod:60,ad:'Süper Loto — Formül 3',metin:'=MOD(IFERROR(PERMUT(C43;1);0)+7;60)', k:1,ekle:7},
+  {oyun:'super',mod:60,ad:'Süper Loto — Formül 4',metin:'=MOD(IFERROR(PERMUT(C43;2);0)+5;60)', k:2,ekle:5},
+  {oyun:'super',mod:60,ad:'Süper Loto — Formül 5',metin:'=MOD(IFERROR(PERMUT(C43;1);0)+3;60)', k:1,ekle:3},
+  {oyun:'super',mod:60,ad:'Süper Loto — Formül 6',metin:'=MOD(IFERROR(PERMUT(C43;2);0)+3;60)', k:2,ekle:3},
+  {oyun:'sans', mod:34,ad:'Şans Topu — Formül 1', metin:'=MOD(IFERROR(PERMUT(C132;2);0);34)',    k:2,ekle:0},
+  {oyun:'sans', mod:34,ad:'Şans Topu — Formül 2', metin:'=MOD(IFERROR(PERMUT(C132;3);0)+19;34)', k:3,ekle:19},
+  {oyun:'sans', mod:34,ad:'Şans Topu — Formül 3', metin:'=MOD(IFERROR(PERMUT(C133;3);0)+7;34)',  k:3,ekle:7},
 ];
 // Excel PERMUT(n,k) = n! / (n-k)! ; n<k veya n<0 ise Excel #NUM! hatası verir.
 function _fadPermut(n,k){
@@ -14015,45 +14025,49 @@ function _fadPermut(n,k){
   let r=1;for(let i=0;i<k;i++)r*=(n-i);
   return r;
 }
-function _fadUygula(n,k,ekle){
+function _fadUygula(n,k,ekle,mod){
   const p=_fadPermut(n,k);
   const taban=(p==null?0:p)+ekle;
-  let m=taban%60;if(m<0)m+=60;
-  return m===0?60:m;   // Excel MOD 0..59 döner; Süper Loto 1..60 çektiği için 0 → 60
+  let m=taban%mod;if(m<0)m+=mod;
+  return m===0?mod:m;   // Excel MOD 0..mod-1 döner; oyun 1..mod çektiği için 0 → mod
 }
 function _fadInit(){_fadRender();}
 function _fadRender(){
   const el=document.getElementById('fadOut');if(!el)return;
-  const draws=_kbGetDraws('super')||[];
-  if(!draws.length){el.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:14px 0">Süper Loto için geçmiş veri yok.</div>';return;}
-  // "Önceki tüm çekilişteki tüm sayılar": geçmişte en az bir kez çıkmış her sayı, küçükten büyüğe.
-  const gorulmusSet=new Set();
-  draws.forEach(d=>(d.nums||[]).forEach(n=>gorulmusSet.add(n)));
-  const girdiler=[...gorulmusSet].sort((a,b)=>a-b);
-  const metin=[];
-  let h=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:12px">`
-    +`Süper Loto geçmişinde çıkmış <strong style="color:var(--text)">${girdiler.length}</strong> farklı sayı `
-    +`(<strong style="color:var(--text)">${draws.length}</strong> çekiliş) girdi olarak kullanıldı: `
-    +`<span style="font-family:monospace">${girdiler.join(' ')}</span></div>`;
-  _FAD_FORMULLER.forEach(f=>{
-    const sonucSet=new Set();
-    girdiler.forEach(n=>sonucSet.add(_fadUygula(n,f.k,f.ekle)));
-    const sonuclar=[...sonucSet].sort((a,b)=>a-b);
-    const ham=sonuclar.join(' ');
-    h+=`<div class="card" style="margin-bottom:12px">`
-      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">`
-      +`<div style="font-size:.74rem;font-weight:800;color:var(--text)">🔑 ${f.ad}</div>`
-      +`<button onclick="_caCopy(this.dataset.t);showToast('📋 Kopyalandı')" data-t="${(f.ad+' — Süper Loto\n'+f.metin+'\n\n'+ham).replace(/"/g,'&quot;')}" class="copy-btn" style="font-size:.58rem;padding:3px 10px">📋 Kopyala</button></div>`
-      +`<div style="font-family:monospace;font-size:.6rem;color:var(--muted);margin-bottom:8px">${f.metin}</div>`
-      +`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">${girdiler.length} girdiden <strong style="color:var(--text)">${sonuclar.length}</strong> benzersiz sonuç</div>`
-      +`<div style="display:flex;flex-wrap:wrap;gap:6px">`
-      +sonuclar.map(n=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);font-size:.68rem;font-weight:800;color:var(--text)">${n}</span>`).join('')
-      +`</div>`
-      +`<div style="margin-top:8px;font-family:monospace;font-size:.58rem;color:var(--muted);opacity:.8">${ham}</div>`
-      +`</div>`;
-    metin.push(`${f.ad} — ${f.metin}\n${ham}`);
+  const metin=[];let h='';
+  const oyunlar=[...new Set(_FAD_FORMULLER.map(f=>f.oyun))];
+  oyunlar.forEach(oid=>{
+    const g=getGame(oid),draws=_kbGetDraws(oid)||[];
+    if(!draws.length){h+=`<div style="font-size:.7rem;color:var(--muted);padding:6px 0">${g?g.name:oid} için geçmiş veri yok.</div>`;return;}
+    // "Önceki tüm çekilişteki tüm sayılar": geçmişte en az bir kez çıkmış her sayı, küçükten büyüğe.
+    const gorulmusSet=new Set();
+    draws.forEach(d=>(d.nums||[]).forEach(n=>gorulmusSet.add(n)));
+    const girdiler=[...gorulmusSet].sort((a,b)=>a-b);
+    h+=`<div style="font-size:.68rem;font-weight:800;color:var(--text);margin:14px 0 4px">${g.emoji} ${g.name}</div>`;
+    h+=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:10px">`
+      +`Geçmişte çıkmış <strong style="color:var(--text)">${girdiler.length}</strong> farklı sayı `
+      +`(<strong style="color:var(--text)">${draws.length}</strong> çekiliş) girdi olarak kullanıldı: `
+      +`<span style="font-family:monospace">${girdiler.join(' ')}</span></div>`;
+    _FAD_FORMULLER.filter(f=>f.oyun===oid).forEach(f=>{
+      const sonucSet=new Set();
+      girdiler.forEach(n=>sonucSet.add(_fadUygula(n,f.k,f.ekle,f.mod)));
+      const sonuclar=[...sonucSet].sort((a,b)=>a-b);
+      const ham=sonuclar.join(' ');
+      h+=`<div class="card" style="margin-bottom:12px">`
+        +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">`
+        +`<div style="font-size:.74rem;font-weight:800;color:var(--text)">🔑 ${f.ad}</div>`
+        +`<button onclick="_caCopy(this.dataset.t);showToast('📋 Kopyalandı')" data-t="${(f.ad+'\n'+f.metin+'\n\n'+ham).replace(/"/g,'&quot;')}" class="copy-btn" style="font-size:.58rem;padding:3px 10px">📋 Kopyala</button></div>`
+        +`<div style="font-family:monospace;font-size:.6rem;color:var(--muted);margin-bottom:8px">${f.metin}</div>`
+        +`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">${girdiler.length} girdiden <strong style="color:var(--text)">${sonuclar.length}</strong> benzersiz sonuç</div>`
+        +`<div style="display:flex;flex-wrap:wrap;gap:6px">`
+        +sonuclar.map(n=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border-radius:50%;background:var(--surface2);border:1px solid var(--border);font-size:.68rem;font-weight:800;color:var(--text)">${n}</span>`).join('')
+        +`</div>`
+        +`<div style="margin-top:8px;font-family:monospace;font-size:.58rem;color:var(--muted);opacity:.8">${ham}</div>`
+        +`</div>`;
+      metin.push(`${f.ad}\n${f.metin}\n${ham}`);
+    });
   });
-  window._fadTxt=`🔠 FAD Şablon — Süper Loto\n\n`+metin.join('\n\n');
+  window._fadTxt=`🔠 FAD Şablon\n\n`+metin.join('\n\n');
   el.innerHTML=h;
 }
 function _fadCopy(){const t=window._fadTxt;if(!t){showToast('⚠️ Veri yok');return;}_caCopy(t);showToast('📋 Kopyalandı');}
