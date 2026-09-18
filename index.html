@@ -1953,27 +1953,27 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <!-- ═══════════ PAGE: FAD ŞABLON ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-fad">
  <div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-   <div class="card-title" style="margin:0">🔠 FAD Şablon</div>
-   <button onclick="_fadCopy()" class="copy-btn" style="font-size:.62rem;padding:4px 12px;font-weight:700">📋 Tümünü Kopyala</button>
+  <div class="card-title">🔠 FAD Şablon</div>
+  <div style="font-size:.68rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
+   Verdiğiniz <strong>Excel formülleri</strong>, seçili oyunun geçmişte çıkmış her sayısına
+   (C43/C132/C133 yerine sırayla her sayı) uygulanır; her formül kendi sayı listesini üretir,
+   tekrar eden sonuç bir kez yazılır. <code>PERMUT(n,k)</code> = n!/(n−k)!, <code>IFERROR(…,0)</code>
+   gereği n&lt;k olduğunda 0 sayılır; <code>MOD</code> 0 verirse oyun 1'den mod'a kadar çektiği için
+   <strong>mod'un kendisi</strong> sayılır (Süper Loto'da 0→60, Şans Topu'nda 0→34).
+   Her analiz, diğer sayfalardaki gibi 🔮 Yeni Tahmin + 3 Geçmiş Test olarak yan yana gösterilir.
   </div>
-  <div style="font-size:.7rem;color:var(--text);line-height:1.7;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px">
-   Bu sayfa, verdiğiniz <strong>Excel formüllerini</strong> ilgili oyunun geçmişteki
-   <strong>her çekilişteki her sayısına</strong> (C43/C132/C133 yerine sırayla her sayı) uygular.
-   Her formül kendi listesini üretir; aynı sonuç birden çok girdide çıkarsa <strong>bir kez</strong> yazılır.
-   <div style="margin-top:8px;color:var(--muted)">
-    <code>PERMUT(n,k)</code> = n!/(n−k)! — <code>IFERROR(...,0)</code> gereği n&lt;k olduğunda
-    (o kadar seçim yapılamadığı için) sonuç 0 sayılır. <code>MOD</code> sonucu Excel'de 0'dan
-    (mod−1)'e kadardır; oyun 1'den mod'a kadar çektiği için <strong>0 çıkan sonuç mod'un kendisi
-    sayılır</strong> (standart modüler dönüşüm, örn. Süper Loto'da 0→60, Şans Topu'nda 0→34) —
-    bu dönüşüm aşağıda açıkça belirtilir.
-    <br>Formüllerdeki hücre adı (C43, C132, C133…) yalnızca kaynak dosyadaki konumdur; hepsi aynı
-    rolü oynar — <strong>geçmişte çıkmış bir sayı</strong> — ve her formül o oyunun TÜM geçmiş
-    sayılarına tek tek uygulanır.
-   </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+   <div id="fadGameGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+   <button onclick="_fadCopy()" style="padding:6px 14px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.4);color:#7c3aed;border-radius:8px;cursor:pointer;font-size:.72rem;font-weight:700">📋 Tümünü Kopyala</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:center">
+   <div style="font-size:.66rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
+   <select id="fadDateSel" onchange="_fadDateTest()" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
+   <select id="fadDateSel2" onchange="_fadDateTest()" title="2. geçmiş test" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
+   <select id="fadDateSel3" onchange="_fadDateTest()" title="3. geçmiş test" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
   </div>
  </div>
- <div id="fadOut"></div>
+ <div id="fadList"></div>
 </div>
 
 
@@ -14047,9 +14047,12 @@ function _fadUygula(n,k,ekle,mod){
   let m=taban%mod;if(m<0)m+=mod;
   return m===0?mod:m;   // Excel MOD 0..mod-1 döner; oyun 1..mod çektiği için 0 → mod
 }
-function _fadOyunlar(){return [...new Set(_FAD_FORMULLER.map(f=>f.oyun))];}
-// Kopyalama bu sayfada da STANDART: her sütun ve her kart kendi "Başlık\nİçerik" biçimli
-// düğmesiyle kopyalanır — uygulamanın geri kalanıyla aynı (bkz. _hnTxt, _qtTicketsBlock).
+// ── Sayfa iskeleti: diğer sayfalarla (Deneme, Kapsamlı) BİREBİR aynı desen ──
+// Üstten oyun seçilir, YALNIZCA o oyunun formülleri gösterilir; paylaşılan tek bir
+// "🔮 Yeni Tahmin + 3 geçmiş test tarihi" satırı vardır ve her formül kendi kartında
+// bu sütunlarla yan yana çizilir.
+let _fadGame=null;
+// Kopyalama standardı: "Başlık\nİçerik" (bkz. _hnTxt, _qtTicketsBlock).
 function _fadKop(baslik,ham,etiket){
   const txt=baslik?baslik+'\n'+ham:ham;
   const t=String(txt).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
@@ -14061,6 +14064,7 @@ function _fadYakinSet(aSet,max){
   if(aSet)aSet.forEach(x=>{[x-1,x+1].forEach(v=>{if(v>=1&&v<=max&&!aSet.has(v))y.add(v);});});
   return y;
 }
+// Sayı rozeti — renk standardı sayfa genelinde aynı: yeşil ✓ net · turuncu ~ ±1 yakın · gri çıkmadı.
 function _fadRozet(n,durum){
   const st=durum==='net' ?'background:rgba(0,230,118,.16);border:1.5px solid rgba(0,200,100,.55);color:var(--green)'
           :durum==='yakin'?'background:rgba(194,65,12,.1);border:1.5px solid rgba(194,65,12,.4);color:#c2410c'
@@ -14068,24 +14072,47 @@ function _fadRozet(n,durum){
   const im=durum==='net'?'✓':durum==='yakin'?'~':'';
   return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border-radius:50%;${st};font-size:.68rem;font-weight:800">${n}${im}</span>`;
 }
-// ── 3'lü geçmiş test iskeleti (uygulamanın her yerindeki standart) — oyun başına ──
-// Tarih seçici seçenekleri (ham option listesi) — mevcut seçim varsa "selected" olarak korunur.
-function _fadDateOptionsHtml(draws,secili){
-  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
-  draws.forEach((d,i)=>{
-    if(draws.length-i-1<20)return;   // testin arkasında en az 20 çekiliş kalsın
-    h+=`<option value="${d.date}"${d.date===secili?' selected':''}>🎯 ${d.date}  [${(d.nums||[]).join(' ')}]</option>`;
-  });
-  return h;
+function _fadInit(){
+  _fadGame=_fadGame||state.selectedGame||GAMES[0].id;
+  const grid=document.getElementById('fadGameGrid');
+  if(grid&&grid.childNodes.length===0){
+    GAMES.forEach(g=>{
+      const btn=document.createElement('button');
+      btn.style.cssText='padding:5px 12px;border-radius:8px;font-size:.75rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .18s';
+      btn.textContent=g.emoji+' '+g.name;
+      btn.onclick=()=>{_fadGame=g.id;_fadHighlight();_fadRender();};
+      grid.appendChild(btn);
+    });
+  }
+  _fadHighlight();
+  _fadRender();
 }
-function _fadDateTest(){_fadRenderSonuclar();}
-// Sütunlar: 🔮 Yeni Tahmin (tüm geçmiş) + seçili geçmiş testler (o tarihten ÖNCEKİ verilerle) —
-// diğer sayfalardaki (Deneme, Kapsamlı) desenin AYNISI.
-function _fadKolonlar(oid,tarihler){
-  const draws=_kbGetDraws(oid)||[];
+function _fadHighlight(){
+  const grid=document.getElementById('fadGameGrid');if(!grid)return;
+  grid.querySelectorAll('button').forEach((btn,i)=>{
+    const g=GAMES[i];if(!g)return;
+    const on=g.id===_fadGame;
+    btn.style.background=on?'rgba(124,58,237,.25)':'var(--surface2)';
+    btn.style.borderColor=on?'rgba(124,58,237,.55)':'var(--border)';
+    btn.style.color=on?'#7c3aed':'var(--muted)';
+    btn.style.fontWeight=on?'700':'400';
+  });
+}
+function _fadDates(){
+  const sel=document.getElementById('fadDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_fadGame)||[];
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  draws.forEach((d,i)=>{if(draws.length-i-1<20)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('fadDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
+}
+function _fadDateTest(){_fadRender();}
+// Sütunlar: 🔮 Yeni Tahmin (tüm geçmiş) + seçili geçmiş testler (o tarihten ÖNCEKİ verilerle).
+function _fadKolonlar(){
+  const draws=_kbGetDraws(_fadGame)||[];
   const kol=[];
   if(draws.length)kol.push({baslik:'🔮 Yeni Tahmin',tarih:draws[0].date,draws:draws,actual:null});
-  tarihler.forEach((v,i)=>{
+  ['','2','3'].forEach((sl,i)=>{
+    const v=document.getElementById('fadDateSel'+sl)?.value||'';
     if(!v)return;
     const idx=draws.findIndex(d=>d.date===v);
     if(idx<0)return;
@@ -14099,101 +14126,68 @@ function _fadGirdiler(draws){
   const set=new Set();draws.forEach(d=>(d.nums||[]).forEach(n=>set.add(n)));
   return [...set].sort((a,b)=>a-b);
 }
-// Sayfa iskeleti (oyun başlığı + tarih seçiciler) BİR KEZ kurulur ve BİR DAHA DOKUNULMAZ.
-// Önceki hata buradaydı: her tarih seçiminde TÜM #fadOut yeniden çiziliyordu — bu da <select>
-// elemanlarının kendisini yok edip yeniden yaratıyordu. "Son 3 çekilişi doldur" düğmesi sırayla
-// 1./2./3. seçiciye değer atayıp 'change' tetikliyor; 1. seçicinin change'i DOM'u yok edince
-// 2./3. seçicilere tutulan referanslar kopuyor ve onlara yazılan değer hiçbir yere gitmiyordu.
-// Çözüm: <select> elemanları kalıcı, yalnızca sonuç kartları (fadRes_<oid>) yeniden çiziliyor.
-function _fadInit(){
-  const el=document.getElementById('fadOut');if(!el)return;
-  if(el.dataset.fadBuilt){_fadRenderSonuclar();return;}
-  let h='';
-  _fadOyunlar().forEach(oid=>{
-    const g=getGame(oid),draws=_kbGetDraws(oid)||[];
-    if(!draws.length){h+=`<div style="font-size:.7rem;color:var(--muted);padding:6px 0">${g?g.name:oid} için geçmiş veri yok.</div>`;return;}
-    const buOyunDeneme=_FAD_FORMULLER.some(f=>f.oyun===oid&&f.deneme);
-    h+=`<div style="display:flex;align-items:center;gap:8px;margin:14px 0 4px">`
-      +`<div style="font-size:.68rem;font-weight:800;color:var(--text)">${g.emoji} ${g.name}</div>`
-      +(buOyunDeneme?`<span style="font-size:.56rem;font-weight:700;color:#c2410c;background:rgba(194,65,12,.1);border:1px solid rgba(194,65,12,.3);border-radius:5px;padding:1px 7px">DENEME — siz vermediniz, aynı kalıp başka oyuna uygulandı</span>`:'')
-      +`</div>`;
-    // Geçmiş test tarih seçiciler — diğer sayfalardaki desenin BİREBİR aynısı: "🔮 Yeni Tahmin"
-    // etiketi + 3 tarih seçici, sonuçların hemen ÜSTÜNDE, o oyuna özel. Bu satır kalıcıdır.
-    h+=`<div style="display:grid;grid-template-columns:110px repeat(3,minmax(0,1fr));gap:8px;align-items:center;margin-bottom:8px">`
-      +`<div style="font-size:.66rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>`
-      +[0,1,2].map(i=>`<select id="fadDate_${oid}${i?i+1:''}" onchange="_fadDateTest()" style="min-width:0;font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 7px">${_fadDateOptionsHtml(draws,'')}</select>`).join('')
-      +`</div>`;
-    h+=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px;line-height:1.6">`
-      +`🔮 Yeni Tahmin sütunu geçmişteki TÜM sayıları girdi alır. Geçmiş test sütunlarında girdiler `
-      +`<strong>yalnızca o tarihten önceki</strong> çekilişlerdendir, sonra formül sonuçları o günün gerçek `
-      +`sonucuyla karşılaştırılır — <strong>ileriye bakış yok</strong>. `
-      +`<span style="color:var(--green);font-weight:700">yeşil ✓ = net</span> · `
-      +`<span style="color:#c2410c;font-weight:700">turuncu ~ = ±1 yakın</span> · gri = çıkmadı.</div>`;
-    h+=`<div id="fadRes_${oid}"></div>`;
-  });
-  el.innerHTML=h;
-  el.dataset.fadBuilt='1';
-  _fadRenderSonuclar();
-}
-function _fadRenderSonuclar(){
+function _fadRender(){
+  const el=document.getElementById('fadList');if(!el)return;
+  _fadDates();
+  const oid=_fadGame||state.selectedGame||GAMES[0].id;
+  const g=getGame(oid),draws=_kbGetDraws(oid)||[];
+  if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Bu oyun için geçmiş veri yok.</div>';window._fadTxt='';return;}
+  const formuller=_FAD_FORMULLER.filter(f=>f.oyun===oid);
+  if(!formuller.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Bu oyun için tanımlı formül yok.</div>';window._fadTxt='';return;}
+  const kol=_fadKolonlar(),kolCtx=k=>k.baslik+(k.tarih?' · '+k.tarih:'');
+  const tpl='repeat('+kol.length+',minmax(0,1fr))';
+  const deneme=formuller.some(f=>f.deneme);
   const metin=[];
-  _fadOyunlar().forEach(oid=>{
-    const g=getGame(oid),draws=_kbGetDraws(oid)||[];
-    const res=document.getElementById('fadRes_'+oid);
-    if(!draws.length||!res)return;
-    const tarihler=['','2','3'].map(sl=>document.getElementById('fadDate_'+oid+sl)?.value||'');
-    const kol=_fadKolonlar(oid,tarihler);
-    const kolCtx=k=>k.baslik+(k.tarih?' · '+k.tarih:'');
-    let h='';
-    const tpl='repeat('+kol.length+',minmax(0,1fr))';
-    _FAD_FORMULLER.filter(f=>f.oyun===oid).forEach(f=>{
-      const veri=kol.map(k=>{
-        const girdiler=_fadGirdiler(k.draws);
-        const sonucSet=new Set();girdiler.forEach(n=>sonucSet.add(_fadUygula(n,f.k,f.ekle,f.mod)));
-        const sonuclar=[...sonucSet].sort((a,b)=>a-b);
-        const aSet=k.actual?new Set(k.actual.nums||[]):null;
-        const ySet=_fadYakinSet(aSet,g.max);
-        return {girdiler,sonuclar,aSet,ySet};
-      });
-      const hamTum=kol.map((k,i)=>`${kolCtx(k)} (${veri[i].girdiler.length} girdi, ${veri[i].sonuclar.length} sonuç):\n${veri[i].sonuclar.join(' ')}`).join('\n\n');
-      h+=`<div class="card" style="margin-bottom:12px${f.deneme?';border-left:3px solid #c2410c':''}">`
-        +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">`
-        +`<div style="font-size:.74rem;font-weight:800;color:var(--text)">${f.deneme?'🧪':'🔑'} ${f.ad}</div>`
-        +_fadKop(`${f.ad}\n${f.metin}`,hamTum,'Kopyala')+`</div>`
-        +`<div style="font-family:monospace;font-size:.6rem;color:var(--muted);margin-bottom:10px">${f.metin}</div>`
-        // Başlık ve gövde İKİ AYRI ızgara satırı — aynı hizalama standardı: Güncel'in kısa
-        // başlığı ile Geçmiş'in "Gerçek çekiliş" satırlı başlığı farklı yükseklikte olduğu için
-        // TEK ızgarada birleştirilirse sonuç satırları sütunlar arasında hizasız kayar.
-        +`<div style="display:grid;grid-template-columns:${tpl};gap:12px;margin-bottom:6px">`
-        +kol.map(k=>{
-          let bh=`<div style="display:inline-flex;align-items:center;gap:5px;font-size:.6rem;font-weight:800;`
-            +`color:${k.actual?'var(--text)':'var(--accent)'};background:${k.actual?'var(--surface2)':'rgba(124,58,237,.1)'};`
-            +`border:1px solid ${k.actual?'var(--border)':'rgba(124,58,237,.3)'};border-radius:7px;padding:3px 8px;margin-bottom:5px">`
-            +`${kolCtx(k)}</div>`;
-          if(k.actual)bh+=`<div style="font-size:.54rem;color:var(--muted);line-height:1.5">Gerçek çekiliş: `
-            +`<strong style="color:var(--green);font-family:monospace">${(k.actual.nums||[]).join(' ')}</strong></div>`;
-          return `<div style="min-width:0">${bh}</div>`;
-        }).join('')+`</div>`
-        +`<div style="display:grid;grid-template-columns:${tpl};gap:12px;align-items:start">`
-        +kol.map((k,i)=>{
-          const v=veri[i],ham=v.sonuclar.join(' ');
-          let net=0,yak=0;
-          if(v.aSet)v.sonuclar.forEach(n=>{const d=_fadDurum(n,v.aSet,v.ySet);if(d==='net')net++;else if(d==='yakin')yak++;});
-          let c=`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">`
-            +_fadKop(`${f.ad} — ${kolCtx(k)}`,ham,'Sütun')+`</div>`;
-          c+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">${v.girdiler.length} girdiden `
-            +`<strong style="color:var(--text)">${v.sonuclar.length}</strong> benzersiz sonuç`
-            +(k.actual?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yak?' · <strong style="color:#c2410c">'+yak+' yakın</strong>':''}`:'')+`</div>`;
-          c+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`
-            +v.sonuclar.map(n=>_fadRozet(n,_fadDurum(n,v.aSet,v.ySet))).join('')+`</div>`;
-          c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
-          return `<div style="min-width:0">${c}</div>`;
-        }).join('')+`</div></div>`;
-      metin.push(`${f.ad}\n${f.metin}\n\n${hamTum}`);
+  let h='';
+  if(deneme)h+=`<div class="card" style="margin-bottom:12px;border-left:3px solid #c2410c">`
+    +`<div style="font-size:.64rem;color:#c2410c;font-weight:700;margin-bottom:3px">🧪 DENEME — bu formüller sizden gelmedi</div>`
+    +`<div style="font-size:.62rem;color:var(--muted);line-height:1.6">Süper Loto ve Şans Topu için verdiğiniz `
+    +`k/ekleme kalıplarının aynen tekrarı; yalnızca MOD bu oyunun max'ına (${g.max}) çevrildi.</div></div>`;
+  formuller.forEach(f=>{
+    const veri=kol.map(k=>{
+      const girdiler=_fadGirdiler(k.draws);
+      const sonucSet=new Set();girdiler.forEach(n=>sonucSet.add(_fadUygula(n,f.k,f.ekle,f.mod)));
+      const sonuclar=[...sonucSet].sort((a,b)=>a-b);
+      const aSet=k.actual?new Set(k.actual.nums||[]):null;
+      return {sonuclar,aSet,ySet:_fadYakinSet(aSet,g.max)};
     });
-    res.innerHTML=h;
+    const hamTum=kol.map((k,i)=>`${kolCtx(k)}:\n${veri[i].sonuclar.join(' ')}`).join('\n\n');
+    h+=`<div class="card" style="margin-bottom:12px">`
+      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">`
+      +`<div style="font-size:.74rem;font-weight:800;color:var(--text)">${f.deneme?'🧪':'🔑'} ${f.ad}</div>`
+      +_fadKop(`${f.ad}\n${f.metin}`,hamTum,'Kopyala')+`</div>`
+      +`<div style="font-family:monospace;font-size:.6rem;color:var(--muted);margin-bottom:10px">${f.metin}</div>`;
+    // Başlık ve gövde İKİ AYRI ızgara satırı: sütun başlıkları farklı yükseklikte (Geçmiş'te
+    // "Gerçek çekiliş" satırı var) olduğu için tek ızgarada birleştirilirse sayılar hizasız kayar.
+    h+=`<div style="display:grid;grid-template-columns:${tpl};gap:12px;margin-bottom:6px">`
+      +kol.map(k=>{
+        let bh=`<div style="display:inline-flex;align-items:center;font-size:.6rem;font-weight:800;`
+          +`color:${k.actual?'var(--text)':'var(--accent)'};background:${k.actual?'var(--surface2)':'rgba(124,58,237,.1)'};`
+          +`border:1px solid ${k.actual?'var(--border)':'rgba(124,58,237,.3)'};border-radius:7px;padding:3px 8px;margin-bottom:5px">`
+          +`${kolCtx(k)}</div>`;
+        if(k.actual)bh+=`<div style="font-size:.54rem;color:var(--muted);line-height:1.5">Gerçek çekiliş: `
+          +`<strong style="color:var(--green);font-family:monospace">${(k.actual.nums||[]).join(' ')}</strong></div>`;
+        return `<div style="min-width:0">${bh}</div>`;
+      }).join('')+`</div>`;
+    h+=`<div style="display:grid;grid-template-columns:${tpl};gap:12px;align-items:start">`
+      +kol.map((k,i)=>{
+        const v=veri[i],ham=v.sonuclar.join(' ');
+        let net=0,yak=0;
+        if(v.aSet)v.sonuclar.forEach(n=>{const d=_fadDurum(n,v.aSet,v.ySet);if(d==='net')net++;else if(d==='yakin')yak++;});
+        let c=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">`
+          +_fadKop(`${f.ad} — ${kolCtx(k)}`,ham,'Kopyala')
+          +(k.actual?`<span style="font-size:.56rem;font-weight:700;color:${net?'var(--green)':'var(--muted)'}">${net} net</span>`
+            +(yak?`<span style="font-size:.56rem;font-weight:700;color:#c2410c">${yak} yakın</span>`:''):'')
+          +`</div>`;
+        c+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`
+          +v.sonuclar.map(n=>_fadRozet(n,_fadDurum(n,v.aSet,v.ySet))).join('')+`</div>`;
+        c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
+        return `<div style="min-width:0">${c}</div>`;
+      }).join('')+`</div></div>`;
+    metin.push(`${f.ad}\n${f.metin}\n\n${hamTum}`);
   });
-  window._fadTxt=`🔠 FAD Şablon\n\n`+metin.join('\n\n');
+  window._fadTxt=`🔠 FAD Şablon — ${g.name}\n\n`+metin.join('\n\n');
+  el.innerHTML=h;
 }
 function _fadCopy(){const t=window._fadTxt;if(!t){showToast('⚠️ Veri yok');return;}_caCopy(t);showToast('📋 Kopyalandı');}
 
