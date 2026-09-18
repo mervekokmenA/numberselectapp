@@ -14126,8 +14126,17 @@ function _fadRender(){
   const oid=_fadGame||state.selectedGame||GAMES[0].id;
   const g=getGame(oid),draws=_kbGetDraws(oid)||[];
   if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Bu oyun için geçmiş veri yok.</div>';window._fadTxt='';return;}
-  const formuller=_FAD_FORMULLER.filter(f=>f.oyun===oid);
-  if(!formuller.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Bu oyun için tanımlı formül yok.</div>';window._fadTxt='';return;}
+  // Havuzun TAMAMINI veren formüller elenir: PERMUT(n,1)=n olduğu için "n + sabit (mod max)"
+  // birebir eşlemedir — geçmişte her sayı en az bir kez çıktığından sonuç zorunlu olarak 1..max'ın
+  // tamamı olur. Bu bir analiz değil, havuzun kendisidir; gösterilmesinin bir anlamı yok.
+  const tumFormuller=_FAD_FORMULLER.filter(f=>f.oyun===oid);
+  const tumHavuz=f=>{
+    const s=new Set();_fadGirdiler(draws).forEach(n=>s.add(_fadUygula(n,f.k,f.ekle,f.mod)));
+    return s.size>=f.mod;
+  };
+  const elenen=tumFormuller.filter(tumHavuz).length;
+  const formuller=tumFormuller.filter(f=>!tumHavuz(f));
+  if(!formuller.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Bu oyun için gösterilebilir formül yok — tanımlı formüllerin hepsi havuzun tamamını veriyor.</div>';window._fadTxt='';return;}
   const kol=_fadKolonlar(),kolCtx=k=>k.baslik+(k.tarih?' · '+k.tarih:'');
   const tpl='repeat('+kol.length+',minmax(0,1fr))';
   const deneme=formuller.some(f=>f.deneme);
@@ -14180,6 +14189,9 @@ function _fadRender(){
       }).join('')+`</div></div>`;
     metin.push(`${f.ad}\n${f.metin}\n\n${hamTum}`);
   });
+  if(elenen)h+=`<div style="font-size:.58rem;color:var(--muted);padding:2px 4px 8px">`
+    +`${elenen} formül gizlendi: sonucu 1–${g.max} havuzunun tamamı olduğu için `
+    +`(<code>PERMUT(n;1)</code> birebir eşleme) eleme yapmıyor.</div>`;
   window._fadTxt=`🔠 FAD Şablon — ${g.name}\n\n`+metin.join('\n\n');
   el.innerHTML=h;
 }
