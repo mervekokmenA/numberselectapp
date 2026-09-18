@@ -1963,7 +1963,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    Her analiz, diğer sayfalardaki gibi 🔮 Yeni Tahmin + 3 Geçmiş Test olarak yan yana gösterilir.
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-   <div id="fadGameGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div>
    <button onclick="_fadCopy()" style="padding:6px 14px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.4);color:#7c3aed;border-radius:8px;cursor:pointer;font-size:.72rem;font-weight:700">📋 Tümünü Kopyala</button>
   </div>
   <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:center">
@@ -14045,7 +14044,6 @@ function _fadUygula(n,k,ekle,mod){
 // Üstten oyun seçilir, YALNIZCA o oyunun formülleri gösterilir; paylaşılan tek bir
 // "🔮 Yeni Tahmin + 3 geçmiş test tarihi" satırı vardır ve her formül kendi kartında
 // bu sütunlarla yan yana çizilir.
-let _fadGame=null;
 // Kopyalama standardı: "Başlık\nİçerik" (bkz. _hnTxt, _qtTicketsBlock).
 function _fadKop(baslik,ham,etiket){
   const txt=baslik?baslik+'\n'+ham:ham;
@@ -14066,35 +14064,18 @@ function _fadRozet(n,durum){
   const im=durum==='net'?'✓':durum==='yakin'?'~':'';
   return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:28px;height:28px;padding:0 6px;border-radius:50%;${st};font-size:.68rem;font-weight:800">${n}${im}</span>`;
 }
-function _fadInit(){
-  _fadGame=_fadGame||state.selectedGame||GAMES[0].id;
-  const grid=document.getElementById('fadGameGrid');
-  if(grid&&grid.childNodes.length===0){
-    GAMES.forEach(g=>{
-      const btn=document.createElement('button');
-      btn.style.cssText='padding:5px 12px;border-radius:8px;font-size:.75rem;font-weight:700;cursor:pointer;border:1px solid var(--border);background:var(--surface2);color:var(--muted);transition:all .18s';
-      btn.textContent=g.emoji+' '+g.name;
-      btn.onclick=()=>{_fadGame=g.id;_fadHighlight();_fadRender();};
-      grid.appendChild(btn);
-    });
-  }
-  _fadHighlight();
+// Bu sayfanın kendi oyun seçicisi YOKTUR — menü altındaki global oyun çubuğu kullanılır.
+// Global çubuk _oyunYay ile tüm sayfalara haber verir; _fadSetGame o listeye kayıtlıdır.
+function _fadOyun(){return (state&&state.selectedGame)||GAMES[0].id;}
+function _fadInit(){_fadRender();}
+function _fadSetGame(g){
+  // Oyun değişince geçmiş test tarihleri başka oyuna ait kalmasın
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('fadDateSel'+sl);if(e)e.value='';});
   _fadRender();
-}
-function _fadHighlight(){
-  const grid=document.getElementById('fadGameGrid');if(!grid)return;
-  grid.querySelectorAll('button').forEach((btn,i)=>{
-    const g=GAMES[i];if(!g)return;
-    const on=g.id===_fadGame;
-    btn.style.background=on?'rgba(124,58,237,.25)':'var(--surface2)';
-    btn.style.borderColor=on?'rgba(124,58,237,.55)':'var(--border)';
-    btn.style.color=on?'#7c3aed':'var(--muted)';
-    btn.style.fontWeight=on?'700':'400';
-  });
 }
 function _fadDates(){
   const sel=document.getElementById('fadDateSel');if(!sel)return;
-  const draws=_kbGetDraws(_fadGame)||[];
+  const draws=_kbGetDraws(_fadOyun())||[];
   let h='<option value="">— Geçmiş test için tarih seçin —</option>';
   draws.forEach((d,i)=>{if(draws.length-i-1<20)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
   ['','2','3'].forEach(sl=>{const e=document.getElementById('fadDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
@@ -14102,7 +14083,7 @@ function _fadDates(){
 function _fadDateTest(){_fadRender();}
 // Sütunlar: 🔮 Yeni Tahmin (tüm geçmiş) + seçili geçmiş testler (o tarihten ÖNCEKİ verilerle).
 function _fadKolonlar(){
-  const draws=_kbGetDraws(_fadGame)||[];
+  const draws=_kbGetDraws(_fadOyun())||[];
   const kol=[];
   if(draws.length)kol.push({baslik:'🔮 Yeni Tahmin',tarih:draws[0].date,draws:draws,actual:null});
   ['','2','3'].forEach((sl,i)=>{
@@ -14123,7 +14104,7 @@ function _fadGirdiler(draws){
 function _fadRender(){
   const el=document.getElementById('fadList');if(!el)return;
   _fadDates();
-  const oid=_fadGame||state.selectedGame||GAMES[0].id;
+  const oid=_fadOyun();
   const g=getGame(oid),draws=_kbGetDraws(oid)||[];
   if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Bu oyun için geçmiş veri yok.</div>';window._fadTxt='';return;}
   // Havuzun TAMAMINI veren formüller elenir: PERMUT(n,1)=n olduğu için "n + sabit (mod max)"
@@ -29281,7 +29262,7 @@ try{
 // Uygulamanın HERHANGİ bir yerinde oyun tipi değiştirilirse, tüm sayfalardaki
 // tüm oyun seçicileri aynı oyuna geçer. Her seçici fonksiyonu tek bir sarmalayıcıdan
 // geçirilir; yayılım sırasında tekrar tetiklenmemesi için bayrakla korunur.
-const _OYUN_SETTERS=['selectGame','_kbSetGame','_hbSetGame','_niSetGame','_caSetGame','_npSetGame',
+const _OYUN_SETTERS=['selectGame','_fadSetGame','_kbSetGame','_hbSetGame','_niSetGame','_caSetGame','_npSetGame',
   '_nnSetGame','_cbSetGame','_mpRSetGame','_kazananSetGame','_soSetGame','_mrSetGame','_snSetGame',
   '_qtSetGame','_agSetGame','_hySetGame','_fmSetGame','_f2SetGame','_htSetGame','_gsSetGame',
   '_g0SetGame','_gizliSetGame'];
