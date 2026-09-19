@@ -1955,11 +1955,13 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div class="card">
   <div class="card-title">🔠 FAD Şablon</div>
   <div style="font-size:.68rem;color:var(--muted);margin-bottom:10px;line-height:1.5">
-   Verdiğiniz <strong>Excel formülleri</strong>, seçili oyunun geçmişte çıkmış her sayısına
-   (C43/C132/C133 yerine sırayla her sayı) uygulanır; her formül kendi sayı listesini üretir,
-   tekrar eden sonuç bir kez yazılır. <code>PERMUT(n,k)</code> = n!/(n−k)!, <code>IFERROR(…,0)</code>
-   gereği n&lt;k olduğunda 0 sayılır; <code>MOD</code> 0 verirse oyun 1'den mod'a kadar çektiği için
-   <strong>mod'un kendisi</strong> sayılır (Süper Loto'da 0→60, Şans Topu'nda 0→34).
+   Verdiğiniz <strong>Excel formülleri</strong>, <strong>bir önceki çekilişin sayılarına</strong>
+   uygulanır (C43/C132/C133 = o çekilişin bir hücresi): 🔮 Yeni Tahmin sütununda kaynak son çekiliş,
+   📅 Geçmiş test sütunlarında ise o tarihten bir önceki çekiliştir — sonuç o günün gerçek sonucuyla
+   karşılaştırılır, <strong>ileriye bakış yok</strong>. Tekrar eden sonuç bir kez yazılır.
+   <code>PERMUT(n,k)</code> = n!/(n−k)!, <code>IFERROR(…,0)</code> gereği n&lt;k olduğunda 0 sayılır;
+   <code>MOD</code> 0 verirse oyun 1'den mod'a kadar çektiği için <strong>mod'un kendisi</strong>
+   sayılır (Süper Loto'da 0→60, Şans Topu'nda 0→34).
    Her analiz, diğer sayfalardaki gibi 🔮 Yeni Tahmin + 3 Geçmiş Test olarak yan yana gösterilir.
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
@@ -14092,21 +14094,22 @@ function _fadDateTest(){_fadRender();}
 function _fadKolonlar(){
   const draws=_kbGetDraws(_fadOyun())||[];
   const kol=[];
-  if(draws.length)kol.push({baslik:'🔮 Yeni Tahmin',tarih:draws[0].date,draws:draws,actual:null});
+  // 🔮 Yeni Tahmin: kaynak = EN SON çekiliş, hedef = henüz çekilmemiş sıradaki çekiliş.
+  if(draws.length)kol.push({baslik:'🔮 Yeni Tahmin',tarih:draws[0].date,kaynak:draws[0],actual:null});
+  // 📅 Geçmiş test: kaynak = o tarihten BİR ÖNCEKİ çekiliş, hedef = o tarihin gerçek sonucu.
+  // İleriye bakış yok: kaynak her zaman hedeften öncedir.
   ['','2','3'].forEach((sl,i)=>{
     const v=document.getElementById('fadDateSel'+sl)?.value||'';
     if(!v)return;
     const idx=draws.findIndex(d=>d.date===v);
-    if(idx<0)return;
-    const prior=draws.slice(idx+1);
-    if(prior.length<20)return;
-    kol.push({baslik:'📅 Geçmiş '+(i+1),tarih:v,draws:prior,actual:draws[idx]});
+    if(idx<0||!draws[idx+1])return;
+    kol.push({baslik:'📅 Geçmiş '+(i+1),tarih:v,kaynak:draws[idx+1],actual:draws[idx]});
   });
   return kol;
 }
-function _fadGirdiler(draws){
-  const set=new Set();draws.forEach(d=>(d.nums||[]).forEach(n=>set.add(n)));
-  return [...set].sort((a,b)=>a-b);
+// Formülün girdisi: kaynak çekilişin sayıları (C43/C132/C133 = o çekilişin bir hücresi).
+function _fadGirdiler(kaynak){
+  return [...new Set((kaynak&&kaynak.nums)||[])].sort((a,b)=>a-b);
 }
 function _fadRender(){
   const el=document.getElementById('fadList');if(!el)return;
@@ -14114,17 +14117,8 @@ function _fadRender(){
   const oid=_fadOyun();
   const g=getGame(oid),draws=_kbGetDraws(oid)||[];
   if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Bu oyun için geçmiş veri yok.</div>';window._fadTxt='';return;}
-  // Havuzun TAMAMINI veren formüller elenir: PERMUT(n,1)=n olduğu için "n + sabit (mod max)"
-  // birebir eşlemedir — geçmişte her sayı en az bir kez çıktığından sonuç zorunlu olarak 1..max'ın
-  // tamamı olur. Bu bir analiz değil, havuzun kendisidir; gösterilmesinin bir anlamı yok.
-  const tumFormuller=_FAD_FORMULLER.filter(f=>f.oyun===oid);
-  const tumHavuz=f=>{
-    const s=new Set();_fadGirdiler(draws).forEach(n=>s.add(_fadUygula(n,f.k,f.ekle,f.mod)));
-    return s.size>=f.mod;
-  };
-  const elenen=tumFormuller.filter(tumHavuz).length;
-  const formuller=tumFormuller.filter(f=>!tumHavuz(f));
-  if(!formuller.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Bu oyun için gösterilebilir formül yok — tanımlı formüllerin hepsi havuzun tamamını veriyor.</div>';window._fadTxt='';return;}
+  const formuller=_FAD_FORMULLER.filter(f=>f.oyun===oid);
+  if(!formuller.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Bu oyun için tanımlı formül yok.</div>';window._fadTxt='';return;}
   const kol=_fadKolonlar(),kolCtx=k=>k.baslik+(k.tarih?' · '+k.tarih:'');
   const tpl='repeat('+kol.length+',minmax(0,1fr))';
   const deneme=formuller.some(f=>f.deneme);
@@ -14136,7 +14130,7 @@ function _fadRender(){
     +`k/ekleme kalıplarının aynen tekrarı; yalnızca MOD bu oyunun max'ına (${g.max}) çevrildi.</div></div>`;
   formuller.forEach(f=>{
     const veri=kol.map(k=>{
-      const girdiler=_fadGirdiler(k.draws);
+      const girdiler=_fadGirdiler(k.kaynak);
       const sonucSet=new Set();girdiler.forEach(n=>sonucSet.add(_fadUygula(n,f.k,f.ekle,f.mod)));
       const sonuclar=[...sonucSet].sort((a,b)=>a-b);
       const aSet=k.actual?new Set(k.actual.nums||[]):null;
@@ -14156,6 +14150,9 @@ function _fadRender(){
           +`color:${k.actual?'var(--text)':'var(--accent)'};background:${k.actual?'var(--surface2)':'rgba(124,58,237,.1)'};`
           +`border:1px solid ${k.actual?'var(--border)':'rgba(124,58,237,.3)'};border-radius:7px;padding:3px 8px;margin-bottom:5px">`
           +`${kolCtx(k)}</div>`;
+        bh+=`<div style="font-size:.54rem;color:var(--muted);line-height:1.5">Kaynak çekiliş `
+          +`<span style="opacity:.8">${k.kaynak?k.kaynak.date:''}</span>: `
+          +`<strong style="color:var(--text);font-family:monospace">${_fadGirdiler(k.kaynak).join(' ')}</strong></div>`;
         if(k.actual)bh+=`<div style="font-size:.54rem;color:var(--muted);line-height:1.5">Gerçek çekiliş: `
           +`<strong style="color:var(--green);font-family:monospace">${(k.actual.nums||[]).join(' ')}</strong></div>`;
         return `<div style="min-width:0">${bh}</div>`;
@@ -14177,9 +14174,6 @@ function _fadRender(){
       }).join('')+`</div></div>`;
     metin.push(`${f.ad}\n${f.metin}\n\n${hamTum}`);
   });
-  if(elenen)h+=`<div style="font-size:.58rem;color:var(--muted);padding:2px 4px 8px">`
-    +`${elenen} formül gizlendi: sonucu 1–${g.max} havuzunun tamamı olduğu için `
-    +`(<code>PERMUT(n;1)</code> birebir eşleme) eleme yapmıyor.</div>`;
   window._fadTxt=`🔠 FAD Şablon — ${g.name}\n\n`+metin.join('\n\n');
   el.innerHTML=h;
 }
