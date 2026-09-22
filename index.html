@@ -13824,8 +13824,31 @@ const _KRN_MC={};
 // joker/süperstar. Joker sayılmazsa gerçek bilet rastgeleden 1 sayı fazla olur ve avantaj YAPAY
 // olarak şişer (bu hata ilk ölçümde yakalandı: jokeri olmayan Süper Loto'da avantaj görünmüyor,
 // jokerli oyunlarda görünüyordu — sebep tahmin gücü değil, eksik referanstı).
-function _krnRastgeleBilet(game,K,kazanan){
-  const anahtar=game.id+'|'+K+'|'+kazanan;
+// Havuz referansı — ÖNCEKİ sürüm saf hipergeometrikti ve iki yerde yanılıyordu:
+//  (a) jokeri ana havuzdan çekilmiş gibi sayıyordu (Şans Topu'nda joker 1..14'ten, ayrı havuzdan),
+//  (b) joker bir ana sayıyla aynı değere düşebildiği için kazanan küme bazen 6 değil 5 farklı sayıdır.
+// Bu yüzden referans, biletlerde olduğu gibi, gerçek çekiliş yapısını birebir taklit eden
+// Monte Carlo ile hesaplanır. (boyut,esik) başına önbelleklenir.
+const _KRN_MCH={};
+function _krnRastgeleHavuz(game,boyut,esik,kazanan){
+  const anahtar=game.id+'|'+boyut+'|'+esik+'|'+kazanan;
+  if(_KRN_MCH[anahtar])return _KRN_MCH[anahtar];
+  const max=game.max,bC=game.bonusCount||0,bM=game.bonusMax||max,TUR=3000;
+  const anaKazanan=Math.max(1,kazanan-bC);
+  const b=Math.max(1,Math.min(max,Math.round(boyut)));
+  let netTop=0,ge=0;
+  for(let t=0;t<TUR;t++){
+    const kz=new Set();while(kz.size<anaKazanan)kz.add(1+Math.floor(Math.random()*max));
+    for(let j=0;j<bC;j++)kz.add(1+Math.floor(Math.random()*bM));
+    const hav=new Set();while(hav.size<b)hav.add(1+Math.floor(Math.random()*max));
+    let net=0;kz.forEach(n=>{if(hav.has(n))net++;});
+    netTop+=net;if(net>=esik)ge++;
+  }
+  return _KRN_MCH[anahtar]={net:netTop/TUR,ge:ge/TUR};
+}
+function _krnRastgeleBilet(game,K,kazanan,esik){
+  esik=esik||3;
+  const anahtar=game.id+'|'+K+'|'+kazanan+'|'+esik;
   if(_KRN_MC[anahtar])return _KRN_MC[anahtar];
   const max=game.max,cnt=game.count,bC=game.bonusCount||0,bM=game.bonusMax||max,TUR=2000;
   const anaKazanan=Math.max(1,kazanan-bC);
@@ -13840,7 +13863,7 @@ function _krnRastgeleBilet(game,K,kazanan){
       let net=0;bil.forEach(n=>{if(kz.has(n))net++;});
       if(net>enIyi)enIyi=net;
     }
-    netTop+=enIyi;if(enIyi>=3)ge3++;
+    netTop+=enIyi;if(enIyi>=esik)ge3++;
   }
   return _KRN_MC[anahtar]={net:netTop/TUR,ge3:ge3/TUR};
 }
@@ -13902,9 +13925,16 @@ function _krnCalistir(){
   if(draws.length<N+60){showToast('⚠️ Bu oyunda yeterli geçmiş veri yok');return;}
   _krnCalisiyor=true;
   const birikim={};
-  _KRN_ANALIZ.forEach(a=>birikim[a.ad]={ad:a.ad,tip:a.tip,n:0,boyut:0,net:0,ge3:0});
+  // refNet/refGe: rastgele referansın çekiliş çekiliş toplamı. ÖNCEDEN referans tek bir
+  // ORTALAMA boyutta hesaplanıyordu; oysa havuz boyutu çekilişten çekilişe değişiyor
+  // (ölçümde 12–32 arası görüldü) ve olasılık boyutta doğrusal değil. Ortalama boyutta
+  // hesaplanan referans bu yüzden şişiyor ve dürüst analizleri "rastgeleden kötü" gösteriyordu.
+  _KRN_ANALIZ.forEach(a=>birikim[a.ad]={ad:a.ad,tip:a.tip,n:0,boyut:0,net:0,ge3:0,refNet:0,refGe:0});
   let i=0,olculen=0;
   const d0=draws[0]||{},kazanan=((d0.nums||[]).length+(d0.bonus||[]).length)||game.count;
+  // Eşik oyuna göre: On Numara 22 sayı çektiği için "3+" orada hep %100 çıkıyor ve hiçbir şey
+  // ölçmüyordu. Uygulamanın kendi ödül sınırı (_oyunEsik) kullanılır: On Numara 6, diğerleri 3.
+  const ESIK=(_oyunEsik(game)||{}).odul||3;
   const adim=()=>{
     const actual=draws[i],prior=draws.slice(i+1);
     if(actual&&prior.length>=60){
@@ -13920,11 +13950,15 @@ function _krnCalistir(){
           if(a.tip==='bilet'){
             let enIyi=0;
             cikti.forEach(t=>{let net=0;[...(t.main||[]),...(t.bonus||[])].forEach(n=>{if(kzSet.has(n))net++;});if(net>enIyi)enIyi=net;});
-            b.n++;b.boyut+=cikti.length;b.net+=enIyi;if(enIyi>=3)b.ge3++;
+            b.n++;b.boyut+=cikti.length;b.net+=enIyi;if(enIyi>=ESIK)b.ge3++;
+            const R=_krnRastgeleBilet(game,cikti.length,kazanan,ESIK);
+            b.refNet+=R.net;b.refGe+=R.ge3;
           }else{
             const hav=[...new Set(cikti)];
             let net=0;hav.forEach(n=>{if(kzSet.has(n))net++;});
-            b.n++;b.boyut+=hav.length;b.net+=net;if(net>=3)b.ge3++;
+            b.n++;b.boyut+=hav.length;b.net+=net;if(net>=ESIK)b.ge3++;
+            const R=_krnRastgeleHavuz(game,hav.length,ESIK,kazanan);
+            b.refNet+=R.net;b.refGe+=R.ge;
           }
         });
         olculen++;
@@ -13936,7 +13970,7 @@ function _krnCalistir(){
     if(i<N){setTimeout(adim,0);return;}
     _krnCalisiyor=false;
     if(el)el.textContent='';
-    _krnSonuc={game,N:olculen,kazanan,satir:Object.values(birikim).filter(b=>b.n>0)};
+    _krnSonuc={game,N:olculen,kazanan,esik:ESIK,satir:Object.values(birikim).filter(b=>b.n>0)};
     _krnRender();
   };
   setTimeout(adim,0);
@@ -13945,22 +13979,18 @@ function _krnRender(){
   const el=document.getElementById('krnOut');if(!el)return;
   const S=_krnSonuc;
   if(!S){el.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:14px 0">Ölçümü başlatmak için <strong>▶ Karneyi Çalıştır</strong>\'a basın. Her analiz, seçtiğiniz sayıda geçmiş çekiliş üzerinde ileriye bakış olmadan test edilir.</div>';return;}
-  const game=S.game,kz=S.kazanan;
+  const game=S.game,kz=S.kazanan,ESIK=S.esik||3;
   const satir=S.satir.map(b=>{
     const ortBoyut=b.boyut/b.n,ortNet=b.net/b.n,ge3=b.ge3/b.n;
-    let rNet,rGe3,oran,rOran;
-    if(b.tip==='bilet'){
-      const mc=_krnRastgeleBilet(game,Math.max(1,Math.round(ortBoyut)),kz);
-      rNet=mc.net;rGe3=mc.ge3;oran=ortNet;rOran=rNet;
-    }else{
-      rOran=kz/game.max;oran=ortBoyut?ortNet/ortBoyut:0;
-      rNet=ortBoyut*rOran;rGe3=_krnHavuzGE3(Math.round(ortBoyut),game.max,kz);
-    }
-    // Gürültüyü avantaj sanmamak için: gözlenen 3+ oranı, rastgele oranın kaç standart
+    // Referans ölçüm sırasında ÇEKİLİŞ ÇEKİLİŞ, her birinin KENDİ boyutunda toplandı;
+    // burada yalnızca ortalaması alınır. (Ortalama boyutta tek seferde hesaplamak,
+    // olasılık boyutta doğrusal olmadığı için referansı şişiriyordu.)
+    const rNet=b.refNet/b.n, rGe3=b.refGe/b.n;
+    // Gürültüyü avantaj sanmamak için: gözlenen eşik-üstü oranı, rastgele oranın kaç standart
     // hata üstünde? |z|<2 ise fark ölçüm gürültüsünden ayırt EDİLEMEZ.
     const se=Math.sqrt(Math.max(1e-9,rGe3*(1-rGe3)/Math.max(1,b.n)));
     const z=(ge3-rGe3)/se;
-    return {...b,ortBoyut,ortNet,ge3,rNet,rGe3,z,kat:rOran?oran/rOran:0};
+    return {...b,ortBoyut,ortNet,ge3,rNet,rGe3,z};
   }).sort((a,b)=>b.z-a.z);
   const renk=z=>z>=2?'var(--green)':z<=-2?'#c2410c':'var(--muted)';
   const yorum=z=>z>=2?'✓ rastgeleden İYİ':z<=-2?'✗ rastgeleden kötü':'— ayırt edilemiyor';
@@ -13978,8 +14008,8 @@ function _krnRender(){
     +`<th style="padding:5px 6px;text-align:right">Boyut</th>`
     +`<th style="padding:5px 6px;text-align:right">Net</th>`
     +`<th style="padding:5px 6px;text-align:right">Rastgele net</th>`
-    +`<th style="padding:5px 6px;text-align:right">3+ oranı</th>`
-    +`<th style="padding:5px 6px;text-align:right">Rastgele 3+</th>`
+    +`<th style="padding:5px 6px;text-align:right">${ESIK}+ oranı</th>`
+    +`<th style="padding:5px 6px;text-align:right">Rastgele ${ESIK}+</th>`
     +`<th style="padding:5px 6px;text-align:right">z</th>`
     +`<th style="padding:5px 6px">Sonuç</th></tr>`;
   satir.forEach(r=>{
@@ -13995,7 +14025,7 @@ function _krnRender(){
       +`<td style="padding:5px 6px;color:${renk(r.z)};font-size:.6rem;white-space:nowrap">${yorum(r.z)}</td></tr>`;
   });
   h+=`</table></div>`;
-  const satirTxt=satir.map(r=>`${r.ad} · ${r.tip} · boyut ${r.ortBoyut.toFixed(1)} · net ${r.ortNet.toFixed(2)} (rastgele ${r.rNet.toFixed(2)}) · 3+ %${(100*r.ge3).toFixed(0)} (rastgele %${(100*r.rGe3).toFixed(0)}) · z ${(r.z>=0?'+':'')+r.z.toFixed(1)} · ${yorum(r.z)}`).join('\n');
+  const satirTxt=satir.map(r=>`${r.ad} · ${r.tip} · boyut ${r.ortBoyut.toFixed(1)} · net ${r.ortNet.toFixed(2)} (rastgele ${r.rNet.toFixed(2)}) · ${ESIK}+ %${(100*r.ge3).toFixed(0)} (rastgele %${(100*r.rGe3).toFixed(0)}) · z ${(r.z>=0?'+':'')+r.z.toFixed(1)} · ${yorum(r.z)}`).join('\n');
   window._krnTxt=`📋 Analiz Karnesi — ${game.name} · ${S.N} çekiliş\n${satir.length} analizden ${iyi} tanesi rastgeleden ölçülebilir şekilde iyi.\n`+satirTxt;
   el.innerHTML=h;
 }
