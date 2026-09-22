@@ -980,6 +980,39 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  </div>
 </div>
 
+<!-- ═══════════ 🔑 Anahtar Şablon — frekans-rütbe kalıbı ═══════════ -->
+<div id="ashSection" style="grid-column:1/-1;margin-top:0;min-width:0">
+ <div class="card" style="border:2px solid rgba(37,99,235,.5);background:linear-gradient(135deg,rgba(37,99,235,.06),transparent)">
+  <div class="card-title">🔑 Anahtar Şablon</div>
+  <div style="font-size:.64rem;color:var(--muted);margin-bottom:9px;line-height:1.6">
+   Her pozisyon için geçmişte en sık görülen <strong>rütbe</strong> bulunur, sonra o rütbeler bugünün
+   çok-gelen sırasına uygulanır (±1 komşu dahil). 📝 Deneme ve 🔠 FAD Şablon sayfalarındaki
+   <em>🔑 Anahtar Şablon</em> ile aynı hesap. <strong>Karne ölçümü:</strong> determinist analiz —
+   iki bağımsız koşuda birebir aynı çıkıyor ve dört oyunda da rastgelenin üstünde
+   (şans +1.2 · süper +1.5 · sayısal +0.5 · on numara +0.1); yine de hiçbirinde
+   <strong>z ≥ 2</strong> eşiğini geçmiyor, yani kanıtlanmış bir üstünlük değil.
+  </div>
+  <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="ashGameRow"></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <button onclick="_ashRender()" style="flex:1;min-width:180px;font-size:.78rem;padding:9px;border-radius:9px;background:linear-gradient(135deg,rgba(37,99,235,.9),rgba(29,78,216,.8));border:1px solid rgba(37,99,235,.6);color:#fff;cursor:pointer;font-weight:800">🔑 Şablonu Üret</button>
+   <button onclick="_caCopy(window._ashTxt)" class="copy-btn" style="font-size:.72rem;padding:8px 14px;font-weight:700">📋 Kopyala</button>
+  </div>
+  <div style="margin-bottom:12px;padding-bottom:10px;border-bottom:1px dashed var(--border)">
+   <div style="font-size:.66rem;font-weight:800;color:var(--text);margin-bottom:6px">📊 Geçmiş Test — tek tek tarih seçerek</div>
+   <div style="display:flex;gap:6px;align-items:stretch">
+    <select id="ashDateSel" onchange="_ashRender()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+    <select id="ashDateSel2" onchange="_ashRender()" title="2. geçmiş test" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+    <select id="ashDateSel3" onchange="_ashRender()" title="3. geçmiş test" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
+    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+     <button onclick="_ashStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
+     <button onclick="_ashStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
+    </div>
+   </div>
+  </div>
+  <div id="ashOut"></div>
+ </div>
+</div>
+
 <!-- ═══════════ NEW: Aday Sayılar — Analiz Bazlı ═══════════ -->
 <div id="candSection" style="grid-column:1/-1;margin-top:0;min-width:0">
  <div class="card">
@@ -7410,6 +7443,7 @@ function _syncOtherGameGrids(id){
   try{if(!_cbGameManual&&typeof _cbInit==='function'){_cbGame=id;_cbInit();}}catch(e){}
   try{if(!_nnGameManual&&typeof _nnInit==='function'){_nnGame=id;_nnInit();['nnOut','nnTestOut'].forEach(x=>{const e=document.getElementById(x);if(e)e.innerHTML='';});}}catch(e){}
   try{if(!_npGameManual&&typeof _npInit==='function'){_npGame=id;_npInit();const e=document.getElementById('npTestOut');if(e)e.innerHTML='';}}catch(e){}
+  try{if(!_ashGameManual&&typeof _ashInit==='function'){_ashGame=id;['','2','3'].forEach(sl=>{const e=document.getElementById('ashDateSel'+sl);if(e)e.value='';});_ashInit();}}catch(e){}
   setTimeout(_nextDrawPredict,0);
 }
 function selectAlgo(id){
@@ -14173,21 +14207,81 @@ function _fadKolonlar(){
   const draws=_kbGetDraws(_fadOyun())||[];
   const kol=[];
   // 🔮 Yeni Tahmin: kaynak = EN SON çekiliş, hedef = henüz çekilmemiş sıradaki çekiliş.
-  if(draws.length)kol.push({baslik:'🔮 Yeni Tahmin',tarih:draws[0].date,kaynak:draws[0],actual:null});
+  // prior = hedeften ÖNCEKİ tüm çekilişler; 🔑 Anahtar Şablon tek bir çekilişi değil bu
+  // listenin tamamını kullanır (frekans-rütbe kalıbı için geçmiş gerekir).
+  if(draws.length)kol.push({baslik:'🔮 Yeni Tahmin',tarih:draws[0].date,kaynak:draws[0],prior:draws,actual:null});
   // 📅 Geçmiş test: kaynak = o tarihten BİR ÖNCEKİ çekiliş, hedef = o tarihin gerçek sonucu.
-  // İleriye bakış yok: kaynak her zaman hedeften öncedir.
+  // İleriye bakış yok: kaynak da prior da her zaman hedeften öncedir.
   ['','2','3'].forEach((sl,i)=>{
     const v=document.getElementById('fadDateSel'+sl)?.value||'';
     if(!v)return;
     const idx=draws.findIndex(d=>d.date===v);
     if(idx<0||!draws[idx+1])return;
-    kol.push({baslik:'📅 Geçmiş '+(i+1),tarih:v,kaynak:draws[idx+1],actual:draws[idx]});
+    kol.push({baslik:'📅 Geçmiş '+(i+1),tarih:v,kaynak:draws[idx+1],prior:draws.slice(idx+1),actual:draws[idx]});
   });
   return kol;
 }
 // Formülün girdisi: kaynak çekilişin sayıları (C43/C132/C133 = o çekilişin bir hücresi).
 function _fadGirdiler(kaynak){
   return [...new Set((kaynak&&kaynak.nums)||[])].sort((a,b)=>a-b);
+}
+// 🔑 ANAHTAR ŞABLON — sayfanın en üstündeki kart. Formüllerden bağımsız bir analizdir:
+// _dnAnahtarSablon (frekans-rütbe kalıbı) — Deneme sayfasındaki v9 varyantıyla BİREBİR aynı
+// fonksiyon, burada sayfanın kendi sütun yapısıyla (🔮 Yeni Tahmin + 📅 Geçmiş testler) gösterilir.
+// Girdisi tek bir çekiliş değil, o sütunun prior listesinin tamamıdır.
+function _fadAnahtarKart(g,kol,kolCtx,tpl,metin){
+  if(!kol.length)return '';
+  const veri=kol.map(k=>{
+    let nums=[];try{nums=_dnAnahtarSablon(k.prior||[],g)||[];}catch(e){nums=[];}
+    const aSet=k.actual?new Set(k.actual.nums||[]):null;
+    return {nums,aSet,ySet:_fadYakinSet(aSet,g.max)};
+  });
+  if(!veri.some(v=>v.nums.length))return '';
+  const hamTum=kol.map((k,i)=>`${kolCtx(k)}:\n${veri[i].nums.join(' ')}`).join('\n\n');
+  const ad='🔑 Anahtar Şablon';
+  let h=`<div class="card" style="margin-bottom:12px;border:2px solid rgba(37,99,235,.45);background:linear-gradient(135deg,rgba(37,99,235,.05),transparent)">`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">`
+    +`<div style="font-size:.74rem;font-weight:800;color:#2563eb">${ad}</div>`
+    +_fadKop(ad,hamTum,'Kopyala')+`</div>`
+    +`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px;line-height:1.6">`
+    +`Frekans-rütbe kalıbı: her pozisyon için geçmişte en sık görülen <strong>rütbe</strong> bulunur, `
+    +`sonra o rütbeler bugünün çok-gelen sırasına uygulanır (±1 komşu dahil). `
+    +`📝 Deneme sayfasındaki <em>🔑 Anahtar Şablon</em> varyantıyla aynı hesap. `
+    +`<strong>Karne ölçümü:</strong> determinist analiz — iki bağımsız koşuda birebir aynı çıkıyor, `
+    +`dört oyunda da rastgelenin üstünde (şans +1.2 · süper +1.5 · sayısal +0.5 · on numara +0.1); `
+    +`yine de hiçbirinde z ≥ 2 eşiğini geçmiyor, yani kanıtlanmış bir üstünlük değil.</div>`;
+  // Başlık ve gövde iki ayrı ızgara satırı — sayfanın geri kalanıyla aynı hizalama düzeni.
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:12px;margin-bottom:6px">`
+    +kol.map(k=>{
+      let bh=`<div style="display:inline-flex;align-items:center;font-size:.6rem;font-weight:800;`
+        +`color:${k.actual?'var(--text)':'#2563eb'};background:${k.actual?'var(--surface2)':'rgba(37,99,235,.1)'};`
+        +`border:1px solid ${k.actual?'var(--border)':'rgba(37,99,235,.3)'};border-radius:7px;padding:3px 8px;margin-bottom:5px">`
+        +`${kolCtx(k)}</div>`;
+      bh+=`<div style="font-size:.54rem;color:var(--muted);line-height:1.5">Kalıp kaynağı: `
+        +`<strong style="color:var(--text)">${(k.prior||[]).length} çekiliş</strong> (bu tarihten öncesi)</div>`;
+      if(k.actual)bh+=`<div style="font-size:.54rem;color:var(--muted);line-height:1.5">Gerçek çekiliş: `
+        +`<strong style="color:var(--green);font-family:monospace">${(k.actual.nums||[]).join(' ')}</strong></div>`;
+      return `<div style="min-width:0">${bh}</div>`;
+    }).join('')+`</div>`;
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:12px;align-items:start">`
+    +kol.map((k,i)=>{
+      const v=veri[i],ham=v.nums.join(' ');
+      if(!v.nums.length)return `<div style="min-width:0;font-size:.58rem;color:var(--muted)">Kalıp için yeterli geçmiş yok (en az 40 çekiliş).</div>`;
+      let net=0,yak=0;
+      if(v.aSet)v.nums.forEach(n=>{const d=_fadDurum(n,v.aSet,v.ySet);if(d==='net')net++;else if(d==='yakin')yak++;});
+      let c=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">`
+        +_fadKop(`${ad} — ${kolCtx(k)}`,ham,'Kopyala')
+        +`<span style="font-size:.56rem;color:var(--muted)">${v.nums.length} sayı</span>`
+        +(k.actual?`<span style="font-size:.56rem;font-weight:700;color:${net?'var(--green)':'var(--muted)'}">${net} net</span>`
+          +(yak?`<span style="font-size:.56rem;font-weight:700;color:#c2410c">${yak} yakın</span>`:''):'')
+        +`</div>`;
+      c+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`
+        +v.nums.map(n=>_fadRozet(n,_fadDurum(n,v.aSet,v.ySet))).join('')+`</div>`;
+      c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
+      return `<div style="min-width:0">${c}</div>`;
+    }).join('')+`</div></div>`;
+  if(metin)metin.push(`${ad}\n\n${hamTum}`);
+  return h;
 }
 function _fadRender(){
   const el=document.getElementById('fadList');if(!el)return;
@@ -14201,7 +14295,7 @@ function _fadRender(){
   const tpl='repeat('+kol.length+',minmax(0,1fr))';
   const deneme=formuller.some(f=>f.deneme);
   const metin=[];
-  let h='';
+  let h=_fadAnahtarKart(g,kol,kolCtx,tpl,metin);
   if(deneme)h+=`<div class="card" style="margin-bottom:12px;border-left:3px solid #c2410c">`
     +`<div style="font-size:.64rem;color:#c2410c;font-weight:700;margin-bottom:3px">🧪 DENEME — bu formüller sizden gelmedi</div>`
     +`<div style="font-size:.62rem;color:var(--muted);line-height:1.6">Süper Loto ve Şans Topu için verdiğiniz `
@@ -14833,7 +14927,7 @@ function _kbRenderKazanan(){
 
 // ═══════════ Tarama Sayfası ═══════════════════════════════
 // Anasayfa bölüm sırası — 🧾 Tespit, 🎫 Bilet Testi & Anomali Analizi'nin hemen altında.
-const _HOME_IDS=['page-generator','page-backtest','okSection','tsSection','a3Section','fmSection','nnSection','npSection','candSection','cbSection','onaSection'];
+const _HOME_IDS=['page-generator','page-backtest','okSection','tsSection','a3Section','fmSection','nnSection','npSection','ashSection','candSection','cbSection','onaSection'];
 let _scanGame=null;
 
 // Anasayfaya özel ağır hesaplar, o sayfa AÇIK DEĞİLKEN yapılmasın: oyun değiştirmek
@@ -18445,6 +18539,104 @@ function _npPool(game,prior,N){
   const uni=N*(prior[0]?[...new Set([...(prior[0].nums||[]),...(prior[0].bonus||[])])].length:game.count)/game.max;
   return {pool,p,expNet,uniformExp:uni};
 }
+// ═══════════ 🔑 ANAHTAR ŞABLON — anasayfa bölümü ═══════════
+// Hesap _dnAnahtarSablon'dadır (frekans-rütbe kalıbı); burada yalnızca anasayfanın standart
+// sütun düzeniyle (🔮 Yeni Tahmin + 3 geçmiş test) gösterilir. Aynı fonksiyon 📝 Deneme
+// sayfasında v9 varyantı, 🔠 FAD Şablon sayfasında üstteki kart, 📋 Karne'de ölçülen satır.
+let _ashGame='sayisal',_ashGameManual=false;
+function _ashInit(){
+  const row=document.getElementById('ashGameRow');if(!row)return;
+  if(!_ashGameManual&&state.selectedGame&&GAMES.some(g=>g.id===state.selectedGame))_ashGame=state.selectedGame;
+  row.innerHTML=GAMES.map(g=>{const a=g.id===_ashGame;return `<button onclick="_ashSetGame('${g.id}')" style="font-size:.72rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(37,99,235,.7)':'var(--border)'};background:${a?'rgba(37,99,235,.15)':'var(--surface2)'};color:${a?'#2563eb':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji} ${g.name}</button>`;}).join('');
+  _ashDates();_homeLazy('ashRender',_ashRender);
+}
+function _ashSetGame(g){
+  _ashGame=g;_ashGameManual=true;
+  // Oyun değişince geçmiş test tarihleri başka oyuna ait kalmasın
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('ashDateSel'+sl);if(e)e.value='';});
+  _ashInit();
+}
+function _ashDates(){
+  const sel=document.getElementById('ashDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_ashGame)||[];
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  // _dnAnahtarSablon en az 40 çekiliş geçmiş ister; daha azını bırakan tarihler listelenmez.
+  draws.forEach((d,i)=>{if(draws.length-i-1<40)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('ashDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
+}
+function _ashStepDate(dir){
+  const sel=document.getElementById('ashDateSel');if(!sel||sel.options.length<2)return;
+  let i=sel.selectedIndex;if(i<1)i=1;else i=Math.min(sel.options.length-1,Math.max(1,i+dir));
+  sel.selectedIndex=i;_ashRender();
+}
+// Sütunlar: 🔮 Yeni Tahmin (tüm geçmiş) + seçili geçmiş testler (o tarihten ÖNCEKİ verilerle).
+function _ashKolonlar(draws){
+  const kol=[];
+  if(draws.length)kol.push({baslik:'🔮 Yeni Tahmin',tarih:_predNextDrawDate(_ashGame)||'',prior:draws,actual:null});
+  ['','2','3'].forEach((sl,i)=>{
+    const v=document.getElementById('ashDateSel'+sl)?.value||'';
+    if(!v)return;
+    const idx=draws.findIndex(d=>d.date===v);
+    if(idx<0)return;
+    const prior=draws.slice(idx+1);
+    if(prior.length<40)return;   // ileriye bakış yok; kalıp yalnızca o tarihten öncesinden çıkar
+    kol.push({baslik:'📊 Geçmiş '+(i+1),tarih:v,prior,actual:draws[idx]});
+  });
+  return kol;
+}
+function _ashRender(){
+  const el=document.getElementById('ashOut');if(!el)return;
+  _ashDates();
+  const g=getGame(_ashGame),draws=_kbGetDraws(_ashGame)||[];
+  if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Bu oyun için geçmiş veri yok.</div>';window._ashTxt='';return;}
+  const kol=_ashKolonlar(draws);
+  const veri=kol.map(k=>{
+    let nums=[];try{nums=_dnAnahtarSablon(k.prior||[],g)||[];}catch(e){nums=[];}
+    const aSet=k.actual?new Set(k.actual.nums||[]):null;
+    return {nums,aSet,ySet:_fadYakinSet(aSet,g.max)};
+  });
+  if(!veri.some(v=>v.nums.length)){
+    el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Kalıp için yeterli geçmiş yok (en az 40 çekiliş).</div>';
+    window._ashTxt='';return;
+  }
+  const kolCtx=k=>k.baslik+(k.tarih?' · '+k.tarih:'');
+  const tpl='repeat('+kol.length+',minmax(0,1fr))';
+  // Başlık ve gövde iki ayrı ızgara satırı — geçmiş sütunlarında fazladan "Gerçek çekiliş"
+  // satırı olduğu için tek ızgarada birleştirilirse sayılar hizasız kayar.
+  let h=`<div style="display:grid;grid-template-columns:${tpl};gap:12px;margin-bottom:6px">`
+    +kol.map(k=>{
+      let bh=`<div style="display:inline-flex;align-items:center;font-size:.6rem;font-weight:800;`
+        +`color:${k.actual?'var(--text)':'#2563eb'};background:${k.actual?'var(--surface2)':'rgba(37,99,235,.1)'};`
+        +`border:1px solid ${k.actual?'var(--border)':'rgba(37,99,235,.3)'};border-radius:7px;padding:3px 8px;margin-bottom:5px">`
+        +`${kolCtx(k)}</div>`;
+      bh+=`<div style="font-size:.54rem;color:var(--muted);line-height:1.5">Kalıp kaynağı: `
+        +`<strong style="color:var(--text)">${(k.prior||[]).length} çekiliş</strong> (bu tarihten öncesi)</div>`;
+      if(k.actual)bh+=`<div style="font-size:.54rem;color:var(--muted);line-height:1.5">Gerçek çekiliş: `
+        +`<strong style="color:var(--green);font-family:monospace">${(k.actual.nums||[]).join(' ')}</strong></div>`;
+      return `<div style="min-width:0">${bh}</div>`;
+    }).join('')+`</div>`;
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:12px;align-items:start">`
+    +kol.map((k,i)=>{
+      const v=veri[i],ham=v.nums.join(' ');
+      if(!v.nums.length)return `<div style="min-width:0;font-size:.58rem;color:var(--muted)">Kalıp için yeterli geçmiş yok.</div>`;
+      let net=0,yak=0;
+      if(v.aSet)v.nums.forEach(n=>{const d=_fadDurum(n,v.aSet,v.ySet);if(d==='net')net++;else if(d==='yakin')yak++;});
+      let c=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">`
+        +_fadKop(`🔑 Anahtar Şablon — ${kolCtx(k)}`,ham,'Kopyala')
+        +`<span style="font-size:.56rem;color:var(--muted)">${v.nums.length} sayı</span>`
+        +(k.actual?`<span style="font-size:.56rem;font-weight:700;color:${net?'var(--green)':'var(--muted)'}">${net} net</span>`
+          +(yak?`<span style="font-size:.56rem;font-weight:700;color:#c2410c">${yak} yakın</span>`:''):'')
+        +`</div>`;
+      c+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`
+        +v.nums.map(n=>_fadRozet(n,_fadDurum(n,v.aSet,v.ySet))).join('')+`</div>`;
+      c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
+      return `<div style="min-width:0">${c}</div>`;
+    }).join('')+`</div>`;
+  window._ashTxt=`🔑 Anahtar Şablon — ${g.name}\n\n`
+    +kol.map((k,i)=>`${kolCtx(k)}:\n${veri[i].nums.join(' ')}`).join('\n\n');
+  el.innerHTML=h;
+}
+
 let _npGame='sayisal',_npGameManual=false;
 function _npInit(){
   const row=document.getElementById('npGameRow');if(!row)return;
@@ -19177,7 +19369,7 @@ function _onaInit(){_onaBacktest('');}
   const chk=document.getElementById('excludeLastChk');if(chk)chk.checked=!!state.excludeLastDraw;
 })();
 loadDrawCaches();
-initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();_caInit();_cbInit();_nnInit();_npInit();_onaInit();_alphaRefRender();
+initGameGrid();initBtGameGrid();initAlgoGrid();renderSavedTickets();updateStats();loadGenHistory();_caInit();_cbInit();_nnInit();_npInit();_ashInit();_onaInit();_alphaRefRender();
 try{_splitInit();}catch(e){console.warn('splitInit',e);}
 setTimeout(()=>{_autoUpdateAllGames().then(_scheduleAutoUpdateRetryIfNeeded);},800);
 
