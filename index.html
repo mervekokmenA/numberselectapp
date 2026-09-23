@@ -2004,7 +2004,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    Her analiz, diğer sayfalardaki gibi 🔮 Yeni Tahmin + 3 Geçmiş Test olarak yan yana gösterilir.
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-   <button onclick="_fadCopy()" style="padding:6px 14px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.4);color:#7c3aed;border-radius:8px;cursor:pointer;font-size:.72rem;font-weight:700">📋 Tümünü Kopyala</button>
+   <button onclick="_fadCopy()" title="Sayfadaki tüm analizlerin 🔮 Yeni Tahmin sayılarını kopyalar (geçmiş testler kopyaya girmez)" style="padding:6px 14px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.4);color:#7c3aed;border-radius:8px;cursor:pointer;font-size:.72rem;font-weight:700">📋 Tüm Yeni Tahminleri Kopyala</button>
   </div>
   <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:center">
    <div style="font-size:.66rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
@@ -14230,6 +14230,20 @@ function _fadGirdiler(kaynak){
 // _dnAnahtarSablon (frekans-rütbe kalıbı) — Deneme sayfasındaki v9 varyantıyla BİREBİR aynı
 // fonksiyon, burada sayfanın kendi sütun yapısıyla (🔮 Yeni Tahmin + 📅 Geçmiş testler) gösterilir.
 // Girdisi tek bir çekiliş değil, o sütunun prior listesinin tamamıdır.
+// KOPYALAMA STANDARDI (bu sayfa genelinde): kopyalanan şey YALNIZCA 🔮 Yeni Tahmin
+// sütunudur — geçmiş testler kopyaya girmez ve kendi kopyalama düğmeleri yoktur.
+// Düğme, kopyaladığı sayıların hemen üstünde ve sağa yaslı durur (kart başlığında değil).
+function _fadSutunUst(k,baslik,ham,solIcerik){
+  return `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;min-height:24px">`
+    +`<span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0">${solIcerik||''}</span>`
+    +(k.actual?'':_fadKop(baslik,ham,'Kopyala'))
+    +`</div>`;
+}
+// Yalnızca 🔮 Yeni Tahmin sütununun ham sayıları (kopya metinlerinin kaynağı).
+function _fadYeniHam(kol,veri,alan){
+  const i=kol.findIndex(k=>!k.actual);
+  return i<0?'':((veri[i]&&veri[i][alan])||[]).join(' ');
+}
 function _fadAnahtarKart(g,kol,kolCtx,tpl,metin){
   if(!kol.length)return '';
   const veri=kol.map(k=>{
@@ -14238,12 +14252,10 @@ function _fadAnahtarKart(g,kol,kolCtx,tpl,metin){
     return {nums,aSet,ySet:_fadYakinSet(aSet,g.max)};
   });
   if(!veri.some(v=>v.nums.length))return '';
-  const hamTum=kol.map((k,i)=>`${kolCtx(k)}:\n${veri[i].nums.join(' ')}`).join('\n\n');
+  const hamYeni=_fadYeniHam(kol,veri,'nums');
   const ad='🔑 Anahtar Şablon';
   let h=`<div class="card" style="margin-bottom:12px;border:2px solid rgba(37,99,235,.45);background:linear-gradient(135deg,rgba(37,99,235,.05),transparent)">`
-    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">`
-    +`<div style="font-size:.74rem;font-weight:800;color:#2563eb">${ad}</div>`
-    +_fadKop(ad,hamTum,'Kopyala')+`</div>`
+    +`<div style="font-size:.74rem;font-weight:800;color:#2563eb;margin-bottom:4px">${ad}</div>`
     +`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px;line-height:1.6">`
     +`Frekans-rütbe kalıbı: her pozisyon için geçmişte en sık görülen <strong>rütbe</strong> bulunur, `
     +`sonra o rütbeler bugünün çok-gelen sırasına uygulanır (±1 komşu dahil). `
@@ -14270,18 +14282,16 @@ function _fadAnahtarKart(g,kol,kolCtx,tpl,metin){
       if(!v.nums.length)return `<div style="min-width:0;font-size:.58rem;color:var(--muted)">Kalıp için yeterli geçmiş yok (en az 40 çekiliş).</div>`;
       let net=0,yak=0;
       if(v.aSet)v.nums.forEach(n=>{const d=_fadDurum(n,v.aSet,v.ySet);if(d==='net')net++;else if(d==='yakin')yak++;});
-      let c=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">`
-        +_fadKop(`${ad} — ${kolCtx(k)}`,ham,'Kopyala')
-        +`<span style="font-size:.56rem;color:var(--muted)">${v.nums.length} sayı</span>`
+      const sol=`<span style="font-size:.56rem;color:var(--muted)">${v.nums.length} sayı</span>`
         +(k.actual?`<span style="font-size:.56rem;font-weight:700;color:${net?'var(--green)':'var(--muted)'}">${net} net</span>`
-          +(yak?`<span style="font-size:.56rem;font-weight:700;color:#c2410c">${yak} yakın</span>`:''):'')
-        +`</div>`;
+          +(yak?`<span style="font-size:.56rem;font-weight:700;color:#c2410c">${yak} yakın</span>`:''):'');
+      let c=_fadSutunUst(k,ad,ham,sol);
       c+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`
         +v.nums.map(n=>_fadRozet(n,_fadDurum(n,v.aSet,v.ySet))).join('')+`</div>`;
       c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
       return `<div style="min-width:0">${c}</div>`;
     }).join('')+`</div></div>`;
-  if(metin)metin.push(`${ad}\n\n${hamTum}`);
+  if(metin&&hamYeni)metin.push(`${ad}\n${hamYeni}`);
   return h;
 }
 function _fadRender(){
@@ -14309,11 +14319,9 @@ function _fadRender(){
       const aSet=k.actual?new Set(k.actual.nums||[]):null;
       return {sonuclar,aSet,ySet:_fadYakinSet(aSet,g.max)};
     });
-    const hamTum=kol.map((k,i)=>`${kolCtx(k)}:\n${veri[i].sonuclar.join(' ')}`).join('\n\n');
+    const hamYeni=_fadYeniHam(kol,veri,'sonuclar');
     h+=`<div class="card" style="margin-bottom:12px">`
-      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">`
-      +`<div style="font-size:.74rem;font-weight:800;color:var(--text)">${f.deneme?'🧪':'🔑'} ${f.ad}</div>`
-      +_fadKop(`${f.ad}\n${f.metin}`,hamTum,'Kopyala')+`</div>`
+      +`<div style="font-size:.74rem;font-weight:800;color:var(--text);margin-bottom:4px">${f.deneme?'🧪':'🔑'} ${f.ad}</div>`
       +`<div style="font-family:monospace;font-size:.6rem;color:var(--muted);margin-bottom:10px">${f.metin}</div>`;
     // Başlık ve gövde İKİ AYRI ızgara satırı: sütun başlıkları farklı yükseklikte (Geçmiş'te
     // "Gerçek çekiliş" satırı var) olduğu için tek ızgarada birleştirilirse sayılar hizasız kayar.
@@ -14335,19 +14343,18 @@ function _fadRender(){
         const v=veri[i],ham=v.sonuclar.join(' ');
         let net=0,yak=0;
         if(v.aSet)v.sonuclar.forEach(n=>{const d=_fadDurum(n,v.aSet,v.ySet);if(d==='net')net++;else if(d==='yakin')yak++;});
-        let c=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">`
-          +_fadKop(`${f.ad} — ${kolCtx(k)}`,ham,'Kopyala')
-          +(k.actual?`<span style="font-size:.56rem;font-weight:700;color:${net?'var(--green)':'var(--muted)'}">${net} net</span>`
-            +(yak?`<span style="font-size:.56rem;font-weight:700;color:#c2410c">${yak} yakın</span>`:''):'')
-          +`</div>`;
+        const sol=(k.actual?`<span style="font-size:.56rem;font-weight:700;color:${net?'var(--green)':'var(--muted)'}">${net} net</span>`
+            +(yak?`<span style="font-size:.56rem;font-weight:700;color:#c2410c">${yak} yakın</span>`:''):'');
+        let c=_fadSutunUst(k,`${f.ad}\n${f.metin}`,ham,sol);
         c+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`
           +v.sonuclar.map(n=>_fadRozet(n,_fadDurum(n,v.aSet,v.ySet))).join('')+`</div>`;
         c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
         return `<div style="min-width:0">${c}</div>`;
       }).join('')+`</div></div>`;
-    metin.push(`${f.ad}\n${f.metin}\n\n${hamTum}`);
+    if(hamYeni)metin.push(`${f.ad}\n${f.metin}\n${hamYeni}`);
   });
-  window._fadTxt=`🔠 FAD Şablon — ${g.name}\n\n`+metin.join('\n\n');
+  // "Tümünü Kopyala" da standarda uyar: yalnızca 🔮 Yeni Tahmin sayıları kopyalanır.
+  window._fadTxt=`🔠 FAD Şablon — ${g.name} · 🔮 Yeni Tahmin\n\n`+metin.join('\n\n');
   el.innerHTML=h;
 }
 function _fadCopy(){const t=window._fadTxt;if(!t){showToast('⚠️ Veri yok');return;}_caCopy(t);showToast('📋 Kopyalandı');}
@@ -18622,19 +18629,19 @@ function _ashRender(){
       if(!v.nums.length)return `<div style="min-width:0;font-size:.58rem;color:var(--muted)">Kalıp için yeterli geçmiş yok.</div>`;
       let net=0,yak=0;
       if(v.aSet)v.nums.forEach(n=>{const d=_fadDurum(n,v.aSet,v.ySet);if(d==='net')net++;else if(d==='yakin')yak++;});
-      let c=`<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">`
-        +_fadKop(`🔑 Anahtar Şablon — ${kolCtx(k)}`,ham,'Kopyala')
-        +`<span style="font-size:.56rem;color:var(--muted)">${v.nums.length} sayı</span>`
+      // Kopyalama standardı: yalnızca 🔮 Yeni Tahmin kopyalanır, düğme sayıların hemen üstünde sağda.
+      const sol=`<span style="font-size:.56rem;color:var(--muted)">${v.nums.length} sayı</span>`
         +(k.actual?`<span style="font-size:.56rem;font-weight:700;color:${net?'var(--green)':'var(--muted)'}">${net} net</span>`
-          +(yak?`<span style="font-size:.56rem;font-weight:700;color:#c2410c">${yak} yakın</span>`:''):'')
-        +`</div>`;
+          +(yak?`<span style="font-size:.56rem;font-weight:700;color:#c2410c">${yak} yakın</span>`:''):'');
+      let c=_fadSutunUst(k,'🔑 Anahtar Şablon',ham,sol);
       c+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`
         +v.nums.map(n=>_fadRozet(n,_fadDurum(n,v.aSet,v.ySet))).join('')+`</div>`;
       c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
       return `<div style="min-width:0">${c}</div>`;
     }).join('')+`</div>`;
-  window._ashTxt=`🔑 Anahtar Şablon — ${g.name}\n\n`
-    +kol.map((k,i)=>`${kolCtx(k)}:\n${veri[i].nums.join(' ')}`).join('\n\n');
+  // Bölüm kopyası da standarda uyar: yalnızca 🔮 Yeni Tahmin sayıları.
+  const hamYeni=_fadYeniHam(kol,veri,'nums');
+  window._ashTxt=hamYeni?`🔑 Anahtar Şablon — ${g.name}\n${hamYeni}`:'';
   el.innerHTML=h;
 }
 
