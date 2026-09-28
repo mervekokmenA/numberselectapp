@@ -41,6 +41,10 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 .lcell.l-yakin{background:#fb8c00;color:#fff;border-color:#e65100}
 /* ⭐ Excel yıldızı — sayının soluna * koyar, metni DEĞİŞTİRMEZ */
 [data-ex-yildiz]::before{content:attr(data-ex-yildiz);font-weight:800;opacity:.85;margin-right:1px}
+/* 🖤 Kesişim tekrarı — 🧩 Sabit Sayılarla Kesişim'de de geçen sayılar, yeni tahminlerde
+   siyah çizgili çerçeveye alınır. Mevcut renkleri (yeşil net / turuncu yakın) BOZMAZ:
+   sadece dışına bir çerçeve çizer, böylece iki bilgi aynı anda okunabilir. */
+[data-sk-tekrar]{outline:2px solid #111;outline-offset:1px;border-radius:5px}
 .lrow{display:flex;gap:1px;margin-bottom:1px;height:18px;min-height:18px;max-height:18px;align-items:center;overflow:hidden}
 .lrow-num{width:18px;height:18px;min-height:18px;max-height:18px;font-size:.58rem;color:var(--accent);display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;padding-right:2px;line-height:1;font-weight:600;opacity:.75;box-sizing:border-box;overflow:hidden}
 .listeler-col{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px;flex-shrink:0;min-width:0}
@@ -1617,6 +1621,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 <!-- Hızlı Tahmin ile AYNI motoru ve aynı üretimi kullanır; yalnızca 9 analiz gösterilir.
      İki sayfa aynı anda dolu olmaz (bkz. _qtSyncPairs) → id/kopyalama çakışması yok. -->
 <div style="grid-column:1/-1;display:none" id="page-basit">
+ <!-- 🧩 Sabit Sayılarla Kesişim — sayfanın en üstünde özet panel (kullanıcı isteği).
+      Üretim yapılana kadar boş kalır, o yüzden boş kutu görünmez. Filtre checkbox'ı
+      bilerek BURADA yok: aynı durumu (_skFilterState['live']) yöneten iki ayrı kutu
+      birbirinden habersiz kalırdı — filtre, aşağıdaki ayrıntılı kartta tek yerde durur. -->
+ <div id="btsKesisimTop"></div>
  <div class="card">
   <div class="card-title">✨ Basit Tahmin</div>
   
@@ -22371,9 +22380,11 @@ function _ozetUstKart(mode,game,src,aSet,actual){
   // Bulucu'ya tek tıkla gönderme butonları eklenir; Basit Tahmin'de (mode 'live'/'test'/…)
   // bu butonlar gösterilmez — o sayfada Ortak Sayı Bulucu yok.
   const gonderliMi=String(mode).indexOf('hts')===0;
-  const grp=(title,nums,colorHex,varName)=>{
+  const grp=(title,nums,colorHex,varName,kaynakMi)=>{
     window[varName]=title+' ('+game.name+')\n'+(nums.length?nums.join(' '):'(yok)');
-    return `<div style="margin-bottom:8px">`
+    // kaynakMi: bu satır kesişim listesinin KENDİSİ — siyah "tekrar" çerçevesi burada
+    // anlamsız olurdu (tüm sayılar zaten o kümede), bu yüzden hariç tutulur.
+    return `<div${kaynakMi?' data-sk-kaynak="1"':''} style="margin-bottom:8px">`
       +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px">`
       +`<span style="font-size:.62rem;font-weight:800;color:${colorHex}">${title} <span style="font-size:.54rem;color:var(--muted);font-weight:600">${nums.length} sayı</span></span>`
       +`<span style="display:flex;gap:4px;align-items:center">${gonderliMi?_htsGonderBtns(nums):''}<button onclick="_caCopy(window.${varName})" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋</button></span>`
@@ -22385,7 +22396,7 @@ function _ozetUstKart(mode,game,src,aSet,actual){
   const tumuVar='_ozetTumu'+sfx;
   let h=`<div class="card" style="margin-bottom:12px;border-color:rgba(37,99,235,.4)">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px"><span style="font-size:.76rem;font-weight:800;color:#2563eb">📌 Özet Kesişimler — ${game.emoji} ${game.name}</span><button onclick="_caCopy(window.${tumuVar})" class="copy-btn" style="font-size:.6rem;padding:3px 10px;font-weight:700">📋 Tümü</button></div>`;
-  h+=grp('🧩 Sabit Sayılarla Kesişim',kesisim,'var(--accent)','_ozetKesisim'+sfx);
+  h+=grp('🧩 Sabit Sayılarla Kesişim',kesisim,'var(--accent)','_ozetKesisim'+sfx,true);
   h+=grp('🔗 Nihai × 3+ Kapsamlı × Gülay Kesişimi',inter,'#6c5ce7','_ozetInter'+sfx);
   h+=grp('✅ Excel’de birebir',birebir,'#0a9a6a','_ozetBirebir'+sfx);
   h+=grp('🔶 Excel’e ±1 yakın',yakin,'#c2410c','_ozetYakin'+sfx);
@@ -22456,14 +22467,26 @@ function _htsCkRefresh(){
 // Sayfadaki bir sayı listesini (↥Üst/↧Alt butonu) tek tıkla 🔀 Ortak Sayı Bulucu'nun ilgili
 // kutusuna gönderir — kullanıcı isteği: "bu ekrandakileri o ortak bulucuda tıklamalarla
 // otomatik doldurabilmeliyim".
-function _htsOkGonder(nums,hedef){
-  const el=document.getElementById('ok'+hedef+'Hts');if(!el)return;
+// O an açık olan sayfadaki 🔀 Ortak Sayı Bulucu'nun id eki: Hızlı Tahmin'de 'Hts',
+// Listeler'de ''. Bulucusu olmayan sayfalarda (Basit Tahmin, Gülay…) null döner —
+// bu durumda ↥Üst/↧Alt butonları hiç basılmaz, ölü buton kalmasın.
+function _okHedefEk(){
+  if(_curPage==='hizlitahmin')return 'Hts';
+  if(_curPage==='listeler')return '';
+  return null;
+}
+function _htsOkGonder(nums,hedef,sfx){
+  const ek=(sfx==null?_okHedefEk():sfx);
+  if(ek==null)return;
+  const el=document.getElementById('ok'+hedef+ek);if(!el)return;
   el.value=(nums||[]).join(' ');
-  _okHesapla('Hts');
+  _okHesapla(ek);
+  el.scrollIntoView({behavior:'smooth',block:'center'});
   if(typeof showToast==='function')showToast('🔀 '+(hedef==='Ust'?'Üst':'Alt')+' listeye gönderildi');
 }
 function _htsGonderBtns(nums){
   if(!nums||!nums.length)return'';
+  if(_okHedefEk()==null)return'';        // bu sayfada gönderilecek bir bulucu yok
   const arr=nums.join(',');
   return `<button onclick="_htsOkGonder([${arr}],'Ust')" title="🔀 Ortak Sayı Bulucu — Üst listeye gönder" style="font-size:.5rem;padding:2px 6px;border-radius:5px;border:1px solid rgba(124,58,237,.35);background:rgba(124,58,237,.08);color:#7c3aed;cursor:pointer;font-weight:700">↥Üst</button>`
     +`<button onclick="_htsOkGonder([${arr}],'Alt')" title="🔀 Ortak Sayı Bulucu — Alt listeye gönder" style="font-size:.5rem;padding:2px 6px;border-radius:5px;border:1px solid rgba(124,58,237,.35);background:rgba(124,58,237,.08);color:#7c3aed;cursor:pointer;font-weight:700">↧Alt</button>`;
@@ -22549,7 +22572,9 @@ function _htsRenderAll(){
   const setRow=(id,builder)=>{
     const el=document.getElementById(id);if(!el)return;
     el.style.gridTemplateColumns='repeat('+nCol+',1fr)';
-    el.innerHTML=modes.map(m=>`<div>${builder(m,_htsCol[m])}</div>`).join('');
+    // data-sk-yeni: 🔮 Yeni Tahmin sütunu açıkça işaretlenir — kesişim tekrarının siyah
+    // çerçevesi (_skTekrarUygula) yalnızca bu sütunda uygulanır, geçmiş testlerde değil.
+    el.innerHTML=modes.map(m=>`<div${m==='htsLive'?' data-sk-yeni="1"':''}>${builder(m,_htsCol[m])}</div>`).join('');
   };
   const bosMsg=m=>m==='htsLive'?'Yeterli çekiliş verisi yok / henüz üretilmedi.':'Bu tarih için yeterli önceki veri yok.';
   setRow('htsRowOzet',(m,col)=>{
@@ -22760,7 +22785,7 @@ function _qtRenderAll(mode,game,prior,actual){
   blk('formul',_qtFormulBlock(game,prior,aSet,actual));
   blk('nihaiSection',_qtNihaiSection(game,prior,src,aSet,mode,actual));
   blk('ilkHaneSection',_qtIlkHaneSection(game,prior,src,aSet,mode,actual));
-  if(mode==='live'){_qtLiveHtml=h;_qtLastRenderState={game,prior,src};}
+  if(mode==='live'){_qtLiveHtml=h;_qtLastRenderState={game,prior,src};_btsKesisimTopRender(game,src,prior);}
   else if(mode==='test3')_qtTest3Html=h;
   else if(mode==='test2')_qtTest2Html=h;
   else _qtTestHtml=h;
@@ -22770,6 +22795,33 @@ function _qtRenderAll(mode,game,prior,actual){
   _qtFilterRefresh();
 }
 let _qtLiveHtml='',_qtTestHtml='',_qtTest2Html='',_qtTest3Html='';
+// 🧩 Basit Tahmin'in en üstündeki kesişim özeti — aşağıdaki ayrıntılı kartla AYNI hesap
+// (_soKesisimHesapla), sadece 🔮 Yeni Tahmin için. Kopyalama ve (varsa) ↥Üst/↧Alt aktarma
+// düğmeleri burada da standart biçimde, sayıların hemen üstünde sağa yaslı durur.
+function _btsKesisimTopRender(game,src,prior){
+  const el=document.getElementById('btsKesisimTop');if(!el)return;
+  const ga=src&&src.ga,draw=prior&&prior[0];
+  if(!ga||!draw){el.innerHTML='';return;}
+  let nums=[];
+  try{nums=_soKesisimHesapla(ga.topRows,ga.cikRows,ga.chainRows,null);}catch(e){nums=[];}
+  if(!nums.length){el.innerHTML='';return;}
+  window._btsKesisimTopTxt=`🧩 Sabit Sayılarla Kesişim — ${game.name} · 🔮 Yeni Tahmin\n${nums.join(' ')}`;
+  el.innerHTML=`<div class="card" data-sk-kaynak="1" style="margin-bottom:12px;border:2px solid rgba(82,72,212,.45);background:linear-gradient(135deg,rgba(82,72,212,.06),transparent)">`
+    +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">`
+    +`<span style="font-size:.74rem;font-weight:800;color:var(--accent)">🧩 Sabit Sayılarla Kesişim</span>`
+    +`<span style="display:flex;gap:4px;align-items:center;flex-shrink:0">`
+    +`<span style="font-size:.56rem;color:var(--muted)">${nums.length} sayı</span>`
+    +_htsGonderBtns(nums)
+    +`<button onclick="_caCopy(window._btsKesisimTopTxt);showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋 Kopyala</button>`
+    +`</span></div>`
+    +`<div style="font-size:.56rem;color:var(--muted);margin-bottom:7px;line-height:1.5">`
+    +`🔮 Yeni Tahmin için. Bu sayılardan aşağıdaki analizlerde de geçenler `
+    +`<span style="outline:2px solid #111;outline-offset:1px;border-radius:4px;padding:0 3px;font-family:monospace">siyah çerçeve</span> ile işaretlenir. `
+    +`Filtre kutusu aşağıdaki ayrıntılı kartta.</div>`
+    +`<div style="display:flex;flex-wrap:wrap;gap:3px">`
+    +nums.map(n=>`<span style="font-family:monospace;font-size:.68rem;background:rgba(108,92,231,.08);border:1px solid rgba(108,92,231,.25);color:#6c5ce7;border-radius:5px;padding:2px 7px">${n}</span>`).join('')
+    +`</div></div>`;
+}
 // ── Her analizin sağ üstüne "toplam net · yakın" rozeti ──────────────────────
 // Blok başlıklarındaki "🏆 N net" TEK BİLETİN en iyisidir; buradaki rozet ise o analizin
 // ÜRETTİĞİ TÜM sayılar içinde kaç FARKLI sayının tuttuğunu (✓) ve kaçının ±1 yakın (~)
@@ -24843,6 +24895,10 @@ function _qtSyncPairs(){
     row.className='qt-pair-row';
     row.style.cssText='display:grid;grid-template-columns:repeat('+nCol+',1fr);gap:20px;align-items:start;margin-bottom:12px';
     const lCell=document.createElement('div'),rCell=document.createElement('div');
+    // data-sk-yeni: 🔮 Yeni Tahmin sütunu — kesişim tekrarının siyah çerçevesi (_skTekrarUygula)
+    // yalnızca burada uygulanır. Sütunu metinden/ızgaradan tahmin etmek bu sayfada güvenilir
+    // değil (.qt-pair-row, Excel yıldızının _EX_IZGARA listesinde yer almıyor).
+    lCell.dataset.skYeni='1';
     if(liveMap[k])lCell.appendChild(liveMap[k]);
     if(testMap[k])rCell.appendChild(testMap[k]);
     row.appendChild(lCell);row.appendChild(rCell);
@@ -26920,6 +26976,46 @@ function _skUygula(scopeId){
   const i=ilkWrap?ilkWrap.querySelectorAll('[data-num]').length:0;
   ct.textContent=`Nihai: ${n} · İlk Hane: ${i} sayı gösteriliyor`;
 }
+// ═══════════════════════════════════════════════════════════════════════════
+// 🖤 KESİŞİM TEKRARI — 🧩 Sabit Sayılarla Kesişim'in 🔮 Yeni Tahmin sayıları, sayfanın
+// AŞAĞISINDAKİ analizlerde de geçiyorsa o sayılar siyah çizgili çerçeveye alınır.
+// Yalnızca yeni tahmin sütununda işaretlenir; geçmiş test sütunlarına dokunulmaz
+// (_exHucreTipi zaten 'yeni'/'son'/'atla' ayrımını yapıyor, Excel yıldızıyla aynı mantık).
+// ═══════════════════════════════════════════════════════════════════════════
+let _SK_TEKRAR={sayfa:null,set:new Set()};
+function _skTekrarKaydet(nums){
+  const yeni=new Set(nums||[]);
+  const S=_SK_TEKRAR;
+  const ayni=S.sayfa===_curPage&&S.set.size===yeni.size&&[...yeni].every(n=>S.set.has(n));
+  _SK_TEKRAR={sayfa:_curPage,set:yeni};
+  if(ayni)return;
+  // Küme değiştiyse eski işaretler geçersiz — hepsi silinir ki yeni kümeye göre baştan taransın.
+  try{document.querySelectorAll('[data-sk-tekrar]').forEach(el=>el.removeAttribute('data-sk-tekrar'));}catch(e){}
+}
+function _skTekrarUygula(){
+  try{
+    const S=_SK_TEKRAR;
+    if(!S.set.size||S.sayfa!==_curPage)return;
+    const kok=(_curPage==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+_curPage));
+    if(!kok)return;
+    // Sütun, metinden/tarihten TAHMİN EDİLMEZ — render sırasında data-sk-yeni ile açıkça
+    // işaretlenen 🔮 Yeni Tahmin kapsayıcıları taranır. Geçmiş test sütunları hiç görülmez.
+    let bakilan=0;
+    kok.querySelectorAll('[data-sk-yeni]').forEach(kap=>{
+      kap.querySelectorAll('span,td,div').forEach(el=>{
+        if(++bakilan>30000)return;
+        if(el.children.length)return;
+        if(el.dataset&&el.dataset.skTekrar)return;
+        const m=/^(\d{1,2})\s*([✓~●★])?$/.exec((el.textContent||'').trim());
+        if(!m||!S.set.has(+m[1]))return;
+        // Kesişim panelinin KENDİ çipleri işaretlenmez — kaynak zaten orası
+        if(el.closest&&el.closest('[data-sk-kaynak]'))return;
+        el.dataset.skTekrar='1';
+        el.title=(el.title?el.title+' · ':'')+'🧩 Sabit Sayılarla Kesişim’de de var';
+      });
+    });
+  }catch(e){}
+}
 // 🧩 Sabit Sayılarla Kesişim — Toplama/Çıkarma tablolarındaki tüm sayılar "sabit" kabul
 // edilir; Fark Zinciri'ndeki bir sayı bu sabit sayılardan birine doğrudan eşitse veya
 // ±1 farkla yakınsa (ya da hedef çekilişte doğrudan çıkmışsa) kesişim listesine girer.
@@ -26939,8 +27035,15 @@ function _soKesisimHesapla(topRows,cikRows,chainRows,nextSet){
 function _soKesisimCard(topRows,cikRows,chainRows,nextSet,badge,game,draw,copyKey,filtreScopeId,filtreYakinDefault,filtreKind,filtreKey){
   const kesisimler=_soKesisimHesapla(topRows,cikRows,chainRows,nextSet);
   window[copyKey]=`🧩 Sabit Sayılarla Kesişim — ${game.name} (${draw.date})\n`+(kesisimler.length?kesisimler.join(' '):'(kesişim yok)');
-  let h=`<div style="background:rgba(82,72,212,.05);border:1px solid rgba(82,72,212,.25);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
-  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><div style="font-size:.72rem;font-weight:800;color:var(--accent)">🧩 Sabit Sayılarla Kesişim</div><button onclick="_kbCopy(window.${copyKey})" style="font-size:.56rem;padding:2px 7px;border-radius:5px;border:1px solid rgba(82,72,212,.3);background:rgba(82,72,212,.06);color:var(--accent);cursor:pointer">📋</button></div>`;
+  // 🔮 Yeni Tahmin sütununun kesişim sayıları, aşağıdaki analizlerde tekrar edenleri siyah
+  // çerçeveye almak için saklanır (bkz. _skTekrarUygula). 'live' = Basit Tahmin,
+  // 'htsLive' = Hızlı Tahmin'in canlı sütunu; geçmiş test sütunları işaretlemeye girmez.
+  if(filtreKey==='live'||filtreKey==='htsLive')_skTekrarKaydet(kesisimler);
+  // data-sk-kaynak: bu panelin KENDİ çipleri siyah çerçeveye alınmaz (kaynak burası).
+  let h=`<div data-sk-kaynak="1" style="background:rgba(82,72,212,.05);border:1px solid rgba(82,72,212,.25);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px"><div style="font-size:.72rem;font-weight:800;color:var(--accent)">🧩 Sabit Sayılarla Kesişim</div>`
+    +`<span style="display:flex;gap:4px;align-items:center;flex-shrink:0">${_htsGonderBtns(kesisimler)}`
+    +`<button onclick="_kbCopy(window.${copyKey})" style="font-size:.56rem;padding:2px 7px;border-radius:5px;border:1px solid rgba(82,72,212,.3);background:rgba(82,72,212,.06);color:var(--accent);cursor:pointer">📋</button></span></div>`;
   // Filtre kutusu — kullanıcı isteği: elle sayı yazmak yerine TEK bir checkbox; işaretlenince
   // Kesişim'de o an görünen sayılar Nihai/İlk Hane tablolarının candSet'ini GERÇEKTEN daraltıp
   // yeniden render eder (Basit Tahmin'deki "Kaynak analiz(ler)" seç-filtrele mantığıyla aynı) —
@@ -29475,7 +29578,7 @@ function _exYildizTek(el,onbellek){
 }
 // Ekran değiştikçe otomatik uygula
 let _exYildizZaman=null;
-function _exYildizPlanla(){clearTimeout(_exYildizZaman);_exYildizZaman=setTimeout(()=>{_exYildizUygula();_esikIsaretle();},350);}
+function _exYildizPlanla(){clearTimeout(_exYildizZaman);_exYildizZaman=setTimeout(()=>{_exYildizUygula();_esikIsaretle();_skTekrarUygula();},350);}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 💰 Ödül / 🎯 hedef rozeti — uygulamanın TÜM ekranlarında biletlerin yanına
