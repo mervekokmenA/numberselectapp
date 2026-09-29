@@ -14552,27 +14552,61 @@ function _chtHesapla(prior,game){
 }
 // Kolonlama — görsellerdeki yapı: sabit ilk sayı + sabit son sayı + her kolonda tekrar eden
 // banko çekirdeği + havuzdan dönüşümlü değişen dolgu.
+// Görsellerde İKİ farklı kolon stili var, ikisi de üretiliyor:
+//
+//  STİL A — sabit uçlar.  05/03/2026'nın dört kolonu da 10 ile başlayıp 46 ile bitiyor,
+//           25 ve 38 dördünde de var; yalnızca 2 sayı değişiyor.
+//           23/12/2025'teki tek kolon da aynı kalıpta (6 … 48).
+//  STİL B — sabit kuyruk çifti + gezen ilk sayı.  63/2026'nın üç kolonunda da SON İKİ sayı
+//           aynı (47 57) ve 25 üçünde de var; ilk sayı dar bir bantta geziyor: 7 · 9 · 8.
+//
+// Ortak nokta: banko sayılar her kolonda tekrar eder, geri kalanı havuzdan dönüşümlü değişir.
 function _chtKolonUret(havuz,banko,cnt){
-  if(havuz.length<cnt||cnt<3)return [];
-  const ilk=havuz[0],son=havuz[havuz.length-1];
-  const yer=cnt-2;                                        // ilk ve son dışında kalan yer
-  // Çekirdek kolonun TAMAMINI doldurmamalı; yoksa dört kolon da birebir aynı çıkar.
-  // Şans Topu gibi 5 sayılık oyunlarda 4 bankonun hepsi sığmaz — en güçlüleri alınır.
-  const cekirdek=banko.filter(n=>n!==ilk&&n!==son).slice(0,Math.max(0,yer-1));
-  const orta=havuz.filter(n=>n!==ilk&&n!==son&&cekirdek.indexOf(n)<0);
-  const need=yer-cekirdek.length;
-  if(need<1||orta.length<need)return [];
-  const kolonlar=[];
-  for(let k=0;k<4;k++){
-    const set=new Set([ilk,son,...cekirdek]);
-    for(let j=0;j<need;j++)set.add(orta[(k*need+j)%orta.length]);
-    let i=0;while(set.size<cnt&&i<orta.length)set.add(orta[i++]);
-    if(set.size===cnt){
-      const arr=[...set].sort((a,b)=>a-b);
-      if(!kolonlar.some(x=>x.join()===arr.join()))kolonlar.push(arr);
+  const bos={a:[],b:[]};
+  if(havuz.length<cnt||cnt<3)return bos;
+  // Aynı kolon iki kez yazılmasın — stiller kesişebiliyor (küçük havuzlarda B'nin bir kolonu
+  // A'dakiyle birebir aynı çıkabiliyor; sayısalda ölçüldü).
+  const gorulen=new Set();
+  const ekle=(liste,set)=>{
+    if(set.size!==cnt)return;
+    const arr=[...set].sort((x,y)=>x-y),anahtar=arr.join();
+    if(gorulen.has(anahtar))return;
+    gorulen.add(anahtar);liste.push(arr);
+  };
+  // ── STİL A: ilk sabit + son sabit ──
+  const a=[];
+  {
+    const ilk=havuz[0],son=havuz[havuz.length-1];
+    const yer=cnt-2;
+    // Çekirdek kolonun TAMAMINI doldurmamalı; yoksa dört kolon da birebir aynı çıkar.
+    // Şans Topu gibi 5 sayılık oyunlarda 4 bankonun hepsi sığmaz — en güçlüleri alınır.
+    const cekirdek=banko.filter(n=>n!==ilk&&n!==son).slice(0,Math.max(0,yer-1));
+    const orta=havuz.filter(n=>n!==ilk&&n!==son&&cekirdek.indexOf(n)<0);
+    const need=yer-cekirdek.length;
+    if(need>=1&&orta.length>=need)for(let k=0;k<4;k++){
+      const set=new Set([ilk,son,...cekirdek]);
+      for(let j=0;j<need;j++)set.add(orta[(k*need+j)%orta.length]);
+      let i=0;while(set.size<cnt&&i<orta.length)set.add(orta[i++]);
+      ekle(a,set);
     }
   }
-  return kolonlar;
+  // ── STİL B: kuyrukta sabit banko çifti + dar bantta gezen ilk sayı ──
+  const b=[];
+  {
+    const kuyruk=havuz.slice(-2);                      // havuzun en büyük iki sayısı
+    const bant=havuz.filter(n=>kuyruk.indexOf(n)<0).slice(0,3);   // en küçük üçü: gezen ilk sayı
+    const yer=cnt-2-1;                                 // kuyruk 2 + gezen ilk 1
+    const cekirdek=banko.filter(n=>kuyruk.indexOf(n)<0&&bant.indexOf(n)<0).slice(0,Math.max(0,yer-1));
+    const orta=havuz.filter(n=>kuyruk.indexOf(n)<0&&bant.indexOf(n)<0&&cekirdek.indexOf(n)<0);
+    const need=yer-cekirdek.length;
+    if(bant.length&&need>=1&&orta.length>=need)for(let k=0;k<3;k++){
+      const set=new Set([...kuyruk,bant[k%bant.length],...cekirdek]);
+      for(let j=0;j<need;j++)set.add(orta[(k*need+j)%orta.length]);
+      let i=0;while(set.size<cnt&&i<orta.length)set.add(orta[i++]);
+      ekle(b,set);
+    }
+  }
+  return {a,b};
 }
 // Ortak kart çizici — FAD sayfasıyla AYNI hizalama ve kopyalama standardı:
 // başlık satırı ve gövde iki ayrı ızgara; kopyalama yalnızca 🔮 Yeni Tahmin'de, sağ üstte.
@@ -14692,37 +14726,47 @@ function _chtRender(){
       ek:`Havuzdan 2–3 sayı seçip bunlarla birleştirin.`}),
     tpl,kolCtx,metin,'#0891b2');
   // 7) kolonlar
-  const kolonluVar=D.some(d=>d&&d.kolonlar.length);
-  if(kolonluVar){
+  const tumKolon=d=>d?[...d.kolonlar.a,...d.kolonlar.b]:[];
+  if(D.some(d=>tumKolon(d).length)){
     h+=`<div class="card" style="margin-bottom:12px;border-left:3px solid #e11d48">`
       +`<div style="font-size:.74rem;font-weight:800;color:#e11d48;margin-bottom:4px">🎫 CHT Kolonları</div>`
       +`<div style="font-size:.6rem;color:var(--muted);margin-bottom:9px;line-height:1.55">`
-      +`Görsellerdeki kolon yapısı: <strong>hepsi aynı ilk sayı ile başlar, aynı son sayı ile biter</strong>, `
-      +`banko çekirdeği her kolonda tekrar eder, aradaki sayılar havuzdan dönüşümlü değişir. `
-      +`(05/03/2026 kolonlarının hepsi 10 ile başlayıp 46 ile bitiyor, 25 ve 38 dördünde de var.)</div>`;
+      +`Görsellerde <strong>iki farklı kolon stili</strong> var, ikisi de üretiliyor. Ortak nokta: `
+      +`banko sayılar her kolonda tekrar eder, geri kalanı havuzdan dönüşümlü değişir.<br>`
+      +`<strong>A — sabit uçlar:</strong> hepsi aynı ilk sayı ile başlar, aynı son sayı ile biter `
+      +`(05/03/2026'nın dört kolonu da 10 ile başlayıp 46 ile bitiyor, 25 ve 38 dördünde de var).<br>`
+      +`<strong>B — sabit kuyruk + gezen ilk sayı:</strong> son <em>iki</em> sayı her kolonda aynı, `
+      +`ilk sayı dar bir bantta gezer (63/2026'nın üç kolonunda da 47 ve 57 var, ilk sayı 7 · 9 · 8).</div>`;
     h+=`<div style="display:grid;grid-template-columns:${tpl};gap:12px;align-items:start">`
       +kol.map((k,i)=>{
-        const d=D[i];
-        if(!d||!d.kolonlar.length)return `<div style="min-width:0;font-size:.58rem;color:var(--muted)">Kolon üretilemedi.</div>`;
+        const d=D[i],hepsi=tumKolon(d);
+        if(!hepsi.length)return `<div style="min-width:0;font-size:.58rem;color:var(--muted)">Kolon üretilemedi.</div>`;
         const aSet=k.actual?new Set(k.actual.nums||[]):null;
         const ySet=_fadYakinSet(aSet,g.max);
-        const ham=d.kolonlar.map(c=>c.join(' ')).join('\n');
-        let enIyi=0;if(aSet)d.kolonlar.forEach(c=>{let n=0;c.forEach(x=>{if(aSet.has(x))n++;});if(n>enIyi)enIyi=n;});
-        const sol=`<span style="font-size:.56rem;color:var(--muted)">${d.kolonlar.length} kolon</span>`
+        const ham=hepsi.map(c=>c.join(' ')).join('\n');
+        let enIyi=0;if(aSet)hepsi.forEach(c=>{let n=0;c.forEach(x=>{if(aSet.has(x))n++;});if(n>enIyi)enIyi=n;});
+        const sol=`<span style="font-size:.56rem;color:var(--muted)">${hepsi.length} kolon</span>`
           +(aSet?`<span style="font-size:.56rem;font-weight:700;color:${enIyi>=3?'var(--green)':'var(--muted)'}">en iyi ${enIyi} net</span>`:'');
         let c=_fadSutunUst(k,'🎫 CHT Kolonları',ham,sol);
-        c+=d.kolonlar.map((col,ci)=>{
-          let net=0;if(aSet)col.forEach(x=>{if(aSet.has(x))net++;});
-          return `<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:5px">`
-            +`<span style="font-size:.5rem;color:var(--muted);min-width:12px">${ci+1}</span>`
-            +col.map(n=>_fadRozet(n,_fadDurum(n,aSet,ySet))).join('')
-            +(aSet?`<span style="font-size:.52rem;font-weight:700;color:${net>=3?'var(--green)':'var(--muted)'}">${net} net</span>`:'')
-            +`</div>`;
-        }).join('');
+        const grup=(etiket,liste)=>{
+          if(!liste.length)return '';
+          return `<div style="font-size:.54rem;font-weight:800;color:var(--muted);margin:4px 0 3px">${etiket}</div>`
+            +liste.map((col,ci)=>{
+              let net=0;if(aSet)col.forEach(x=>{if(aSet.has(x))net++;});
+              return `<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:5px">`
+                +`<span style="font-size:.5rem;color:var(--muted);min-width:12px">${ci+1}</span>`
+                +col.map(n=>_fadRozet(n,_fadDurum(n,aSet,ySet))).join('')
+                +(aSet?`<span style="font-size:.52rem;font-weight:700;color:${net>=3?'var(--green)':'var(--muted)'}">${net} net</span>`:'')
+                +`</div>`;
+            }).join('');
+        };
+        c+=grup('A · sabit uçlar',d.kolonlar.a)+grup('B · sabit kuyruk + gezen ilk sayı',d.kolonlar.b);
         return `<div style="min-width:0">${c}</div>`;
       }).join('')+`</div></div>`;
     const y=D[0];
-    if(y&&y.kolonlar.length)metin.push('🎫 CHT Kolonları\n'+y.kolonlar.map(c=>c.join(' ')).join('\n'));
+    if(y&&tumKolon(y).length)metin.push('🎫 CHT Kolonları\n'
+      +(y.kolonlar.a.length?'A · sabit uçlar\n'+y.kolonlar.a.map(c=>c.join(' ')).join('\n')+'\n':'')
+      +(y.kolonlar.b.length?'B · sabit kuyruk + gezen ilk sayı\n'+y.kolonlar.b.map(c=>c.join(' ')).join('\n'):''));
   }
   window._chtTxt=`🧠 CHT — ${g.name} · 🔮 Yeni Tahmin\n\n`+metin.join('\n\n');
   el.innerHTML=h;
