@@ -15660,9 +15660,16 @@ function listelerBazTemizle(){
 }
 // Saf: bir baz tarihe göre "kırmızı" pozisyon kümesi (o tarihten ÖNCEKİ işaretli
 // geçmiş sütunlarının hepsinde yeşil olan hücreler). Global state'e dokunmaz.
-function _listelerKirmiziHesapla(bazDate){
-  const checked=_listelerHistory.filter(h=>h.checked&&(!bazDate||h.date<bazDate));
+function _listelerKirmiziHesapla(bazDate,limit){
+  let checked=_listelerHistory.filter(h=>h.checked&&(!bazDate||h.date<bazDate));
   if(checked.length<2)return null;
+  // limit: yalnızca bazDate'e EN YAKIN `limit` kayıt kullanılır. Kırmızı hücre, kayıtların
+  // HEPSİNDE yeşil olan pozisyonların kesişimidir (v>=total) — yani kayıt sayısı arttıkça
+  // sonuç daralır. _listelerHistory paylaşılan ve büyüyen bir liste olduğu için, Hızlı
+  // Tahmin'de geçmiş sütunları çalıştıkça canlı sütunun tabanı da büyüyor ve 🔴 Kırmızı
+  // Hücreler 32'den 0'a düşüyordu. Limitle her sütun kendi sabit tabanını kullanır.
+  if(limit&&checked.length>limit)
+    checked=checked.slice().sort((x,y)=>y.date.localeCompare(x.date)).slice(0,limit);
   const cnt={};
   checked.forEach(col=>col.greenCells.forEach(k=>{cnt[k]=(cnt[k]||0)+1;}));
   const total=checked.length;
@@ -22738,14 +22745,16 @@ function _htsBulunanCalistir(mode,silent){
   const bazDate=col.actual?col.actual.date:null;
   const draws=_scanGetDraws(gid);
   const priorDraws=bazDate?draws.filter(d=>d.date<bazDate):draws;
-  const existingBefore=_listelerHistory.filter(h=>h.game.id===gid&&(!bazDate||h.date<bazDate));
-  if(existingBefore.length<2&&priorDraws.length>=2){
-    _listelerBacktestCore(gid,priorDraws[0].date,algoId,win,n);
-    _listelerBacktestCore(gid,priorDraws[1].date,algoId,win,n);
-  }
+  // Bu sütunun tabanı: kendi baz tarihinden hemen ÖNCEKİ İKİ çekiliş. Eskiden "zaten 2 kayıt
+  // varsa hiç ekleme" deniyordu; paylaşılan geçmişte başka sütunların kayıtları birikince
+  // canlı sütun yanlış tabanla hesaplanıyordu. Artık gereken iki tarih adıyla aranır.
+  priorDraws.slice(0,2).forEach(d=>{
+    if(!_listelerHistory.some(h=>h.game.id===gid&&h.date===d.date&&h.checked))
+      _listelerBacktestCore(gid,d.date,algoId,win,n);
+  });
   const res=_listelerNewPredCore(gid,algoId,win,n,bazDate);
   if(!res){if(!silent)showToast('⚠️ Yeterli veri yok');return;}
-  const redKeys=_listelerKirmiziHesapla(bazDate)||new Set();
+  const redKeys=_listelerKirmiziHesapla(bazDate,2)||new Set();
   const{numOrder}=_listelerKirmiziSayilari(res.tickets,redKeys,col.actual,gid);
   col.bulunan={algoName:_algoDisplayName(algoId),numOrder};
   _htsRenderAll();
