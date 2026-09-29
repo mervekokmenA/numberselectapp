@@ -22585,6 +22585,13 @@ function _htsDateTest(slot){
   const actual=draws[idx],prior=draws.slice(idx+1);
   _htsCol[mode]=prior.length>=60?_htsBuildCol(mode,gid,prior,actual):null;
   _htsRenderAll();
+  // Kullanıcı isteği: geçmiş test yüklenirken 🔎 Bulunan Sayılar'ın ▶ Çalıştır'ı da otomatik
+  // basılsın — 🚀 Üret'in canlı sütun için zaten yaptığı şeyin (bkz. _htsUret) aynısı.
+  // setTimeout(0): hesap pahalı (iki geri-test + yeni tahmin çekirdeği), önce sütun çizilsin
+  // ki ekran donmuş gibi görünmesin. Zaten hesaplanmışsa (aynı oyun+tarih yeniden seçildiyse
+  // _htsBuildCol sonucu koruyor) tekrar çalıştırılmaz.
+  if(_htsCol[mode]&&!_htsCol[mode].bulunan)
+    setTimeout(()=>{try{if(_htsCol[mode]&&!_htsCol[mode].bulunan)_htsBulunanCalistir(mode,true);}catch(e){}},0);
 }
 function _htsActiveModes(){
   // Kullanıcı isteği: geçmiş test sütunları/kutuları, o slota bir tarih GİRİLMEDEN önce hiç
