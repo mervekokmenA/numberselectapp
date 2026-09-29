@@ -13689,7 +13689,8 @@ let _dnSelected=new Set();
 let _dnYeniCands={};
 function _dnKolonHtml(baslik,tarihEtiket,source,prior,actualDraw,v,game,copyKey,isYeni){
   const cbHtml=isYeni?`<input type="checkbox" onchange="_dnToggleSel('${v.key}')" ${_dnSelected.has(v.key)?'checked':''} title="Ortak sayılar için seç" style="cursor:pointer;flex-shrink:0">`:'';
-  let h=`<div><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:2px">`
+  // Kesişim karelemesi için sütun türü açıkça yazılır (bkz. _skTekrarUygula).
+  let h=`<div${isYeni?' data-sk-yeni="1"':' data-sk-gecmis="1"'}><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:2px">`
     +`<span style="display:flex;align-items:center;gap:5px;min-width:0"><span style="font-size:.62rem;font-weight:800;color:var(--accent)">${baslik}</span></span>`
     +`<span style="display:flex;align-items:center;gap:5px;flex-shrink:0">${cbHtml}<button onclick="_dnCopy('${copyKey}')" class="copy-btn" style="font-size:.54rem;padding:1px 7px">📋</button></span></div>`;
   h+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">${tarihEtiket}</div>`;
@@ -13888,6 +13889,11 @@ function _fadGirdiler(kaynak){
 // KOPYALAMA STANDARDI (bu sayfa genelinde): kopyalanan şey YALNIZCA 🔮 Yeni Tahmin
 // sütunudur — geçmiş testler kopyaya girmez ve kendi kopyalama düğmeleri yoktur.
 // Düğme, kopyaladığı sayıların hemen üstünde ve sağa yaslı durur (kart başlığında değil).
+// Sütun kapsayıcısına yeni/geçmiş etiketi. Kesişim karelemesinin genel geçişi (bkz.
+// _skTekrarUygula) sütunu metinden sezmeye çalışır; CHT/FAD/Anahtar Şablon sütunlarının
+// başlığı "📅 Geçmiş 1 · 2026-09-20" biçiminde olduğu için o sezgi burada yanılıp geçmiş
+// sütunlarını "yeni" sanıyordu. Bu yüzden açıkça yazılıyor.
+function _skSutunAttr(k){return (k&&k.actual)?' data-sk-gecmis="1"':' data-sk-yeni="1"';}
 function _fadSutunUst(k,baslik,ham,solIcerik){
   return `<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px;min-height:24px">`
     +`<span style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0">${solIcerik||''}</span>`
@@ -13944,7 +13950,7 @@ function _fadAnahtarKart(g,kol,kolCtx,tpl,metin){
       c+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`
         +v.nums.map(n=>_fadRozet(n,_fadDurum(n,v.aSet,v.ySet))).join('')+`</div>`;
       c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
-      return `<div style="min-width:0">${c}</div>`;
+      return `<div style="min-width:0"${_skSutunAttr(k)}>${c}</div>`;
     }).join('')+`</div></div>`;
   if(metin&&hamYeni)metin.push(`${ad}\n${hamYeni}`);
   return h;
@@ -14004,7 +14010,7 @@ function _fadRender(){
         c+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`
           +v.sonuclar.map(n=>_fadRozet(n,_fadDurum(n,v.aSet,v.ySet))).join('')+`</div>`;
         c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
-        return `<div style="min-width:0">${c}</div>`;
+        return `<div style="min-width:0"${_skSutunAttr(k)}>${c}</div>`;
       }).join('')+`</div></div>`;
     if(hamYeni)metin.push(`${f.ad}\n${f.metin}\n${hamYeni}`);
   });
@@ -14265,7 +14271,7 @@ function _chtKart(ad,aciklama,kol,veri,tpl,kolCtx,metin,renk){
         +v.nums.map(n=>_fadRozet(n,_fadDurum(n,aSet,ySet))).join('')+`</div>`;
       if(v.ek)c+=`<div style="margin-top:7px;font-size:.56rem;color:var(--muted);line-height:1.6">${v.ek}</div>`;
       c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
-      return `<div style="min-width:0">${c}</div>`;
+      return `<div style="min-width:0"${_skSutunAttr(k)}>${c}</div>`;
     }).join('')+`</div></div>`;
   if(metin&&hamYeni)metin.push(`${ad}\n${hamYeni}`);
   return h;
@@ -14382,7 +14388,7 @@ function _chtRender(){
             }).join('');
         };
         c+=grup('A · sabit uçlar',d.kolonlar.a)+grup('B · sabit kuyruk + gezen ilk sayı',d.kolonlar.b);
-        return `<div style="min-width:0">${c}</div>`;
+        return `<div style="min-width:0"${_skSutunAttr(k)}>${c}</div>`;
       }).join('')+`</div></div>`;
     const y=D[0];
     if(y&&tumKolon(y).length)metin.push('🎫 CHT Kolonları\n'
@@ -18671,7 +18677,7 @@ function _ashRender(){
       c+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`
         +v.nums.map(n=>_fadRozet(n,_fadDurum(n,v.aSet,v.ySet))).join('')+`</div>`;
       c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
-      return `<div style="min-width:0">${c}</div>`;
+      return `<div style="min-width:0"${_skSutunAttr(k)}>${c}</div>`;
     }).join('')+`</div>`;
   // Bölüm kopyası da standarda uyar: yalnızca 🔮 Yeni Tahmin sayıları.
   const hamYeni=_fadYeniHam(kol,veri,'nums');
@@ -22154,7 +22160,10 @@ function _snRenderTable(game,systems,rows){
   rows.forEach(row=>{
     const {idx,actual,targetDateStr}=row;
     const bandBg=idx===-1?'rgba(99,102,241,.1)':'var(--surface2)';
-    h+=`<div style="background:${bandBg};border:1px solid var(--border);border-radius:8px;padding:8px 9px;min-width:0">`;
+    // idx===-1 yeni tahmin satırı, diğerleri geçmiş çekiliş satırları. Kesişim karelemesi
+    // yalnızca yeni tahmin için doğru olduğundan satırlar açıkça etiketleniyor — yoksa bu
+    // tablodaki yüzlerce geçmiş hücre de karelenip yanıltıcı olurdu (ölçümde 282 hücre).
+    h+=`<div${idx===-1?' data-sk-yeni="1"':' data-sk-gecmis="1"'} style="background:${bandBg};border:1px solid var(--border);border-radius:8px;padding:8px 9px;min-width:0">`;
     h+=`<div style="display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:6px;font-family:monospace;font-size:.82rem">`;
     if(actual){
       const res=[...(actual.nums||[])].sort((a,b)=>a-b);
@@ -22773,7 +22782,10 @@ function _htsBuildGroups(col,mode){
 function _htsRenderNihaiRow(modes){
   const el=document.getElementById('htsRowNihai');if(!el)return;
   el.style.gridTemplateColumns='repeat('+modes.length+',1fr)';
-  el.innerHTML=modes.map(m=>`<div id="nihaiIlkHane_${m}"></div>`).join('');
+  // data-sk-mod: Nihai Sayı / İlk Hane tabloları da kesişim karelemesine girsin. Bu satır
+  // setRow ile değil ayrı çiziliyordu, o yüzden işareti almıyor ve tek kareleme görünmeyen
+  // bölüm burası kalıyordu.
+  el.innerHTML=modes.map(m=>`<div id="nihaiIlkHane_${m}" data-sk-mod="${m}"></div>`).join('');
   modes.forEach(m=>{
     const col=_htsCol[m];
     if(!col)return;
@@ -27049,17 +27061,54 @@ function _skTekrarKaydet(mod,nums){
       .forEach(el=>el.removeAttribute('data-sk-tekrar'));
   }catch(e){}
 }
+// Bir kaynak çekilişten 🧩 Sabit Sayılarla Kesişim sayıları.
+function _skKumeDraw(game,draw){
+  try{
+    const ga=_soGapAnalysisCompute(draw,game);
+    if(ga)return _soKesisimHesapla(ga.topRows,ga.cikRows,ga.chainRows,null);
+  }catch(e){}
+  return [];
+}
+// Sayfasında kendi kesişim paneli OLMAYAN bölümler için genel küme: seçili oyunun EN SON
+// çekilişinden hesaplanır (yani 🔮 yeni tahmin için geçerli olan küme). Oyun başına önbellek.
+let _SK_GENEL={gid:null,set:new Set()};
+function _skGenelKume(){
+  const gid=(state&&state.selectedGame)||GAMES[0].id;
+  if(_SK_GENEL.gid===gid)return _SK_GENEL.set;
+  let s=new Set();
+  try{
+    const draws=_kbGetDraws(gid)||[];
+    if(draws[0])s=new Set(_skKumeDraw(getGame(gid),draws[0]));
+  }catch(e){}
+  // Oyun değişti → genel kümeye göre konmuş tüm işaretler geçersiz, temizlenir.
+  try{document.querySelectorAll('[data-sk-tekrar]').forEach(e=>e.removeAttribute('data-sk-tekrar'));}catch(e){}
+  _SK_GENEL={gid,set:s};
+  return s;
+}
+// Uygulamanın yerleşim kuralı: çok sütunlu bir ızgarada İLK sütun 🔮 Yeni Tahmin, sonrakiler
+// 📊 geçmiş testtir. _exHucreTipi sezgisi bu düzeni her sayfada yakalayamıyor (Deneme'de iki
+// geçmiş sütunu da "yeni" sanılıp yanlış kümeyle karelenmişti; ölçümde 51 hücre), bu yüzden
+// sütun indeksi ayrıca kontrol edilir.
+function _skIlkSutunMu(el){
+  let c=el;
+  for(let i=0;i<14&&c&&c.parentElement;i++){
+    const par=c.parentElement,st=par.style;
+    if(st&&st.display==='grid'&&par.children.length>1)return [...par.children].indexOf(c)===0;
+    c=par;
+  }
+  return true;
+}
 function _skTekrarUygula(){
   try{
     const S=_SK_TEKRAR;
-    if(S.sayfa!==_curPage)return;
     const kok=(_curPage==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+_curPage));
     if(!kok)return;
-    // Sütun, metinden/tarihten TAHMİN EDİLMEZ — render sırasında data-sk-mod ile açıkça
-    // işaretlenen sütun kapsayıcıları taranır (🔮 Yeni Tahmin ve 📊 geçmiş testler).
+    // Genel küme ÖNCE alınır: oyun değiştiyse _skGenelKume eski işaretlerin tamamını siler.
+    // Aşağıdaki 1. geçişten SONRA çağrılsaydı, o geçişin yeni koyduğu işaretleri de silerdi
+    // (ölçümde Basit Tahmin'de tüm kareleme kayboluyordu).
+    const genel=_skGenelKume();
     let bakilan=0;
-    kok.querySelectorAll('[data-sk-mod]').forEach(kap=>{
-      const set=S.setler[kap.dataset.skMod];
+    const isaretle=(kap,set)=>{
       if(!set||!set.size)return;
       kap.querySelectorAll('span,td,div').forEach(el=>{
         if(++bakilan>60000)return;
@@ -27072,7 +27121,32 @@ function _skTekrarUygula(){
         el.dataset.skTekrar='1';
         el.title=(el.title?el.title+' · ':'')+'🧩 Sabit Sayılarla Kesişim’de de var';
       });
-    });
+    };
+    // 1) AÇIK İŞARETLİ sütunlar — sütun metinden/tarihten tahmin edilmez, render sırasında
+    //    data-sk-mod ile yazılır ve her sütun KENDİ kesişim kümesiyle işaretlenir.
+    if(S.sayfa===_curPage)
+      kok.querySelectorAll('[data-sk-mod]').forEach(kap=>isaretle(kap,S.setler[kap.dataset.skMod]));
+    // 2) GERİ KALAN HER YER — kendi kesişim paneli olmayan sayfalardaki analizler de
+    //    karelensin (kullanıcı isteği: özellik tüm uygulamada geçerli). Burada seçili oyunun
+    //    son çekilişinden çıkan genel küme kullanılır; bu küme yalnızca 🔮 YENİ TAHMİN için
+    //    doğru olduğundan, geçmiş test hücreleri işaretlenmez. Yeni/geçmiş ayrımı için
+    //    uygulamanın Excel yıldızında zaten kullandığı _exHucreTipi kullanılır.
+    if(genel.size){
+      kok.querySelectorAll('span,td,div').forEach(el=>{
+        if(++bakilan>60000)return;
+        if(el.children.length)return;
+        if(el.dataset&&el.dataset.skTekrar)return;
+        const m=/^(\d{1,2})\s*([✓~●★])?$/.exec((el.textContent||'').trim());
+        if(!m||!genel.has(+m[1]))return;
+        if(!el.closest)return;
+        if(el.closest('[data-sk-kaynak]'))return;   // kesişimin kendi paneli
+        if(el.closest('[data-sk-mod]'))return;      // 1. geçişin alanı, kendi kümesi var
+        if(el.closest('[data-sk-gecmis]'))return;   // açıkça geçmiş test sütunu
+        if(!el.closest('[data-sk-yeni]')&&(_exHucreTipi(el)!=='yeni'||!_skIlkSutunMu(el)))return;
+        el.dataset.skTekrar='1';
+        el.title=(el.title?el.title+' · ':'')+'🧩 Sabit Sayılarla Kesişim’de de var';
+      });
+    }
   }catch(e){}
 }
 // 🧩 Sabit Sayılarla Kesişim — Toplama/Çıkarma tablolarındaki tüm sayılar "sabit" kabul
