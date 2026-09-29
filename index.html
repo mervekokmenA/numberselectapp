@@ -22580,9 +22580,9 @@ function _htsRenderAll(){
   const setRow=(id,builder)=>{
     const el=document.getElementById(id);if(!el)return;
     el.style.gridTemplateColumns='repeat('+nCol+',1fr)';
-    // data-sk-yeni: 🔮 Yeni Tahmin sütunu açıkça işaretlenir — kesişim tekrarının siyah
-    // çerçevesi (_skTekrarUygula) yalnızca bu sütunda uygulanır, geçmiş testlerde değil.
-    el.innerHTML=modes.map(m=>`<div${m==='htsLive'?' data-sk-yeni="1"':''}>${builder(m,_htsCol[m])}</div>`).join('');
+    // data-sk-mod: her sütun kendi mod adıyla işaretlenir — kesişim tekrarının siyah
+    // çerçevesi (_skTekrarUygula) her sütunda O SÜTUNUN kendi kesişim kümesiyle uygulanır.
+    el.innerHTML=modes.map(m=>`<div data-sk-mod="${m}">${builder(m,_htsCol[m])}</div>`).join('');
   };
   const bosMsg=m=>m==='htsLive'?'Yeterli çekiliş verisi yok / henüz üretilmedi.':'Bu tarih için yeterli önceki veri yok.';
   setRow('htsRowOzet',(m,col)=>{
@@ -22825,7 +22825,9 @@ function _btsKesisimTopRender(game,src,prior){
     +`<div style="font-size:.56rem;color:var(--muted);margin-bottom:7px;line-height:1.5">`
     +`🔮 Yeni Tahmin için. Bu sayılardan aşağıdaki analizlerde de geçenler `
     +`<span style="outline:2px solid #111;outline-offset:1px;border-radius:4px;padding:0 3px;font-family:monospace">siyah çerçeve</span> ile işaretlenir. `
-    +`Filtre kutusu aşağıdaki ayrıntılı kartta.</div>`
+    +`📊 Geçmiş test sütunlarında da aynısı yapılır — ama orada her sütun `
+    +`<strong>kendi</strong> kaynak çekilişinden çıkan kendi kesişim sayılarıyla işaretlenir, `
+    +`buradaki listeyle değil. Filtre kutusu aşağıdaki ayrıntılı kartta.</div>`
     +`<div style="display:flex;flex-wrap:wrap;gap:3px">`
     +nums.map(n=>`<span style="font-family:monospace;font-size:.68rem;background:rgba(108,92,231,.08);border:1px solid rgba(108,92,231,.25);color:#6c5ce7;border-radius:5px;padding:2px 7px">${n}</span>`).join('')
     +`</div></div>`;
@@ -24903,15 +24905,16 @@ function _qtSyncPairs(){
     row.className='qt-pair-row';
     row.style.cssText='display:grid;grid-template-columns:repeat('+nCol+',1fr);gap:20px;align-items:start;margin-bottom:12px';
     const lCell=document.createElement('div'),rCell=document.createElement('div');
-    // data-sk-yeni: 🔮 Yeni Tahmin sütunu — kesişim tekrarının siyah çerçevesi (_skTekrarUygula)
-    // yalnızca burada uygulanır. Sütunu metinden/ızgaradan tahmin etmek bu sayfada güvenilir
-    // değil (.qt-pair-row, Excel yıldızının _EX_IZGARA listesinde yer almıyor).
-    lCell.dataset.skYeni='1';
+    // data-sk-mod: her sütun kendi mod adıyla işaretlenir — kesişim tekrarının siyah çerçevesi
+    // (_skTekrarUygula) her sütunda O SÜTUNUN kendi kesişim kümesiyle uygulanır. Sütunu
+    // metinden/ızgaradan tahmin etmek bu sayfada güvenilir değil (.qt-pair-row, Excel
+    // yıldızının _EX_IZGARA listesinde yer almıyor).
+    lCell.dataset.skMod='live';rCell.dataset.skMod='test';
     if(liveMap[k])lCell.appendChild(liveMap[k]);
     if(testMap[k])rCell.appendChild(testMap[k]);
     row.appendChild(lCell);row.appendChild(rCell);
-    if(has2){const r2=document.createElement('div');if(test2Map[k])r2.appendChild(test2Map[k]);row.appendChild(r2);}
-    if(has3){const r3=document.createElement('div');if(test3Map[k])r3.appendChild(test3Map[k]);row.appendChild(r3);}
+    if(has2){const r2=document.createElement('div');r2.dataset.skMod='test2';if(test2Map[k])r2.appendChild(test2Map[k]);row.appendChild(r2);}
+    if(has3){const r3=document.createElement('div');r3.dataset.skMod='test3';if(test3Map[k])r3.appendChild(test3Map[k]);row.appendChild(r3);}
     grid.appendChild(row);
   });
   // Başlık satırı da sütun sayısını takip etsin
@@ -26990,32 +26993,42 @@ function _skUygula(scopeId){
 // Yalnızca yeni tahmin sütununda işaretlenir; geçmiş test sütunlarına dokunulmaz
 // (_exHucreTipi zaten 'yeni'/'son'/'atla' ayrımını yapıyor, Excel yıldızıyla aynı mantık).
 // ═══════════════════════════════════════════════════════════════════════════
-let _SK_TEKRAR={sayfa:null,set:new Set()};
-function _skTekrarKaydet(nums){
+// Her SÜTUN kendi kesişim kümesiyle işaretlenir. Geçmiş test sütunlarının kaynak çekilişi
+// farklı olduğu için kesişim sayıları da farklıdır — tek ortak küme kullanmak o sütunlarda
+// yanlış sayıları çerçeveye alırdı. Bu yüzden küme sütun (mode) başına tutulur ve bir
+// sütundaki sayı yalnızca KENDİ sütununun kesişim kümesine göre işaretlenir.
+let _SK_TEKRAR={sayfa:null,setler:{}};
+function _skTekrarKaydet(mod,nums){
   const yeni=new Set(nums||[]);
-  const S=_SK_TEKRAR;
-  const ayni=S.sayfa===_curPage&&S.set.size===yeni.size&&[...yeni].every(n=>S.set.has(n));
-  _SK_TEKRAR={sayfa:_curPage,set:yeni};
+  if(_SK_TEKRAR.sayfa!==_curPage)_SK_TEKRAR={sayfa:_curPage,setler:{}};
+  const eski=_SK_TEKRAR.setler[mod];
+  const ayni=eski&&eski.size===yeni.size&&[...yeni].every(n=>eski.has(n));
+  _SK_TEKRAR.setler[mod]=yeni;
   if(ayni)return;
-  // Küme değiştiyse eski işaretler geçersiz — hepsi silinir ki yeni kümeye göre baştan taransın.
-  try{document.querySelectorAll('[data-sk-tekrar]').forEach(el=>el.removeAttribute('data-sk-tekrar'));}catch(e){}
+  // Küme değiştiyse O SÜTUNUN eski işaretleri geçersiz — yalnızca orası temizlenir.
+  try{
+    document.querySelectorAll('[data-sk-mod="'+mod+'"] [data-sk-tekrar]')
+      .forEach(el=>el.removeAttribute('data-sk-tekrar'));
+  }catch(e){}
 }
 function _skTekrarUygula(){
   try{
     const S=_SK_TEKRAR;
-    if(!S.set.size||S.sayfa!==_curPage)return;
+    if(S.sayfa!==_curPage)return;
     const kok=(_curPage==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+_curPage));
     if(!kok)return;
-    // Sütun, metinden/tarihten TAHMİN EDİLMEZ — render sırasında data-sk-yeni ile açıkça
-    // işaretlenen 🔮 Yeni Tahmin kapsayıcıları taranır. Geçmiş test sütunları hiç görülmez.
+    // Sütun, metinden/tarihten TAHMİN EDİLMEZ — render sırasında data-sk-mod ile açıkça
+    // işaretlenen sütun kapsayıcıları taranır (🔮 Yeni Tahmin ve 📊 geçmiş testler).
     let bakilan=0;
-    kok.querySelectorAll('[data-sk-yeni]').forEach(kap=>{
+    kok.querySelectorAll('[data-sk-mod]').forEach(kap=>{
+      const set=S.setler[kap.dataset.skMod];
+      if(!set||!set.size)return;
       kap.querySelectorAll('span,td,div').forEach(el=>{
-        if(++bakilan>30000)return;
+        if(++bakilan>60000)return;
         if(el.children.length)return;
         if(el.dataset&&el.dataset.skTekrar)return;
         const m=/^(\d{1,2})\s*([✓~●★])?$/.exec((el.textContent||'').trim());
-        if(!m||!S.set.has(+m[1]))return;
+        if(!m||!set.has(+m[1]))return;
         // Kesişim panelinin KENDİ çipleri işaretlenmez — kaynak zaten orası
         if(el.closest&&el.closest('[data-sk-kaynak]'))return;
         el.dataset.skTekrar='1';
@@ -27043,10 +27056,12 @@ function _soKesisimHesapla(topRows,cikRows,chainRows,nextSet){
 function _soKesisimCard(topRows,cikRows,chainRows,nextSet,badge,game,draw,copyKey,filtreScopeId,filtreYakinDefault,filtreKind,filtreKey){
   const kesisimler=_soKesisimHesapla(topRows,cikRows,chainRows,nextSet);
   window[copyKey]=`🧩 Sabit Sayılarla Kesişim — ${game.name} (${draw.date})\n`+(kesisimler.length?kesisimler.join(' '):'(kesişim yok)');
-  // 🔮 Yeni Tahmin sütununun kesişim sayıları, aşağıdaki analizlerde tekrar edenleri siyah
-  // çerçeveye almak için saklanır (bkz. _skTekrarUygula). 'live' = Basit Tahmin,
-  // 'htsLive' = Hızlı Tahmin'in canlı sütunu; geçmiş test sütunları işaretlemeye girmez.
-  if(filtreKey==='live'||filtreKey==='htsLive')_skTekrarKaydet(kesisimler);
+  // Bu sütunun kesişim sayıları, aynı sütundaki analizlerde tekrar edenleri siyah çerçeveye
+  // almak için saklanır (bkz. _skTekrarUygula). 🔮 Yeni Tahmin ve 📊 geçmiş testlerin HEPSİ
+  // dahildir; her sütun kendi kaynak çekilişinden çıkan kendi kümesiyle işaretlenir.
+  // Yalnızca kind='qt' (Basit/Hızlı Tahmin) kaydedilir — Gülay'ın anahtarı sütun indeksi
+  // olduğu için mod adlarıyla karışırdı.
+  if(filtreKind==='qt')_skTekrarKaydet(filtreKey,kesisimler);
   // data-sk-kaynak: bu panelin KENDİ çipleri siyah çerçeveye alınmaz (kaynak burası).
   let h=`<div data-sk-kaynak="1" style="background:rgba(82,72,212,.05);border:1px solid rgba(82,72,212,.25);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px"><div style="font-size:.72rem;font-weight:800;color:var(--accent)">🧩 Sabit Sayılarla Kesişim</div>`
