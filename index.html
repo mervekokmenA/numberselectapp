@@ -418,6 +418,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       <button class="nav-link" id="navBtn-deneme" onclick="showMainPage('deneme')">🧪 Deneme</button>
       <button class="nav-link" id="navBtn-karne" onclick="showMainPage('karne')">📋 Karne</button>
       <button class="nav-link" id="navBtn-fad" onclick="showMainPage('fad')">🔠 FAD Şablon</button>
+      <button class="nav-link" id="navBtn-cht" onclick="showMainPage('cht')">🧠 CHT</button>
       <button class="nav-link" id="navBtn-gulsis0" onclick="showMainPage('gulsis0')">🎯⁰ Gülsis Sıfır</button>
       <button class="nav-link" id="navBtn-haber" onclick="showMainPage('haber')">📰 Haber Yöntemleri</button>
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
@@ -2025,6 +2026,38 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div id="fadList"></div>
 </div>
 
+<!-- ═══════════ PAGE: CHT ═══════════ -->
+<div style="grid-column:1/-1;display:none" id="page-cht">
+ <div class="card">
+  <div class="card-title">🧠 CHT</div>
+  <div style="font-size:.68rem;color:var(--muted);margin-bottom:10px;line-height:1.55">
+   Paylaştığınız tahminlerden çıkardığım yöntemler burada uygulanıyor. Çekirdek fikir
+   <strong>ardıl analizi</strong>: geçmişte bir sayı çıktıktan <em>sonraki</em> çekilişte hangi
+   sayıların geldiğine bakılır. Son çekilişin her sayısı için bu yapılır, sonuçlar birleştirilir.
+   Üstüne <strong>12'li havuz + banko</strong>, <strong>ilk/son sayı</strong>,
+   <strong>tekrar</strong>, <strong>ardışık çift</strong> ve <strong>eşleme</strong> bölümleri gelir.
+   Her analiz 🔮 Yeni Tahmin + 3 Geçmiş Test olarak yan yana; geçmişte kaynak hep o tarihten
+   <strong>önceki</strong> çekiliştir — <strong>ileriye bakış yok</strong>.
+  </div>
+  <div style="font-size:.62rem;color:#c2410c;margin-bottom:10px;line-height:1.55;padding:7px 9px;background:rgba(194,65,12,.06);border:1px solid rgba(194,65,12,.25);border-radius:7px">
+   ⚠️ <strong>Dürüst not:</strong> bu sayfa o kişinin yöntemini sadakatle uyguluyor, yöntemin
+   çalıştığını iddia etmiyor. Ham sayım yerine <strong>lift</strong> kullanılıyor: bir sayının
+   ardıl oranı kendi normal çıkma oranıyla kıyaslanıyor, yoksa zaten sık çıkan sayılar her
+   listede başa gelirdi. Az gözlemli oranlar da kendi taban oranına çekiliyor (shrinkage).
+   Gerçekten rastgeleden iyi mi — 📋 Karne sayfasından ölçebilirsiniz, oraya satır olarak eklendi.
+  </div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+   <button onclick="_chtCopy()" title="Sayfadaki tüm analizlerin 🔮 Yeni Tahmin sayılarını kopyalar (geçmiş testler kopyaya girmez)" style="padding:6px 14px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.4);color:#7c3aed;border-radius:8px;cursor:pointer;font-size:.72rem;font-weight:700">📋 Tüm Yeni Tahminleri Kopyala</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;align-items:center">
+   <div style="font-size:.66rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
+   <select id="chtDateSel" onchange="_chtRender()" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
+   <select id="chtDateSel2" onchange="_chtRender()" title="2. geçmiş test" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
+   <select id="chtDateSel3" onchange="_chtRender()" title="3. geçmiş test" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px"></select>
+  </div>
+ </div>
+ <div id="chtList"></div>
+</div>
 
 </div><!-- /app -->
 <div id="toast"></div>
@@ -13952,6 +13985,8 @@ const _KRN_ANALIZ=[
   {ad:'🔄 Dönüşümler',tip:'havuz',fn:(g,p)=>{const s=new Set();_TR_DEFS.forEach(d=>_trCands(d,p[0],g.max,false).forEach(n=>s.add(n)));return [...s];}},
   {ad:'🔢 Hane Hesaplama',tip:'havuz',fn:(g,p)=>_hnAdaylar(p[0],g)},
   {ad:'🔑 Anahtar Şablon',tip:'havuz',fn:(g,p)=>_dnAnahtarSablon(p,g)},
+  // 🧠 CHT sayfasının havuzu — yöntem ölçülebilir olsun diye karneye eklendi.
+  {ad:'🧠 CHT Havuzu',tip:'havuz',fn:(g,p)=>{const d=_chtHesapla(p,g);return d?d.havuz:[];}},
   {ad:'🔬 Araştırma Şampiyonu',tip:'havuz',fn:(g,p)=>{
     if(p.length<30)return [];
     const w=(_MR_CHAMP[g.id]||_mrRepeatW)(p.slice(0,30),g.max);
@@ -14377,6 +14412,322 @@ function _fadRender(){
   el.innerHTML=h;
 }
 function _fadCopy(){const t=window._fadTxt;if(!t){showToast('⚠️ Veri yok');return;}_caCopy(t);showToast('📋 Kopyalandı');}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧠 CHT — paylaşılan tahmin görsellerinden çıkarılan yöntemler.
+//
+// ÇEKİRDEK: ardıl analizi. "Önceki oyunda 4 çıktıktan sonra sonraki oyunlarda hep 7 gelmiş"
+// fikri: geçmişte bir sayı çıktıktan SONRAKİ çekilişte hangi sayıların geldiğine bakılır.
+// Son çekilişin her sayısı için ayrı ayrı yapılır, sonuçlar birleştirilir.
+//
+// Ham sayım KULLANILMAZ. Ham sayımda zaten sık çıkan sayılar her listenin başına gelir ve
+// liste "ardıl" değil "frekans" listesi olur. Onun yerine LIFT kullanılır: sayının ardıl
+// oranı ile kendi taban oranı arasındaki fark. Az gözlemli oranlar (bir sayı geçmişte az
+// çıktıysa) kendi taban oranına çekilir — shrinkage, K=10.
+//
+// Görsellerden okunan diğer yapılar:
+//   · 12'li havuz + içinden banko (2+2 grup olarak da gösterilir)
+//   · ilk sayı / son sayı beklentisi ("ilk sayı 6 gelmezse 10'lu sayılarda", "son sayı 50")
+//   · son çekilişin tekrarı ("son sayı 56 tekrarı olmazsa")
+//   · ardışık çiftler ("36.37 gibi ya da 24.25 gibi ekleyin")
+//   · eşleme ("2'li ya da 3'lü alıp burada olmayan rakamlarla eşleştirebilirsiniz")
+//   · kolonlama: 05/03/2026 kolonlarının HEPSİ 10 ile başlayıp 46 ile bitiyor, 25 ve 38
+//     dört kolonda da var → sabit ilk + sabit son + banko çekirdeği + değişen dolgu.
+// ═══════════════════════════════════════════════════════════════════════════
+const _CHT_SHRINK=10;
+function _chtOyun(){return (state&&state.selectedGame)||GAMES[0].id;}
+function _chtInit(){_chtRender();}
+function _chtSetGame(g){
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('chtDateSel'+sl);if(e)e.value='';});
+  _chtRender();
+}
+function _chtDates(){
+  const sel=document.getElementById('chtDateSel');if(!sel)return;
+  const draws=_kbGetDraws(_chtOyun())||[];
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  // Ardıl analizi için anlamlı bir geçmiş gerekir; 60'tan az kalan tarihler listelenmez.
+  draws.forEach((d,i)=>{if(draws.length-i-1<60)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('chtDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
+}
+// Sütunlar: 🔮 Yeni Tahmin (tüm geçmiş) + seçili geçmiş testler (o tarihten ÖNCEKİ verilerle).
+function _chtKolonSutunlar(){
+  const draws=_kbGetDraws(_chtOyun())||[];
+  const kol=[];
+  if(draws.length)kol.push({baslik:'🔮 Yeni Tahmin',tarih:draws[0].date,prior:draws,actual:null});
+  ['','2','3'].forEach((sl,i)=>{
+    const v=document.getElementById('chtDateSel'+sl)?.value||'';
+    if(!v)return;
+    const idx=draws.findIndex(d=>d.date===v);
+    if(idx<0)return;
+    const prior=draws.slice(idx+1);
+    if(prior.length<60)return;      // ileriye bakış yok: kaynak hep o tarihten öncesi
+    kol.push({baslik:'📅 Geçmiş '+(i+1),tarih:v,prior,actual:draws[idx]});
+  });
+  return kol;
+}
+function _chtHesapla(prior,game){
+  const max=game.max,cnt=Math.max(2,game.count);
+  const kaynak=[...new Set(((prior[0]||{}).nums||[]).filter(n=>n>=1&&n<=max))].sort((a,b)=>a-b);
+  const N=prior.length;
+  if(!kaynak.length||N<20)return null;
+  // taban oran: her sayının normal çıkma oranı
+  const base={};
+  for(let n=1;n<=max;n++)base[n]=0;
+  prior.forEach(d=>(d.nums||[]).forEach(n=>{if(n>=1&&n<=max)base[n]++;}));
+  for(let n=1;n<=max;n++)base[n]/=N;
+  // ardıl sayımı: prior yeniden eskiye sıralı → prior[i]'nin SONRAKİ çekilişi prior[i-1]'dir.
+  // i=0 atlanır: onun sonrası zaten tahmin etmeye çalıştığımız çekiliş (ileriye bakış olurdu).
+  const detay={},lift={};let gecerliKaynak=0;
+  for(let n=1;n<=max;n++)lift[n]=0;
+  kaynak.forEach(s=>{
+    const say={};let occ=0;
+    for(let i=1;i<N;i++){
+      if(!(prior[i].nums||[]).includes(s))continue;
+      occ++;
+      (prior[i-1].nums||[]).forEach(m=>{if(m>=1&&m<=max)say[m]=(say[m]||0)+1;});
+    }
+    detay[s]={say,occ};
+    if(!occ)return;
+    gecerliKaynak++;
+    // Standartlaştırılmış fazlalık. ÖNCE "oran − taban" kullanılıyordu; o, taban oranı DÜŞÜK
+    // sayıları sistematik kayırıyordu (ardılı hiç görülmeyen bir sayının cezası tabanıyla
+    // orantılı olduğu için nadir sayılar hep listenin başına geliyordu — dört oyunda da
+    // havuzun başında 1 çıkıyordu). Bunun yerine: gözlenen sayı ile beklenen sayı farkı,
+    // kendi standart sapmasına bölünür. Varyansa +1 eklenir; beklenti çok küçükken tek bir
+    // rastlantısal isabetin skoru uçurmasını engeller.
+    for(let m=1;m<=max;m++){
+      const bek=occ*base[m];
+      const sd=Math.sqrt(bek*(1-base[m])+1);
+      lift[m]+=((say[m]||0)-bek)/sd;
+    }
+  });
+  if(gecerliKaynak>1){const k=Math.sqrt(gecerliKaynak);for(let n=1;n<=max;n++)lift[n]/=k;}
+  const sirali=[];for(let n=1;n<=max;n++)sirali.push({n,lift:lift[n],base:base[n]});
+  sirali.sort((a,b)=>b.lift-a.lift||a.n-b.n);
+  const havuzBoy=Math.max(12,cnt+4);
+  const havuz=sirali.slice(0,havuzBoy).map(o=>o.n).sort((a,b)=>a-b);
+  const banko=sirali.slice(0,4).map(o=>o.n).sort((a,b)=>a-b);
+  const esleme=sirali.slice(havuzBoy,havuzBoy+6).map(o=>o.n).sort((a,b)=>a-b);
+  // ilk / son sayı dağılımı
+  const ilkSay={},sonSay={},ilkOn={},sonOn={};
+  prior.forEach(d=>{
+    const ns=(d.nums||[]).filter(x=>x>=1&&x<=max).sort((a,b)=>a-b);
+    if(!ns.length)return;
+    const a=ns[0],z=ns[ns.length-1];
+    ilkSay[a]=(ilkSay[a]||0)+1;sonSay[z]=(sonSay[z]||0)+1;
+    const ao=Math.floor((a-1)/10)*10+1,zo=Math.floor((z-1)/10)*10+1;
+    ilkOn[ao]=(ilkOn[ao]||0)+1;sonOn[zo]=(sonOn[zo]||0)+1;
+  });
+  const enUst=(o,k)=>Object.keys(o).map(Number).sort((a,b)=>o[b]-o[a]||a-b).slice(0,k);
+  // tekrar: bir çekilişin sayılarından kaçı bir sonraki çekilişte de çıkıyor?
+  let tekTop=0,enAz1=0,tn=0;
+  for(let i=1;i<N;i++){
+    const a=new Set((prior[i].nums||[]).filter(x=>x>=1&&x<=max));
+    let k=0;(prior[i-1].nums||[]).forEach(m=>{if(a.has(m))k++;});
+    tekTop+=k;if(k>=1)enAz1++;tn++;
+  }
+  const tekrarAday=kaynak.map(s=>{
+    const d=detay[s];
+    return {n:s,oran:d.occ?((d.say[s]||0)/d.occ):0,occ:d.occ};
+  }).sort((a,b)=>b.oran-a.oran);
+  // ardışık çiftler
+  let ardTop=0;
+  prior.forEach(d=>{
+    const ns=(d.nums||[]).filter(x=>x>=1&&x<=max).sort((a,b)=>a-b);
+    for(let i=1;i<ns.length;i++)if(ns[i]-ns[i-1]===1){ardTop++;break;}
+  });
+  const hSet=new Set(havuz),ardCift=[];
+  havuz.forEach(n=>{if(hSet.has(n+1))ardCift.push([n,n+1]);});
+  // Havuzun EN KÜÇÜK / EN BÜYÜK uçlarındaki sayılar, geçmişte çekilişin min/max'ı olma
+  // oranlarıyla birlikte. Kolonun nereden başlayıp nerede biteceğini seçmek için asıl
+  // kullanışlı olan bu — ham min dağılımı her oyunda 1–5'i verir ve hiçbir şey ayırt etmez.
+  const ilkHavuz=havuz.slice(0,3).map(n=>({n,p:(ilkSay[n]||0)/N}));
+  const sonHavuz=havuz.slice(-3).map(n=>({n,p:(sonSay[n]||0)/N})).reverse();
+  return {kaynak,havuz,banko,esleme,sirali,detay,base,N,ilkHavuz,sonHavuz,
+    ilkAday:enUst(ilkSay,5),sonAday:enUst(sonSay,5),
+    ilkOnluk:enUst(ilkOn,3),sonOnluk:enUst(sonOn,3),ilkSay,sonSay,ilkOn,sonOn,
+    tekrarOrt:tn?tekTop/tn:0,tekrarEnAz1:tn?enAz1/tn:0,tekrarAday,
+    ardOran:N?ardTop/N:0,ardCift,
+    kolonlar:_chtKolonUret(havuz,banko,cnt)};
+}
+// Kolonlama — görsellerdeki yapı: sabit ilk sayı + sabit son sayı + her kolonda tekrar eden
+// banko çekirdeği + havuzdan dönüşümlü değişen dolgu.
+function _chtKolonUret(havuz,banko,cnt){
+  if(havuz.length<cnt||cnt<3)return [];
+  const ilk=havuz[0],son=havuz[havuz.length-1];
+  const yer=cnt-2;                                        // ilk ve son dışında kalan yer
+  // Çekirdek kolonun TAMAMINI doldurmamalı; yoksa dört kolon da birebir aynı çıkar.
+  // Şans Topu gibi 5 sayılık oyunlarda 4 bankonun hepsi sığmaz — en güçlüleri alınır.
+  const cekirdek=banko.filter(n=>n!==ilk&&n!==son).slice(0,Math.max(0,yer-1));
+  const orta=havuz.filter(n=>n!==ilk&&n!==son&&cekirdek.indexOf(n)<0);
+  const need=yer-cekirdek.length;
+  if(need<1||orta.length<need)return [];
+  const kolonlar=[];
+  for(let k=0;k<4;k++){
+    const set=new Set([ilk,son,...cekirdek]);
+    for(let j=0;j<need;j++)set.add(orta[(k*need+j)%orta.length]);
+    let i=0;while(set.size<cnt&&i<orta.length)set.add(orta[i++]);
+    if(set.size===cnt){
+      const arr=[...set].sort((a,b)=>a-b);
+      if(!kolonlar.some(x=>x.join()===arr.join()))kolonlar.push(arr);
+    }
+  }
+  return kolonlar;
+}
+// Ortak kart çizici — FAD sayfasıyla AYNI hizalama ve kopyalama standardı:
+// başlık satırı ve gövde iki ayrı ızgara; kopyalama yalnızca 🔮 Yeni Tahmin'de, sağ üstte.
+function _chtKart(ad,aciklama,kol,veri,tpl,kolCtx,metin,renk){
+  if(!veri.some(v=>v&&v.nums&&v.nums.length))return '';
+  const hamYeni=_fadYeniHam(kol,veri,'nums');
+  let h=`<div class="card" style="margin-bottom:12px;border-left:3px solid ${renk}">`
+    +`<div style="font-size:.74rem;font-weight:800;color:${renk};margin-bottom:4px">${ad}</div>`
+    +(aciklama?`<div style="font-size:.6rem;color:var(--muted);margin-bottom:9px;line-height:1.55">${aciklama}</div>`:'');
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:12px;margin-bottom:6px">`
+    +kol.map(k=>{
+      let bh=`<div style="display:inline-flex;align-items:center;font-size:.6rem;font-weight:800;`
+        +`color:${k.actual?'var(--text)':renk};background:${k.actual?'var(--surface2)':'rgba(0,0,0,.03)'};`
+        +`border:1px solid var(--border);border-radius:7px;padding:3px 8px;margin-bottom:5px">${kolCtx(k)}</div>`;
+      bh+=`<div style="font-size:.54rem;color:var(--muted);line-height:1.5">Kaynak çekiliş `
+        +`<strong style="color:var(--text);font-family:monospace">${[...new Set(((k.prior[0]||{}).nums||[]))].sort((a,b)=>a-b).join(' ')}</strong></div>`;
+      if(k.actual)bh+=`<div style="font-size:.54rem;color:var(--muted);line-height:1.5">Gerçek çekiliş: `
+        +`<strong style="color:var(--green);font-family:monospace">${(k.actual.nums||[]).join(' ')}</strong></div>`;
+      return `<div style="min-width:0">${bh}</div>`;
+    }).join('')+`</div>`;
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:12px;align-items:start">`
+    +kol.map((k,i)=>{
+      const v=veri[i];
+      if(!v||!v.nums||!v.nums.length)return `<div style="min-width:0;font-size:.58rem;color:var(--muted)">Yeterli geçmiş yok.</div>`;
+      const aSet=k.actual?new Set(k.actual.nums||[]):null;
+      const ySet=_fadYakinSet(aSet,getGame(_chtOyun()).max);
+      const ham=v.nums.join(' ');
+      let net=0,yak=0;
+      if(aSet)v.nums.forEach(n=>{const d=_fadDurum(n,aSet,ySet);if(d==='net')net++;else if(d==='yakin')yak++;});
+      const sol=`<span style="font-size:.56rem;color:var(--muted)">${v.nums.length} sayı</span>`
+        +(aSet?`<span style="font-size:.56rem;font-weight:700;color:${net?'var(--green)':'var(--muted)'}">${net} net</span>`
+          +(yak?`<span style="font-size:.56rem;font-weight:700;color:#c2410c">${yak} yakın</span>`:''):'');
+      let c=_fadSutunUst(k,ad,ham,sol);
+      c+=`<div style="display:flex;flex-wrap:wrap;gap:6px">`
+        +v.nums.map(n=>_fadRozet(n,_fadDurum(n,aSet,ySet))).join('')+`</div>`;
+      if(v.ek)c+=`<div style="margin-top:7px;font-size:.56rem;color:var(--muted);line-height:1.6">${v.ek}</div>`;
+      c+=`<div style="margin-top:6px;font-family:monospace;font-size:.54rem;color:var(--muted);opacity:.8;word-break:break-word">${ham}</div>`;
+      return `<div style="min-width:0">${c}</div>`;
+    }).join('')+`</div></div>`;
+  if(metin&&hamYeni)metin.push(`${ad}\n${hamYeni}`);
+  return h;
+}
+function _chtRender(){
+  const el=document.getElementById('chtList');if(!el)return;
+  _chtDates();
+  const g=getGame(_chtOyun()),draws=_kbGetDraws(_chtOyun())||[];
+  if(draws.length<60){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Bu oyun için yeterli geçmiş veri yok (ardıl analizi için en az 60 çekiliş gerekli).</div>';window._chtTxt='';return;}
+  const kol=_chtKolonSutunlar(),kolCtx=k=>k.baslik+(k.tarih?' · '+k.tarih:'');
+  const D=kol.map(k=>_chtHesapla(k.prior,g));
+  if(!D.some(Boolean)){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Hesap için yeterli veri yok.</div>';window._chtTxt='';return;}
+  const tpl='repeat('+kol.length+',minmax(0,1fr))';
+  const metin=[];
+  const onlukAd=o=>o+'–'+(o+9);
+  let h='';
+  // 1) 12'li havuz + banko
+  h+=_chtKart('🎯 Havuz + 🔒 Banko',
+    `Ardıl lift'i en yüksek <strong>${D.find(Boolean).havuz.length} sayı</strong> havuzu; ilk 4'ü banko. `
+    +`Banko, görsellerdeki gibi <strong>2 + 2 ayrı grup</strong> olarak da yazılır.`,
+    kol,D.map(d=>d&&{nums:d.havuz,
+      ek:`🔒 <strong>Banko:</strong> <span style="font-family:monospace;color:var(--text);font-weight:800">${d.banko.join(' ')}</span>`
+        +` &nbsp;·&nbsp; grup: <span style="font-family:monospace">${d.banko.slice(0,2).join('.')}</span> + <span style="font-family:monospace">${d.banko.slice(2,4).join('.')}</span>`}),
+    tpl,kolCtx,metin,'#7c3aed');
+  // 2) ardıl analizi detayı
+  h+=_chtKart('🔗 Ardıl Analizi',
+    `Son çekilişin her sayısı için: geçmişte o sayı çıktıktan <em>sonraki</em> çekilişte en çok hangi sayılar gelmiş. `
+    +`Aşağıda sayı başına en güçlü 3 ardıl var (parantez: o sayının geçmişte kaç kez çıktığı).`,
+    kol,D.map(d=>{
+      if(!d)return null;
+      const satir=d.kaynak.map(s=>{
+        const dd=d.detay[s];
+        if(!dd.occ)return `<div><strong>${s}</strong> → (geçmişte çıkmamış)</div>`;
+        // Havuz skoruyla AYNI ölçü: standartlaştırılmış fazlalık (bkz. _chtHesapla).
+        const top=Object.keys(dd.say).map(Number)
+          .map(m=>{const bek=dd.occ*d.base[m];return {m,o:((dd.say[m]||0)-bek)/Math.sqrt(bek*(1-d.base[m])+1)};})
+          .sort((a,b)=>b.o-a.o).slice(0,3);
+        return `<div><strong>${s}</strong> <span style="opacity:.6">(${dd.occ}×)</span> → `
+          +top.map(t=>`<span style="font-family:monospace;font-weight:700;color:var(--text)">${t.m}</span>`).join(' · ')+`</div>`;
+      }).join('');
+      return {nums:d.havuz.slice(0,8),ek:satir};
+    }),tpl,kolCtx,metin,'#0a9a6a');
+  // 3) ilk / son sayı
+  h+=_chtKart('📍 İlk Sayı / Son Sayı',
+    `"İlk sayı 6 gelmezse 10'lu sayılarda gelebilir · son sayı 50 ile biter" mantığı — kolonun `
+    +`<strong>nereden başlayıp nerede biteceği</strong>. Adaylar <strong>havuzdan</strong> seçilir; `
+    +`yanlarındaki yüzde, o sayının geçmişte çekilişin en küçüğü/en büyüğü olma oranıdır. `
+    +`(Ham dağılımda ilk sayı her zaman 1–5 çıkar, o yüzden tek başına işe yaramaz.)`,
+    kol,D.map(d=>d&&{nums:[...new Set([...d.ilkHavuz.map(o=>o.n),...d.sonHavuz.map(o=>o.n)])].sort((a,b)=>a-b),
+      ek:`⬇️ <strong>Havuzdan ilk sayı adayları:</strong> `
+        +d.ilkHavuz.map(o=>`<span style="font-family:monospace;font-weight:700;color:var(--text)">${o.n}</span> <span style="opacity:.7">%${(100*o.p).toFixed(1)}</span>`).join(' · ')
+        +`<br>⬆️ <strong>Havuzdan son sayı adayları:</strong> `
+        +d.sonHavuz.map(o=>`<span style="font-family:monospace;font-weight:700;color:var(--text)">${o.n}</span> <span style="opacity:.7">%${(100*o.p).toFixed(1)}</span>`).join(' · ')
+        +`<br><span style="opacity:.75">Genel eğilim — ilk sayı onluğu: <strong>${d.ilkOnluk.map(onlukAd).join(' · ')}</strong>`
+        +` · son sayı onluğu: <strong>${d.sonOnluk.map(onlukAd).join(' · ')}</strong></span>`}),
+    tpl,kolCtx,metin,'#2563eb');
+  // 4) tekrar
+  h+=_chtKart('🔁 Tekrar Analizi',
+    `"Son sayı 56 tekrarı olmazsa…" — son çekilişin sayılarından kaçı bir sonraki çekilişte de çıkıyor? `
+    +`Aşağıdaki sayılar, son çekilişin <strong>kendini en çok tekrarlayan</strong> sayıları.`,
+    kol,D.map(d=>d&&{nums:d.tekrarAday.slice(0,4).map(t=>t.n).sort((a,b)=>a-b),
+      ek:`Geçmişte ortalama <strong>${d.tekrarOrt.toFixed(2)}</strong> sayı tekrar ediyor · `
+        +`en az 1 tekrar olasılığı <strong>%${(100*d.tekrarEnAz1).toFixed(0)}</strong>.<br>`
+        +d.tekrarAday.slice(0,4).map(t=>`<strong>${t.n}</strong>: %${(100*t.oran).toFixed(0)}`).join(' · ')}),
+    tpl,kolCtx,metin,'#c2410c');
+  // 5) ardışık çiftler
+  h+=_chtKart('🪜 Ardışık Çiftler',
+    `"Kolonlama yaparken 36.37 gibi ya da 24.25 gibi ekleyin" — havuz içindeki ardışık çiftler.`,
+    kol,D.map(d=>d&&{nums:[...new Set(d.ardCift.flat())].sort((a,b)=>a-b),
+      ek:`Çiftler: <span style="font-family:monospace;font-weight:700;color:var(--text)">`
+        +(d.ardCift.length?d.ardCift.map(p=>p[0]+'.'+p[1]).join(' · '):'(havuzda ardışık çift yok)')+`</span><br>`
+        +`Geçmişte çekilişlerin <strong>%${(100*d.ardOran).toFixed(0)}</strong>'inde en az bir ardışık çift var.`}),
+    tpl,kolCtx,metin,'#b8860b');
+  // 6) eşleme
+  h+=_chtKart('🔀 Eşleme Adayları',
+    `"Bunlardan 2'li ya da 3'lü rakam alıp burada olmayan rakamlarla eşleştirebilirsiniz" — `
+    +`havuzun hemen <strong>dışında</strong> kalan, sıradaki en güçlü sayılar.`,
+    kol,D.map(d=>d&&{nums:d.esleme,
+      ek:`Havuzdan 2–3 sayı seçip bunlarla birleştirin.`}),
+    tpl,kolCtx,metin,'#0891b2');
+  // 7) kolonlar
+  const kolonluVar=D.some(d=>d&&d.kolonlar.length);
+  if(kolonluVar){
+    h+=`<div class="card" style="margin-bottom:12px;border-left:3px solid #e11d48">`
+      +`<div style="font-size:.74rem;font-weight:800;color:#e11d48;margin-bottom:4px">🎫 CHT Kolonları</div>`
+      +`<div style="font-size:.6rem;color:var(--muted);margin-bottom:9px;line-height:1.55">`
+      +`Görsellerdeki kolon yapısı: <strong>hepsi aynı ilk sayı ile başlar, aynı son sayı ile biter</strong>, `
+      +`banko çekirdeği her kolonda tekrar eder, aradaki sayılar havuzdan dönüşümlü değişir. `
+      +`(05/03/2026 kolonlarının hepsi 10 ile başlayıp 46 ile bitiyor, 25 ve 38 dördünde de var.)</div>`;
+    h+=`<div style="display:grid;grid-template-columns:${tpl};gap:12px;align-items:start">`
+      +kol.map((k,i)=>{
+        const d=D[i];
+        if(!d||!d.kolonlar.length)return `<div style="min-width:0;font-size:.58rem;color:var(--muted)">Kolon üretilemedi.</div>`;
+        const aSet=k.actual?new Set(k.actual.nums||[]):null;
+        const ySet=_fadYakinSet(aSet,g.max);
+        const ham=d.kolonlar.map(c=>c.join(' ')).join('\n');
+        let enIyi=0;if(aSet)d.kolonlar.forEach(c=>{let n=0;c.forEach(x=>{if(aSet.has(x))n++;});if(n>enIyi)enIyi=n;});
+        const sol=`<span style="font-size:.56rem;color:var(--muted)">${d.kolonlar.length} kolon</span>`
+          +(aSet?`<span style="font-size:.56rem;font-weight:700;color:${enIyi>=3?'var(--green)':'var(--muted)'}">en iyi ${enIyi} net</span>`:'');
+        let c=_fadSutunUst(k,'🎫 CHT Kolonları',ham,sol);
+        c+=d.kolonlar.map((col,ci)=>{
+          let net=0;if(aSet)col.forEach(x=>{if(aSet.has(x))net++;});
+          return `<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:5px">`
+            +`<span style="font-size:.5rem;color:var(--muted);min-width:12px">${ci+1}</span>`
+            +col.map(n=>_fadRozet(n,_fadDurum(n,aSet,ySet))).join('')
+            +(aSet?`<span style="font-size:.52rem;font-weight:700;color:${net>=3?'var(--green)':'var(--muted)'}">${net} net</span>`:'')
+            +`</div>`;
+        }).join('');
+        return `<div style="min-width:0">${c}</div>`;
+      }).join('')+`</div></div>`;
+    const y=D[0];
+    if(y&&y.kolonlar.length)metin.push('🎫 CHT Kolonları\n'+y.kolonlar.map(c=>c.join(' ')).join('\n'));
+  }
+  window._chtTxt=`🧠 CHT — ${g.name} · 🔮 Yeni Tahmin\n\n`+metin.join('\n\n');
+  el.innerHTML=h;
+}
+function _chtCopy(){const t=window._chtTxt;if(!t){showToast('⚠️ Veri yok');return;}_caCopy(t);showToast('📋 Kopyalandı');}
 
 // Gülsis Sıfır kapsama-optimal bilet grubu üreticisi — Kapsamlı'ya ayrı bir mod olarak entegre.
 // Konsensüsü HİÇ etkilemez; Gülsis Sıfır motorunu (_g0GenBundle) Kapsamlı'nın seçili oyununda çalıştırır.
@@ -14968,8 +15319,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','deneme','karne','fad','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',deneme:'🧪 Deneme',karne:'📋 Karne',fad:'🔠 FAD Şablon',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','deneme','karne','fad','cht','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','arastirma','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',deneme:'🧪 Deneme',karne:'📋 Karne',fad:'🔠 FAD Şablon',cht:'🧠 CHT',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',arastirma:'🔬 Yöntem Araştırma',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -14982,6 +15333,7 @@ function _pageInit(id){
   if(id==='deneme')_dnInit();
   if(id==='karne')_krnInit();
   if(id==='fad')_fadInit();
+  if(id==='cht')_chtInit();
   if(id==='soz')_soInit();
   if(id==='gulsis0')_g0Init();
   if(id==='nihai')_niInit();
@@ -15029,11 +15381,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-deneme','page-karne','page-fad','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
+  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-deneme','page-karne','page-fad','page-cht','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-arastirma','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-deneme','navBtn-karne','navBtn-fad','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-deneme','navBtn-karne','navBtn-fad','navBtn-cht','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-arastirma','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
@@ -29669,7 +30021,7 @@ try{
 // Uygulamanın HERHANGİ bir yerinde oyun tipi değiştirilirse, tüm sayfalardaki
 // tüm oyun seçicileri aynı oyuna geçer. Her seçici fonksiyonu tek bir sarmalayıcıdan
 // geçirilir; yayılım sırasında tekrar tetiklenmemesi için bayrakla korunur.
-const _OYUN_SETTERS=['selectGame','_fadSetGame','_kbSetGame','_hbSetGame','_niSetGame','_caSetGame','_npSetGame',
+const _OYUN_SETTERS=['selectGame','_fadSetGame','_chtSetGame','_kbSetGame','_hbSetGame','_niSetGame','_caSetGame','_npSetGame',
   '_nnSetGame','_cbSetGame','_mpRSetGame','_kazananSetGame','_soSetGame','_mrSetGame','_snSetGame',
   '_qtSetGame','_agSetGame','_hySetGame','_fmSetGame','_f2SetGame','_htSetGame','_gsSetGame',
   '_g0SetGame','_gizliSetGame'];
