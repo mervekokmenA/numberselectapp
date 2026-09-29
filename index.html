@@ -2039,12 +2039,26 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    Her analiz 🔮 Yeni Tahmin + 3 Geçmiş Test olarak yan yana; geçmişte kaynak hep o tarihten
    <strong>önceki</strong> çekiliştir — <strong>ileriye bakış yok</strong>.
   </div>
-  <div style="font-size:.62rem;color:#c2410c;margin-bottom:10px;line-height:1.55;padding:7px 9px;background:rgba(194,65,12,.06);border:1px solid rgba(194,65,12,.25);border-radius:7px">
-   ⚠️ <strong>Dürüst not:</strong> bu sayfa o kişinin yöntemini sadakatle uyguluyor, yöntemin
-   çalıştığını iddia etmiyor. Ham sayım yerine <strong>lift</strong> kullanılıyor: bir sayının
-   ardıl oranı kendi normal çıkma oranıyla kıyaslanıyor, yoksa zaten sık çıkan sayılar her
-   listede başa gelirdi. Az gözlemli oranlar da kendi taban oranına çekiliyor (shrinkage).
-   Gerçekten rastgeleden iyi mi — 📋 Karne sayfasından ölçebilirsiniz, oraya satır olarak eklendi.
+  <div style="font-size:.62rem;color:#c2410c;margin-bottom:10px;line-height:1.6;padding:8px 10px;background:rgba(194,65,12,.06);border:1px solid rgba(194,65,12,.25);border-radius:7px">
+   ⚠️ <strong>Bu sayfanın ölçüm sonucu — okumadan kullanmayın.</strong>
+   Sayfa o kişinin yöntemini sadakatle uyguluyor; yöntemin çalıştığını <em>iddia etmiyor</em>.
+   Yöntem, 4 oyun × 150 çekilişte ileriye bakış olmadan ölçüldü:
+   <ul style="margin:5px 0 5px 16px;padding:0">
+    <li><strong>🎯 Havuz rastgele seviyesinde.</strong> Ardıl skorlamasının <strong>17 varyantı</strong>
+        denendi (pencere uzunluğu, jokerin katılması, kaynak ağırlıklandırma). Hiçbiri,
+        kontrol olarak konan <em>tamamen rastgele seçilmiş</em> 12'li havuzu geçemedi —
+        rastgele kontrol listenin <strong>en üstünde</strong> çıktı. Yani varyantlar arası
+        farklar gürültü; havuzda ölçülebilir bir üstünlük yok.</li>
+    <li><strong>🎫 Kolonlar rastgelenin altında.</strong> "En iyi kolonun neti" ölçüsünde aynı
+        sayıdaki rastgele bilete göre: şans −0.64 · süper −0.40 · sayısal −0.50 · on numara −0.28 net.
+        Sebep yapısal — kolonlar dar bir havuzda yoğunlaştığı için üst üste biniyor, oysa bu ölçü
+        <strong>kapsamayı</strong> ödüllendirir. Havuzda üstünlük olmayınca yoğunlaşmak net kaybettiriyor.
+        (Kolonlar bu ölçüme göre yeniden yazıldı, kapsama artırıldı: şans 9→12, süper 11→15,
+        sayısal 12→19, on numara 14→32 farklı sayı. Kayıp küçüldü ama sıfırlanmadı.)</li>
+   </ul>
+   Yöntemin kendi iç mantığı bozulmadı: ham sayım yerine <strong>lift</strong> kullanılıyor
+   (bir sayının ardıl oranı kendi normal çıkma oranıyla kıyaslanır), yoksa liste "ardıl" değil
+   sadece "sık çıkanlar" listesi olurdu. Kendiniz ölçmek için: 📋 Karne → <em>🧠 CHT Havuzu</em>.
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
    <button onclick="_chtCopy()" title="Sayfadaki tüm analizlerin 🔮 Yeni Tahmin sayılarını kopyalar (geçmiş testler kopyaya girmez)" style="padding:6px 14px;background:rgba(124,58,237,.12);border:1px solid rgba(124,58,237,.4);color:#7c3aed;border-radius:8px;cursor:pointer;font-size:.72rem;font-weight:700">📋 Tüm Yeni Tahminleri Kopyala</button>
@@ -14548,7 +14562,7 @@ function _chtHesapla(prior,game){
     ilkOnluk:enUst(ilkOn,3),sonOnluk:enUst(sonOn,3),ilkSay,sonSay,ilkOn,sonOn,
     tekrarOrt:tn?tekTop/tn:0,tekrarEnAz1:tn?enAz1/tn:0,tekrarAday,
     ardOran:N?ardTop/N:0,ardCift,
-    kolonlar:_chtKolonUret(havuz,banko,cnt)};
+    kolonlar:_chtKolonUret(havuz,banko,cnt,sirali.map(o=>o.n))};
 }
 // Kolonlama — görsellerdeki yapı: sabit ilk sayı + sabit son sayı + her kolonda tekrar eden
 // banko çekirdeği + havuzdan dönüşümlü değişen dolgu.
@@ -14561,50 +14575,70 @@ function _chtHesapla(prior,game){
 //           aynı (47 57) ve 25 üçünde de var; ilk sayı dar bir bantta geziyor: 7 · 9 · 8.
 //
 // Ortak nokta: banko sayılar her kolonda tekrar eder, geri kalanı havuzdan dönüşümlü değişir.
-function _chtKolonUret(havuz,banko,cnt){
+// ÖLÇÜM SONUCU — kolon üretici yeniden yazıldı.
+// Eski hâlde sabit çekirdek çok büyüktü ve dolgular kolonlar arasında dönüşümlü tekrar
+// ediyordu: 7 kolon × 5 sayı = 35 yer, ama yalnızca 9 FARKLI sayı (her sayı ~4 kez).
+// Sonuç, 150 çekilişlik ileri-yürüyen ölçümde dört oyunda da belirgin biçimde kötüydü —
+// "en iyi kolonun neti" aynı sayıdaki rastgele biletin altında kalıyordu:
+//   şans z −5.3 · süper z −3.1 · sayısal z −3.9 · on numara z −1.2
+// Sebep yapısal: "en iyi kolon" ölçüsü KAPSAMA ödüllendirir, üst üste binen kolonlar
+// tek bir kolondan fazlasını getirmez.
+// Düzeltme, stili bozmadan: (1) sabit çekirdek en fazla 1 bankoya indirildi — ilk/son
+// sayı zaten sabit olduğu için kimlik korunuyor; (2) dolgular kolonlar arasında SIRAYLA
+// ve tekrarsız dağıtılıyor; (3) havuz dolguya yetmezse sıralı listenin devamından alınıyor.
+function _chtKolonUret(havuz,banko,cnt,siraliN){
   const bos={a:[],b:[]};
   if(havuz.length<cnt||cnt<3)return bos;
   // Aynı kolon iki kez yazılmasın — stiller kesişebiliyor (küçük havuzlarda B'nin bir kolonu
   // A'dakiyle birebir aynı çıkabiliyor; sayısalda ölçüldü).
   const gorulen=new Set();
   const ekle=(liste,set)=>{
-    if(set.size!==cnt)return;
+    if(set.size!==cnt)return false;
     const arr=[...set].sort((x,y)=>x-y),anahtar=arr.join();
-    if(gorulen.has(anahtar))return;
-    gorulen.add(anahtar);liste.push(arr);
+    if(gorulen.has(anahtar))return false;
+    gorulen.add(anahtar);liste.push(arr);return true;
+  };
+  // Dolgu kaynağı: önce havuz, tükenirse sıralı listenin devamı (kapsama sürsün diye).
+  // Dolgu HER ZAMAN alt/üst sınırın arasında kalmalı; yoksa kolonun ilk/son sayısı değişir ve
+  // stilin kimliği ("hepsi aynı sayıyla başlar/biter") bozulur — ölçümde sayısalda son sayı
+  // 78 ve 85 olarak ikiye çıkmıştı, on numarada gezen ilk sayının altına 2 sızmıştı.
+  const dolguKaynak=(sabit,alt,ust)=>{
+    const d=new Set(sabit);
+    const uygun=n=>!d.has(n)&&n>alt&&n<ust;
+    return [...havuz.filter(uygun),...(siraliN||[]).filter(n=>uygun(n)&&havuz.indexOf(n)<0)];
+  };
+  const uret=(liste,adet,sabitUret,alt,ust)=>{
+    const ilkSabit=sabitUret(0);
+    if(!ilkSabit)return;
+    const kaynak=dolguKaynak(ilkSabit,alt,ust);
+    let idx=0;                                   // dolgular kolonlar arasında TEKRARSIZ ilerler
+    for(let k=0;k<adet;k++){
+      const sabit=sabitUret(k);if(!sabit)break;
+      const set=new Set(sabit);
+      while(set.size<cnt&&idx<kaynak.length){const v=kaynak[idx++];if(!set.has(v))set.add(v);}
+      if(set.size<cnt)break;                     // dolgu bitti, eksik kolon yazma
+      ekle(liste,set);
+    }
   };
   // ── STİL A: ilk sabit + son sabit ──
   const a=[];
   {
     const ilk=havuz[0],son=havuz[havuz.length-1];
-    const yer=cnt-2;
-    // Çekirdek kolonun TAMAMINI doldurmamalı; yoksa dört kolon da birebir aynı çıkar.
-    // Şans Topu gibi 5 sayılık oyunlarda 4 bankonun hepsi sığmaz — en güçlüleri alınır.
-    const cekirdek=banko.filter(n=>n!==ilk&&n!==son).slice(0,Math.max(0,yer-1));
-    const orta=havuz.filter(n=>n!==ilk&&n!==son&&cekirdek.indexOf(n)<0);
-    const need=yer-cekirdek.length;
-    if(need>=1&&orta.length>=need)for(let k=0;k<4;k++){
-      const set=new Set([ilk,son,...cekirdek]);
-      for(let j=0;j<need;j++)set.add(orta[(k*need+j)%orta.length]);
-      let i=0;while(set.size<cnt&&i<orta.length)set.add(orta[i++]);
-      ekle(a,set);
-    }
+    const cekirdek=banko.filter(n=>n!==ilk&&n!==son).slice(0,1);   // en fazla 1 banko
+    const sabit=[ilk,son,...cekirdek].slice(0,cnt-1);              // en az 1 yer dolguya kalsın
+    uret(a,4,()=>sabit,ilk,son);                                   // dolgu ilk ile son arasında
   }
   // ── STİL B: kuyrukta sabit banko çifti + dar bantta gezen ilk sayı ──
   const b=[];
   {
-    const kuyruk=havuz.slice(-2);                      // havuzun en büyük iki sayısı
-    const bant=havuz.filter(n=>kuyruk.indexOf(n)<0).slice(0,3);   // en küçük üçü: gezen ilk sayı
-    const yer=cnt-2-1;                                 // kuyruk 2 + gezen ilk 1
-    const cekirdek=banko.filter(n=>kuyruk.indexOf(n)<0&&bant.indexOf(n)<0).slice(0,Math.max(0,yer-1));
-    const orta=havuz.filter(n=>kuyruk.indexOf(n)<0&&bant.indexOf(n)<0&&cekirdek.indexOf(n)<0);
-    const need=yer-cekirdek.length;
-    if(bant.length&&need>=1&&orta.length>=need)for(let k=0;k<3;k++){
-      const set=new Set([...kuyruk,bant[k%bant.length],...cekirdek]);
-      for(let j=0;j<need;j++)set.add(orta[(k*need+j)%orta.length]);
-      let i=0;while(set.size<cnt&&i<orta.length)set.add(orta[i++]);
-      ekle(b,set);
-    }
+    const kuyruk=havuz.slice(-2);                                  // havuzun en büyük iki sayısı
+    const bant=havuz.filter(n=>kuyruk.indexOf(n)<0).slice(0,3);    // en küçük üçü: gezen ilk sayı
+    const cekirdek=banko.filter(n=>kuyruk.indexOf(n)<0&&bant.indexOf(n)<0).slice(0,1);
+    if(bant.length&&kuyruk.length===2)
+      // Dolgu bandın en büyüğü ile kuyruğun en küçüğü arasında kalır: gezen ilk sayı gerçekten
+      // kolonun en küçüğü, kuyruk çifti de gerçekten en büyük ikilisi olarak kalsın.
+      uret(b,3,k=>[...kuyruk,bant[k%bant.length],...cekirdek].slice(0,cnt-1),
+           bant[bant.length-1],kuyruk[0]);
   }
   return {a,b};
 }
