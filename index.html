@@ -11752,6 +11752,11 @@ function gizliTestInit(){
   if(sorted.length){sel.value=sorted[0].date;gizliTestDateChanged();}
 }
 function gizliTestDateChanged(){
+  // Kesişim karelemesi: bu bölüm o TARİHİN kümesiyle işaretlensin (sayfanın geri kalanı
+  // yeni tahmindir). Tarih yoksa "1" kalır ve bölüm hiç işaretlenmez.
+  try{const _d=(document.getElementById('gizliTestDate')||{}).value||'';
+    const _r=document.getElementById('gizliTestResult');
+    if(_r)_r.dataset.skGecmis=_d?((state&&state.selectedGame)||GAMES[0].id)+'|'+_d:'1';}catch(e){}
   const sel=document.getElementById('gizliTestDate');
   const actual=document.getElementById('gizliTestActual');
   const res=document.getElementById('gizliTestResult');
@@ -20598,7 +20603,12 @@ function _soRenderFull(){
     window._soCopy='';
     const inner=_soKolonHtml(draws,game,t.d,i);
     if(window._soCopy)kopya.push(t.bas+'\n'+window._soCopy);
-    return `<div><div style="font-size:.66rem;font-weight:800;color:var(--accent);margin-bottom:5px">${t.bas}</div>${inner}</div>`;
+    // data-sk-*: kesişim karelemesi. Etiket OLMADAN sayfa yapısal kurala düşüyordu
+    // ("çok sütunlu ızgarada ilk sütun yeni tahmin"); Gülay'ın ➕ Toplama / ➖ Çıkarma
+    // kartları da yan yana bir ızgara olduğu için Çıkarma yanlışlıkla geçmiş sanılıp
+    // hiç karelenmiyordu. Sütun türü artık açıkça yazılıyor.
+    return `<div${t.d?' data-sk-gecmis="'+game.id+'|'+t.d+'"':' data-sk-yeni="'+game.id+'"'}>`
+      +`<div style="font-size:.66rem;font-weight:800;color:var(--accent);margin-bottom:5px">${t.bas}</div>${inner}</div>`;
   }).join('');
   window._soCopy=kopya.join('\n\n');
   h+=`<div class="so-row" style="display:grid;grid-template-columns:repeat(${hedefler.length},minmax(0,1fr));gap:16px;align-items:start">${sut}</div>`;
@@ -27249,6 +27259,13 @@ function _skTekrarUygula(){
     //    doğru olduğundan, geçmiş test hücreleri işaretlenmez. Yeni/geçmiş ayrımı için
     //    uygulamanın Excel yıldızında zaten kullandığı _exHucreTipi kullanılır.
     if(genel.size){
+      // Yapısal kural ("çok sütunlu ızgarada ilk sütun yeni tahmin") YALNIZCA hiç açık
+      // etiketi olmayan sayfalarda uygulanır. Etiketli sayfalarda gerçek yeni/geçmiş
+      // sütunları zaten işaretli olduğundan, etiketsiz kalan yerler o sayfanın DÜZEN
+      // ızgaralarıdır (Gülay'ın ➕ Toplama | ➖ Çıkarma'sı, Nihai'nin sağ paneli gibi) ve
+      // kural oraları yanlışlıkla "geçmiş" sayıp doğru işaretleri engelliyordu
+      // (ölçüm: Gülay'da Çıkarma sütunu tamamen, Nihai'de 29 hücre).
+      const sayfaEtiketli=!!kok.querySelector('[data-sk-yeni],[data-sk-gecmis],[data-sk-mod]');
       const aday=[];
       kok.querySelectorAll('span,td,div').forEach(el=>{
         if(++bakilan>60000)return;
@@ -27268,7 +27285,7 @@ function _skTekrarUygula(){
           set=_skKumeTarih(gid,tarih);
         }else{
           const yk=el.closest('[data-sk-yeni]');
-          if(!yk&&(_exHucreTipi(el)!=='yeni'||!_skIlkSutunMu(el)))return;
+          if(!yk&&(_exHucreTipi(el)!=='yeni'||(!sayfaEtiketli&&!_skIlkSutunMu(el))))return;
           const yv=yk&&yk.dataset.skYeni;
           set=(yv&&yv!=='1')?_skGenelKume(yv):genel;
         }
@@ -30161,7 +30178,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
       <button onclick="gizliTestEt()" style="background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.1));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;padding:6px 16px;cursor:pointer;font-size:.78rem;font-weight:700">🔬 Test Et</button>
      </div>
      <div id="gizliTestActual" style="padding:8px 10px;background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.12);border-radius:8px;min-height:36px;margin-bottom:8px"></div>
-     <div id="gizliTestResult" style="max-height:420px;overflow-y:auto"></div>
+     <div id="gizliTestResult" data-sk-gecmis="1" style="max-height:420px;overflow-y:auto"></div>
     </div>
 
     <!-- Matematiksel Şablon Analizi -->
