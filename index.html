@@ -27237,9 +27237,35 @@ function _kkTarihSec(cid,slot,val){
   _kkSonHtml[cid]=null;          // içerik aynı kalsa bile yeniden yaz
   try{_kkRender();}catch(e){}
 }
-function _kkCipler(set){
-  return set.map(n=>`<span style="font-family:monospace;font-size:.72rem;font-weight:800;color:var(--text);background:var(--surface2);`
-    +`border:1px solid var(--border);border-radius:6px;padding:2px 8px;outline:2px solid #111;outline-offset:1px">${n}</span>`).join('');
+// Çipler. actual verilirse (geçmiş test) uygulamanın renk standardı uygulanır:
+// yeşil ✓ net · turuncu ~ ±1 yakın · gri çıkmadı (bkz. _fadRozet). Siyah çerçeve her
+// durumda kalır — panelin konusu zaten o çerçeve.
+function _kkDurum(n,aSet){
+  if(!aSet)return '';
+  if(aSet.has(n))return 'net';
+  if(aSet.has(n-1)||aSet.has(n+1))return 'yakin';
+  return 'yok';
+}
+function _kkCipler(set,aSet){
+  return set.map(n=>{
+    const d=_kkDurum(n,aSet);
+    const st=d==='net' ?'background:rgba(0,230,118,.16);border:1.5px solid rgba(0,200,100,.55);color:var(--green)'
+            :d==='yakin'?'background:rgba(194,65,12,.1);border:1.5px solid rgba(194,65,12,.4);color:#c2410c'
+            :'background:var(--surface2);border:1px solid var(--border);color:var(--text)';
+    const im=d==='net'?'✓':d==='yakin'?'~':'';
+    return `<span style="font-family:monospace;font-size:.72rem;font-weight:800;${st};`
+      +`border-radius:6px;padding:2px 8px;outline:2px solid #111;outline-offset:1px">${n}${im}</span>`;
+  }).join('');
+}
+// Seçilen tarihin GERÇEK sonucu — uygulamanın standart yeşil sonuç kartı.
+function _kkSonucKart(draw){
+  if(!draw)return '';
+  const res=[...(draw.nums||[])].sort((a,b)=>a-b);
+  return `<div style="background:rgba(0,230,118,.06);border:1px solid rgba(0,230,118,.35);border-radius:8px;`
+    +`padding:5px 8px;margin-bottom:6px;font-size:.58rem;color:var(--muted)">`
+    +`🎯 <strong style="color:var(--text)">${draw.date}</strong> sonucu: `
+    +`<span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}`
+    +`${draw.bonus&&draw.bonus.length?' | '+draw.bonus.join(' '):''}</span></div>`;
 }
 function _kkBosSutun(mesaj){
   return `<div style="font-size:.6rem;color:var(--muted);padding:4px 0">${mesaj}</div>`;
@@ -27266,7 +27292,8 @@ function _kkRender(){
       +`Uygulamadaki analizlerde bir sayı <span style="outline:2px solid #111;outline-offset:1px;border-radius:4px;padding:0 3px;font-family:monospace">siyah çerçeveye</span> `
       +`alınıyorsa sebebi budur: o sayı <strong>🧩 Sabit Sayılarla Kesişim</strong> listesinde de var. `
       +`🔮 sütunu yeni tahmin için geçerli kümedir (kaynak: ${kaynak}); 📊 sütunları ise seçilen çekilişin `
-      +`<strong>bir önceki</strong> çekilişinden hesaplanır — geçmiş testlerde kareleme tam olarak bu kümeyle yapılır.</div>`
+      +`<strong>bir önceki</strong> çekilişinden hesaplanır — geçmiş testlerde kareleme tam olarak bu kümeyle yapılır. `
+      +`Küme o tarihten ÖNCEKİ veriyle kurulduğu için 📊 sütunları gerçek bir geçmiş testidir (lookahead yok) · ✓ net · ~ ±1 yakın.</div>`
       +`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;align-items:start">`;
     // 🔮 yeni tahmin sütunu — kopyalama standardı: yalnız bu sütun, sayıların sağ üstünde
     h+=`<div style="min-width:0">`
@@ -27286,9 +27313,19 @@ function _kkRender(){
       let ic;
       if(val){
         const s=[..._skKumeTarih(gid,val)].sort((a,b)=>a-b);
-        ic=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:5px">${s.length} sayı</div>`
+        // Kesişim o tarihten ÖNCEKİ çekilişten hesaplanıyor, seçilen tarih ise gerçek
+        // sonuç — yani bu sütun gerçek bir ileriye-yürüyen testtir (lookahead yok).
+        const draw=draws.find(d=>d.date===val)||null;
+        const aSet=draw?new Set([...(draw.nums||[]),...(draw.bonus||[])]):null;
+        const net=s.filter(n=>_kkDurum(n,aSet)==='net').length;
+        const yakin=s.filter(n=>_kkDurum(n,aSet)==='yakin').length;
+        const esik=((typeof _oyunEsik==='function'&&_oyunEsik(g))||{}).odul||3;
+        ic=_kkSonucKart(draw)
+          +`<div style="font-size:.54rem;color:var(--muted);margin-bottom:5px">${s.length} sayı · `
+          +`<strong style="color:${net>=esik?'var(--green)':'var(--muted)'}">${net} ✓ net</strong>`
+          +` · <span style="color:#c2410c">${yakin} ~ yakın</span></div>`
           +`<div style="display:flex;flex-wrap:wrap;gap:6px">`
-          +(s.length?_kkCipler(s):_kkBosSutun('Bu tarih için kesişim sayısı yok.'))+`</div>`;
+          +(s.length?_kkCipler(s,aSet):_kkBosSutun('Bu tarih için kesişim sayısı yok.'))+`</div>`;
       }else ic=_kkBosSutun('Tarih seçin.');
       h+=`<div style="min-width:0">`
         +`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;min-height:22px">`
