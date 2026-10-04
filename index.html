@@ -27121,10 +27121,14 @@ function _skUygula(scopeId){
 // farklı olduğu için kesişim sayıları da farklıdır — tek ortak küme kullanmak o sütunlarda
 // yanlış sayıları çerçeveye alırdı. Bu yüzden küme sütun (mode) başına tutulur ve bir
 // sütundaki sayı yalnızca KENDİ sütununun kesişim kümesine göre işaretlenir.
-let _SK_TEKRAR={sayfa:null,setler:{}};
-function _skTekrarKaydet(mod,nums){
+// oyunlar[mod]: o kümenin hangi oyundan hesaplandığı. Oyun değiştirildiğinde sütun henüz
+// yeniden çizilmemiş olabiliyor; ⬛ Kutuların Kökeni paneli başka oyunun kümesini
+// göstermesin diye küme ile birlikte oyun kimliği de saklanır.
+let _SK_TEKRAR={sayfa:null,setler:{},oyunlar:{}};
+function _skTekrarKaydet(mod,nums,gid){
   const yeni=new Set(nums||[]);
-  if(_SK_TEKRAR.sayfa!==_curPage)_SK_TEKRAR={sayfa:_curPage,setler:{}};
+  if(_SK_TEKRAR.sayfa!==_curPage)_SK_TEKRAR={sayfa:_curPage,setler:{},oyunlar:{}};
+  _SK_TEKRAR.oyunlar[mod]=gid||null;
   const eski=_SK_TEKRAR.setler[mod];
   const ayni=eski&&eski.size===yeni.size&&[...yeni].every(n=>eski.has(n));
   _SK_TEKRAR.setler[mod]=yeni;
@@ -27215,10 +27219,30 @@ function _kkKume(){
   if(S.sayfa===_curPage){
     for(const k of ['live','htsLive']){
       const st=S.setler[k];
-      if(st&&st.size)return {gid,set:[...st].sort((a,b)=>a-b),kaynak:'sayfanın canlı sütunu'};
+      if(st&&st.size&&S.oyunlar[k]===gid)return {gid,set:[...st].sort((a,b)=>a-b),kaynak:'sayfanın canlı sütunu'};
     }
   }
   return {gid,set:[..._skGenelKume(gid)].sort((a,b)=>a-b),kaynak:'son çekiliş'};
+}
+// Panel başına (kkHome/kkBts/kkHts) 3 geçmiş-test tarihi. Panel innerHTML'i yeniden
+// yazıldığında select'lerin değeri kaybolacağı için seçim burada tutulur ve HTML'e
+// "selected" olarak basılır.
+let _KK_SEC={};
+function _kkSecim(cid){return _KK_SEC[cid]||(_KK_SEC[cid]=['','','']);}
+// select id'leri "<cid>Date" / "<cid>Date2" / "<cid>Date3" — menü altındaki
+// 📅 Son 3 çekilişi doldur butonu (_t3Doldur) bu adlandırmayı kendiliğinden yakalar.
+function _kkTarihSec(cid,slot,val){
+  const s=_kkSecim(cid);
+  s[slot]=val||'';
+  _kkSonHtml[cid]=null;          // içerik aynı kalsa bile yeniden yaz
+  try{_kkRender();}catch(e){}
+}
+function _kkCipler(set){
+  return set.map(n=>`<span style="font-family:monospace;font-size:.72rem;font-weight:800;color:var(--text);background:var(--surface2);`
+    +`border:1px solid var(--border);border-radius:6px;padding:2px 8px;outline:2px solid #111;outline-offset:1px">${n}</span>`).join('');
+}
+function _kkBosSutun(mesaj){
+  return `<div style="font-size:.6rem;color:var(--muted);padding:4px 0">${mesaj}</div>`;
 }
 let _kkSonHtml={};
 function _kkRender(){
@@ -27226,33 +27250,61 @@ function _kkRender(){
   if(!hedef.length)return;
   const {gid,set,kaynak}=_kkKume();
   const g=getGame(gid);
-  let h='';
-  if(set.length){
-    window._kkTxt=`⬛ Kutuların Kökeni — ${g.name}\n${set.join(' ')}`;
-    h=`<div class="card" style="margin-bottom:12px;border:2px solid #111">`
+  const draws=_kbGetDraws(gid)||[];
+  // bir önceki çekilişi olmayan en eski tarih geçmiş testte kullanılamaz
+  const tarihler=draws.filter((d,i)=>!!draws[i+1]).map(d=>d.date).slice(0,200);
+  const kutu=(cid)=>{
+    const sec=_kkSecim(cid);
+    // data-sk-kaynak: kareleme motoru burayı atlar (çipler zaten elle çerçeveli).
+    // data-ex-atla: Excel yıldız/± işaretleri de konmaz — burası tahmin değil, referans listesi.
+    let h=`<div class="card" data-sk-kaynak="1" data-ex-atla="1" style="margin-bottom:12px;border:2px solid #111">`
       +`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">`
       +`<span style="font-size:.74rem;font-weight:800;color:var(--text)">⬛ Kutuların Kökeni</span>`
-      +`<span style="display:flex;gap:6px;align-items:center;flex-shrink:0">`
-      +`<span style="font-size:.56rem;color:var(--muted)">${set.length} sayı · ${g.emoji} ${g.name}</span>`
-      +`<button onclick="_caCopy(window._kkTxt);showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋 Kopyala</button>`
-      +`</span></div>`
-      +`<div style="font-size:.6rem;color:var(--muted);margin-bottom:8px;line-height:1.55">`
+      +`<span style="font-size:.56rem;color:var(--muted);flex-shrink:0">${g.emoji} ${g.name}</span>`
+      +`</div>`
+      +`<div style="font-size:.6rem;color:var(--muted);margin-bottom:10px;line-height:1.55">`
       +`Uygulamadaki analizlerde bir sayı <span style="outline:2px solid #111;outline-offset:1px;border-radius:4px;padding:0 3px;font-family:monospace">siyah çerçeveye</span> `
       +`alınıyorsa sebebi budur: o sayı <strong>🧩 Sabit Sayılarla Kesişim</strong> listesinde de var. `
-      +`Aşağıdakiler <strong>🔮 yeni tahmin</strong> için geçerli sayılar (kaynak: ${kaynak}). `
-      +`📊 Geçmiş test sütunları kendi tarihlerinin kümesiyle işaretlenir, onlar bu listeye girmez.</div>`
+      +`🔮 sütunu yeni tahmin için geçerli kümedir (kaynak: ${kaynak}); 📊 sütunları ise seçilen çekilişin `
+      +`<strong>bir önceki</strong> çekilişinden hesaplanır — geçmiş testlerde kareleme tam olarak bu kümeyle yapılır.</div>`
+      +`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px;align-items:start">`;
+    // 🔮 yeni tahmin sütunu — kopyalama standardı: yalnız bu sütun, sayıların sağ üstünde
+    h+=`<div style="min-width:0">`
+      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:6px;min-height:22px">`
+      +`<span style="font-size:.62rem;font-weight:800;color:var(--text)">🔮 Yeni Tahmin</span>`
+      +(set.length?`<button onclick="_caCopy(window._kkTxt);showToast('📋 Kopyalandı')" class="copy-btn" style="font-size:.56rem;padding:2px 8px">📋 Kopyala</button>`:'')
+      +`</div>`
+      +`<div style="font-size:.54rem;color:var(--muted);margin-bottom:5px">${set.length} sayı</div>`
       +`<div style="display:flex;flex-wrap:wrap;gap:6px">`
-      +set.map(n=>`<span style="font-family:monospace;font-size:.72rem;font-weight:800;color:var(--text);background:var(--surface2);`
-        +`border:1px solid var(--border);border-radius:6px;padding:2px 8px;outline:2px solid #111;outline-offset:1px">${n}</span>`).join('')
+      +(set.length?_kkCipler(set):_kkBosSutun('Kesişim sayısı bulunamadı — hiçbir sayı çerçevelenmiyor.'))
       +`</div></div>`;
-  }else{
-    window._kkTxt='';
-    h=`<div class="card" style="margin-bottom:12px"><div style="font-size:.66rem;color:var(--muted)">`
-      +`⬛ Kutuların Kökeni — bu oyun için kesişim sayısı bulunamadı, bu yüzden hiçbir sayı çerçevelenmiyor.</div></div>`;
-  }
+    // 📊 3 geçmiş test sütunu
+    ['','2','3'].forEach((sl,i)=>{
+      const val=sec[i]||'';
+      const opsiyon=`<option value="">— ${i===0?'Geçmiş test':(i+1)+'. geçmiş test'} —</option>`
+        +tarihler.map(d=>`<option value="${d}"${d===val?' selected':''}>🎯 ${d}</option>`).join('');
+      let ic;
+      if(val){
+        const s=[..._skKumeTarih(gid,val)].sort((a,b)=>a-b);
+        ic=`<div style="font-size:.54rem;color:var(--muted);margin-bottom:5px">${s.length} sayı</div>`
+          +`<div style="display:flex;flex-wrap:wrap;gap:6px">`
+          +(s.length?_kkCipler(s):_kkBosSutun('Bu tarih için kesişim sayısı yok.'))+`</div>`;
+      }else ic=_kkBosSutun('Tarih seçin.');
+      h+=`<div style="min-width:0">`
+        +`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;min-height:22px">`
+        +`<span style="font-size:.62rem;font-weight:800;color:var(--text)">📊 Geçmiş${i?' '+(i+1):''}</span></div>`
+        +`<select id="${cid}Date${sl}" onchange="_kkTarihSec('${cid}',${i},this.value)" `
+        +`style="width:100%;font-size:.56rem;padding:3px 5px;margin-bottom:6px;border:1px solid var(--border);`
+        +`border-radius:6px;background:var(--surface);color:var(--text)">${opsiyon}</select>`
+        +ic+`</div>`;
+    });
+    return h+`</div></div>`;
+  };
+  window._kkTxt=set.length?`⬛ Kutuların Kökeni — ${g.name}\n${set.join(' ')}`:'';
   // İçerik değişmediyse DOM'a dokunma: _kkRender her DOM değişiminde çağrılıyor,
   // yazmak yeni bir değişim tetikler ve sonsuz döngüye girer.
   hedef.forEach(el=>{
+    const h=kutu(el.id);
     if(_kkSonHtml[el.id]===h)return;
     _kkSonHtml[el.id]=h;el.innerHTML=h;
   });
@@ -27362,7 +27414,7 @@ function _soKesisimCard(topRows,cikRows,chainRows,nextSet,badge,game,draw,copyKe
   // dahildir; her sütun kendi kaynak çekilişinden çıkan kendi kümesiyle işaretlenir.
   // Yalnızca kind='qt' (Basit/Hızlı Tahmin) kaydedilir — Gülay'ın anahtarı sütun indeksi
   // olduğu için mod adlarıyla karışırdı.
-  if(filtreKind==='qt')_skTekrarKaydet(filtreKey,kesisimler);
+  if(filtreKind==='qt')_skTekrarKaydet(filtreKey,kesisimler,game&&game.id);
   // data-sk-kaynak: bu panelin KENDİ çipleri siyah çerçeveye alınmaz (kaynak burası).
   let h=`<div data-sk-kaynak="1" style="background:rgba(82,72,212,.05);border:1px solid rgba(82,72,212,.25);border-radius:10px;padding:11px 13px;margin-bottom:12px">`;
   h+=`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;margin-bottom:4px"><div style="font-size:.72rem;font-weight:800;color:var(--accent)">🧩 Sabit Sayılarla Kesişim</div>`
@@ -29890,6 +29942,7 @@ function _exYildizUygula(){
     const ham=(el.textContent||'').trim();
     const m=/^(\d{1,2})\s*([✓~●★])?$/.exec(ham);
     if(!m)return;
+    if(el.closest&&el.closest('[data-ex-atla]'))return;    // referans listeleri (⬛ Kutuların Kökeni)
     const n=+m[1];
     const kap=el.parentElement;
     let tip=gecmisOnbellek.get(kap);
@@ -29909,6 +29962,7 @@ function _exYildizTek(el,onbellek){
   const ham=(el.textContent||'').trim();
   const m=/^(\d{1,2})\s*([✓~●★])?$/.exec(ham);
   if(!m)return;
+  if(el.closest&&el.closest('[data-ex-atla]'))return;      // referans listeleri (⬛ Kutuların Kökeni)
   const n=+m[1];
   const kap=el.parentElement;
   let tip=onbellek?onbellek.get(kap):undefined;
