@@ -14199,7 +14199,8 @@ function _chtHesapla(prior,game){
 //  STİL B — sabit kuyruk çifti + gezen ilk sayı.  63/2026'nın üç kolonunda da SON İKİ sayı
 //           aynı (47 57) ve 25 üçünde de var; ilk sayı dar bir bantta geziyor: 7 · 9 · 8.
 //
-// Ortak nokta: banko sayılar her kolonda tekrar eder, geri kalanı havuzdan dönüşümlü değişir.
+// Ortak nokta: her stilde birkaç sayı tüm kolonlarda sabit kalır (A'da ilk+son, B'de kuyruk
+// çifti), geri kalanı havuzdan TEKRARSIZ dağıtılır.
 // ÖLÇÜM SONUCU — kolon üretici yeniden yazıldı.
 // Eski hâlde sabit çekirdek çok büyüktü ve dolgular kolonlar arasında dönüşümlü tekrar
 // ediyordu: 7 kolon × 5 sayı = 35 yer, ama yalnızca 9 FARKLI sayı (her sayı ~4 kez).
@@ -14211,6 +14212,22 @@ function _chtHesapla(prior,game){
 // Düzeltme, stili bozmadan: (1) sabit çekirdek en fazla 1 bankoya indirildi — ilk/son
 // sayı zaten sabit olduğu için kimlik korunuyor; (2) dolgular kolonlar arasında SIRAYLA
 // ve tekrarsız dağıtılıyor; (3) havuz dolguya yetmezse sıralı listenin devamından alınıyor.
+//
+// 2. TUR ÖLÇÜM (4 oyun × 300 çekiliş, ileri-yürüyen; ölçü: 7 kolonun EN İYİ kolonunun neti,
+// referans aynı boyutta 7 rastgele bilet). Toplam net farkı:
+//   mevcut (çekirdek 1, sıralı dolgu, 4A+3B)   −1.496
+//   çekirdek 0, sıralı dolgu                   −0.987
+//   çekirdek 0 + serpme dolgu                  −0.493
+//   çekirdek 0 + serpme + 5A+4B                −0.050
+// 5A+4B en yüksek değeri veriyor ama 9 kolon = 9 BİLET; aynı sayıda rastgele biletle
+// karşılaştırıldığında üstünlüğü kayboluyor, yani kazancı yalnızca iki ek biletten geliyor.
+// Bu yüzden kolon sayısı 7'de (4A+3B) BIRAKILDI ve eşit maliyette gerçek iyileşme alındı:
+//   en iyi kolonun neti — şans 1.58→1.78 · süper 1.21→1.47 · sayısal 1.29→1.54 · on num. 4.16→4.45
+// Yani kazanç tamamen KAPSAMADAN geliyor: tekrar eden çekirdek ve bitişik dolgular kolonları
+// üst üste bindiriyordu. Yeni hâlde sayısalda kapsama 19 → 32 farklı sayı.
+// Dürüst not: aynı üreticiye RASTGELE havuz verildiğinde sonuç −0.383; yani kazanç havuzun
+// öngörü gücünden değil, kolonların yapısından geliyor. Havuz seçiminin kendisi hâlâ şanstan
+// ayırt edilemiyor (ardıl yöntemi daha önce rastgele kontrolle de ölçülmüştü).
 function _chtKolonUret(havuz,banko,cnt,siraliN){
   const bos={a:[],b:[]};
   if(havuz.length<cnt||cnt<3)return bos;
@@ -14230,7 +14247,15 @@ function _chtKolonUret(havuz,banko,cnt,siraliN){
   const dolguKaynak=(sabit,alt,ust)=>{
     const d=new Set(sabit);
     const uygun=n=>!d.has(n)&&n>alt&&n<ust;
-    return [...havuz.filter(uygun),...(siraliN||[]).filter(n=>uygun(n)&&havuz.indexOf(n)<0)];
+    const k=[...havuz.filter(uygun),...(siraliN||[]).filter(n=>uygun(n)&&havuz.indexOf(n)<0)];
+    if(k.length<=3)return k;
+    // SERPME: dolgular sayı ekseni boyunca serpiştirilir. Kaynak havuz sırasıyla (yani lift
+    // sırasıyla) verildiğinde ardışık kolonlar birbirine komşu sayılarla doluyor ve kolonlar
+    // birbirinin üstüne biniyordu. Ölçümde serpme, kapsamayı belirgin biçimde büyütüyor:
+    // sayısalda 22 → 32 farklı sayı, "en iyi kolonun neti" 1.44 → 1.54.
+    const s=[...k].sort((x,y)=>x-y),res=[],adim=Math.max(1,Math.round(s.length/4));
+    for(let o=0;o<adim;o++)for(let i=o;i<s.length;i+=adim)res.push(s[i]);
+    return [...new Set(res)];
   };
   const uret=(liste,adet,sabitUret,alt,ust)=>{
     const ilkSabit=sabitUret(0);
@@ -14249,8 +14274,10 @@ function _chtKolonUret(havuz,banko,cnt,siraliN){
   const a=[];
   {
     const ilk=havuz[0],son=havuz[havuz.length-1];
-    const cekirdek=banko.filter(n=>n!==ilk&&n!==son).slice(0,1);   // en fazla 1 banko
-    const sabit=[ilk,son,...cekirdek].slice(0,cnt-1);              // en az 1 yer dolguya kalsın
+    // Tekrar eden banko çekirdeği KALDIRILDI: ilk ve son sayı zaten her kolonda aynı olduğu
+    // için stilin kimliği korunuyor, ama çekirdek her kolondan bir yer daha çalıyordu.
+    // Ölçüm (4 oyun × 300 çekiliş): çekirdek 2 → 1 → 0 gittikçe "en iyi kolonun neti" artıyor.
+    const sabit=[ilk,son].slice(0,cnt-1);                          // en az 1 yer dolguya kalsın
     uret(a,4,()=>sabit,ilk,son);                                   // dolgu ilk ile son arasında
   }
   // ── STİL B: kuyrukta sabit banko çifti + dar bantta gezen ilk sayı ──
@@ -14258,11 +14285,10 @@ function _chtKolonUret(havuz,banko,cnt,siraliN){
   {
     const kuyruk=havuz.slice(-2);                                  // havuzun en büyük iki sayısı
     const bant=havuz.filter(n=>kuyruk.indexOf(n)<0).slice(0,3);    // en küçük üçü: gezen ilk sayı
-    const cekirdek=banko.filter(n=>kuyruk.indexOf(n)<0&&bant.indexOf(n)<0).slice(0,1);
     if(bant.length&&kuyruk.length===2)
       // Dolgu bandın en büyüğü ile kuyruğun en küçüğü arasında kalır: gezen ilk sayı gerçekten
       // kolonun en küçüğü, kuyruk çifti de gerçekten en büyük ikilisi olarak kalsın.
-      uret(b,3,k=>[...kuyruk,bant[k%bant.length],...cekirdek].slice(0,cnt-1),
+      uret(b,3,k=>[...kuyruk,bant[k%bant.length]].slice(0,cnt-1),
            bant[bant.length-1],kuyruk[0]);
   }
   return {a,b};
@@ -14391,7 +14417,7 @@ function _chtRender(){
       +`<div style="font-size:.74rem;font-weight:800;color:#e11d48;margin-bottom:4px">🎫 CHT Kolonları</div>`
       +`<div style="font-size:.6rem;color:var(--muted);margin-bottom:9px;line-height:1.55">`
       +`Görsellerde <strong>iki farklı kolon stili</strong> var, ikisi de üretiliyor. Ortak nokta: `
-      +`banko sayılar her kolonda tekrar eder, geri kalanı havuzdan dönüşümlü değişir.<br>`
+      +`her stilde birkaç sayı tüm kolonlarda sabit kalır, geri kalanı havuzdan tekrarsız dağıtılır.<br>`
       +`<strong>A — sabit uçlar:</strong> hepsi aynı ilk sayı ile başlar, aynı son sayı ile biter `
       +`(05/03/2026'nın dört kolonu da 10 ile başlayıp 46 ile bitiyor, 25 ve 38 dördünde de var).<br>`
       +`<strong>B — sabit kuyruk + gezen ilk sayı:</strong> son <em>iki</em> sayı her kolonda aynı, `
