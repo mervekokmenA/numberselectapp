@@ -400,6 +400,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
     <span class="nav-brand" onclick="showMainPage('home')" title="Ana Sayfa">🎱 Loto</span>
     <div class="nav-links" id="navLinks">
       <button class="nav-link active" id="navBtn-home" onclick="showMainPage('home')">🏠 Ana Sayfa</button>
+      <button class="nav-link" id="navBtn-anlik" onclick="showMainPage('anlik')">⏱️ Anlık Tahmin</button>
       <button class="nav-link" id="navBtn-basit" onclick="showMainPage('basit')">✨ Basit Tahmin</button>
       <button class="nav-link" id="navBtn-hizlitahmin" onclick="showMainPage('hizlitahmin')">⚡ Hızlı Tahmin</button>
       <button class="nav-link" id="navBtn-fibonacci" onclick="showMainPage('fibonacci')">🔎 Excel Karşılaştırma</button>
@@ -1635,8 +1636,14 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
       Eskiden burada ayrı bir "Sabit Sayılarla Kesişim" özeti vardı; aynı sayıları
       gösterdiği için ortak panele çevrildi. Filtre kutusu aşağıdaki ayrıntılı kartta. -->
  <div id="kkBts"></div>
+ <!-- btsCore: Basit Tahmin'in çekirdeği (oyun, Üret, 3'lü geçmiş test, yan yana ızgara).
+      ⏱️ Anlık Tahmin sayfası aynı motoru kullanır; çekirdek KOPYALANMAZ, açık olan sayfaya
+      TAŞINIR (bölünmüş ekranla aynı yöntem) → id çiftlenmez, tarih seçicileri ve 📅 Son 3
+      çekilişi doldur butonu iki sayfada da aynen çalışır. Hangi analizlerin görüneceğini
+      _qtGorunenKeys() açık sayfaya göre seçer. -->
+ <div id="btsCore">
  <div class="card">
-  <div class="card-title">✨ Basit Tahmin</div>
+  <div class="card-title" id="btsCoreTitle">✨ Basit Tahmin</div>
   
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="btsGameRow"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -1660,6 +1667,16 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="font-size:.68rem;font-weight:800;color:var(--accent)">📊 Geçmiş Test</div>
  </div>
  <div id="btsPairGrid"></div>
+ </div>
+</div>
+
+<!-- ═══════════ PAGE: ⏱️ ANLIK TAHMİN ═══════════
+     Kullanıcıya özel özet sayfa: ⬛ kutu sayıları + Basit Tahmin'den yalnızca 🤖 AI Bilet,
+     🏁 Nihai, 🔗 Nihai × 3+ Kesişim ve 🎰 Aday Sayılar. Motor ve kontroller Basit Tahmin'in
+     (#btsCore buraya taşınır). -->
+<div style="grid-column:1/-1;display:none" id="page-anlik">
+ <div id="kkAnlik"></div>
+ <div id="anlikHost"></div>
 </div>
 
 <!-- ═══════════ PAGE: HIZLI TAHMİN (yepyeni — kullanıcı isteğiyle 4 sabit bölüm) ═══════════ -->
@@ -14453,10 +14470,163 @@ function _chtRender(){
       +(y.kolonlar.a.length?'A · sabit uçlar\n'+y.kolonlar.a.map(c=>c.join(' ')).join('\n')+'\n':'')
       +(y.kolonlar.b.length?'B · sabit kuyruk + gezen ilk sayı\n'+y.kolonlar.b.map(c=>c.join(' ')).join('\n'):''));
   }
+  // 8) 🧮 DRN Analiz — sayfanın en altında, aynı sütunlarla (🔮 Yeni Tahmin + 3 geçmiş test)
+  try{const r=_drnKart(kol,g);h+=r.h;if(r.txt)metin.push(r.txt);}catch(e){}
   window._chtTxt=`🧠 CHT — ${g.name} · 🔮 Yeni Tahmin\n\n`+metin.join('\n\n');
   el.innerHTML=h;
 }
 function _chtCopy(){const t=window._chtTxt;if(!t){showToast('⚠️ Veri yok');return;}_caCopy(t);showToast('📋 Kopyalandı');}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🧮 DRN ANALİZ — DRN'nin gönderdiği dört tarihli bilet setinden çözüldü:
+//   04.10.2026 Süper (kaynak 01.10) · 03.08.2026 Sayısal (kaynak 01.08)
+//   19.07.2026 Süper (kaynak 16.07) · 17.06.2026 Sayısal (kaynak 15.06)
+// Her blokta bir önceki çekiliş de yazılı (04.10'da ilk satır = 01.10'un sonucu, 19.07'de son
+// satır = 16.07'nin sonucu) — biletler GEÇMİŞ çekilişlerden türetiliyor.
+//
+// ÇÖZÜM YÖNTEMİ: 17 aday işlem (tekrar, ±1, ikili fark/toplam, ayna, rakam ters çevirme,
+// rakam toplamı, 2./3. önceki çekiliş, çapraz fark…) biletlerdeki farklı sayıların ne kadarını
+// açıklıyor, ölçüldü. Fark kümeleri küçük sayılara kaydığı için (ve DRN de küçük sayıları sık
+// yazdığı için) şans referansı olarak "aynı işlemi RASTGELE başka çekilişlere uygulamak" alındı.
+//   2. önceki çekilişin ikili farkları  : 41 açıklanan vs 27.9 rastgele  z +3.4  ← ÇEKİRDEK
+//   1. önceki çekilişin ikili farkları  : 33 vs 27.9  z +1.3  (zayıf destek)
+//   ikili toplamlar, tekrar, ayna, ±1    : şanstan ayırt edilemedi
+// 2. önceki çekilişin farkı dört blokta da rastgele ortalamanın üstünde (8/5.7 · 12/8.4 ·
+// 7/5.8 · 14/7.9). Sayısal'da yıldız/joker de farka katılıyor (DRN'nin "+79-70" yazımı).
+// Gözle bakınca "önceki çekilişin farkları" sanılıyor ama kontrolle o şansa yakın çıkıyor —
+// asıl kaynak bir çekiliş daha geride.
+//
+// Bilet yapısı DRN'ninki gibi: 5 bilet, bir banko sayı 5 biletin 4'ünde tekrar eder
+// (DRN'de 9 · 4 · 7 aynı şekilde 3–4 bilette tekrar ediyor), geri kalanı tekrarsız dağıtılır.
+// ═══════════════════════════════════════════════════════════════════════════
+function _drnFarklar(d,max){
+  const a=[...new Set([...(d.nums||[]),...(d.bonus||[])])].filter(n=>n>=1);
+  const say={};
+  for(let i=0;i<a.length;i++)for(let j=i+1;j<a.length;j++){
+    const f=Math.abs(a[i]-a[j]);
+    if(f>=1&&f<=max)say[f]=(say[f]||0)+1;
+  }
+  return say;
+}
+// Sayı ekseni boyunca serpiştir (CHT kolonlarında ölçülen kapsama kazancı): bitişik sayılar
+// aynı bilete yığılmasın.
+function _drnSerp(liste){
+  if(liste.length<=3)return liste.slice();
+  const s=[...liste].sort((x,y)=>x-y),res=[],adim=Math.max(1,Math.round(s.length/4));
+  for(let o=0;o<adim;o++)for(let i=o;i<s.length;i+=adim)res.push(s[i]);
+  return [...new Set(res)];
+}
+function _drnHesapla(prior,game){
+  const P1=prior[0],P2=prior[1];
+  if(!P1||!P2)return null;
+  const max=game.max,cnt=Math.max(2,game.count),BILET=5;
+  const f2=_drnFarklar(P2,max),f1=_drnFarklar(P1,max);
+  const aday=[];
+  for(let n=1;n<=max;n++){
+    const k2=f2[n]||0,k1=f1[n]||0;
+    if(k2||k1)aday.push({n,k2,k1,s:k2+0.5*k1});
+  }
+  // Skor: 2. önceki çekilişin farkı tam ağırlık, önceki çekilişinki yarım (ölçülen destekleriyle
+  // orantılı). Kaç farklı ikiliden üretildiği (k) çokluğu skoru büyütür.
+  aday.sort((a,b)=>b.s-a.s||b.k2-a.k2||a.n-b.n);
+  const cekirdek=aday.filter(o=>o.k2).map(o=>o.n).sort((a,b)=>a-b);
+  const destek=aday.filter(o=>!o.k2).map(o=>o.n);
+  const banko=aday.length?aday[0].n:null;
+  // Dolgu sırası: çekirdek → önceki çekilişin farkları → kalan sayılar; her katman serpilir.
+  const kullan=new Set(banko?[banko]:[]);
+  const kat=l=>_drnSerp(l.filter(n=>!kullan.has(n)));
+  const dolgu=[...kat(cekirdek),...kat(destek)];
+  dolgu.forEach(n=>kullan.add(n));
+  const kalan=[];for(let n=1;n<=max;n++)if(!kullan.has(n))kalan.push(n);
+  const sira=[...dolgu,..._drnSerp(kalan)];
+  const biletler=Array.from({length:BILET},(_,i)=>(banko&&i<BILET-1)?[banko]:[]);
+  // Sırayla (round-robin) dağıt: her bilete çekirdekten pay düşsün, tek bilete yığılmasın.
+  let idx=0,guvenlik=0;
+  while(biletler.some(b=>b.length<cnt)&&idx<sira.length&&guvenlik++<5000){
+    for(const b of biletler){
+      if(b.length>=cnt)continue;
+      while(idx<sira.length&&b.indexOf(sira[idx])>=0)idx++;
+      if(idx>=sira.length)break;
+      b.push(sira[idx++]);
+    }
+  }
+  biletler.forEach(b=>b.sort((x,y)=>x-y));
+  // Yıldız / süperstar: DRN sayısalda "+X −Y" ile iki aday yazıyor. Bonus aralığındaki en güçlü
+  // farklar, biletin kendi sayıları hariç.
+  const bMax=game.bonusMax||0;
+  const yildiz=bMax?biletler.map(b=>aday.map(o=>o.n).filter(n=>n<=bMax&&b.indexOf(n)<0).slice(0,2)):null;
+  return {P1,P2,f2,f1,aday,cekirdek,banko,biletler,yildiz,cekSet:new Set(cekirdek)};
+}
+function _drnKart(kol,g){
+  const D=kol.map(k=>{try{return _drnHesapla(k.prior,g);}catch(e){return null;}});
+  if(!D.some(Boolean))return {h:'',txt:''};
+  const tpl='repeat('+kol.length+',minmax(0,1fr))';
+  let h=`<div class="card" style="margin-bottom:12px;border-left:3px solid #9333ea">`
+    +`<div style="font-size:.74rem;font-weight:800;color:#9333ea;margin-bottom:4px">🧮 DRN Analiz</div>`
+    +`<div style="font-size:.6rem;color:var(--muted);margin-bottom:9px;line-height:1.55">`
+    +`DRN'nin gönderdiği dört tarihli bilet setinden (04.10 · 03.08 · 19.07 · 17.06.2026) çözüldü: biletlerdeki sayılar `
+    +`<strong>2. önceki çekilişin sayılarının ikili farklarından</strong> geliyor (sayısalda yıldız/joker de farka katılıyor). `
+    +`Adil kontrol — aynı işlem rastgele başka çekilişlere uygulandığında bu kadar açıklamıyor: <strong>z +3.4</strong>, dört blokta da ortalamanın üstünde. `
+    +`Önceki çekilişin farkları zayıf destek (z +1.3, yarım ağırlık); toplamlar, tekrar, ayna, ±1 şanstan ayırt edilemedi.<br>`
+    +`<strong>Bilet yapısı DRN'ninki gibi:</strong> 5 bilet, en çok ikiliden üretilen fark <strong>banko</strong> olarak 4 bilette tekrar eder `
+    +`(DRN'de 9 · 4 · 7 böyle tekrar ediyor); geri kalanı çekirdek → önceki çekilişin farkları → dolgu sırasıyla tekrarsız dağıtılır.`
+    +`<br><strong>Ölçüm:</strong> yöntem DRN'nin biletlerine benziyor — DRN'nin kendi dört tarihinde bu kartın biletleriyle `
+    +`DRN'nin biletlerinin ortak sayısı <strong>56</strong> (aynı boyutta rastgele kümeyle 45; yöntem bu dört bloktan çıkarıldığı için örneklem içi). `
+    +`Ama bir sonraki çekilişi rastgele biletlerden iyi tahmin etmiyor — 400 çekilişlik ileri-yürüyen testte 5 biletin en iyi neti `
+    +`şans 1.67 (rastgele 1.60) · süper 1.47 (1.43) · sayısal 1.39 (1.40) · on numara 4.42 (4.35), dördünde de |z| &lt; 1. `
+    +`Yani bu kart DRN'nin yöntemini uygular; ek bir isabet avantajı vaat etmez.</div>`;
+  h+=`<div style="display:grid;grid-template-columns:${tpl};gap:12px;align-items:start">`
+    +kol.map((k,i)=>{
+      const d=D[i];
+      if(!d)return `<div style="min-width:0;font-size:.58rem;color:var(--muted)">Yeterli geçmiş yok.</div>`;
+      const aSet=k.actual?new Set(k.actual.nums||[]):null;
+      const ySet=_fadYakinSet(aSet,g.max);
+      const bSet=k.actual?new Set(k.actual.bonus||[]):null;
+      const ham=d.biletler.map((b,bi)=>b.join(' ')+(d.yildiz&&d.yildiz[bi].length?' +'+d.yildiz[bi].join(' -'):'')).join('\n');
+      let enIyi=0;if(aSet)d.biletler.forEach(b=>{let n=0;b.forEach(x=>{if(aSet.has(x))n++;});if(n>enIyi)enIyi=n;});
+      const esik=((typeof _oyunEsik==='function'&&_oyunEsik(g))||{}).odul||3;
+      const sol=`<span style="font-size:.56rem;color:var(--muted)">${d.biletler.length} bilet</span>`
+        +(aSet?`<span style="font-size:.56rem;font-weight:700;color:${enIyi>=esik?'var(--green)':'var(--muted)'}">en iyi ${enIyi} net</span>`:'');
+      let c=`<div style="display:inline-flex;align-items:center;font-size:.6rem;font-weight:800;`
+        +`color:${k.actual?'var(--text)':'#9333ea'};background:${k.actual?'var(--surface2)':'rgba(0,0,0,.03)'};`
+        +`border:1px solid var(--border);border-radius:7px;padding:3px 8px;margin-bottom:5px">${k.baslik}${k.tarih?' · '+k.tarih:''}</div>`;
+      if(k.actual)c+=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:5px">🎯 <strong style="color:var(--text)">${k.actual.date}</strong> sonucu: `
+        +`<span style="font-family:monospace;color:var(--green);font-weight:800">${[...(k.actual.nums||[])].sort((a,b)=>a-b).join(' ')}`
+        +`${k.actual.bonus&&k.actual.bonus.length?' | '+k.actual.bonus.join(' '):''}</span></div>`;
+      c+=_fadSutunUst(k,'🧮 DRN Analiz',ham,sol);
+      const cekil=dd=>`<strong style="color:var(--text);font-family:monospace">${(dd.nums||[]).join(' ')}${dd.bonus&&dd.bonus.length?' | '+dd.bonus.join(' '):''}</strong>`;
+      c+=`<div style="font-size:.54rem;color:var(--muted);line-height:1.55;margin-bottom:5px">`
+        +`Kaynak (2. önceki) <span style="font-family:monospace">${d.P2.date}</span>: ${cekil(d.P2)}<br>`
+        +`Önceki <span style="font-family:monospace">${d.P1.date}</span>: ${cekil(d.P1)}</div>`;
+      // çekirdek fark kümesi — çokluk ×2/×3 olanlar küçük üst simgeyle
+      let cNet=0;if(aSet)d.cekirdek.forEach(n=>{if(aSet.has(n))cNet++;});
+      c+=`<div style="font-size:.54rem;font-weight:800;color:var(--muted);margin:4px 0 3px">`
+        +`🧩 Çekirdek farklar (${d.cekirdek.length})${aSet?` · <span style="color:${cNet?'var(--green)':'var(--muted)'}">${cNet} net</span>`:''}</div>`
+        +`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">`
+        +d.cekirdek.map(n=>{const kat=d.f2[n]||0;
+          return `<span style="position:relative;display:inline-flex">${_fadRozet(n,_fadDurum(n,aSet,ySet))}`
+            +(kat>1?`<span style="position:absolute;top:-5px;right:-4px;font-size:.46rem;font-weight:800;background:#9333ea;color:#fff;border-radius:6px;padding:0 3px">×${kat}</span>`:'')+`</span>`;}).join('')
+        +`</div>`;
+      c+=`<div style="font-size:.54rem;font-weight:800;color:var(--muted);margin:6px 0 3px">🎫 DRN biletleri · 🔒 banko <span style="font-family:monospace;color:#9333ea">${d.banko}</span></div>`;
+      c+=d.biletler.map((b,bi)=>{
+        let net=0;if(aSet)b.forEach(x=>{if(aSet.has(x))net++;});
+        const yz=d.yildiz?d.yildiz[bi]:null;
+        const yzHtml=yz&&yz.length?`<span style="font-size:.56rem;color:var(--muted);margin-left:2px">⭐ `
+          +yz.map((s,si)=>{const ok=bSet&&bSet.has(s);return `<span style="font-family:monospace;font-weight:800;color:${ok?'var(--green)':'var(--text)'}">${si?'−':'+'}${s}${ok?'✓':''}</span>`;}).join(' ')+`</span>`:'';
+        return `<div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-bottom:5px">`
+          +`<span style="font-size:.5rem;color:var(--muted);min-width:12px">${bi+1}</span>`
+          +b.map(n=>{const r=_fadRozet(n,_fadDurum(n,aSet,ySet));
+            return n===d.banko?`<span style="display:inline-flex;box-shadow:0 0 0 2px #9333ea;border-radius:50%">${r}</span>`:r;}).join('')
+          +yzHtml
+          +(aSet?`<span style="font-size:.52rem;font-weight:700;color:${net>=esik?'var(--green)':'var(--muted)'}">${net} net</span>`:'')
+          +`</div>`;
+      }).join('');
+      return `<div style="min-width:0"${_skSutunAttr(k,g.id)}>${c}</div>`;
+    }).join('')+`</div></div>`;
+  const y=D[kol.findIndex(k=>!k.actual)];
+  const txt=y?'🧮 DRN Analiz\n'+y.biletler.map((b,bi)=>b.join(' ')+(y.yildiz&&y.yildiz[bi].length?' +'+y.yildiz[bi].join(' -'):'')).join('\n'):'';
+  return {h,txt};
+}
 
 // Gülsis Sıfır kapsama-optimal bilet grubu üreticisi — Kapsamlı'ya ayrı bir mod olarak entegre.
 // Konsensüsü HİÇ etkilemez; Gülsis Sıfır motorunu (_g0GenBundle) Kapsamlı'nın seçili oyununda çalıştırır.
@@ -15048,8 +15218,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','nihai','scan','listeler','kazanan','kapsamli','hane','deneme','fad','cht','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','formul','formul2','haber','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',deneme:'🧪 Deneme',fad:'🔠 FAD Şablon',cht:'🧠 CHT',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','anlik','nihai','scan','listeler','kazanan','kapsamli','hane','deneme','fad','cht','soz','gulsis0','nsa','basit','hizlitahmin','fibonacci','excel','db','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',anlik:'⏱️ Anlık Tahmin',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',hane:'🔢 Hane Hesaplama',deneme:'🧪 Deneme',fad:'🔠 FAD Şablon',cht:'🧠 CHT',soz:'📖 Sözlük',gulsis0:'🎯⁰ Gülsis Sıfır',nsa:'🔢 NSA',basit:'✨ Basit Tahmin',hizlitahmin:'⚡ Hızlı Tahmin',fibonacci:'🔎 Excel Karşılaştırma',excel:'📊 Excel',db:'🗄️ Veritabanı',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -15066,7 +15236,8 @@ function _pageInit(id){
   if(id==='gulsis0')_g0Init();
   if(id==='nihai')_niInit();
   if(id==='nsa')_nsaInit();
-  if(id==='basit')_btsInit();
+  if(id==='basit'){_btsCoreTasi('basit');_btsInit();}
+  if(id==='anlik'){_btsCoreTasi('anlik');_btsInit();}
   if(id==='hizlitahmin')_htsInit();
   if(id==='fibonacci')_xkInit();
   setTimeout(_jokerPanelYaz,0);
@@ -15109,11 +15280,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-deneme','page-fad','page-cht','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
+  ['page-anlik','page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-hane','page-deneme','page-fad','page-cht','page-soz','page-gulsis0','page-nsa','page-basit','page-hizlitahmin','page-fibonacci','page-excel','page-db','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-deneme','navBtn-fad','navBtn-cht','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-anlik','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-hane','navBtn-deneme','navBtn-fad','navBtn-cht','navBtn-soz','navBtn-gulsis0','navBtn-nsa','navBtn-basit','navBtn-hizlitahmin','navBtn-fibonacci','navBtn-excel','navBtn-db','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
@@ -15125,9 +15296,9 @@ function showMainPage(id){
 let _splitOn=false,_splitL='basit',_splitR='formul',_splitOrder=null;
 // Mobilde de kullanılabilir: geniş ekranda yan yana, dar ekranda alt alta (bkz. CSS).
 const _SPLIT_MINW=0;
-// Hızlı Tahmin sayfası kaldırıldı (Basit Tahmin'in paylaştığı tek render hedefi kalmadı) —
-// artık hiçbir sayfa çifti çakışmıyor.
-const _splitClash=(a,b)=>false;
+// Hızlı Tahmin sayfası kaldırıldı. ⏱️ Anlık Tahmin ile ✨ Basit Tahmin AYNI çekirdeği (#btsCore)
+// paylaşır — çekirdek tek bir yerde durabildiği için ikisi yan yana açılamaz.
+const _splitClash=(a,b)=>(a==='basit'&&b==='anlik')||(a==='anlik'&&b==='basit');
 function _splitEls(){return _PAGE_IDS.map(_pageEl).filter(Boolean);}
 function _splitSet(side,id){
   if(side==='L')_splitL=id;else _splitR=id;
@@ -24984,6 +25155,14 @@ function _btsDateTest(slot){
 function _btsCopyAll(){
   const tk=t=>window['_qtCopy_qtc'+Math.abs(_qtHash(t))];
   const parts=[];
+  if(_btsAnlikMi()){
+    // ⏱️ Anlık Tahmin: yalnızca sayfada görünen dört bölüm
+    [tk('AI Bilet Üretici'),tk('Nihai'),window._qtInter,window._qtAdayTxt].forEach(x=>{if(x)parts.push(x);});
+    if(!parts.length){if(typeof showToast==='function')showToast('Önce Üret\'e basın');return;}
+    _caCopy(parts.join('\n\n'));
+    if(typeof showToast==='function')showToast('📋 Anlık Tahmin kopyalandı');
+    return;
+  }
   [window._qtAiTk,tk('AI Bilet Üretici'),tk('Gülsis Sıfır'),tk('Nihai'),
    window._qtInter,window._qtGulayTxt,window._qtKesisimTxt,window._qtAdayTxt,
    window._qtNihaiCopy,window._qtIlkHaneCopy,
@@ -24994,12 +25173,31 @@ function _btsCopyAll(){
 }
 const _BASIT_GROUPS=new Set(['🧠 Birleşik AI','🤖 AI Bilet Üretici','🎯⁰ Gülsis Sıfır','🏁 Nihai',
   '🔗 Nihai × 3+ Kapsamlı Kesişim','🔮 Gülay Fark-Analizi','🧩 Sabit Sayılarla Kesişim','🎰 Aday Sayılar (Uzlaşı)','nihaiTablo','ilkHane']);
-function _btsCopyGrouped(){_qtCopyAllGrouped(_BASIT_GROUPS);}
+const _ANLIK_GROUPS=new Set(['🤖 AI Bilet Üretici','🏁 Nihai','🔗 Nihai × 3+ Kapsamlı Kesişim','🎰 Aday Sayılar (Uzlaşı)']);
+function _btsCopyGrouped(){_qtCopyAllGrouped(_btsAnlikMi()?_ANLIK_GROUPS:_BASIT_GROUPS);}
 // Sol (Yeni Tahmin) ve sağ (Geçmiş Test) taraflardaki bloklar bağımsız üretilir ama aynı data-k
 // anahtarıyla etiketlenir; burada anahtar bazında eşleştirilip TEK bir grid satırına yerleştirilir —
 // böylece biletlerin/analizlerin yüksekliği farklı olsa bile aynı bölüm her zaman tam yan yana durur.
 // Basit Tahmin sayfasında gösterilecek 9 analiz ve sırası (kullanıcının belirlediği liste).
 const _BASIT_KEYS=['actual','aiCombined','aiBlk','g0','ni','niYakInter','gulay','aday','hane','kesisim','nihaiSection','ilkHaneSection'];
+// ⏱️ Anlık Tahmin: kullanıcının seçtiği dört bölüm (+ geçmiş test sütunlarında sonuç kartı).
+const _ANLIK_KEYS=['actual','aiBlk','ni','niYakInter','aday'];
+// Çekirdek (#btsCore) şu an Anlık Tahmin sayfasında mı? Mod, çekirdeğin bulunduğu yerden
+// okunur — sayfa adından değil — böylece bölünmüş ekranda da doğru kalır.
+function _btsAnlikMi(){const c=document.getElementById('btsCore');return !!(c&&c.parentElement&&c.parentElement.id==='anlikHost');}
+function _qtGorunenKeys(){return _btsAnlikMi()?_ANLIK_KEYS:_BASIT_KEYS;}
+function _btsCoreTasi(hedef){
+  const core=document.getElementById('btsCore');if(!core)return;
+  const anlik=hedef==='anlik';
+  const yer=anlik?document.getElementById('anlikHost'):document.getElementById('page-basit');
+  if(!yer)return;
+  if(core.parentElement!==yer){
+    if(anlik)yer.appendChild(core);
+    else{const kk=document.getElementById('kkBts');if(kk&&kk.parentElement===yer)kk.after(core);else yer.appendChild(core);}
+  }
+  const t=document.getElementById('btsCoreTitle');
+  if(t)t.textContent=anlik?'⏱️ Anlık Tahmin':'✨ Basit Tahmin';
+}
 function _qtSyncPairs(){
   // Hızlı Tahmin sayfası kaldırıldı — bu üretim artık yalnızca Basit Tahmin'in btsPairGrid'ini doldurur.
   const grid=document.getElementById('btsPairGrid');
@@ -25015,7 +25213,7 @@ function _qtSyncPairs(){
   const test3Map={};test3Blocks.forEach(c=>{test3Map[c.dataset.k]=c;});
   const has2=!!test2Blocks.length,has3=!!test3Blocks.length;
   const nCol=2+(has2?1:0)+(has3?1:0);
-  const order=_BASIT_KEYS.filter(k=>liveMap[k]||testMap[k]||test2Map[k]||test3Map[k]);
+  const order=_qtGorunenKeys().filter(k=>liveMap[k]||testMap[k]||test2Map[k]||test3Map[k]);
   grid.innerHTML='';
   order.forEach(k=>{
     const row=document.createElement('div');
@@ -25729,7 +25927,7 @@ function _qtKesisimBlock(ga,game,draw,aSet,mode){
   // görsel olarak 🧩 Sabit Sayılarla Kesişim panelinin içine yerleşir (_soKesisimCard içinde);
   // kind='qt',key=mode → _qtNihaiRerender/_qtIlkHaneRerender'ı GERÇEK candSet daraltmasıyla
   // tetikler (ayrı bloklar olan Nihai/İlk Hane böylece aynı kutudan tutarlı biçimde filtrelenir).
-  const defaultYakin=_curPage==='basit';
+  const defaultYakin=_curPage==='basit'||_curPage==='anlik';
   const scopeId='qtKesFilt_'+_curPage+'_'+mode;
   const kart=_soKesisimCard(topRows,cikRows,chainRows,aSet,badge,game,draw,copyKey,scopeId,defaultYakin,'qt',mode);
   return `<div id="${scopeId}">${kart}</div>`;
@@ -27298,7 +27496,7 @@ function _kkBosSutun(mesaj){
 }
 let _kkSonHtml={};
 function _kkRender(){
-  const hedef=['kkHome','kkBts','kkHts'].map(id=>document.getElementById(id)).filter(Boolean);
+  const hedef=['kkHome','kkAnlik','kkBts','kkHts'].map(id=>document.getElementById(id)).filter(Boolean);
   if(!hedef.length)return;
   const {gid,set,kaynak}=_kkKume();
   const g=getGame(gid);
