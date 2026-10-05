@@ -1645,6 +1645,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
  <div id="btsCore">
  <div class="card">
   <div class="card-title" id="btsCoreTitle">🔬 Detaylı Tahmin</div>
+  <div style="font-size:.58rem;color:var(--muted);line-height:1.55;margin:-4px 0 8px">🎯 <strong>Net odaklı demetler:</strong> 🤖 AI Bilet, 🏁 Nihai ve 🧠 Birleşik AI artık biletleri ardışık çiftlere çevirmiyor ve kapsamayı tam sayılarla kuruyor — ödül yalnızca net isabetle geliyor. Eşleştirilmiş ölçümde (aynı çekilişte eski ↔ yeni) en iyi biletin neti 12 karşılaştırmanın 11'inde yükseldi; ±1 yakın sayısı biraz düşer.</div>
   
   <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px" id="btsGameRow"></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
@@ -1994,7 +1995,9 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   <div style="font-size:.62rem;color:var(--muted);line-height:1.6;margin-bottom:8px">
    CHT'den bağımsız analizler. Her analizin bu oyundaki <strong>yakın geçmiş başarısı</strong> sayfada canlı ölçülür (📏 Karne),
    🧠 Meta-Seçici karnesi en iyi olanı kullanır, biletler ölçümle seçilen <strong>en az örtüşen</strong> yapıyla kurulur ve
-   🛡️ Garanti Tekerleği matematiksel bir garanti verir. Her sütun yalnızca o tarihten önceki verilerle hesaplanır.
+   🛡️ Garanti Tekerleği matematiksel bir garanti verir. Her sütun yalnızca o tarihten önceki verilerle hesaplanır.<br>
+   <strong>Dürüst not:</strong> 250 çekilişlik ölçümde tekli analizlerin ve Meta-Seçici'nin hiçbiri şanstan ayırt edilemedi (|z| &lt; 2) —
+   çekilişler bağımsız olduğu için beklenen budur. Sayfanın ölçülebilir kazancı sayı seçiminden değil, <strong>bilet yapısından</strong> ve <strong>garantiden</strong> geliyor.
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
    <button onclick="_chaiCopy()" title="Sayfadaki tüm analizlerin 🔮 Yeni Tahmin sayılarını kopyalar (geçmiş testler kopyaya girmez)" style="padding:6px 14px;background:rgba(15,118,110,.12);border:1px solid rgba(15,118,110,.4);color:#0f766e;border-radius:8px;cursor:pointer;font-size:.72rem;font-weight:700">📋 Tüm Yeni Tahminleri Kopyala</button>
@@ -14877,7 +14880,9 @@ function _chaiRender(){
     +`"en az bir bilet ödül eşiğinde" olasılığı en yüksek olan yapı, biletlerin birbirine en az benzediği yapı çıktı `
     +`(süper %8.2 · rastgele %7.8 · her bilette 2 ortak sayı %6.8). Bu yüzden iki bilet en fazla bir sayı paylaşır, bilette ardışık çift yok, `
     +`sayılar dengeli kullanılır. Eşitlikte 31 üstü sayılar öne alınır: doğum tarihi seçimlerinden kaçınmak kazanma şansını değil, `
-    +`kazanılırsa <strong>paylaşılan ikramiyeyi</strong> büyütür.`,
+    +`kazanılırsa <strong>paylaşılan ikramiyeyi</strong> büyütür.<br><strong>İleri-yürüyen ölçüm</strong> (oyun başına 250 çekiliş, 8 bilet ödül eşiği; parantez: `
+    +`aynı sayıda rastgele bilet, kesin referans): şans %12.8 (%11.6) · süper %10.8 (%8.1) · sayısal %9.2 (%7.1) · on numara %17.6 (%16.6) — `
+    +`dördünde de önde. Tek tek istatistiksel olarak anlamlı değil; simülasyonun öngördüğü küçük yapısal kazançla tutarlı.`,
     kol,D.map(d=>d&&{biletler:d.demet,ust:(()=>{const ka=new Set();d.demet.forEach(b=>b.forEach(n=>ka.add(n)));
       let mx=0;for(let i=0;i<d.demet.length;i++)for(let j=i+1;j<d.demet.length;j++){const o=d.demet[i].filter(x=>d.demet[j].indexOf(x)>=0).length;if(o>mx)mx=o;}
       return `Kapsama <strong>${ka.size}</strong> farklı sayı · iki bilet arasında en çok <strong>${mx}</strong> ortak sayı`;})()}),
@@ -14888,7 +14893,9 @@ function _chaiRender(){
     `Meta-Seçici'nin ilk <strong>${cfg.P}</strong> sayısından kurulan örtü: havuzun <strong>${cfg.t}</strong>'li her alt kümesi için `
     +`en az bir bilet o alt kümeden ödül eşiği kadar sayı içerir. <strong>Garanti matematikseldir:</strong> çekilişte havuzdan `
     +`${cfg.t} (veya daha fazla) sayı çıkarsa en az bir bilet ödül eşiğine ulaşır. Geçmiş sütunlarda havuzdan kaç sayı çıktığı ve garantinin tuttuğu gösterilir. `
-    +`Garantinin tetiklenip tetiklenmeyeceği ise havuzun isabetine bağlıdır.`,
+    +`Garantinin tetiklenip tetiklenmeyeceği ise havuzun isabetine bağlıdır.<br><strong>Ölçüm (250 çekiliş):</strong> garanti her tetiklendiğinde tuttu `
+    +`(şans 4/4 · süper 2/2 · on numara 13/13; sayısalda tetiklenmedi). <strong>Ama tekerlek toplam şansı artırmaz, havuza yoğunlaştırır:</strong> `
+    +`havuz tutmazsa kazanç yok — On Numara'da toplam 6+ oranı %8, aynı sayıda rastgele bilette %16.6. Garanti isteyen için, oynanacak tek demet olarak değil.`,
     kol,D.map((d,i)=>{
       if(!d||!d.teker)return {bos:'Tekerlek kurulamadı.'};
       const tk=d.teker,k=kol[i];
@@ -22770,11 +22777,22 @@ function _qtHash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))
 // DÜRÜST NOT: 18 bilette bu oranlar Sayısal ~%95 / Süper ~%84 idi — bilet sayısını düşürmek gerçek
 // bir maliyettir (tek gerçek kaldıraç bilet sayısıdır), üretici ayarı bu kaybın bir kısmını geri alır.
 const _QT_BUNDLE_K=12;
+// 🔬 Detaylı Tahmin — NET ODAKLI demetler (_QT_NET). Eski demetler biletleri ardışık çiftlere
+// çevirip kapsamayı "net VEYA ±1 yakın" hücrelerine göre kuruyordu; ödül ise yalnızca net isabetle
+// geliyor. Eşleştirilmiş ölçüm (aynı çekilişte eski vs net odaklı, oyun başına 200 çekiliş,
+// en iyi biletin neti, z):
+//   AI Bilet  şans +1.7 · süper +1.8 · sayısal +0.6 · on numara +1.7   → devrede
+//   Nihai     şans +2.2 · süper +1.8 · sayısal −0.9 · on numara +1.6   → devrede
+//   Birleşik  şans +2.1 · süper +0.9 · sayısal +1.9 · on numara +3.4   → devrede (_qtAiBlock)
+//   3+ Yakın  şans +2.3 · süper +2.4 · sayısal −0.2 · on numara −0.8   → karışık, ESKİ HÂLİ kaldı
+// Kapsama sayısalda ~58 → ~71 farklı sayı. "net+yakın" bir miktar düşüyor — beklenen bedel.
+// Eski hâl On Numara'da kesin rastgele referansın da altındaydı (AI Bilet 6+ %14.7 vs %24.1).
+const _QT_NET={net:true};
 function _qtBuildSources(game,prior){
   let aiB=[],g0=[],ni=[],yak=[],ga=null;
-  try{aiB=_cbGenBundle(game,prior,_QT_BUNDLE_K);}catch(e){}
+  try{aiB=_cbGenBundle(game,prior,_QT_BUNDLE_K,undefined,_QT_NET);}catch(e){}
   try{g0=(typeof _g0GenBundle==='function')?_g0GenBundle(game,prior,_QT_BUNDLE_K):[];}catch(e){}
-  try{ni=_niGenBundle(game,prior,_QT_BUNDLE_K,_niCompute(game,prior));}catch(e){}
+  try{ni=_niGenBundle(game,prior,_QT_BUNDLE_K,_niCompute(game,prior),_QT_NET);}catch(e){}
   try{yak=_coverageBundle(game,'axrecency',_QT_BUNDLE_K,buildFreq(prior),prior);}catch(e){}
   try{ga=_soGapAnalysisCompute(prior[0],game);}catch(e){}
   return {aiB,g0,ni,yak,ga};
@@ -26229,7 +26247,7 @@ function _qtAiBlock(game,prior,src,aSet){
   // hiçbir yerde yok, bu yüzden değeri hep bulunamayıp 30'a düşüyordu.)
   const K=_QT_BUNDLE_K;
   const C=_qtCombineWeights(game,prior,src);
-  let tickets=[];try{tickets=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked});}catch(e){}
+  let tickets=[];try{tickets=_niGenBundle(game,prior,K,{wMap:C.wMap,lo:C.lo,hi:C.hi,ranked:C.ranked},_QT_NET);}catch(e){}
   const topNums=C.ranked.filter(n=>C.tally[n]>0).slice(0,cnt*2);
   const pick=C.ranked.filter(n=>C.tally[n]>0).slice(0,cnt).sort((a,b)=>a-b);
   if(!aSet)window._qtAiTk='Hızlı Tahmin — Birleşik AI ('+game.name+')\nEn güçlü '+cnt+': '+pick.join(' ')+'\n'+tickets.map(t=>[...t.main,...t.bonus].join(' - ')).join('\n');
