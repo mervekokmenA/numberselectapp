@@ -29,7 +29,7 @@ Uygulama tek dosya: `index.html` (vanilla HTML/JS, Türkçe arayüz). Test için
 - Çekiliş verisi: `_kbGetDraws(gid)` / `_scanGetDraws(gid)` (yeniden eskiye `{date,nums,bonus}`). Oyunlar: sans, super, sayisal, onnumara.
 - Sıradaki çekilişin tarihi `_predNextDrawDate` (yoksa `_dxSonraki`); formüller o günün gün/ayına bakar.
 - 🧪 Deneme Excel: formüller `_DX_SABLON`, motor `_dxMotor`; Sayısal Joker sırası `_DX_JOKER` ile geri konur. Çalışma kitabıyla doğrulandı (4660 hücrenin 4649'u aynı). Deneme Excel × Gülay kapsayıcısı: 🟣 Aynı + 🟠 Yakın (±1), Anlık Tahmin sayfasının en üstünde ve Excel sayfasının Deneme sekmesinde.
-- 📊 Excel sekmesi: büyük tablo yok, her formül kendi kapsayıcısında; girişler `onchange` (donma olmasın). Yeni Excel gelince `_EX_SABLON` doldurulur.
+- 📊 Excel sekmesi: büyük tablo yok, her formül kendi kapsayıcısında; girişler `onchange` (donma olmasın). Formüller kullanıcının Deneme Excel çalışma kitabından (`_DX_SABLON`) gelir ve `_dxMotor` ile hesaplanır (yeni tahmin satırı sıradaki çekilişin tarihini kullanır); sekmedeki düzenlemeler `_dxMotor`'a `ovr` olarak geçer. Uygulama genelindeki Excel yıldızları (`_exYeniTahminSayilari`) da bu formülleri kullanır. Yeni Excel gelince `_DX_SABLON` yeniden üretilir.
 - Kazanan/Kronoloji: hane filtre kutuları + "tüm hanelerde ara" + Filtrele; internetten yeni ikramiye kazananı tarama butonu.
 
 ## 5. Kaldırılan alanlar (geri getirme)

@@ -29265,7 +29265,7 @@ const _EX_SABLON={};   // temizlendi — yeni Excel gelince doldurulacak
 // Sütun silinebilir, formülü değiştirilebilir, yeni formül sütunu eklenebilir.
 // ═══════════════════════════════════════════════════════════════════════════
 let _exGame=null,_exKol=null,_exSatir=40,_exSecKol=null;
-const _EX_KEY=g=>'_exKol2_'+g;
+const _EX_KEY=g=>'_exKol3_'+g;
 
 function _exHarf(i){let s='';i++;while(i>0){const m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=((i-1)/26)|0;}return s;}
 function _exIdx(h){let n=0;for(const c of h)n=n*26+(c.charCodeAt(0)-64);return n-1;}
@@ -29287,14 +29287,11 @@ function _exVeriKol(g){
 function _exVarsayilan(gid){
   const g=getGame(gid),veri=_exVeriKol(g);
   const kul=new Set(veri.map(k=>k.h));
-  const sab=(_EX_SABLON[gid]||{kol:[]}).kol;
   const out=veri.slice();
-  sab.forEach(k=>{
-    if(kul.has(k.h))return;
-    // "bosluk": Excel'deki formül grupları arasında GÖRSEL boşluk için bırakılan boş
-    // sütun — çoklanan sayı hesabına katılmaz, sadece Excel'deki aralıkları yansıtır.
-    if(!k.f&&!k.b&&!k.bosluk)return;
-    out.push({h:k.h,b:k.b||'',tip:k.f?'formul':(k.bosluk?'bosluk':'serbest'),f:k.f||''});
+  // Formüller kullanıcının Excel çalışma kitabından (_DX_SABLON): her formül sütunu = bir kapsayıcı
+  ((typeof _DX_SABLON!=='undefined'&&_DX_SABLON[gid])?_DX_SABLON[gid].kol:[]).forEach(k=>{
+    if(kul.has(k[0]))return;
+    out.push({h:k[0],b:k[2]||'',tip:'formul',f:k[1]});
   });
   return out;
 }
@@ -29335,6 +29332,9 @@ function _exDeger(harf,r,ctx){
   const kol=ctx.harfMap[harf];
   if(!kol)return 0;
   if(r<0||r>=ctx.satirlar.length)return 0;
+  if(ctx.motor&&kol.tip==='formul'&&kol.f){
+    try{const mv=ctx.motor.hucre(harf,r);return (typeof mv==='number'&&isFinite(mv))?mv:null;}catch(e){return null;}
+  }
   const anahtar=harf+'|'+r;
   if(ctx.cache[anahtar]!==undefined)return ctx.cache[anahtar];
   if(ctx.calisan[anahtar])return 0;                 // döngü koruması
@@ -29454,7 +29454,7 @@ function _exSil(h){
 }
 function _exEkle(){
   const kul=new Set(_exKol.map(k=>k.h));
-  let i=0;while(kul.has(_exHarf(i)))i++;
+  let i=2;while(kul.has(_exHarf(i)))i++;
   _exKol.push({h:_exHarf(i),b:'yeni',tip:'formul',f:'=MOD(C{+1}+C{+2},'+getGame(_exGame).max+')'});
   _exKaydet();_exRender();
 }
@@ -29501,7 +29501,16 @@ function _exYeniKopyala(){
 function _exCtx(){
   const satirlar=_exSatirlar(_exGame);
   const harfMap={};_exKol.forEach(k=>harfMap[k.h]=k);
-  return {satirlar,harfMap,cache:{},calisan:{}};
+  // Hesap motoru: Deneme Excel ile aynı (A=yıl içi sıra, Excel tarih kuralları, Joker sırası). Yeni tahmin satırı
+  // SIRADAKİ çekilişin tarihini kullanır: DAY()/MONTH() o günün gün/ayına bakar.
+  let motor=null;
+  try{
+    if(_DX_SABLON[_exGame]){
+      const ovr={};_exKol.forEach(k=>{if(k.tip==='formul'&&k.f)ovr[k.h]=k.f;});
+      motor=_dxMotor(_exGame,_dxSirala(_exGame,_kbGetDraws(_exGame)||[]),_dxSonraki(_exGame),ovr);
+    }
+  }catch(e){motor=null;}
+  return {satirlar,harfMap,cache:{},calisan:{},motor};
 }
 // Satır başına bir kapsayıcı: 📊 Excel sekmesi donmasın diye geniş tablo YOK; yalnızca formül satırları çizilir,
 // girişler onchange ile işlenir (her tuşta yeniden çizim yok). Veri sütunları gizli kalır, formüller kullanır.
@@ -29514,7 +29523,7 @@ function _exRender(){
   const bilgi=document.getElementById('exBilgi');
   if(bilgi)bilgi.textContent=g.emoji+' '+g.name+' · '+formuller.length+' formül · '+Math.max(0,ctx.satirlar.length-1)+' geçmiş satır';
   if(!formuller.length){
-    el.innerHTML='<div class="card" style="font-size:.7rem;color:var(--muted);line-height:1.6">Bu sayfa temizlendi. Yeni Excel gelince buraya yüklenecek; şimdilik <strong>➕ Formül Ekle</strong> ile elle formül yazabilirsin (örn. <code>=MOD(C{+1}+C{+2},'+g.max+')</code> — <code>{+1}</code> bir önceki çekiliş, <code>{+0}</code> hedef satır).<br>🧪 Hazır formüller için <strong>Deneme Excel</strong> sekmesine bak.</div>';
+    el.innerHTML='<div class="card" style="font-size:.7rem;color:var(--muted);line-height:1.6">Bu oyun için formül yok; <strong>➕ Formül Ekle</strong> ile elle formül yazabilirsin (örn. <code>=MOD(C{+1}+C{+2},'+g.max+')</code> — <code>{+1}</code> bir önceki çekiliş, <code>{+0}</code> hedef satır).<br>🧪 Hazır formüller için <strong>Deneme Excel</strong> sekmesine bak.</div>';
     return;
   }
   const sayiSet=r=>{const st=ctx.satirlar[r];return st&&!st.gelecek?new Set([...(st.nums||[]),...(st.bonus||[])]):null;};
@@ -29545,7 +29554,7 @@ function _exRender(){
   el.innerHTML=h;
 }
 function _exInit(){
-  try{Object.keys(localStorage).filter(k=>k.indexOf('_exKolon_')===0).forEach(k=>localStorage.removeItem(k));}catch(e){}
+  try{Object.keys(localStorage).filter(k=>(k.indexOf('_exKolon_')===0||k.indexOf('_exKol2_')===0)).forEach(k=>localStorage.removeItem(k));}catch(e){}
   const gid=(state&&state.selectedGame)||GAMES[0].id;
   if(_exGame!==gid){_exGame=gid;_exKol=_exYukle(gid);}
   if(!_exKol)_exKol=_exYukle(_exGame);
@@ -29600,9 +29609,10 @@ function _dxSirala(gid,draws){
   });
 }
 // draws: yeniden eskiye. Satır 0 = yeni tahmin (tarih=sonrakiTarih), satır k = draws[k-1].
-function _dxMotor(gid,draws,sonrakiTarih){
+function _dxMotor(gid,draws,sonrakiTarih,ovr){
   const S=_DX_SABLON[gid];
   const sab={};S.kol.forEach(k=>{sab[k[0]]=k[1];});
+  if(ovr)Object.assign(sab,ovr);   // 📊 Excel sekmesinde elle değiştirilen formüller
   const serial=iso=>{const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(iso||'');return m?Date.UTC(+m[1],+m[2]-1,+m[3])/86400000+25569:null;};
   const yil=iso=>+(iso||'0000').slice(0,4);
   const aSay={},yilSay={};
@@ -29935,7 +29945,7 @@ function _dxHesRender(gid){
 const _DB_AYAR_KEY='_dbAyar';
 // Veritabanına taşınan kullanıcı verileri
 const _DB_ANAHTARLAR=['_predNotes','_onaTickets','_kazananMarks','_astroInputs','_hbInput','_oyunSecimGlobal'];
-const _DB_ONEKLER=['_exKol2_','drawCache_','drawDel_'];
+const _DB_ONEKLER=['_exKol3_','drawCache_','drawDel_'];
 let _dbAyar={url:'',key:'',acik:false};
 let _dbDurum={bagli:false,mesaj:'kapalı',sonSenk:null};
 let _dbBekleyen={},_dbZaman=null;
