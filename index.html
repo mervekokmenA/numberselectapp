@@ -683,7 +683,17 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <!-- ═══════════ PAGE: TARAMA ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-scan">
-  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start" id="scanGrid">
+  <!-- 📊 3'lü geçmiş test (standart): seçilen her tarih, algoritmanın o tarihten ÖNCEKİ veriyle
+       ürettiği grubu yan yana gösterir; seçilmeyen tarih sütun açmaz. -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">📊 Geçmiş Test</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select id="scanDateSel" onchange="_scanTestRender()" style="flex:1;min-width:160px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+      <select id="scanDateSel2" onchange="_scanTestRender()" title="2. geçmiş test" style="flex:1;min-width:160px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+      <select id="scanDateSel3" onchange="_scanTestRender()" title="3. geçmiş test" style="flex:1;min-width:160px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:20px;align-items:start" id="scanGrid">
 
     <!-- Left: Tahmin -->
     <div>
@@ -722,29 +732,9 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
         <div id="scanResult"><div class="empty-state"><span class="empty-icon">🔍</span>Analiz Et'e basın.</div></div>
       </div>
     </div>
-
-    <!-- Right: Geçmiş Test -->
-    <div>
-      <div class="card">
-        <div class="card-title">📊 Tarama Geçmiş Testi</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <span style="font-size:.72rem;color:var(--muted)">Test sayısı:</span>
-          <select id="scanBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-            <option value="10">Son 10 çekiliş</option>
-            <option value="20">Son 20 çekiliş</option>
-            <option value="30">Son 30 çekiliş</option>
-            <option value="50">Son 50 çekiliş</option>
-            <option value="100" selected>Son 100 çekiliş</option>
-            <option value="250">Son 250 çekiliş</option>
-            <option value="999">Tüm geçmiş</option>
-          </select>
-        </div>
-        
-        <button onclick="runScanBacktest()" style="width:100%;padding:10px;background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.08));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:700;margin-bottom:12px">📊 Geçmişi Test Et</button>
-        <div id="scanBtResult"><div class="empty-state"><span class="empty-icon">📊</span>Geçmişi Test Et'e basın.</div></div>
-      </div>
-    </div>
-
+    <div id="scanTestOut" style="display:none"></div>
+    <div id="scanTestOut2" style="display:none"></div>
+    <div id="scanTestOut3" style="display:none"></div>
   </div>
 </div>
 
@@ -1052,26 +1042,11 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   
   <div id="soContent"></div>
  </div>
- <div class="card">
-  <div class="card-title">📊 AI Tahmin — Geçmiş Test</div>
-  
-  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-    <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
-    <select id="soAiBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-      <option value="10">10 çekiliş</option>
-      <option value="20" selected>20 çekiliş</option>
-      <option value="30">30 çekiliş</option>
-      <option value="50">50 çekiliş</option>
-    </select>
-    <button onclick="_soAiBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(129,140,248,.85),rgba(99,102,241,.7));border:1px solid rgba(129,140,248,.6);color:#fff;cursor:pointer;font-weight:700">📊 Geçmiş Testi Çalıştır</button>
-  </div>
-  <div id="soAiBtResult"></div>
- </div>
 </div>
 
 <!-- ═══════════ PAGE: NİHAİ ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-nihai">
- <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start">
+ <div>
   <div>
    <div class="card">
     <div class="card-title">🏁 Nihai Tahmin</div>
@@ -1101,38 +1076,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
      <button onclick="_niRender(true)" style="font-size:.74rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(244,114,63,.9),rgba(194,65,12,.75));border:1px solid rgba(244,114,63,.6);color:#fff;cursor:pointer;font-weight:800">🏁 Nihai Üret</button>
     </div>
     <div id="niContent"></div>
-   </div>
-  </div>
-  <div>
-   <div class="card">
-    <div class="card-title">📊 Nihai — Çoklu Geçmiş Test</div>
-    
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px">
-     <label style="font-size:.72rem;color:var(--muted)">Test sayısı:</label>
-     <select id="niBtCount" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-      <option value="20" selected>20 çekiliş</option>
-      <option value="50">50 çekiliş</option>
-      <option value="100">100 çekiliş</option>
-     </select>
-     <label style="font-size:.72rem;color:var(--muted)">Grup:</label>
-     <select id="niBtK" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px">
-      <option value="4">4</option><option value="6">6</option><option value="10" selected>10</option><option value="20">20</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="200">200</option>
-     </select>
-     <button onclick="_niBacktest()" style="font-size:.75rem;padding:7px 18px;border-radius:9px;background:linear-gradient(135deg,rgba(244,114,63,.9),rgba(194,65,12,.75));border:1px solid rgba(244,114,63,.6);color:#fff;cursor:pointer;font-weight:700">📊 Testi Çalıştır</button>
-     <label style="display:inline-flex;align-items:center;gap:5px;font-size:.66rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="niBtAll" style="cursor:pointer"> 🎫 Her çekilişin tüm biletlerini göster</label>
-    </div>
-    <div id="niBtResult"></div>
-   </div>
-   <div class="card">
-    <div class="card-title">🔗 Ardışık Seçici</div>
-    
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-     <label style="font-size:.72rem;color:var(--muted)">Kaynak grup:</label>
-     <select id="niPsK" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"><option value="10" selected>10 bilet</option><option value="20">20</option><option value="30">30</option></select>
-     <button onclick="_niPairSelect()" style="font-size:.74rem;padding:7px 16px;border-radius:9px;background:linear-gradient(135deg,rgba(16,185,129,.9),rgba(5,150,105,.78));border:1px solid rgba(16,185,129,.6);color:#fff;cursor:pointer;font-weight:700">🔄 Yenile</button>
-     <label style="display:inline-flex;align-items:center;gap:5px;font-size:.66rem;color:var(--muted);cursor:pointer"><input type="checkbox" id="niPsBt" style="cursor:pointer"> 📊 geçmiş test</label>
-    </div>
-    <div id="niPsResult"></div>
    </div>
   </div>
  </div>
@@ -1466,27 +1409,6 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   
   <div style="display:flex;gap:5px;flex-wrap:wrap" id="snGameRow"></div>
  </div>
- <div id="snSynthOut"></div>
- <div class="card">
-  <div class="card-title">🧠 AI Analizi — 🔮 Yeni Tahmin + 📊 Geçmiş Testler</div>
-  
-  <div class="sn-date" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-bottom:8px">
-   <div style="display:flex;gap:5px;align-items:stretch;min-width:0">
-    <select id="snAiDateSel" onchange="_snAiDateTest('')" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
-    <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
-     <button onclick="_snAiStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
-     <button onclick="_snAiStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
-    </div>
-   </div>
-   <select id="snAiDateSel2" onchange="_snAiDateTest('2')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
-   <select id="snAiDateSel3" onchange="_snAiDateTest('3')" style="min-width:0;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
-  </div>
-  <div id="snAiHdrRow" style="display:grid;grid-template-columns:minmax(0,1fr);gap:14px;margin-bottom:6px"></div>
-  <div class="sn-row" id="snAiTestGrid" style="display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start">
-   <div id="snAiOut"></div>
-   <div id="snAiTestOut" data-sk-gecmis="1"></div><div id="snAiTestOut2" data-sk-gecmis="1"></div><div id="snAiTestOut3" data-sk-gecmis="1"></div>
-  </div>
- </div>
  <div class="card">
   <div class="card-title">📋 Excel Görünümü</div>
   
@@ -1522,35 +1444,20 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
  </div>
  <div id="f2SynthOut"></div>
- <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:start" id="f2Grid">
-  <div>
-   <div class="card" style="margin:0">
-    <div class="card-title">📅 Formüller — Yeni Tahmin</div>
-    
-    <div id="f2Out"></div>
-   </div>
-  </div>
-  <div>
-   <div class="card" style="margin:0">
-    <div class="card-title">📊 Geçmiş Test — tek tek tarih seçerek</div>
-    
-    <div style="display:flex;gap:6px;align-items:stretch">
-     <select id="f2DateSel" onchange="_f2DateTest()" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
-     <div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
+ <!-- Geçmiş test seçicileri tek satırda (standart): seçilmeyen tarihler sayfada yer kaplamaz. -->
+ <div class="card" style="margin-bottom:12px">
+  <div class="card-title">📊 Geçmiş Test</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch">
+   <div style="display:flex;gap:6px;align-items:stretch;flex:1;min-width:200px"><select id="f2DateSel" onchange="_f2DateTest()" style="flex:1;min-width:160px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select><div style="display:flex;flex-direction:column;gap:3px;flex-shrink:0">
       <button onclick="_f2StepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▲</button>
       <button onclick="_f2StepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 8px;cursor:pointer;font-size:.72rem;line-height:1.1">▼</button>
-     </div>
-    </div>
-    <div id="f2TestOut"></div>
-    <div style="display:flex;gap:6px;align-items:stretch;margin-top:8px">
-     <select id="f2DateSel2" onchange="_f2DateTest('2')" title="2. geçmiş test — aynı anda ikinci bir tarihi karşılaştır" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
-     <select id="f2DateSel3" onchange="_f2DateTest('3')" title="3. geçmiş test — aynı anda ikinci bir tarihi karşılaştır" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px;flex:1;min-width:0"></select>
-    </div>
-    <div id="f2TestOut2"></div>
-    <div id="f2TestOut3"></div>
-   </div>
+     </div></div>
+   <select id="f2DateSel2" onchange="_f2DateTest('2')" title="2. geçmiş test — aynı anda ikinci bir tarihi karşılaştır" style="flex:1;min-width:160px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   <select id="f2DateSel3" onchange="_f2DateTest('3')" title="3. geçmiş test — aynı anda ikinci bir tarihi karşılaştır" style="flex:1;min-width:160px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
   </div>
+  <div id="f2TestOut"></div><div id="f2TestOut2"></div><div id="f2TestOut3"></div>
  </div>
+ <div id="f2Out" style="margin-bottom:6px"></div>
  <div id="f2PickOut" style="margin-top:12px"></div>
  <div id="f2HdrRow" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin:10px 0 4px">
   <div style="font-size:.68rem;font-weight:800;color:var(--accent)">🔮 Yeni Tahmin</div>
@@ -1571,32 +1478,26 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    <button class="kb-game-btn" data-game="onnumara" onclick="_kbSetGame('onnumara')" style="font-size:.72rem;padding:5px 13px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🟢 On Numara</button>
   </div>
  </div>
- <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;align-items:start" id="kbGrid">
+ <!-- 📊 Geçmiş test seçicileri tek satırda; seçilmeyen tarihin sütunu açılmaz (kullanıcı isteği). -->
+ <div class="card" style="margin-bottom:12px">
+  <div class="card-title">📊 Geçmiş Test</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:stretch">
+   <div style="display:flex;gap:6px;align-items:stretch;flex:1;min-width:200px"><select id="kbDateSel" onchange="_kbDateTest()" style="flex:1;min-width:160px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select><div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
+     <button onclick="_kbStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 7px;cursor:pointer;font-size:.68rem;line-height:1.1">▲</button>
+     <button onclick="_kbStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 7px;cursor:pointer;font-size:.68rem;line-height:1.1">▼</button>
+    </div></div>
+   <select id="kbDateSel2" onchange="_kbDateTest('2')" title="2. geçmiş test" style="flex:1;min-width:160px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+   <select id="kbDateSel3" onchange="_kbDateTest('3')" title="3. geçmiş test" style="flex:1;min-width:160px;font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 9px"></select>
+  </div>
+ </div>
+ <div style="display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start" id="kbGrid">
   <div>
    <div style="font-size:.78rem;font-weight:800;color:var(--accent);margin-bottom:8px;padding-left:2px">🔮 Yeni Tahmin</div>
    <div id="kbContent"></div>
   </div>
-  <div>
-   <div style="font-size:.66rem;font-weight:800;color:var(--muted);margin-bottom:8px">📊 Geçmiş Test 1</div>
-   <div style="display:flex;gap:4px;align-items:stretch;margin-bottom:8px">
-    <select id="kbDateSel" onchange="_kbDateTest()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;flex:1;min-width:0"></select>
-    <div style="display:flex;flex-direction:column;gap:2px;flex-shrink:0">
-     <button onclick="_kbStepDate(-1)" title="Daha yeni" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 7px;cursor:pointer;font-size:.68rem;line-height:1.1">▲</button>
-     <button onclick="_kbStepDate(1)" title="Daha eski" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:2px 7px;cursor:pointer;font-size:.68rem;line-height:1.1">▼</button>
-    </div>
-   </div>
-   <div id="kbDateOut"></div>
-  </div>
-  <div>
-   <div style="font-size:.66rem;font-weight:800;color:var(--muted);margin-bottom:8px">📊 Geçmiş Test 2</div>
-   <select id="kbDateSel2" onchange="_kbDateTest('2')" title="2. geçmiş test" style="width:100%;box-sizing:border-box;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;margin-bottom:8px"></select>
-   <div id="kbDateOut2"></div>
-  </div>
-  <div>
-   <div style="font-size:.66rem;font-weight:800;color:var(--muted);margin-bottom:8px">📊 Geçmiş Test 3</div>
-   <select id="kbDateSel3" onchange="_kbDateTest('3')" title="3. geçmiş test" style="width:100%;box-sizing:border-box;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:6px 8px;margin-bottom:8px"></select>
-   <div id="kbDateOut3"></div>
-  </div>
+  <div id="kbCol1" style="display:none"><div style="font-size:.66rem;font-weight:800;color:var(--muted);margin-bottom:8px">📊 Geçmiş Test 1</div><div id="kbDateOut"></div></div>
+  <div id="kbCol2" style="display:none"><div style="font-size:.66rem;font-weight:800;color:var(--muted);margin-bottom:8px">📊 Geçmiş Test 2</div><div id="kbDateOut2"></div></div>
+  <div id="kbCol3" style="display:none"><div style="font-size:.66rem;font-weight:800;color:var(--muted);margin-bottom:8px">📊 Geçmiş Test 3</div><div id="kbDateOut3"></div></div>
  </div>
 </div>
 
@@ -7168,6 +7069,7 @@ function _syncOtherGameGrids(id){
   _ortakGame=id; _ortakHighlightGame(id);
   // Scan sayfası
   _scanGame=id;
+  try{['','2','3'].forEach(sl=>{const e=document.getElementById('scanDateSel'+sl);if(e)e.value='';});_scanDates();_scanTestRender();}catch(e){}
   const scanGrid=document.getElementById('scanGameGrid');
   if(scanGrid){
     scanGrid.querySelectorAll('button').forEach((btn,i)=>{
@@ -13115,6 +13017,7 @@ function _kbInit(){
 function _kbSetGame(g){_kbGame=g;_kbRender();}
 function _kbRender(){
   document.querySelectorAll('.kb-game-btn').forEach(b=>{const on=b.dataset.game===_kbGame;b.style.background=on?'rgba(129,140,248,.25)':'var(--surface2)';b.style.borderColor=on?'rgba(129,140,248,.55)':'var(--border)';b.style.color=on?'var(--accent)':'var(--muted)';b.style.fontWeight=on?'700':'400';});
+  try{_kbGridLayout();}catch(e){}
   const el=document.getElementById('kbContent');if(!el)return;
   el.innerHTML='<div style="padding:30px;text-align:center;color:var(--muted);font-size:.8rem">⏳ Hesaplanıyor…</div>';
   _kbDates();
@@ -13141,6 +13044,7 @@ function _kbDateTest(slot){
   slot=slot||'';
   const el=document.getElementById('kbDateOut'+(slot==='2'||slot==='3'?slot:''));if(!el)return;
   const date=document.getElementById('kbDateSel'+slot)?.value||'';
+  _kbGridLayout();
   if(!date){el.innerHTML='';return;}
   const draws=_kbGetDraws(_kbGame);const idx=draws.findIndex(d=>d.date===date);
   if(idx<0){el.innerHTML='';return;}
@@ -14352,10 +14256,9 @@ function _kbRenderBanko(prior,actual){
   if(actual){
     const res=[...(actual.nums||[])].sort((a,b)=>a-b);
     const bNet=aSet?bankoList.slice(0,cnt).filter(r=>aSet.has(r.n)).length:0;
-    h+=`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div><span style="font-size:.64rem;font-weight:800;color:${bNet>=3?'var(--green)':'var(--muted)'}">🔒 banko: ${bNet} net</span></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Konsensüs bu tarihten ÖNCEKİ verilerle hesaplandı · ✓ net · ~ ±1 yakın.</div></div>`;
+    h+=`<div class="card" style="margin-bottom:12px;border-color:rgba(0,230,118,.35)"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><div style="font-size:.64rem;color:var(--muted)">🎯 <strong style="color:var(--text)">${actual.date}</strong> sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${res.join(' ')}${actual.bonus&&actual.bonus.length?' | '+actual.bonus.join(' '):''}</span></div></div><div style="font-size:.54rem;color:var(--muted);margin-top:3px">Konsensüs bu tarihten ÖNCEKİ verilerle hesaplandı · ✓ net · ~ ±1 yakın.</div></div>`;
   }
   h+=`<div style="background:rgba(129,140,248,.07);border:1px solid rgba(129,140,248,.25);border-radius:10px;padding:11px 14px;margin-bottom:12px"><div style="font-size:.8rem;font-weight:800;color:var(--accent)">🎯 ${game.emoji} ${game.name} — Banko Konsensüsü</div><div style="font-size:.62rem;color:var(--muted);margin-top:3px">${draws.length} çekiliş · ${_KB_METHODS.length} yöntem · <strong>eşit ağırlıklı</strong> oylama (kalibrasyon ${cal.valid} turda ölçüldü, ağırlık olarak kullanılmıyor — ölçüm sonuçları rastgeleden kötüydü)</div></div>`;
-  h+=`<div style="background:rgba(129,140,248,.06);border:1px solid rgba(129,140,248,.28);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:9px"><div style="font-size:.78rem;font-weight:800;color:var(--accent)">🔒 En Güçlü Banko Adayları</div><button onclick="_kbCopy('Kapsamlı\\n🔒 En Güçlü Banko Adayları\\n${bankoList.slice(0,cnt).map(r=>r.n).sort((a,b)=>a-b).join(' ')}')" style="background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.65rem;font-weight:700">📋 Kopyala</button></div><div style="font-size:.6rem;color:var(--muted);margin-bottom:9px">Birden çok bağımsız yöntemin aynı anda öne çıkardığı sayılar. Alt rakam = kaç yöntemin desteklediği (0–6).</div><div style="display:flex;gap:6px;flex-wrap:wrap">${bankoList.map(r=>_kbBadge(r.n,r.support>=3,r.support+'/6',hitSt(r.n),hitMk(r.n))).join('')}</div></div>`;
   h+=_kbGulsisPanel(game,draws,cnt,new Set(bankoList.map(r=>r.n)),aSet);
   h+=`<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:12px"><div style="font-size:.75rem;font-weight:800;color:var(--text);margin-bottom:9px">📊 Konsensüs Sıralaması</div>`;
   rows.slice(0,18).forEach((r,i)=>{
@@ -14364,41 +14267,66 @@ function _kbRenderBanko(prior,actual){
     h+=`<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.04)"><span style="font-size:.6rem;color:var(--muted);min-width:18px">${i+1}</span><span style="font-size:.85rem;font-weight:800;font-family:monospace;color:${col};min-width:32px">${r.n}${hitMk(r.n)}</span><span style="flex:1;font-size:.62rem;font-weight:700;color:var(--accent)">%${Math.round(r.consN*100)}</span><span style="font-size:.6rem;min-width:78px;text-align:right;letter-spacing:1px">${icons||'—'}</span><span style="font-size:.58rem;color:var(--muted);min-width:24px;text-align:right">${r.support}/6</span></div>`;
   });
   h+=`</div>`;
-  // NS kümülatif toplamlar ve ±k adaylar (son çekilişten)
-  const consMap={};rows.forEach((r,i)=>consMap[r.n]={rank:i+1,support:r.support,consN:r.consN});
-  const lastD=draws[0];
-  if(lastD){
-    const sorted=[...lastD.nums].sort((a,b)=>a-b);
-    let ns=0;const nsVals=sorted.map(n=>{ns+=n;return ns;});
-    const nsLabels=['NS₁','NS₂','NS₃','NS₄','NS₅','NS₆','NS₇'];
-    const nsCands=new Map();
-    nsVals.forEach((nsv,ni)=>{
-      for(let k=-4;k<=4;k++){const c=nsv+k;if(c>=1&&c<=game.max){if(!nsCands.has(c))nsCands.set(c,{k,nsi:ni,nsv});}}
-    });
-    const nsCandArr=[...nsCands.entries()].map(([c,v])=>({n:c,k:v.k,nsi:v.nsi,nsv:v.nsv,kb:consMap[c]||{rank:rows.length,support:0,consN:0}})).sort((a,b)=>b.kb.consN-a.kb.consN||Math.abs(a.k)-Math.abs(b.k)).slice(0,20);
-    if(nsCandArr.length){
-      h+=`<div style="background:rgba(129,140,248,.04);border:1px solid rgba(129,140,248,.2);border-radius:10px;padding:11px 14px;margin-top:14px">`;
-      h+=`<div style="font-size:.68rem;font-weight:800;color:var(--accent);margin-bottom:5px">🔢 NS Zincir Adayları — Son Çekilişten</div>`;
-      h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">Son çekiliş (${lastD.date}) kümülatif toplamlar: ${nsVals.map((v,i)=>`${nsLabels[i]}=${v}`).join(' · ')}. Bu değerlere ±4 yakın sayılar:</div>`;
-      const nsCopyTxt=nsCandArr.slice(0,cnt).map(x=>x.n).sort((a,b)=>a-b).join(' ');
-      h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><span style="font-size:.62rem;color:var(--muted)">KB konsensüse göre sıralanmış</span><button onclick="_kbCopy('NS Adayları\\n${nsCopyTxt}')" style="background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.62rem">📋 Top ${cnt}</button></div>`;
-      h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">`;
-      nsCandArr.forEach((x,xi)=>{
-        const hot=x.kb.support>=3,top=xi<cnt;
-        // Geçmiş testinde renk gerçek sonuca göre; test yokken KB desteğine göre.
-        const st=hitSt(x.n),sty=st?_KB_HITSTYLE[st]:null;
-        const bg=sty?sty.bg:(hot?'rgba(129,140,248,.18)':top?'rgba(129,140,248,.09)':'rgba(0,0,0,.04)');
-        const bd=sty?sty.bd:(hot?'rgba(129,140,248,.45)':top?'rgba(129,140,248,.22)':'rgba(0,0,0,.08)');
-        const fg=sty?sty.cl:(hot?'var(--accent)':top?'var(--accent)':'var(--text)');
-        h+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 5px;border-radius:7px;background:${bg};border:1px solid ${bd};font-family:monospace">`;
-        h+=`<span style="font-size:.78rem;font-weight:${(sty?st!=='miss':hot)?'800':'600'};color:${fg}">${x.n}${hitMk(x.n)}</span>`;
-        h+=`<span style="font-size:.46rem;color:var(--muted)">${nsLabels[x.nsi]}${x.k>=0?'+':''}${x.k}·#${x.kb.rank}</span>`;
-        h+=`</span>`;
-      });
-      h+=`</div></div>`;
-    }
-  }
+  // 🔢 NS Zincir Adayları — ortak bileşen (Detaylı ve Anlık Tahmin'de de aynısı)
+  h+=_nsZincirKart(game,draws,rows,aSet,'_kbNsTxt'+(actual?'T':''),cnt);
   return h;
+}
+
+// ═══ 🔢 NS Zincir Adayları — Son Çekilişten (Kapsamlı, Detaylı Tahmin, Anlık Tahmin) ═══
+// Son çekilişin sıralı sayılarının kümülatif toplamları (NS₁…NSₖ) ve onlara ±4 yakın sayılar,
+// KB konsensüs sırasına göre. 📋 Kopyala listenin TAMAMINI bu sırayla alır (kullanıcı isteği).
+function _nsZincirKart(game,draws,rows,aSet,copyKey,cnt){
+  const lastD=draws&&draws[0];if(!lastD||!rows||!rows.length)return '';
+  cnt=cnt||Math.min(game.count,7);
+  const consMap={};rows.forEach((r,i)=>consMap[r.n]={rank:i+1,support:r.support,consN:r.consN});
+  const sorted=[...lastD.nums].sort((a,b)=>a-b);
+  let ns=0;const nsVals=sorted.map(n=>{ns+=n;return ns;});
+  const nsAd=i=>'NS'+String(i+1).split('').map(c=>'₀₁₂₃₄₅₆₇₈₉'[+c]).join('');
+  const nsCands=new Map();
+  nsVals.forEach((nsv,ni)=>{for(let k=-4;k<=4;k++){const c=nsv+k;if(c>=1&&c<=game.max&&!nsCands.has(c))nsCands.set(c,{k,nsi:ni,nsv});}});
+  const arr=[...nsCands.entries()].map(([c,v])=>({n:c,k:v.k,nsi:v.nsi,kb:consMap[c]||{rank:rows.length,support:0,consN:0}}))
+    .sort((a,b)=>b.kb.consN-a.kb.consN||Math.abs(a.k)-Math.abs(b.k)).slice(0,20);
+  if(!arr.length)return '';
+  const hitSt=n=>aSet?(aSet.has(n)?'hit':(aSet.has(n-1)||aSet.has(n+1))?'near':'miss'):null;
+  const hitMk=n=>aSet?(aSet.has(n)?'✓':(aSet.has(n-1)||aSet.has(n+1))?'~':''):'';
+  window[copyKey]='🔢 NS Zincir Adayları — '+game.name+' (KB konsensüs sırası)\n'+arr.map(x=>x.n).join(' ');
+  let net=0,yak=0;if(aSet)arr.forEach(x=>{const st=hitSt(x.n);if(st==='hit')net++;else if(st==='near')yak++;});
+  let h=`<div style="background:rgba(129,140,248,.04);border:1px solid rgba(129,140,248,.2);border-radius:10px;padding:11px 14px;margin-top:14px">`;
+  h+=`<div style="font-size:.68rem;font-weight:800;color:var(--accent);margin-bottom:5px">🔢 NS Zincir Adayları — Son Çekilişten</div>`;
+  h+=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px">Son çekiliş (${lastD.date}) kümülatif toplamlar: ${nsVals.map((v,i)=>`${nsAd(i)}=${v}`).join(' · ')}. Bu değerlere ±4 yakın sayılar:</div>`;
+  h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:7px"><span style="font-size:.62rem;color:var(--muted)">KB konsensüse göre sıralanmış${aSet?` · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yak?` · <span style="color:#c2410c">${yak} yakın</span>`:''}`:''}</span>`
+    +`<button onclick="_caCopy(window['${copyKey}']);showToast('📋 Kopyalandı')" style="background:rgba(129,140,248,.1);border:1px solid rgba(129,140,248,.3);color:var(--accent);border-radius:6px;padding:3px 9px;cursor:pointer;font-size:.65rem;font-weight:700">📋 Kopyala</button></div>`;
+  h+=`<div style="display:flex;gap:4px;flex-wrap:wrap">`;
+  arr.forEach((x,xi)=>{
+    const hot=x.kb.support>=3,top=xi<cnt;
+    const st=hitSt(x.n),sty=st?_KB_HITSTYLE[st]:null;
+    const bg=sty?sty.bg:(hot?'rgba(129,140,248,.18)':top?'rgba(129,140,248,.09)':'rgba(0,0,0,.04)');
+    const bd=sty?sty.bd:(hot?'rgba(129,140,248,.45)':top?'rgba(129,140,248,.22)':'rgba(0,0,0,.08)');
+    const fg=sty?sty.cl:(hot||top?'var(--accent)':'var(--text)');
+    h+=`<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 5px;border-radius:7px;background:${bg};border:1px solid ${bd};font-family:monospace">`
+      +`<span style="font-size:.78rem;font-weight:${(sty?st!=='miss':hot)?'800':'600'};color:${fg}">${x.n}${hitMk(x.n)}</span>`
+      +`<span style="font-size:.46rem;color:var(--muted)">${nsAd(x.nsi)}${x.k>=0?'+':''}${x.k}·#${x.kb.rank}</span></span>`;
+  });
+  return h+`</div></div>`;
+}
+// Detaylı/Anlık Tahmin bloğu — KB konsensüsü (pahalı) çekiliş+boy anahtarıyla önbellekte.
+const _NS_KB_CACHE={};
+function _qtNsZincirBlock(game,prior,aSet,mode){
+  if(!prior||prior.length<20)return '';
+  const key=game.id+'|'+prior[0].date+'|'+prior.length;
+  let rows=_NS_KB_CACHE[key];
+  if(!rows){try{rows=_kbConsensus(prior,game,_kbCalibrate(prior,game));}catch(e){return '';}_NS_KB_CACHE[key]=rows;}
+  const ic=_nsZincirKart(game,prior,rows,aSet,'_qtNsTxt_'+(mode||'live'));
+  return ic?`<div class="card" style="margin-bottom:12px">${ic.replace('margin-top:14px','margin-top:0')}</div>`:'';
+}
+
+// Kapsamlı ızgarası: yalnızca tarihi seçili geçmiş test sütunları görünür.
+function _kbGridLayout(){
+  const g=document.getElementById('kbGrid');if(!g)return;
+  let n=1;
+  ['','2','3'].forEach((sl,i)=>{const on=!!(document.getElementById('kbDateSel'+sl)||{}).value;
+    const c=document.getElementById('kbCol'+(i+1));if(c)c.style.display=on?'':'none';if(on)n++;});
+  g.style.gridTemplateColumns='repeat('+n+',minmax(0,1fr))';
 }
 
 function _kbRenderTest(){
@@ -15001,6 +14929,7 @@ function _initScanPage(){
     sel.dataset.init='1';
     ALGOS.forEach(a=>{sel.innerHTML+=`<option value="${a.id}">${a.name}</option>`;});
   }
+  try{_scanDates();_scanTestRender();}catch(e){}
   // Pre-fill target date
   const sdt=document.getElementById('scanTargetDate');
   if(sdt&&!sdt.value){const gid=_scanGame||state.selectedGame;if(gid)sdt.value=_predNextDrawDate(gid)||'';}
@@ -16442,6 +16371,47 @@ function runScan(noRecord){
   html+=_scanTopCands(game,algoId,pred,prior,freq);
   html+=`</div>`;
   res.innerHTML=html;
+  res.dataset.skYeni=gameId;
+  try{_scanTestRender();}catch(e){}
+}
+// ── 📊 Tarama — 3'lü geçmiş test ──
+function _scanDates(){
+  const gid=_scanGame||state.selectedGame,draws=_scanGetDraws(gid)||[];
+  let h='<option value="">— Geçmiş test için tarih seçin —</option>';
+  draws.forEach((d,i)=>{if(draws.length-i-1<30)return;h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
+  ['','2','3'].forEach(sl=>{const e=document.getElementById('scanDateSel'+sl);if(!e)return;const pv=e.value;e.innerHTML=h;if(pv&&draws.some(d=>d.date===pv))e.value=pv;});
+}
+function _scanTestRender(){
+  const grid=document.getElementById('scanGrid');if(!grid)return;
+  const gid=_scanGame||state.selectedGame,game=getGame(gid);if(!game)return;
+  const draws=_scanGetDraws(gid)||[];
+  const algoId=document.getElementById('scanAlgo')?.value;
+  const winVal=document.getElementById('scanWindow')?.value;
+  const algoName=(ALGOS.find(a=>a.id===algoId)||{}).name||algoId;
+  let n=0;
+  ['','2','3'].forEach((sl,i)=>{
+    const out=document.getElementById('scanTestOut'+sl);if(!out)return;
+    const v=document.getElementById('scanDateSel'+sl)?.value||'';
+    const idx=v?draws.findIndex(d=>d.date===v):-1;
+    if(idx<0){out.style.display='none';out.innerHTML='';out.removeAttribute('data-sk-gecmis');return;}
+    n++;
+    const actual=draws[idx];let prior=draws.slice(idx+1);
+    if(winVal&&winVal!=='999')prior=prior.slice(0,parseInt(winVal));
+    let pred;try{pred=generateNumbers(game,algoId,buildFreq(prior),prior);}catch(e){pred={main:[],bonus:[]};}
+    const aS=new Set(actual.nums||[]),bS=new Set(actual.bonus||[]);
+    const ySet=_fadYakinSet(aS,game.max);
+    const net=(pred.main||[]).filter(x=>aS.has(x)).length,yak=(pred.main||[]).filter(x=>!aS.has(x)&&ySet.has(x)).length;
+    const bNet=(pred.bonus||[]).filter(x=>bS.has(x)).length;
+    const esik=((typeof _oyunEsik==='function'&&_oyunEsik(game))||{}).odul||3;
+    let h=`<div class="card" style="margin:0"><div class="card-title">📊 ${i?(i+1)+'. ':''}Geçmiş Test · ${actual.date}</div>`
+      +`<div style="font-size:.6rem;color:var(--muted);margin-bottom:6px">🎯 ${actual.date} sonucu: <span style="font-family:monospace;color:var(--green);font-weight:800">${[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(actual.bonus||[]).length?' | '+actual.bonus.join(' '):''}</span></div>`
+      +`<div style="font-size:.58rem;color:var(--muted);margin-bottom:6px">${game.emoji} ${game.name} · ${algoName} · bu tarihten ÖNCEKİ ${prior.length} çekilişle (lookahead yok) · ✓ net · ~ ±1 yakın</div>`
+      +`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">${(pred.main||[]).map(x=>_fadRozet(x,_fadDurum(x,aS,ySet))).join('')}`
+      +((pred.bonus||[]).length?`<span style="align-self:center;color:var(--muted)">|</span>`+(pred.bonus||[]).map(x=>_fadRozet(x,bS.has(x)?'net':'')).join(''):'')+`</div>`
+      +`<div style="font-size:.66rem;font-weight:800;color:${net>=esik?'var(--green)':'var(--muted)'}">${net} net${yak?` <span style="color:#c2410c">· ${yak} yakın</span>`:''}${(pred.bonus||[]).length?` · bonus ${bNet}`:''}</div></div>`;
+    out.innerHTML=h;out.style.display='';out.dataset.skGecmis=gid+'|'+actual.date;
+  });
+  grid.style.gridTemplateColumns='repeat('+(1+n)+',minmax(0,1fr))';
 }
 
 // ── Şans (rastgele seçim) referansı ────────────────────────────────────────
@@ -21813,13 +21783,14 @@ function _snComputeRows(game,draws,maxN){
   return {systems,rows};
 }
 function _snRunAll(){
-  const synthEl=document.getElementById('snSynthOut'),tblEl=document.getElementById('snTableOut');
-  if(!synthEl||!tblEl)return;
+  // 🧠 Kendi Tahmin Yapım kullanıcı isteğiyle kaldırıldı (snSynthOut yok) — sentez yazılmaz.
+  const synthEl={set innerHTML(v){}},tblEl=document.getElementById('snTableOut');
+  if(!tblEl)return;
   const game=getGame(_snGame),draws=_kbGetDraws(_snGame);
   if(draws.length<4){synthEl.innerHTML='';tblEl.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli veri yok (≥4 çekiliş gerekli).</div>';return;}
   const {systems,rows}=_snComputeRows(game,draws,_snRowN);
   if(!rows.length){synthEl.innerHTML='';tblEl.innerHTML='<div class="card" style="font-size:.72rem;color:var(--muted)">Yeterli önceki çekiliş yok.</div>';return;}
-  synthEl.innerHTML=_snRenderSynth(game,systems,rows[0]);
+  // (Kendi Tahmin Yapım sentezi artık hesaplanmıyor)
   const aiEl=document.getElementById('snAiOut');
   if(aiEl){aiEl.dataset.skYeni=game.id;try{aiEl.innerHTML=_snAiRender(game,draws);}catch(e){aiEl.innerHTML='';}}
   try{_snAiDates();}catch(e){}
@@ -22007,7 +21978,8 @@ function _snRenderTable(game,systems,rows){
     // Tekli kopyalama: sayılar YAN YANA (tek satır) — uygulamanın diğer kopyalarıyla aynı biçim.
     window['_snSys'+sys.id]=sys.name+' ('+game.name+')\n'+newOut.map(o=>o.val).join(' ');
   });
-  let h='<div style="display:flex;flex-direction:column;gap:8px;max-height:70vh;overflow-y:auto;overflow-x:hidden;padding-right:4px">';
+  // Kullanıcı isteği: kart içinde kaydırma yok — tablo sayfanın akışında tam boy durur.
+  let h='<div style="display:flex;flex-direction:column;gap:8px">';
   rows.forEach(row=>{
     const {idx,actual,targetDateStr}=row;
     const bandBg=idx===-1?'rgba(99,102,241,.1)':'var(--surface2)';
@@ -22698,6 +22670,7 @@ function _qtRenderAll(mode,game,prior,actual){
   blk('best3',_qtBest3Block(game,prior,src,aSet));
   blk('transform',_qtTransformBlock(game,prior,aSet));
   blk('aday',_qtAdayBlock(game,prior,aSet));
+  blk('nsZincir',_qtNsZincirBlock(game,prior,aSet,mode));
   blk('hane',_qtHaneBlock(game,prior,aSet));
   blk('kbCons',_qtKbConsBlock(game,prior,aSet));
   blk('formul',_qtFormulBlock(game,prior,aSet,actual));
@@ -23928,6 +23901,24 @@ function _hyPosPanel(pm){
      return `<span style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:3px 9px;border-radius:8px;background:var(--surface2);border:2px solid #111"><span style="font-size:.86rem;font-weight:800;font-family:monospace;color:var(--text)">${n}</span><span style="font-size:.42rem;color:var(--muted)">${yer.slice(0,3).join(' ')}${yer.length>3?' +'+(yer.length-3):''} sıra</span></span>`;}).join('')}</div>
   </div>`;
 }
+// 🏆 Uzlaşı — 3'lü geçmiş test. Seçilen tarihte, eşiği geçen yöntemlerin her biri yalnızca o
+// tarihten ÖNCEKİ çekilişlerle sayı üretir; uzlaşı aynı sayım kuralıyla kurulur. (Hangi yöntemin
+// "eşiği geçtiği" tüm geçmiş ölçümüne dayanır — bu seçimde ileriye bakış payı vardır, notta yazar.)
+// Tarihler sayfanın üstteki 📊 geçmiş test seçicilerinden (hyDateSel/2/3) okunur.
+function _hyUzSecim(){return ['','2','3'].map(sl=>(document.getElementById('hyDateSel'+sl)||{}).value||'');}
+function _hyUzGecmisHtml(game,draws,gecen,dt,k){
+  const idx=draws.findIndex(d=>d.date===dt);if(idx<0)return '<div></div>';
+  const actual=draws[idx],prior=draws.slice(idx+1);
+  const t={};
+  gecen.forEach(r=>{let c=[];try{c=r.m.gen(game,prior,_HY_N(game))||[];}catch(e){}c.forEach(n=>t[n]=(t[n]||0)+1);});
+  const top=Object.keys(t).map(Number).sort((a,b)=>t[b]-t[a]||a-b).slice(0,game.count*2);
+  const aS=new Set(actual.nums||[]),yS=_fadYakinSet(aS,game.max);
+  const net=top.filter(n=>aS.has(n)).length,yak=top.filter(n=>!aS.has(n)&&yS.has(n)).length;
+  return `<div data-sk-gecmis="${game.id}|${dt}"><div style="font-size:.62rem;font-weight:800;color:var(--accent);margin-bottom:3px">📊 ${k?(k+1)+'. ':''}Geçmiş Test · ${dt}</div>`
+    +`<div style="font-size:.56rem;color:var(--muted);margin-bottom:5px">🎯 sonuç: <span style="font-family:monospace;color:var(--green);font-weight:800">${[...(actual.nums||[])].sort((a,b)=>a-b).join(' ')}${(actual.bonus||[]).length?' | '+actual.bonus.join(' '):''}</span> · <strong style="color:${net?'var(--green)':'var(--muted)'}">${net} net</strong>${yak?` · <span style="color:#c2410c">${yak} yakın</span>`:''}</div>`
+    +`<div style="display:flex;gap:5px;flex-wrap:wrap">${top.map(n=>_fadRozet(n,_fadDurum(n,aS,yS))).join('')}</div>`
+    +`<div style="font-size:.5rem;color:var(--muted);margin-top:4px">Sayılar bu tarihten önceki veriyle üretildi; yöntem seçimi tüm geçmiş ölçümüne dayanır.</div></div>`;
+}
 function _hyRender(){
   const el=document.getElementById('hyOut');if(!el||!_hyRes)return;
   const {game,res,draws,nul,games}=_hyRes;
@@ -23943,27 +23934,6 @@ function _hyRender(){
   const uz=Object.keys(tal).map(Number).sort((a,b)=>tal[b]-tal[a]||a-b);
   window._hyTally=tal;window._hyUz=uz;
   let h='';
-  // ── karne ──
-  h+=`<div class="card" style="border:2px solid ${kesif?'rgba(16,185,129,.55)':'rgba(180,83,9,.45)'};background:linear-gradient(135deg,${kesif?'rgba(16,185,129,.07)':'rgba(217,119,6,.06)'},transparent)">
-   <div style="font-size:.78rem;font-weight:800;color:${kesif?'#0a9a6a':'#b8860b'};margin-bottom:7px">🧾 Ölçüm Karnesi</div>
-   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:8px">
-    ${[['Yöntem',_HY_METHODS.length,''],['Eşiği geçen',gecen.length+' / '+withNums.length,'çekilişlerin ≥%'+_HY_ESIK+"'inde en az 1 net"],
-       ['Ölçüm',(withNums[0]?withNums[0].n:0)+' çekiliş',games.length>1?games.length+' oyun birleşik':game.name],
-       ['En yüksek lift',enIyi?enIyi.lift.toFixed(2):'—',enIyi?enIyi.m.name:''],
-       ['Şans altında beklenen<br>en yüksek lift',nul?nul.p95.toFixed(2):'—',nul?nul.M+' yöntem · %95 sınırı':'']]
-      .map(([a,b,c])=>`<div style="padding:7px 9px;background:var(--surface2);border:1px solid var(--border);border-radius:8px">
-        <div style="font-size:.5rem;color:var(--muted);line-height:1.4">${a}</div>
-        <div style="font-size:.86rem;font-weight:800;color:var(--text)">${b}</div>
-        ${c?`<div style="font-size:.46rem;color:var(--muted);line-height:1.4;margin-top:1px">${c}</div>`:''}</div>`).join('')}
-   </div>
-   <div style="font-size:.6rem;line-height:1.7;padding:8px 10px;border-radius:8px;background:${kesif?'rgba(16,185,129,.08)':'rgba(217,119,6,.07)'};color:var(--text)">
-    <strong>${kesif?'✅ Dikkate değer bulgu':'⚖️ Keşif yok — hepsi şans bandında'}:</strong>
-    ${_HY_METHODS.length} yöntem denendiğinde, <strong>hepsi tamamen şanstan ibaret olsa bile</strong> en iyisinin lift'i
-    simülasyonda ortalama <strong>${nul?nul.ort.toFixed(2):'—'}</strong>, %95 olasılıkla en fazla <strong>${nul?nul.p95.toFixed(2):'—'}</strong> çıkıyor.
-    Buradaki en iyi yöntem <strong>${enIyi?enIyi.m.name:'—'}</strong> ve lift'i <strong>${enIyi?enIyi.lift.toFixed(2):'—'}</strong> —
-    ${kesif?'bu sınırın ÜSTÜNDE, yani sırf çok yöntem denemekle açıklanamıyor. Yine de ikinci pencerede de tutup tutmadığına bakın.'
-           :'bu sınırın ALTINDA. Yani "en iyi yöntem" başlığı, sırf '+_HY_METHODS.length+' yöntem denenmiş olmasının doğal sonucu; gerçek bir kenar değil.'}
-   </div></div>`;
   // ── uzlaşı + bilet ──
   if(uz.length){
     const top=uz.slice(0,game.count*2);
@@ -23973,7 +23943,11 @@ function _hyRender(){
       <span style="font-size:.78rem;font-weight:800;color:#b8860b">🏆 Uzlaşı — Eşiği Geçen ${gecen.length} Yöntem</span>
       <button onclick="_caCopy(window._hyTxt||'')" class="copy-btn" style="font-size:.62rem;padding:3px 9px;font-weight:700">📋 Kopyala</button></div>
      
-     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px">${top.map(n=>`<span class="tal-x" data-tal="${tal[n]}" style="font-family:monospace;font-size:.88rem;font-weight:800;color:var(--text);background:var(--surface2);border:1.5px solid rgba(217,119,6,.45);border-radius:8px;padding:2px 9px">${n}</span>`).join('')}</div>
+     <div style="display:grid;grid-template-columns:repeat(${1+_hyUzSecim().filter(Boolean).length},minmax(0,1fr));gap:14px;align-items:start;margin-bottom:10px">
+      <div data-sk-yeni="${game.id}"><div style="font-size:.62rem;font-weight:800;color:var(--accent);margin-bottom:5px">🔮 Yeni Tahmin</div>
+     <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px">${top.map(n=>`<span class="tal-x" data-tal="${tal[n]}" style="font-family:monospace;font-size:.88rem;font-weight:800;color:var(--text);background:var(--surface2);border:1.5px solid rgba(217,119,6,.45);border-radius:8px;padding:2px 9px">${n}</span>`).join('')}</div></div>
+      ${_hyUzSecim().map((dt,k)=>dt?_hyUzGecmisHtml(game,draws,gecen,dt,k):'').join('')}
+     </div>
      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding-top:8px;border-top:1px dashed var(--border)">
       <span style="font-size:.62rem;color:var(--muted)">Bu uzlaşıdan bilet üret:</span>
       <select onchange="_hySetK(this.value)" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px">
@@ -24004,9 +23978,9 @@ function _hyRender(){
     t+=`</div></div>`;
     return t;
   };
-  h+=tablo(gecen,`✅ Eşiği Geçen Yöntemler (${gecen.length}) — çekilişlerin en az yarısında ≥1 sayıyı NET buldu`,'var(--green)');
-  h+=`<div class="card" style="padding:8px 12px"><button onclick="_hyToggleFail()" style="font-size:.68rem;padding:6px 14px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer;font-weight:700">${_hyShowFail?'▲ Elenen yöntemleri gizle':'▼ Elenen yöntemleri göster ('+kalan.length+')'}</button></div>`;
-  if(_hyShowFail)h+=tablo(kalan,`❌ Eşiği Geçemeyen Yöntemler (${kalan.length}) — denendi, eşiğin altında kaldı`,'#c2410c');
+  // ✅ Eşiği Geçen / ❌ Eşiği Geçemeyen listeleri kullanıcı isteğiyle kaldırıldı; yöntem sayıları
+  // toplu kopyaya girmeye devam eder.
+  gecen.forEach(r=>copy.push(r.nums.join(' ')));
   window._hyTxt=copy.join('\n');
   el.innerHTML=h;
 }
@@ -24124,6 +24098,7 @@ function _hyDateTest(slot){
   const key=slot==='3'?'t3':slot==='2'?'t2':'t1';
   const grid=document.getElementById('hyTestGrid');if(!grid)return;
   const date=document.getElementById('hyDateSel'+slot)?.value||'';
+  try{if(_hyRes)_hyRender();}catch(e){}   // 🏆 Uzlaşı kartının geçmiş test sütunları
   const game=getGame(_hyGame),draws=_kbGetDraws(_hyGame);
   if(!date){_hyTestData[key]=null;_hyRenderTests();return;}
   const idx=draws.findIndex(d=>d.date===date);
@@ -24747,14 +24722,14 @@ function _btsCopyAll(){
   const parts=[];
   if(_btsAnlikMi()){
     // ⏱️ Anlık Tahmin: yalnızca sayfada görünen dört bölüm
-    [tk('AI Bilet Üretici'),tk('Nihai'),window._qtInter,window._qtAdayTxt].forEach(x=>{if(x)parts.push(x);});
+    [tk('AI Bilet Üretici'),tk('Nihai'),window._qtInter,window._qtAdayTxt,window._qtNsTxt_live].forEach(x=>{if(x)parts.push(x);});
     if(!parts.length){if(typeof showToast==='function')showToast('Önce Üret\'e basın');return;}
     _caCopy(parts.join('\n\n'));
     if(typeof showToast==='function')showToast('📋 Anlık Tahmin kopyalandı');
     return;
   }
   [window._qtAiTk,tk('AI Bilet Üretici'),tk('Gülsis Sıfır'),tk('Nihai'),
-   window._qtInter,window._qtGulayTxt,window._qtKesisimTxt,window._qtAdayTxt,
+   window._qtInter,window._qtGulayTxt,window._qtKesisimTxt,window._qtAdayTxt,window._qtNsTxt_live,
    window._qtNihaiCopy,window._qtIlkHaneCopy,
    window._ozetInter_live,window._ozetBirebir_live,window._ozetYakin_live,window._ozetKesisim_live].forEach(x=>{if(x)parts.push(x);});
   if(!parts.length){if(typeof showToast==='function')showToast('Önce Üret\'e basın');return;}
@@ -24769,9 +24744,9 @@ function _btsCopyGrouped(){_qtCopyAllGrouped(_btsAnlikMi()?_ANLIK_GROUPS:_BASIT_
 // anahtarıyla etiketlenir; burada anahtar bazında eşleştirilip TEK bir grid satırına yerleştirilir —
 // böylece biletlerin/analizlerin yüksekliği farklı olsa bile aynı bölüm her zaman tam yan yana durur.
 // Basit Tahmin sayfasında gösterilecek 9 analiz ve sırası (kullanıcının belirlediği liste).
-const _BASIT_KEYS=['actual','aiCombined','aiBlk','g0','ni','niYakInter','gulay','aday','hane','kesisim','nihaiSection','ilkHaneSection'];
+const _BASIT_KEYS=['actual','aiCombined','aiBlk','g0','ni','niYakInter','gulay','aday','nsZincir','hane','kesisim','nihaiSection','ilkHaneSection'];
 // ⏱️ Anlık Tahmin: kullanıcının seçtiği dört bölüm (+ geçmiş test sütunlarında sonuç kartı).
-const _ANLIK_KEYS=['actual','aiBlk','ni','niYakInter','aday'];
+const _ANLIK_KEYS=['actual','aiBlk','ni','niYakInter','aday','nsZincir'];
 // Çekirdek (#btsCore) şu an Anlık Tahmin sayfasında mı? Mod, çekirdeğin bulunduğu yerden
 // okunur — sayfa adından değil — böylece bölünmüş ekranda da doğru kalır.
 function _btsAnlikMi(){const c=document.getElementById('btsCore');return !!(c&&c.parentElement&&c.parentElement.id==='anlikHost');}
@@ -24801,8 +24776,9 @@ function _qtSyncPairs(){
   const testMap={};testBlocks.forEach(c=>{testMap[c.dataset.k]=c;});
   const test2Map={};test2Blocks.forEach(c=>{test2Map[c.dataset.k]=c;});
   const test3Map={};test3Blocks.forEach(c=>{test3Map[c.dataset.k]=c;});
-  const has2=!!test2Blocks.length,has3=!!test3Blocks.length;
-  const nCol=2+(has2?1:0)+(has3?1:0);
+  // Seçilmemiş geçmiş test sütunu yer kaplamaz (kullanıcı isteği) — hiçbiri seçili değilse tek sütun.
+  const has1=!!testBlocks.length,has2=!!test2Blocks.length,has3=!!test3Blocks.length;
+  const nCol=1+(has1?1:0)+(has2?1:0)+(has3?1:0);
   const order=_qtGorunenKeys().filter(k=>liveMap[k]||testMap[k]||test2Map[k]||test3Map[k]);
   grid.innerHTML='';
   order.forEach(k=>{
@@ -24810,6 +24786,7 @@ function _qtSyncPairs(){
     row.className='qt-pair-row';
     row.style.cssText='display:grid;grid-template-columns:repeat('+nCol+',1fr);gap:20px;align-items:start;margin-bottom:12px';
     const lCell=document.createElement('div'),rCell=document.createElement('div');
+    rCell.style.display=has1?'':'none';
     // data-sk-mod: her sütun kendi mod adıyla işaretlenir — kesişim tekrarının siyah çerçevesi
     // (_skTekrarUygula) her sütunda O SÜTUNUN kendi kesişim kümesiyle uygulanır. Sütunu
     // metinden/ızgaradan tahmin etmek bu sayfada güvenilir değil (.qt-pair-row, Excel
@@ -24817,7 +24794,7 @@ function _qtSyncPairs(){
     lCell.dataset.skMod='live';rCell.dataset.skMod='test';
     if(liveMap[k])lCell.appendChild(liveMap[k]);
     if(testMap[k])rCell.appendChild(testMap[k]);
-    row.appendChild(lCell);row.appendChild(rCell);
+    row.appendChild(lCell);if(has1)row.appendChild(rCell);
     if(has2){const r2=document.createElement('div');r2.dataset.skMod='test2';if(test2Map[k])r2.appendChild(test2Map[k]);row.appendChild(r2);}
     if(has3){const r3=document.createElement('div');r3.dataset.skMod='test3';if(test3Map[k])r3.appendChild(test3Map[k]);row.appendChild(r3);}
     grid.appendChild(row);
@@ -24826,12 +24803,9 @@ function _qtSyncPairs(){
   const hdr=document.getElementById('btsHdrRow');
   if(hdr){
     hdr.style.gridTemplateColumns='repeat('+nCol+',1fr)';
-    const sty=(hdr.children[1]?hdr.children[1].getAttribute('style')||'':'');
-    [['qt-hdr3',has2,'📊 2. Geçmiş Test'],['qt-hdr4',has3,'📊 3. Geçmiş Test']].forEach(([cls,on,txt])=>{
-      let e=hdr.querySelector('.'+cls);
-      if(on&&!e){e=document.createElement('div');e.className=cls;e.style.cssText=sty;e.textContent=txt;hdr.appendChild(e);}
-      else if(!on&&e)e.remove();
-    });
+    const sty='font-size:.68rem;font-weight:800;color:var(--accent)';
+    hdr.innerHTML=[['🔮 Yeni Tahmin',true],['📊 Geçmiş Test',has1],['📊 2. Geçmiş Test',has2],['📊 3. Geçmiş Test',has3]]
+      .filter(x=>x[1]).map(x=>'<div style="'+sty+'">'+x[0]+'</div>').join('');
   }
   // Nihai/İlk Hane bölümleri _qtRenderAll içinde bundan SONRA yeniden çizildiği için
   // rozetleri bir sonraki tur'a bırak.
@@ -25889,18 +25863,16 @@ function _f2SyncPairs(){
   (_f2TestRows||[]).forEach(x=>{T[_f2RowKey(x.r)]=x.html;byKey[_f2RowKey(x.r)]=byKey[_f2RowKey(x.r)]||x.r;});
   (_f2Test2Rows||[]).forEach(x=>{T2[_f2RowKey(x.r)]=x.html;byKey[_f2RowKey(x.r)]=byKey[_f2RowKey(x.r)]||x.r;});
   (_f2Test3Rows||[]).forEach(x=>{T3[_f2RowKey(x.r)]=x.html;byKey[_f2RowKey(x.r)]=byKey[_f2RowKey(x.r)]||x.r;});
-  const has2=!!(_f2Test2Rows&&_f2Test2Rows.length),has3=!!(_f2Test3Rows&&_f2Test3Rows.length);
-  const nCol=2+(has2?1:0)+(has3?1:0);
+  // Seçilmemiş geçmiş test sütunu yer kaplamaz (kullanıcı isteği).
+  const has1=!!(_f2TestRows&&_f2TestRows.length),has2=!!(_f2Test2Rows&&_f2Test2Rows.length),has3=!!(_f2Test3Rows&&_f2Test3Rows.length);
+  const nCol=1+(has1?1:0)+(has2?1:0)+(has3?1:0);
   const keys=_f2SortCanonical(Object.keys(byKey).map(k=>byKey[k])).map(_f2RowKey);
   const hdr=document.getElementById('f2HdrRow');
   if(hdr){
     hdr.style.gridTemplateColumns='repeat('+nCol+',1fr)';
-    [['f2-hdr3',has2,'📊 2. Geçmiş Test'],['f2-hdr4',has3,'📊 3. Geçmiş Test']].forEach(([cls,on,txt])=>{
-      let e=hdr.querySelector('.'+cls);
-      if(on&&!e){e=document.createElement('div');e.className=cls;
-        e.style.cssText='font-size:.68rem;font-weight:800;color:var(--accent)';e.textContent=txt;hdr.appendChild(e);}
-      else if(!on&&e)e.remove();
-    });
+    const st='font-size:.68rem;font-weight:800;color:var(--accent)';
+    hdr.innerHTML=[['🔮 Yeni Tahmin',true],['📊 Geçmiş Test',has1],['📊 2. Geçmiş Test',has2],['📊 3. Geçmiş Test',has3]]
+      .filter(x=>x[1]).map(x=>'<div style="'+st+'">'+x[0]+'</div>').join('');
   }
   grid.innerHTML='';
   setTimeout(_f2PickRefresh,0);
@@ -25912,7 +25884,7 @@ function _f2SyncPairs(){
     // KENDİ kümesiyle işaretlenir (tarih seçicilerden okunur).
     const dt=sl=>_f2Game+'|'+((document.getElementById('f2DateSel'+sl)||{}).value||'');
     row.innerHTML='<div data-sk-yeni="'+_f2Game+'">'+(L[k]||'')+'</div>'
-      +'<div data-sk-gecmis="'+dt('')+'">'+(T[k]||'')+'</div>'
+      +(has1?'<div data-sk-gecmis="'+dt('')+'">'+(T[k]||'')+'</div>':'')
       +(has2?'<div data-sk-gecmis="'+dt('2')+'">'+(T2[k]||'')+'</div>':'')
       +(has3?'<div data-sk-gecmis="'+dt('3')+'">'+(T3[k]||'')+'</div>':'');
     grid.appendChild(row);
