@@ -30357,7 +30357,8 @@ function _tsKolonHtml(gid,prior,tarih,actual,yeni,k){
   const ozet=l=>{const s=say(l);return `<span style="font-size:.56rem;color:var(--muted)">${l.length} sayı${s?` · <strong style="color:var(--green)">✓ ${s.net} net</strong> · <strong style="color:#c2410c">~ ${s.yk} yakın</strong>${s.net>=3?' · <strong style="color:#7c3aed">3+ ✔</strong>':''}`:''}</span>`;};
   const adet=parseInt((document.getElementById('tfAdet')||{}).value)||10;
   const tip=_tsAktifTip(),esik=tip.hedef||3;
-  let h=`<div style="min-width:0" data-ex-atla="1"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'}">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+tarih}</span>`;
+  // kareleme: yeni sütun güncel kesişim kümesiyle, geçmiş sütun KENDİ tarihinin (o günden önceki çekilişin) kümesiyle çerçevelenir
+  let h=`<div style="min-width:0" data-ex-atla="1" ${yeni?`data-sk-yeni="${gid}"`:`data-sk-gecmis="${gid}|${tarih}"`}><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'}">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+tarih}</span>`;
   const bil=_tsBiletler(gid,S,F,tip,adet);
   if(yeni){window._tsBiletTxt=`${tip.ad} — ${g.name} (${tarih}) — ${bil.length} bilet\n`+bil.map((t,i)=>`#${i+1}  ${t.join(' ')}`).join('\n');
     h+=`<button class="copy-btn" onclick="_caCopy(window._tsBiletTxt);showToast('📋 Tüm biletler kopyalandı')" style="font-size:.56rem;padding:2px 9px">📋 Biletleri Kopyala</button>`;}
@@ -30439,8 +30440,8 @@ function _tsGecmisRender(){
     const zaman=new Date(e.t).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const roz=n=>_fadRozet(n,_fadDurum(n,aS,yS));
     const ozet=aS?`<strong style="color:var(--green)">✓ en iyi bilet ${en} net</strong> · <strong style="color:#c2410c">~ ${enYk} yakın</strong> <span style="color:var(--muted)">(sonuç ${[...act.nums].sort((a,b)=>a-b).join(' ')})</span>`:'<span style="color:var(--muted)">sonuç bekleniyor</span>';
-    const kol=(bas,bil,s2,renk)=>`<div style="min-width:0"><div style="font-size:.66rem;font-weight:800;color:${renk};margin-bottom:4px">${bas}</div>${_nnRenderTickets(g,bil.map(t=>({main:t})),s2)}</div>`;
-    const kolonlar=[kol('🔮 Yeni Tahmin',e.yeni.bil,aS,'var(--accent)')].concat((e.gecmis||[]).map(c=>{const a2=draws.find(d=>d.date===c.tarih);return kol('📊 Geçmiş Test · '+c.tarih,c.bil,a2?new Set(a2.nums||[]):null,'var(--text)');}));
+    const kol=(bas,bil,s2,renk,sk)=>`<div style="min-width:0" ${sk}><div style="font-size:.66rem;font-weight:800;color:${renk};margin-bottom:4px">${bas}</div>${_nnRenderTickets(g,bil.map(t=>({main:t})),s2)}</div>`;
+    const kolonlar=[kol('🔮 Yeni Tahmin',e.yeni.bil,aS,'var(--accent)',act?`data-sk-gecmis="${gid}|${e.hedef}"`:`data-sk-yeni="${gid}"`)].concat((e.gecmis||[]).map(c=>{const a2=draws.find(d=>d.date===c.tarih);return kol('📊 Geçmiş Test · '+c.tarih,c.bil,a2?new Set(a2.nums||[]):null,'var(--text)',`data-sk-gecmis="${gid}|${c.tarih}"`);}));
     return `<details${idx===0?' open':''} style="border:1px solid var(--border);border-radius:10px;padding:6px 9px;margin-bottom:6px;background:var(--surface)"><summary style="cursor:pointer;font-size:.64rem"><strong>${zaman}</strong> · ${tipAd(e.tip)} · ${e.adet} bilet · hedef <strong>${e.hedef}</strong> · ${ozet}</summary>`
       +`<div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;align-items:start">${kolonlar.join('')}</div></details>`;
   }).join('');
