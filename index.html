@@ -21058,8 +21058,18 @@ function _astroRealRunBacktest(){
     btEl.innerHTML=html;
   },20);
 }
-// ═══════════ KRONOLOJİ — tüm çekilişler tek tarih sırasıyla (On Numara hariç) ═══════════
-const _KRON_GAME_PRIORITY={'super':0,'sayisal':1,'sans':2};
+// ═══════════ KRONOLOJİ — tüm çekilişler tek tarih sırasıyla ═══════════
+// 🧪 Deneme Excel sütunu: o çekilişten ÖNCEKİ verilerle formüllerin ürettiği sayılar (ileriye bakmaz).
+function _kronDxStr(gid,prior,tarih,target){
+  try{
+    if(!_DX_SABLON[gid]||prior.length<12)return '-';
+    const D=_dxHesapla(gid,prior,tarih);
+    const l=[...D.E.keys()].sort((a,b)=>a-b);
+    if(!l.length)return '-';
+    return l.map(n=>_kronNumSpan(n,target)).join(', ');
+  }catch(e){return '-';}
+}
+const _KRON_GAME_PRIORITY={'super':0,'sayisal':1,'sans':2,'onnumara':3};
 let _kronGameFilter=null;
 let _kronPrevDrawIdx={};
 function _kronPrevDraw(d){
@@ -21075,7 +21085,7 @@ function _kronPrevDraw(d){
 }
 function _kronCollectDraws(){
   const all=[];
-  GAMES.filter(g=>g.id!=='onnumara'&&(!_kronGameFilter||g.id===_kronGameFilter)).forEach(g=>{
+  GAMES.filter(g=>!_kronGameFilter||g.id===_kronGameFilter).forEach(g=>{
     (_kbGetDraws(g.id)||[]).forEach(d=>all.push({date:d.date,nums:d.nums,bonus:d.bonus,gameId:g.id,gameName:g.name,gameEmoji:g.emoji}));
   });
   all.sort((a,b)=>b.date.localeCompare(a.date)||(_KRON_GAME_PRIORITY[a.gameId]??9)-(_KRON_GAME_PRIORITY[b.gameId]??9));
@@ -21083,7 +21093,7 @@ function _kronCollectDraws(){
 }
 function _kronRenderGameRow(){
   const row=document.getElementById('kronGameRow');if(!row)return;
-  const opts=[{id:null,e:'📜',n:'Tümü'},...GAMES.filter(g=>g.id!=='onnumara')];
+  const opts=[{id:null,e:'📜',n:'Tümü'},...GAMES];
   row.innerHTML=opts.map(g=>{
     const a=g.id===_kronGameFilter;
     return `<button onclick="_kronSetGameFilter(${g.id?`'${g.id}'`:'null'})" style="font-size:.7rem;padding:5px 12px;border-radius:8px;border:1px solid ${a?'rgba(129,140,248,.7)':'var(--border)'};background:${a?'rgba(129,140,248,.15)':'var(--surface2)'};color:${a?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:${a?700:400}">${g.emoji||g.e} ${g.name||g.n}</button>`;
@@ -21107,7 +21117,7 @@ function _kronWeekStart(dateStr){
   return d.toISOString().slice(0,10);
 }
 function _kronPredictionRows(){
-  const games=GAMES.filter(g=>g.id!=='onnumara'&&(!_kronGameFilter||g.id===_kronGameFilter));
+  const games=GAMES.filter(g=>!_kronGameFilter||g.id===_kronGameFilter);
   const rows=[];
   games.forEach(g=>{
     const draws=_kbGetDraws(g.id);
@@ -21119,6 +21129,14 @@ function _kronPredictionRows(){
   rows.sort((a,b)=>(a.date||'9999-99-99').localeCompare(b.date||'9999-99-99'));
   return rows;
 }
+let _kronSadeceIsaret=false,_kronCtx=0;
+function _kronToggleMark(gid,date){
+  if(!_kazananMarks[gid])_kazananMarks[gid]={};
+  if(_kazananMarks[gid][date])delete _kazananMarks[gid][date];else _kazananMarks[gid][date]=1;
+  _kazananSaveMarks();_kronRenderInner();
+}
+function _kronSetSadece(){_kronSadeceIsaret=!_kronSadeceIsaret;_kronWeeksLoaded=_KRON_PAGE_WEEKS;_kronRenderInner();}
+function _kronSetCtx(v){_kronCtx=Math.max(0,parseInt(v)||0);_kronRenderInner();}
 const _KRON_PAGE_WEEKS=20;
 let _kronWeeksLoaded=_KRON_PAGE_WEEKS;
 function _kronRender(){
@@ -21133,10 +21151,17 @@ function _kronLoadMore(){
 function _kronRenderInner(){
   const el=document.getElementById('kronResult');if(!el)return;
   _kronPrevDrawIdx={};
-  _sfBar('kron',GAMES.filter(g=>g.id!=='onnumara'&&(!_kronGameFilter||g.id===_kronGameFilter)).map(g=>g.id));
+  _sfBar('kron',GAMES.filter(g=>!_kronGameFilter||g.id===_kronGameFilter).map(g=>g.id));
   const tumDraws=_kronCollectDraws();
   const KF=_SF.kron;
-  const draws=(KF&&KF.aktif)?tumDraws.filter(d=>_sfEslesir(d,KF)):tumDraws;
+  let draws=(KF&&KF.aktif)?tumDraws.filter(d=>_sfEslesir(d,KF)):tumDraws;
+  // ☑ Kazanan sayfasıyla AYNI mantık: işaretli çekilişler (+ her oyunun kendi sırasında ± bağlam) — işaretler iki sayfada ortaktır
+  if(_kronSadeceIsaret){
+    const keep=new Set();
+    GAMES.forEach(g=>{const mk=_kazananMarks[g.id]||{};const arr=_kbGetDraws(g.id)||[];
+      arr.forEach((d,i)=>{if(mk[d.date])for(let j=Math.max(0,i-_kronCtx);j<=Math.min(arr.length-1,i+_kronCtx);j++)keep.add(g.id+'|'+arr[j].date);});});
+    draws=tumDraws.filter(d=>keep.has(d.gameId+'|'+d.date));
+  }
   _sfDurumYaz('kron',draws.length,tumDraws.length);
   const kronVurgu=_sfVurgu(KF&&KF.aktif?KF:null);
   if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>'+((KF&&KF.aktif)?'Filtreye uyan çekiliş yok.':'Henüz çekiliş verisi yok.')+'</div>';return;}
@@ -21153,36 +21178,44 @@ function _kronRenderInner(){
   const remaining=totalWeeks-visibleCount;
   const visibleDrawCount=visibleKeys.reduce((s,k)=>s+weekMap.get(k).length,0);
   const kronCell='border:1px solid var(--border);padding:5px 6px';
-  let html=`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Gösterilen: <strong style="color:var(--text)">${visibleCount}</strong> / ${totalWeeks} hafta · <strong style="color:var(--text)">${visibleDrawCount}</strong> / ${draws.length} çekiliş.</div>`;
+  const isaretSay=GAMES.reduce((t,g)=>t+Object.keys(_kazananMarks[g.id]||{}).length,0);
+  const bar=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">`
+    +`<button onclick="_kronSetSadece()" style="font-size:.7rem;padding:5px 12px;border-radius:8px;border:1px solid ${_kronSadeceIsaret?'rgba(0,150,58,.6)':'var(--border)'};background:${_kronSadeceIsaret?'rgba(0,150,58,.14)':'var(--surface2)'};color:${_kronSadeceIsaret?'var(--green)':'var(--muted)'};cursor:pointer;font-weight:700">${_kronSadeceIsaret?'📜 Tüm Çekilişler':'☑ Sadece İşaretliler'}</button>`
+    +`<label style="font-size:.7rem;color:var(--muted)">Bağlam ±</label><input type="number" min="0" max="100" value="${_kronCtx}" onchange="_kronSetCtx(this.value)" style="width:58px;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.72rem">`
+    +`<span style="font-size:.62rem;color:var(--muted)">çekiliş · ${isaretSay} işaretli (Kazanan sayfasıyla ortak)</span></div>`;
+  let html=bar+`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Gösterilen: <strong style="color:var(--text)">${visibleCount}</strong> / ${totalWeeks} hafta · <strong style="color:var(--text)">${visibleDrawCount}</strong> / ${draws.length} çekiliş.</div>`;
   html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;border:1px solid var(--border);font-size:.68rem">`;
   html+=`<thead><tr>`
+    +`<th style="${kronCell};width:22px"></th>`
     +`<th style="${kronCell};text-align:left;color:var(--muted)">Tarih</th>`
     +`<th style="${kronCell};text-align:left;color:var(--muted)">Oyun</th>`
     +`<th style="${kronCell};text-align:left;color:var(--muted)">Sonuç</th>`
     +`<th style="${kronCell};text-align:left;color:var(--green)">➕ Toplama</th>`
     +`<th style="${kronCell};text-align:left;color:var(--accent2)">➖ Çıkarma</th>`
     +`<th style="${kronCell};text-align:left;color:var(--accent)">📊 Fark Analizi</th>`
+    +`<th style="${kronCell};text-align:left;color:#7c3aed">🧪 Deneme Excel</th>`
     +`</tr></thead><tbody>`;
   const predRows=_kronPredictionRows();
   if(predRows.length){
-    html+=`<tr><td colspan="6" style="${kronCell};background:rgba(129,140,248,.1);font-weight:700;color:var(--accent)">🔮 Yeni Tahmin — Sıradaki Çekiliş (henüz oynanmadı)</td></tr>`;
+    html+=`<tr><td colspan="8" style="${kronCell};background:rgba(129,140,248,.1);font-weight:700;color:var(--accent)">🔮 Yeni Tahmin — Sıradaki Çekiliş (henüz oynanmadı)</td></tr>`;
     predRows.forEach(r=>{
       const ga=r.ga;
       const topStr=ga&&ga.topRows.flat().length?[...new Set(ga.topRows.flat())].sort((a,b)=>a-b).map(n=>_kronNumSpan(n,[])).join(', '):'-';
       const cikStr=ga&&ga.cikRows.flat().length?[...new Set(ga.cikRows.flat())].sort((a,b)=>a-b).map(n=>_kronNumSpan(n,[])).join(', '):'-';
       const farkStr=ga&&ga.gaps.length?ga.gaps.map(n=>_kronNumSpan(n,[])).join(', '):'-';
-      html+=`<tr style="background:rgba(129,140,248,.04)">`;
+      html+=`<tr style="background:rgba(129,140,248,.04)"><td style="${kronCell}"></td>`;
       html+=`<td style="${kronCell};white-space:nowrap;color:var(--accent);font-weight:700">${r.date||'Sıradaki'}</td>`;
       html+=`<td style="${kronCell};white-space:nowrap;font-weight:700;color:var(--text)">${r.gameEmoji} ${r.gameName}</td>`;
       html+=`<td style="${kronCell};white-space:nowrap;color:var(--muted);font-style:italic">— henüz çekilmedi</td>`;
       html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${topStr}</td>`;
       html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${cikStr}</td>`;
       html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${farkStr}</td>`;
+      html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${_kronDxStr(r.gameId,_kbGetDraws(r.gameId)||[],r.date||_dxSonraki(r.gameId),[])}</td>`;
       html+=`</tr>`;
     });
   }
   visibleKeys.forEach((wk,idx)=>{
-    if(idx>0)html+=`<tr><td colspan="6" style="height:12px;border:1px solid var(--border)"></td></tr>`;
+    if(idx>0)html+=`<tr><td colspan="8" style="height:12px;border:1px solid var(--border)"></td></tr>`;
     weekMap.get(wk).forEach(d=>{
       const numsStr=d.nums.map((n,hi)=>{const vur=kronVurgu&&(kronVurgu.sirasiz?kronVurgu.set.has(n):kronVurgu.poz[hi]===n);return vur?`<span style="background:rgba(108,99,255,.30);outline:2px solid var(--accent);border-radius:4px;padding:0 3px;font-weight:800">${n}</span>`:n;}).join(', ');
       const bonusStr=d.bonus&&d.bonus.length?` <span style="color:var(--muted)">|</span> ${d.bonus.join(', ')}`:'';
@@ -21193,13 +21226,17 @@ function _kronRenderInner(){
       const topStr=ga&&ga.topRows.flat().length?[...new Set(ga.topRows.flat())].sort((a,b)=>a-b).map(n=>_kronNumSpan(n,target)).join(', '):'-';
       const cikStr=ga&&ga.cikRows.flat().length?[...new Set(ga.cikRows.flat())].sort((a,b)=>a-b).map(n=>_kronNumSpan(n,target)).join(', '):'-';
       const farkStr=ga&&ga.gaps.length?ga.gaps.map(n=>_kronNumSpan(n,target)).join(', '):'-';
-      html+=`<tr>`;
+      const isr=!!(_kazananMarks[d.gameId]||{})[d.date];
+      html+=`<tr${isr?' style="background:rgba(0,150,58,.09)"':''}>`;
+      html+=`<td style="${kronCell};text-align:center"><input type="checkbox" ${isr?'checked':''} onchange="_kronToggleMark('${d.gameId}','${d.date}')" style="width:15px;height:15px;accent-color:#69f0ae;cursor:pointer"></td>`;
       html+=`<td style="${kronCell};white-space:nowrap;color:var(--muted)">${d.date}</td>`;
       html+=`<td style="${kronCell};white-space:nowrap;font-weight:700;color:var(--text)">${d.gameEmoji} ${d.gameName}</td>`;
       html+=`<td style="${kronCell};white-space:nowrap;font-family:monospace;color:var(--text)">${numsStr}${bonusStr}</td>`;
       html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${topStr}</td>`;
       html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${cikStr}</td>`;
       html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${farkStr}</td>`;
+      const dxP=_kronPrevDrawIdx[d.gameId];
+      html+=`<td style="${kronCell};font-family:monospace;color:var(--text)">${dxP&&dxP.idx[d.date]!=null?_kronDxStr(d.gameId,dxP.arr.slice(dxP.idx[d.date]+1),d.date,target):'-'}</td>`;
       html+=`</tr>`;
     });
   });
