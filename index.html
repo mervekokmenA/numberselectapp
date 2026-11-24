@@ -421,6 +421,14 @@ select,input[type=text],input[type=number],input:not([type]),textarea{border-rad
 input.counter-val{background:rgba(0,0,0,.04)}
 ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(90,90,132,.3);border-radius:8px}::-webkit-scrollbar-track{background:transparent}
 select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
+@media(min-width:601px){.qt-pair-row.qt-n1{grid-template-columns:minmax(0,1fr)!important}.qt-pair-row.qt-n2{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(min-width:1101px){.qt-pair-row.qt-n3{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+/* Nihai/Net Odaklı: Yeni Tahmin henüz üretilmediyse (boş) ve geçmiş test sütunları açıksa boş sütun yer tutmaz */
+@media(min-width:1101px){
+ #nnGrid>div:not([data-col]):has(>#nnOut:empty):has(~[data-col]:not([style*="none"])),
+ #npGrid>div:not([data-col]):has(>#npOut:empty):has(~[data-col]:not([style*="none"])){display:none}
+ #nnGrid,#npGrid{grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
+}
 :has(>select[id$="Date3"]),:has(>select[id$="DateSel3"]){grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
 </style>
 </head>
@@ -1296,7 +1304,7 @@ select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
   <div class="card">
    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
     <div class="card-title" style="margin:0">🧪 Formül Çıktıları</div>
-    <select id="dxSatirSay" onchange="_dxExcelRender()" style="font-size:.66rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px"><option value="3">3 geçmiş</option><option value="6" selected>6 geçmiş</option><option value="12">12 geçmiş</option></select>
+    <select id="dxSatirSay" onchange="_dxExcelRender()" style="font-size:.66rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px"><option value="3">3 satır</option><option value="6" selected>6 satır</option><option value="12">12 satır</option></select>
    </div>
    <div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.55">Her formül sütunu, hedef çekilişten ÖNCEKİ çekilişlerle çalışır; geçmiş satırlarda gerçek sonuçla ✓ net / ~ ±1 yakın renklenir. Mor ×N = N sütun aynı sayıyı üretti. Kitapta not: <em>her ayın 16'sında sistem formülü değişiyor, önceki ayın aynı gündeki çıkanlarına da bak, günde 1 fark varsa sayı da değişiyor.</em></div>
    <div id="dxFormulOut"></div>
@@ -1609,7 +1617,7 @@ select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
    Bu sayfa yalnızca deneme amaçlı — farklı analiz varyasyonlarını yan yana karşılaştırır. Geri testte
    çoğu rastgeleyi anlamlı şekilde geçmiyor (bkz. sohbet), ama kendi gözlemlerinizle karşılaştırmak
    isterseniz burada. Hiçbir varyanta istatistiksel "daha iyi" etiketi konmadı — kendiniz karar verin.
-   Her analiz, diğer sayfalardaki gibi 🔮 Yeni Tahmin + 3 Geçmiş Test olarak yan yana gösterilir.
+   Her analiz, diğer sayfalardaki gibi 🔮 Yeni Tahmin + 2 Geçmiş Test olarak yan yana gösterilir.
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
    <div id="dnGameGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div>
@@ -25038,15 +25046,17 @@ function _qtSyncPairs(){
   const test3Map={};test3Blocks.forEach(c=>{test3Map[c.dataset.k]=c;});
   // Seçilmemiş geçmiş test sütunu yer kaplamaz (kullanıcı isteği) — hiçbiri seçili değilse tek sütun.
   const has1=!!testBlocks.length,has2=!!test2Blocks.length,has3=!!test3Blocks.length;
-  const nCol=1+(has1?1:0)+(has2?1:0)+(has3?1:0);
+  // 🔮 Yeni Tahmin henüz üretilmediyse (Üret'e basılmadı) ve geçmiş test sütunları açıksa boş sütun yer tutmaz
+  const hasLive=!!liveBlocks.length||!(has1||has2||has3);
+  const nCol=(hasLive?1:0)+(has1?1:0)+(has2?1:0)+(has3?1:0);
   const order=_qtGorunenKeys().filter(k=>liveMap[k]||testMap[k]||test2Map[k]||test3Map[k]);
   grid.innerHTML='';
   order.forEach(k=>{
     const row=document.createElement('div');
-    row.className='qt-pair-row';
+    row.className='qt-pair-row qt-n'+nCol;
     row.style.cssText='display:grid;grid-template-columns:repeat('+nCol+',1fr);gap:20px;align-items:start;margin-bottom:12px';
     const lCell=document.createElement('div'),rCell=document.createElement('div');
-    rCell.style.display=has1?'':'none';
+    rCell.style.display=has1?'':'none';if(!hasLive)lCell.style.display='none';
     // data-sk-mod: her sütun kendi mod adıyla işaretlenir — kesişim tekrarının siyah çerçevesi
     // (_skTekrarUygula) her sütunda O SÜTUNUN kendi kesişim kümesiyle uygulanır. Sütunu
     // metinden/ızgaradan tahmin etmek bu sayfada güvenilir değil (.qt-pair-row, Excel
@@ -25064,7 +25074,7 @@ function _qtSyncPairs(){
   if(hdr){
     hdr.style.gridTemplateColumns='repeat('+nCol+',1fr)';
     const sty='font-size:.68rem;font-weight:800;color:var(--accent)';
-    hdr.innerHTML=[['🔮 Yeni Tahmin',true],['📊 Geçmiş Test',has1],['📊 2. Geçmiş Test',has2],['📊 3. Geçmiş Test',has3]]
+    hdr.innerHTML=[['🔮 Yeni Tahmin',hasLive],['📊 Geçmiş Test',has1],['📊 2. Geçmiş Test',has2],['📊 3. Geçmiş Test',has3]]
       .filter(x=>x[1]).map(x=>'<div style="'+sty+'">'+x[0]+'</div>').join('');
   }
   // Nihai/İlk Hane bölümleri _qtRenderAll içinde bundan SONRA yeniden çizildiği için

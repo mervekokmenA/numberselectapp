@@ -14,9 +14,10 @@ Uygulama tek dosya: `index.html` (vanilla HTML/JS, Türkçe arayüz). Test için
 ## 2. Standart tahmin/test tasarımı
 - Her tahmin kapsayıcısı: **🔮 Yeni Tahmin + en çok 2 adet 📊 Geçmiş Test** sütunu (3'lü değil, **2'li**; 3. tarih seçicileri global olarak gizli/devre dışı).
 - Geçmiş test seçili değilse **boş yer/boşluk bırakma**; seçilmeyen sütun hiç yer kaplamaz (tüm sayfalarda).
+- Henüz üretilmemiş (boş) 🔮 Yeni Tahmin sütunu da, geçmiş test sütunları açıkken yer tutmaz (Anlık/Basit `qt-pair-row`, Nihai, Net Odaklı).
 - Geçmiş testler **ileriye bakmaz** (walk-forward): hedef tarihten ÖNCEKİ verilerle kurulur.
 - **Kopyala butonu yalnızca 🔮 Yeni Tahmin** için; geçmiş sütunlarda kopyala yok.
-- "📅 Son 2 çekilişi doldur" butonu dropdown'ları son çekilişlerle doldurur.
+- "📅 Son 2" (🔄 veri kontrolü ile birlikte) menünün sağ üst köşesinde TEK yerde durur; sayfalara tek tek 'Son 3' vb. buton konmaz.
 - Aynı bilgiyi tekrar eden bölümler yerine tek yerde göster; bir sayfada zaten tarihe göre geçmiş gösteriliyorsa ayrıca "Geçmiş Test" kapsayıcısı koyma.
 
 ## 3. Renk ve işaret standardı (DOKUNMA)
