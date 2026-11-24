@@ -65,7 +65,8 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
 #splitWrap{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start;min-width:0}
 .split-pane{min-width:0;border:1px solid var(--border);border-radius:12px;padding:10px;background:var(--surface2);max-height:calc(100vh - 130px);overflow-y:auto;overflow-x:hidden}
 .split-pane #homeWrap{grid-template-columns:1fr}
-#splitBar{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+#splitBar{display:flex;gap:6px;align-items:center;flex-wrap:nowrap;flex-shrink:0}
+#splitBar button{padding:3px 9px!important;font-size:.64rem!important;white-space:nowrap}
 /* Dar ekranda yan yana iki sayfa okunmaz → Android'in dikey bölünmüş ekranı gibi
    alt alta iki pencere; her biri kendi içinde kayar. */
 @media(max-width:900px){
@@ -422,6 +423,7 @@ select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
 <nav class="main-nav" id="mainNav">
   <div class="nav-inner">
     <span class="nav-brand" onclick="showMainPage('home')" title="Ana Sayfa">🎱 Loto</span>
+    <div id="splitBar"></div>
     <div class="nav-links" id="navLinks">
       <button class="nav-link active" id="navBtn-home" onclick="showMainPage('home')">🏠 Ana Sayfa</button>
       <button class="nav-link" id="navBtn-anlik" onclick="showMainPage('anlik')">⏱️ Anlık Tahmin</button>
@@ -454,7 +456,6 @@ select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
 </div>
 
 <div class="app">
-<div style="grid-column:1/-1;margin-bottom:4px" id="splitBar"></div>
 
 <!-- ═══════════ PAGE: GENERATOR ═══════════ -->
 <div class="col-left" id="page-generator">
@@ -30450,6 +30451,35 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
   nötr();
   let t=null;
   new MutationObserver(()=>{clearTimeout(t);t=setTimeout(nötr,30);}).observe(document.documentElement,{childList:true,subtree:true});
+})();
+
+// ═══ ✓ net · ~ yakın özeti: sayı rozetlerinin (✓ net / ~ ±1 yakın) göründüğü HER sayı grubunun üstüne
+// "✓ N net · ~ M yakın" yazar (kural: CLAUDE.md). Sayfalara tek tek bağlı değildir; çizimden sonra gözlemciyle çalışır.
+(function _netYakinOzet(){
+  const CHIP=/^\d{1,2}[✓~]?(?:×\d+)?(?:T·Ç|T|Ç)?$/;
+  function tara(){
+    document.querySelectorAll('div,span').forEach(g=>{
+      if(g.dataset.nyB||g.closest('[data-ny-yok]'))return;
+      const k=g.children;if(k.length<3||k.length>150||!g.offsetWidth)return;
+      let chip=0,net=0,yk=0;
+      for(const c of k){
+        const t=(c.textContent||'').replace(/\s+/g,'');
+        if(CHIP.test(t)&&c.children.length<=3){chip++;if(/^\d{1,2}✓/.test(t))net++;else if(/^\d{1,2}~/.test(t))yk++;}
+      }
+      if(chip<3||chip<k.length*.7||(!net&&!yk))return;
+      const onceki=g.previousElementSibling;
+      let b=onceki&&onceki.dataset&&onceki.dataset.nyB?onceki:null;
+      const metin=`✓ ${net} net · ~ ${yk} yakın`;
+      if(!b){
+        b=document.createElement('div');b.dataset.nyB='1';
+        b.style.cssText='font-size:.56rem;font-weight:800;margin:2px 0 4px;color:var(--muted)';
+        g.parentNode.insertBefore(b,g);
+      }
+      if(b.dataset.s!==metin){b.dataset.s=metin;b.innerHTML=`<span style="color:var(--green)">✓ ${net} net</span> · <span style="color:#c2410c">~ ${yk} yakın</span>`;}
+    });
+  }
+  let t=null;
+  new MutationObserver(m=>{if(m.every(x=>[...x.addedNodes].every(n=>n.dataset&&n.dataset.nyB)&&!x.removedNodes.length))return;clearTimeout(t);t=setTimeout(tara,350);}).observe(document.body,{childList:true,subtree:true});
 })();
 </script>
 
