@@ -406,7 +406,8 @@ body::before{background:radial-gradient(ellipse at 15% 8%,rgba(82,72,212,.06) 0%
 .nav-inner{max-width:none!important;margin:0!important}
 .nav-links{border:1px solid var(--border);background:rgba(255,255,255,.7);border-radius:26px;padding:4px 6px;flex:1 1 0;min-width:0}
 .nav-links .nav-link{flex:1 1 auto;text-align:center}
-.nav-links .nav-link{padding:5px 7px}
+.nav-links{gap:2px}
+.nav-links .nav-link{padding:5px 6px;font-size:.7rem}
 .nav-link{border-radius:20px;color:var(--muted);font-weight:500}
 .nav-link:hover{color:var(--text);border-color:transparent;background:rgba(26,26,62,.06)}
 .nav-link.active{background:#1a1a3e;color:#fff;border-color:#1a1a3e}
@@ -1045,21 +1046,23 @@ select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
  </div>
  <div class="tab-panel" id="kazTab-kronoloji">
   <div id="kronFiltBar"></div>
-  <div class="card" style="margin-bottom:12px;border:2px solid rgba(190,24,93,.45);background:linear-gradient(135deg,rgba(190,24,93,.05),transparent)">
-   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-    <div class="card-title" style="margin:0">🔗 Örüntü Tahmini — Ardışık Çekiliş İlişkileri</div>
-    <span style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+  <div class="card" id="orCard" style="margin-bottom:10px;padding:7px 12px;border:1px solid rgba(190,24,93,.45);background:linear-gradient(135deg,rgba(190,24,93,.05),transparent)">
+   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:nowrap;overflow:hidden">
+    <div class="card-title" onclick="_orToggle()" style="margin:0;cursor:pointer;white-space:nowrap;user-select:none"><span id="orOk">▸</span> 🔗 Örüntü Tahmini — Ardışık Çekiliş İlişkileri</div>
+    <span style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;flex-shrink:0">
      <span id="orBilgi" style="font-size:.6rem;color:var(--muted)"></span>
      <select id="orK" onchange="_orSetK(this.value)" style="font-size:.66rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px"></select>
-     <button onclick="_orRun()" style="font-size:.68rem;padding:5px 12px;border-radius:8px;border:1px solid rgba(190,24,93,.5);background:rgba(190,24,93,.12);color:#be185d;cursor:pointer;font-weight:800">🔗 Üret</button>
+     <button onclick="_orToggle(true);_orRun()" style="font-size:.68rem;padding:3px 12px;border-radius:8px;border:1px solid rgba(190,24,93,.5);background:rgba(190,24,93,.12);color:#be185d;cursor:pointer;font-weight:800">🔗 Üret</button>
     </span>
    </div>
-   <div class="or-date" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px">
+   <div id="orBody" style="display:none;margin-top:8px">
+   <div class="or-date" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px">
     <select id="orDate" onchange="_orDateTest('')" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"></select>
     <select id="orDate2" onchange="_orDateTest('2')" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"></select>
     <select id="orDate3" onchange="_orDateTest('3')" style="min-width:0;font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"></select>
    </div>
    <div id="orOut"></div>
+   </div>
   </div>
   <div class="card">
    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px">
@@ -17984,6 +17987,12 @@ function _orRender(){
     }
   }catch(e){}
   try{if(typeof _esikIsaretle==='function')setTimeout(_esikIsaretle,60);}catch(e){}
+}
+function _orToggle(ac){
+  const b=document.getElementById('orBody');if(!b)return;
+  const goster=ac===true?true:b.style.display==='none';
+  b.style.display=goster?'':'none';
+  const o=document.getElementById('orOk');if(o)o.textContent=goster?'▾':'▸';
 }
 function _orSetK(v){_orK=+v||0;_orYenidenUret();}
 function _orCopy(){
