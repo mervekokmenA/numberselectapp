@@ -1287,6 +1287,10 @@ select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
     <select id="dxDateSel3" onchange="_dxExcelRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
    </div>
    <div id="dxTopOut"></div>
+   <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--border)">
+    <div style="font-size:.76rem;font-weight:800;color:#7c3aed;margin-bottom:6px">🧮 Özel Hesaplama</div>
+    <div id="dxHesOut" data-ny-yok="1"></div>
+   </div>
   </div>
   <div class="card">
    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
@@ -1295,10 +1299,6 @@ select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
    </div>
    <div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.55">Her formül sütunu, hedef çekilişten ÖNCEKİ çekilişlerle çalışır; geçmiş satırlarda gerçek sonuçla ✓ net / ~ ±1 yakın renklenir. Mor ×N = N sütun aynı sayıyı üretti. Kitapta not: <em>her ayın 16'sında sistem formülü değişiyor, önceki ayın aynı gündeki çıkanlarına da bak, günde 1 fark varsa sayı da değişiyor.</em></div>
    <div id="dxFormulOut"></div>
-  </div>
-  <div class="card">
-   <div class="card-title">🧮 Özel Hesaplama</div>
-   <div id="dxHesOut"></div>
   </div>
  </div>
 </div>
@@ -29914,27 +29914,42 @@ function _dxHesRender(gid){
   const el=document.getElementById('dxHesOut');if(!el)return;
   const g=getGame(gid),draws=_kbGetDraws(gid)||[];
   if(!draws.length){el.innerHTML='';return;}
-  const son=draws[0],G=_dxHesGruplar(gid,son),sec=_dxHesSecim(gid);
-  const deger={};G.forEach(gr=>gr.kol.forEach((c,ci)=>c.v.forEach((v,ri)=>{deger[gr.id+'.'+ci+'.'+ri]=v;})));
-  const secDeger=sec.filter(k=>k in deger).map(k=>deger[k]);
-  let h=`<div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.55">Son çekiliş <strong style="color:var(--text)">${son.date}</strong>: <span style="font-family:monospace;font-weight:800;color:var(--green)">${[...son.nums].sort((a,b)=>a-b).join(' ')}${(son.bonus||[]).length?' | '+son.bonus.join(' '):''}</span> · yeni çekiliş <strong style="color:var(--text)">${_dxSonraki(gid)}</strong> · zincir = bir önceki + 1 (mod ${g.max}). Kitapta alttaki hücrede bu tablodan elle seçilen hücreler virgülle birleştiriliyor; seçim kuralı yazılı olmadığı için hücrelere tıklayarak sen seçersin (seçim kaydedilir).</div>`;
-  h+=`<div style="border:1px solid rgba(124,58,237,.45);border-radius:10px;padding:8px 10px;margin-bottom:10px;background:rgba(124,58,237,.05)"><div style="font-size:.6rem;font-weight:800;color:#7c3aed;margin-bottom:4px">Seçilenler (${secDeger.length})</div>`
-    +`<div id="dxHesMetin" style="font-family:monospace;font-size:.78rem;font-weight:800;color:var(--text);min-height:1.1em">${secDeger.join(', ')}</div>`
-    +`<div style="display:flex;gap:6px;margin-top:6px"><button class="copy-btn" onclick="_dxHesKopya()" style="font-size:.58rem;padding:3px 10px">📋 Kopyala</button><button onclick="_dxHesTemizle()" style="font-size:.58rem;padding:3px 10px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🧹 Temizle</button></div></div>`;
-  G.forEach(gr=>{
-    h+=`<div style="margin-bottom:12px"><div style="font-size:.64rem;font-weight:800;color:var(--text);margin-bottom:5px">${gr.ad} <span style="font-weight:600;color:var(--muted)">· ${gr.not}</span></div><div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:4px">`;
-    gr.kol.forEach((c,ci)=>{
-      h+=`<div style="flex:0 0 auto;display:flex;flex-direction:column;gap:2px;align-items:stretch"><div style="text-align:center;font-size:.54rem;font-weight:800;color:var(--muted)">${c.ust}</div>`;
-      c.v.forEach((v,ri)=>{
-        const k=gr.id+'.'+ci+'.'+ri,on=sec.includes(k),gecerli=v>=1&&v<=g.max;
-        h+=`<button ${gecerli?`onclick="_dxHesTikla('${k}')"`:'disabled'} style="min-width:30px;padding:3px 4px;font-size:.62rem;font-family:monospace;font-weight:800;border-radius:6px;cursor:${gecerli?'pointer':'default'};`
-          +(on?'background:#7c3aed;color:#fff;border:1px solid #7c3aed;':`background:${ri?'var(--surface2)':'rgba(124,58,237,.1)'};color:${gecerli?'var(--text)':'var(--muted)'};border:1px solid var(--border);opacity:${gecerli?1:.4};`)+`">${v}</button>`;
-      });
-      h+='</div>';
-    });
-    h+='</div></div>';
+  const sec=_dxHesSecim(gid);
+  // 🔮 Yeni Tahmin + en çok 2 geçmiş test (üstteki tarih seçicileri); geçmiş testte "son çekiliş" = hedefin bir öncesi
+  const sut=[{ad:'🔮 Yeni Tahmin',son:draws[0],hedef:_dxSonraki(gid),actual:null}];
+  ['dxDateSel','dxDateSel2'].forEach((id,i)=>{
+    const v=(document.getElementById(id)||{}).value;if(!v)return;
+    const ix=draws.findIndex(d=>d.date===v);if(ix<0||!draws[ix+1])return;
+    sut.push({ad:'📊 '+(i?'2. ':'')+'Geçmiş Test · '+v,son:draws[ix+1],hedef:v,actual:draws[ix]});
   });
-  el.innerHTML=h;
+  const kolHtml=c=>{
+    const G=_dxHesGruplar(gid,c.son),aS=c.actual?new Set(c.actual.nums||[]):null,yS=aS?_fadYakinSet(aS,g.max):null;
+    const deger={};G.forEach(gr=>gr.kol.forEach((cc,ci)=>cc.v.forEach((v,ri)=>{deger[gr.id+'.'+ci+'.'+ri]=v;})));
+    const secD=sec.filter(k=>k in deger).map(k=>deger[k]);
+    const net=aS?secD.filter(v=>aS.has(v)).length:0,yk=aS?secD.filter(v=>!aS.has(v)&&yS.has(v)).length:0;
+    let h=`<div style="min-width:0" data-ex-atla="1"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px"><span style="font-size:.62rem;font-weight:800;color:${c.actual?'var(--text)':'var(--accent)'}">${c.ad}</span>`
+      +(!c.actual?`<span><button class="copy-btn" onclick="_dxHesKopya()" style="font-size:.56rem;padding:2px 8px">📋 Kopyala</button> <button onclick="_dxHesTemizle()" style="font-size:.56rem;padding:2px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">🧹</button></span>`:'')+`</div>`
+      +`<div style="font-size:.54rem;color:var(--muted);margin-bottom:4px;line-height:1.5">Son çekiliş <strong style="color:var(--text)">${c.son.date}</strong>: <span style="font-family:monospace;font-weight:800">${[...c.son.nums].sort((a,b)=>a-b).join(' ')}${(c.son.bonus||[]).length?' | '+c.son.bonus.join(' '):''}</span> · hedef <strong style="color:var(--text)">${c.hedef}</strong>`
+      +(c.actual?` · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${[...c.actual.nums].sort((a,b)=>a-b).join(' ')}</span>`:'')+`</div>`
+      +`<div style="border:1px solid rgba(124,58,237,.4);border-radius:8px;padding:5px 8px;margin-bottom:6px;background:rgba(124,58,237,.05)"><div style="font-size:.54rem;font-weight:800;color:#7c3aed">Seçilenler (${secD.length})${c.actual?` · <span style="color:var(--green)">✓ ${net} net</span> · <span style="color:#c2410c">~ ${yk} yakın</span>`:''}</div>`
+      +`<div ${c.actual?'':'id="dxHesMetin" '}style="font-family:monospace;font-size:.74rem;font-weight:800;min-height:1.1em">${c.actual?secD.map(v=>`<span style="${aS.has(v)?'color:var(--green)':yS.has(v)?'color:#c2410c':''}">${v}${aS.has(v)?'✓':yS.has(v)?'~':''}</span>`).join(', '):secD.join(', ')}</div></div>`;
+    G.forEach(gr=>{
+      h+=`<div style="margin-bottom:8px"><div style="font-size:.58rem;font-weight:800;color:var(--text);margin-bottom:3px">${gr.ad} <span style="font-weight:600;color:var(--muted)">· ${gr.not}</span></div><div style="display:flex;gap:4px;overflow-x:auto;padding-bottom:3px">`;
+      gr.kol.forEach((cc,ci)=>{
+        h+=`<div style="flex:0 0 auto;display:flex;flex-direction:column;gap:2px"><div style="text-align:center;font-size:.5rem;font-weight:800;color:var(--muted)">${cc.ust}</div>`;
+        cc.v.forEach((v,ri)=>{
+          const k=gr.id+'.'+ci+'.'+ri,on=sec.includes(k),gecerli=v>=1&&v<=g.max,d=aS&&gecerli?_fadDurum(v,aS,yS):'';
+          const bg=d==='net'?'background:rgba(0,230,118,.22);color:var(--green);':d==='yakin'?'background:rgba(194,65,12,.1);color:#c2410c;':`background:${ri?'var(--surface2)':'rgba(124,58,237,.1)'};color:${gecerli?'var(--text)':'var(--muted)'};`;
+          h+=`<button ${gecerli?`onclick="_dxHesTikla('${k}')"`:'disabled'} style="min-width:26px;padding:2px 3px;font-size:.58rem;font-family:monospace;font-weight:800;border-radius:5px;cursor:${gecerli?'pointer':'default'};${bg}border:${on?'2px solid #7c3aed':'1px solid var(--border)'};opacity:${gecerli?1:.4}">${v}${d==='net'?'✓':d==='yakin'?'~':''}</button>`;
+        });
+        h+='</div>';
+      });
+      h+='</div></div>';
+    });
+    return h+'</div>';
+  };
+  el.innerHTML=`<div style="font-size:.56rem;color:var(--muted);margin-bottom:8px;line-height:1.55">Kitaptaki özel hesaplama: son çekilişten ① |son sayı − x| ② |x − 10| ③ |x + 10|; her sütunun altına 9 kez "+1 (mod ${g.max})". Hücreleri tıklayıp seç; aynı hücreler geçmiş testlerde de seçili kalır ve o günün sonucuna göre ✓/~ renklenir.</div>`
+    +`<div style="display:grid;grid-template-columns:repeat(${sut.length},minmax(0,1fr));gap:14px;align-items:start">${sut.map(kolHtml).join('')}</div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
