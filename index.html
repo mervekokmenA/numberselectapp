@@ -30035,9 +30035,20 @@ function _dxHesRender(gid){
 // ═══════════════════════════════════════════════════════════════════════════
 const _TS_K={sans:9,super:16,sayisal:24,onnumara:40};   // algoritma çıktısının sayı adedi (3+ net hedefi için kapsama)
 let _tsGame=null,_tsCache={},_tsToken=0;
-function _tsSetGame(){_tsGame=(state&&state.selectedGame)||GAMES[0].id;if(_curPage==='test'){_tsSecenek(true);_tsRender();}}
+function _tsSetGame(){_tsGame=(state&&state.selectedGame)||GAMES[0].id;if(_curPage==='test'){_tsAlgo2Doldur();_tsSecenek(true);_tsRender();}}
+// 🎯 sağdaki liste: 4 / 5 net hedefli; 9 net hedefli grup YALNIZCA On Numara seçiliyken vardır ve aktiftir
+const _TS_H9=['kn','cf','gu','an','np','mk'];   // On Numara ölçümünde rastgele havuzdan geri kalmayanlar (bkz. CLAUDE.md)
+function _tsH9Aktif(){return (_tsGame||(state&&state.selectedGame))==='onnumara';}
+function _tsAlgo2Doldur(){
+  const t2=document.getElementById('tfAlgo2');if(!t2)return;
+  const cur=t2.value,op=k=>_TS_TIP.map(t=>`<option value="${t.id}_h${k}">${k} net · ${t.ad}</option>`).join('');
+  const h9=_tsH9Aktif()?'<optgroup label="🎯 9 net hedefli (yalnızca On Numara)">'+_TS_H9.map(id=>`<option value="${id}_h9">9 net · ${(_TS_TIP.find(t=>t.id===id)||{}).ad}</option>`).join('')+'</optgroup>':'';
+  t2.innerHTML='<option value="">🎯 4 net / 5 net'+(_tsH9Aktif()?' / 9 net':'')+' hedefli…</option><optgroup label="🎯 4 net hedefli (yeni)">'+op(4)+'</optgroup><optgroup label="🎯 5 net hedefli (yeni)">'+op(5)+'</optgroup>'+h9;
+  t2.value=cur;
+  if(t2.value===''){const a=document.getElementById('tfAlgo');if(a&&a.selectedIndex<0)a.selectedIndex=0;}
+}
 function _tsSecenek(sifirla){
-  const t2=document.getElementById('tfAlgo2');if(t2&&!t2.options.length){const op=k=>_TS_TIP.map(t=>`<option value="${t.id}_h${k}">${k} net · ${t.ad}</option>`).join('');t2.innerHTML='<option value="">🎯 4 net / 5 net hedefli…</option><optgroup label="🎯 4 net hedefli (yeni)">'+op(4)+'</optgroup><optgroup label="🎯 5 net hedefli (yeni)">'+op(5)+'</optgroup>';}
+  _tsAlgo2Doldur();
   const ta=document.getElementById('tfAlgo');if(ta&&!ta.options.length)ta.innerHTML=_TS_TIP.filter(t=>!t.yeni).map(t=>`<option value="${t.id}">${t.ad}</option>`).join('')+'<optgroup label="🆕 Yeni Analizler (keşif)">'+_TS_TIP.filter(t=>t.yeni).map(t=>`<option value="${t.id}">${t.ad}</option>`).join('')+'</optgroup>';
   const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id;_tsGame=gid;
   const draws=_kbGetDraws(gid)||[];
@@ -30286,7 +30297,7 @@ function _tsTipBul(id){
 let _tsHedefOnb=null;
 function _tsAktifTip(){
   const v2=(document.getElementById('tfAlgo2')||{}).value;
-  if(v2){const t=_tsTipBul(v2);if(t)return t;}
+  if(v2&&(!/_h9$/.test(v2)||_tsH9Aktif())){const t=_tsTipBul(v2);if(t)return t;}
   const v=(document.getElementById('tfAlgo')||{}).value;
   return _tsTipBul(v)||_TS_TIP[0];
 }
@@ -30431,7 +30442,7 @@ function _tsGecmisRender(){
   const el=document.getElementById('tfGecmisOut');if(!el)return;
   const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id,g=getGame(gid),draws=_kbGetDraws(gid)||[];
   const l=_tsGecmisOku(gid);
-  const bas=document.getElementById('tfGecmisBaslik');if(bas)bas.textContent='🕘 Test Geçmişi — '+g.emoji+' '+g.name+' (oyun başına son '+_TS_GECMIS_N+', benzersiz)';
+  const bas=document.getElementById('tfGecmisBaslik');if(bas)bas.textContent='🕘 Geçmiş — '+g.emoji+' '+g.name+' (oyun başına son '+_TS_GECMIS_N+', benzersiz)';
   if(!l.length){el.innerHTML='<div style="font-size:.64rem;color:var(--muted)">Henüz kayıt yok. Bu sayfada oluşan her yeni bilet kümesi (oluşma zamanıyla) burada saklanır.</div>';return;}
   const tipAd=id=>(_tsTipBul(id)||{}).ad||id;
   el.innerHTML=l.map((e,idx)=>{
@@ -30466,14 +30477,18 @@ function _tsHedefSirala(){
     const cur=t2.value,g=getGame(gid);
     const op=k=>_TS_TIP.map(t=>({id:t.id+'_h'+k,ad:t.ad,p:puan[t.id+'_h'+k]||{b:-1,u:0,y:0}})).sort((a,b)=>b.p.b-a.p.b||b.p.u-a.p.u||b.p.y-a.p.y)
       .map(x=>`<option value="${x.id}">${k} net · ${x.ad}${x.p.b>=0?' — son: '+x.p.b+' net'+(x.p.y?' · ~'+x.p.y:''):''}</option>`).join('');
-    t2.innerHTML='<option value="">🎯 4 net / 5 net hedefli… (son oyuna göre sıralı)</option><optgroup label="🎯 4 net hedefli">'+op(4)+'</optgroup><optgroup label="🎯 5 net hedefli">'+op(5)+'</optgroup>';
+    const op9=()=>_TS_H9.map(id=>({id:id+'_h9',ad:(_TS_TIP.find(t=>t.id===id)||{}).ad,p:puan[id+'_h9']||{b:-1,u:0,y:0}})).sort((a,b)=>b.p.b-a.p.b||b.p.u-a.p.u||b.p.y-a.p.y)
+      .map(x=>`<option value="${x.id}">9 net · ${x.ad}${x.p.b>=0?' — son: '+x.p.b+' net'+(x.p.y?' · ~'+x.p.y:''):''}</option>`).join('');
+    const h9=_tsH9Aktif()?'<optgroup label="🎯 9 net hedefli (yalnızca On Numara)">'+op9()+'</optgroup>':'';
+    t2.innerHTML='<option value="">🎯 4 / 5'+(_tsH9Aktif()?' / 9':'')+' net hedefli… (son oyuna göre sıralı)</option><optgroup label="🎯 4 net hedefli">'+op(4)+'</optgroup><optgroup label="🎯 5 net hedefli">'+op(5)+'</optgroup>'+h9;
     t2.value=cur;
   };
   if(_tsSiraOnb[key]){uygula(_tsSiraOnb[key]);return;}
   setTimeout(()=>{
     try{
       const g=getGame(gid),prior=draws.slice(1),a=draws[0],S=_tsKaynak(gid,prior,a.date),F=_tsOzellik(gid,S),aS=new Set(a.nums||[]),yS=_fadYakinSet(aS,g.max),puan={};
-      [4,5].forEach(k=>_TS_TIP.forEach(t=>{
+      [4,5,9].forEach(k=>_TS_TIP.forEach(t=>{
+        if(k===9&&!(gid==='onnumara'&&_TS_H9.includes(t.id)))return;
         const tip=_tsTipBul(t.id+'_h'+k);let b=0,u=0,y=0;
         _tsBiletler(gid,S,F,tip,10).forEach(bl=>{const n=bl.filter(v=>aS.has(v)).length,yk=bl.filter(v=>!aS.has(v)&&yS.has(v)).length;if(n>b||(n===b&&yk>y)){b=n;y=yk;}if(n>=3)u++;});
         puan[tip.id]={b,u,y};
