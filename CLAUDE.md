@@ -19,6 +19,9 @@ Uygulama tek dosya: `index.html` (vanilla HTML/JS, Türkçe arayüz). Test için
 - **Kopyala butonu yalnızca 🔮 Yeni Tahmin** için; geçmiş sütunlarda kopyala yok.
 - Sayfa içi kapsayıcılarda 'son N geçmiş test' / tarih doldurma butonu OLMAZ; hepsi menüdeki 📅 Son 2 ile dolar (Listeler'de aynı buton son 2 çekilişi test sütunu olarak ekler + yeni tahmin üretir).
 - "📅 Son 2" (🔄 veri kontrolü ile birlikte) menünün sağ üst köşesinde TEK yerde durur; sayfalara tek tek 'Son 3' vb. buton konmaz.
+- Menünün sağ üstünde 📅 Son 2'nin yanında ✕ butonu tüm sayfalardaki geçmiş test seçimlerini kapatır (`_t3Kapat`). Yeni bir geçmiş test seçicisi eklerken id'si `…Date`/`…DateSel`(+2) biçiminde ve ilk seçeneği boş olsun ki ikisi de çalışsın.
+- Yan yana sütunlarda (Yeni Tahmin + geçmişler) aynı sıradaki bölümler aynı üst hizadan başlar: `_hizalaKur` (CSS subgrid) bunu otomatik yapar; yeni bir sütun ızgarası eklersen `SEL` listesine ekle.
+- Bölünmüş ekran sayfa listesi menü butonlarından (sıra + ad) okunur; menüye sayfa eklenince otomatik gelir.
 - Aynı bilgiyi tekrar eden bölümler yerine tek yerde göster; bir sayfada zaten tarihe göre geçmiş gösteriliyorsa ayrıca "Geçmiş Test" kapsayıcısı koyma.
 
 ## 3. Renk ve işaret standardı (DOKUNMA)

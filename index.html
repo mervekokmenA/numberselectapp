@@ -464,6 +464,8 @@ select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
         style="font-size:.78rem;line-height:1;padding:4px 8px;border-radius:14px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer">🔄</button>
       <button onclick="_t3Doldur()" title="Bu sayfadaki geçmiş test tarihlerini son 2 çekilişle (yeniden eskiye) doldurur"
         style="font-size:.64rem;font-weight:700;padding:4px 10px;border-radius:14px;border:1px solid rgba(0,150,58,.35);background:rgba(0,150,58,.09);color:var(--text);cursor:pointer;white-space:nowrap">📅 Son 2</button>
+      <button onclick="_t3Kapat()" title="Tüm sayfalardaki geçmiş testleri kapat (tarih seçimlerini temizler)"
+        style="font-size:.7rem;font-weight:800;line-height:1;padding:4px 8px;border-radius:14px;border:1px solid rgba(220,60,60,.4);background:rgba(220,60,60,.08);color:#c0392b;cursor:pointer">✕</button>
     </div>
   </div>
 </nav>
@@ -14932,7 +14934,11 @@ function _splitToggle(on){
 }
 function _splitBarRender(){
   const bar=document.getElementById('splitBar');if(!bar)return;
-  const opts=(sel,side)=>_PAGE_IDS.map(p=>`<option value="${p}"${p===sel?' selected':''}${(p===(side==='L'?_splitR:_splitL)||_splitClash(p,side==='L'?_splitR:_splitL))?' disabled':''}>${_PAGE_LABELS[p]}</option>`).join('');
+  // Seçenekler menüyle AYNI sırada ve AYNI adlarla (menü butonlarından okunur); menüde olmayan sayfa sona eklenir
+  const navB=[...document.querySelectorAll('.nav-links .nav-link')].map(b=>({id:b.id.replace('navBtn-',''),t:b.textContent.trim()}));
+  const sira=[...navB.map(x=>x.id).filter(i=>_PAGE_IDS.includes(i)),..._PAGE_IDS.filter(i=>!navB.some(x=>x.id===i))];
+  const ad=i=>(navB.find(x=>x.id===i)||{}).t||_PAGE_LABELS[i]||i;
+  const opts=(sel,side)=>sira.map(p=>`<option value="${p}"${p===sel?' selected':''}${(p===(side==='L'?_splitR:_splitL)||_splitClash(p,side==='L'?_splitR:_splitL))?' disabled':''}>${ad(p)}</option>`).join('');
   bar.innerHTML=`<button onclick="_splitToggle(${!_splitOn})" style="font-size:.7rem;padding:5px 11px;border-radius:8px;border:1px solid ${_splitOn?'rgba(129,140,248,.7)':'var(--border)'};background:${_splitOn?'rgba(129,140,248,.15)':'var(--surface2)'};color:${_splitOn?'var(--accent)':'var(--muted)'};cursor:pointer;font-weight:700">⬒ Bölünmüş Ekran${_splitOn?' ✓':''}</button>`
    +(_splitOn?`<select onchange="_splitSet('L',this.value)" style="font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:5px 8px;max-width:170px">${opts(_splitL,'L')}</select>
       <span style="color:var(--muted);font-size:.7rem">|</span>
@@ -18241,6 +18247,18 @@ function _t3Tarihler(sel){
   const out=[];
   for(const o of sel.options)if(/^\d{4}-\d{2}-\d{2}/.test(o.value))out.push(o.value);
   return out;
+}
+// ✕ — her sayfadaki geçmiş test seçimlerini kapatır (tarih alanlarını boşaltır, sütunlar yer kaplamaz)
+function _t3Kapat(){
+  let n=0;
+  document.querySelectorAll('select[id]').forEach(e=>{
+    if(!/(Date|DateSel|Date2|DateSel2|Date3|DateSel3)$/.test(e.id)&&!/Date[Sel]*[23]?$/.test(e.id))return;
+    if(!e.value||![...e.options].some(o=>o.value===''))return;
+    e.value='';n++;
+    try{e.dispatchEvent(new Event('change',{bubbles:true}));}catch(x){}
+  });
+  try{if(typeof _listelerHistory!=='undefined'&&_listelerHistory.length){_listelerHistory.forEach(h=>{h.checked=false;});if(typeof _renderListelerCols==='function')_renderListelerCols();n++;}}catch(x){}
+  showToast(n?'✕ Geçmiş testler kapatıldı':'Kapatılacak geçmiş test yok');
 }
 function _t3Doldur(){
   // Listeler: geçmiş testler seçici değil sütun geçmişidir — menü butonu son 2 çekilişi test olarak ekler + yeni tahmin üretir
@@ -30541,6 +30559,53 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
   }
   let t=null;
   new MutationObserver(m=>{if(m.every(x=>[...x.addedNodes].every(n=>n.dataset&&n.dataset.nyB)&&!x.removedNodes.length))return;clearTimeout(t);t=setTimeout(tara,350);}).observe(document.body,{childList:true,subtree:true});
+})();
+
+// ═══ Sütun hizalama: Yeni Tahmin + geçmiş test sütunlarında AYNI sıradaki bölümler aynı üst hizadan başlar ═══
+// Sütunlar aynı yapıdaysa (alt öğe sayıları eşit) CSS subgrid ile satır yükseklikleri sütunlar arasında ortaklaşır.
+// Yapı uyuşmazsa o düğüm ve altı olduğu gibi bırakılır. Yeniden çizimlerden sonra gözlemciyle tekrar uygulanır.
+(function _hizalaKur(){
+  const SEL='.so-row,.sn-row,.fm-row,.hy-row,.a3-row,.agx-row,.ls-ai-row,#nnGrid,#npGrid,#f2Grid,#kbGrid,#scanGrid,#caNihaiGrid,#cbNihaiGrid';
+  const gorunur=e=>getComputedStyle(e).display!=='none';
+  const cocuk=e=>[...e.children].filter(gorunur);
+  const sablon=n=>cocuk(n).length;
+  const kaydet=e=>{if(!e.dataset.al)e.dataset.alOrj=JSON.stringify([e.style.display,e.style.gridTemplateRows,e.style.rowGap,e.style.gridRow]);e.dataset.al='1';};
+  // nodes: sütunlar arasında birbirine karşılık gelen düğümler. Dönüş: kapladığı satır sayısı (hizalanamazsa 1)
+  function kur(nodes,uygula){
+    const n=sablon(nodes[0]);
+    if(n<2||nodes.some(x=>sablon(x)!==n)||nodes.some(x=>getComputedStyle(x).display!=='block'))return 1;
+    // alt öğeleri sırayla eşle
+    const ch=nodes.map(cocuk);let toplam=0;const spans=[];
+    for(let i=0;i<n;i++){const sp=kur(ch.map(c=>c[i]),uygula);spans.push(sp);toplam+=sp;}
+    if(uygula){
+      nodes.forEach((x,k)=>{
+        kaydet(x);x.style.display='grid';x.style.gridTemplateRows='subgrid';x.style.rowGap='0';
+        ch[k].forEach((c,i)=>{kaydet(c);c.style.gridRow='span '+spans[i];});
+      });
+    }
+    return toplam;
+  }
+  function hizala(){
+    document.querySelectorAll('[data-al]').forEach(e=>{
+      let o=['','','',''];try{o=JSON.parse(e.dataset.alOrj||'[]');}catch(x){}
+      e.style.display=o[0]||'';e.style.gridTemplateRows=o[1]||'';e.style.rowGap=o[2]||'';e.style.gridRow=o[3]||'';
+      delete e.dataset.al;delete e.dataset.alOrj;});
+    document.querySelectorAll(SEL).forEach(row=>{
+      if(!row.offsetWidth)return;
+      if(getComputedStyle(row).display!=='grid')return;
+      const cols=cocuk(row);if(cols.length<2)return;
+      if(getComputedStyle(row).gridTemplateColumns.split(' ').length<2)return;   // tek sütuna inmişse (telefon) gerek yok
+      const top=kur(cols,false);if(top<2)return;
+      kaydet(row);row.style.rowGap='0';
+      cols.forEach(c=>kaydet(c));
+      kur(cols,true);
+      cols.forEach(c=>{c.style.gridRow='span '+top;});
+    });
+  }
+  let t=null;
+  const planla=()=>{clearTimeout(t);t=setTimeout(()=>{try{hizala();}catch(e){}},300);};
+  new MutationObserver(m=>{if(m.some(x=>x.addedNodes.length||x.removedNodes.length))planla();}).observe(document.body,{childList:true,subtree:true});
+  window.addEventListener('resize',planla);
 })();
 </script>
 
