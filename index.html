@@ -362,7 +362,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
    .an-nums sayesinde kendi satırına indiği için okunaklı kalıyor. */
 @media(max-width:600px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,#agGrid,#agHdrRow,#agTestCtl,.ag-row,
   .agx-row,.hy-row,.fm-row,.a3-row,.a3-date,.mr-date,.xk-date,.or-date,.aday-row,.ls-ai-row,.ls-date,.so-row,.so-date,.sn-row,.sn-date,#nnGrid,#npGrid{grid-template-columns:minmax(0,1fr) !important;}}
-/* 3 geçmiş test açıkken 4 sütun olabilir; tablette en fazla 2'ye iner. */
+/* Yeni tahmin + 2 geçmiş test = en çok 3 sütun; tablette en fazla 2'ye iner. */
 @media(max-width:1400px) and (min-width:1101px){.qt-pair-row,#qtHdrRow,#btsHdrRow,.f2-pair-row,#f2HdrRow,.ag-row,#agHdrRow,
   .agx-row,.hy-row,.fm-row,.a3-row,.so-row,.sn-row,.ls-ai-row{grid-template-columns:repeat(3,minmax(0,1fr)) !important;}}
 /* 2 geçmiş test açıkken 3 sütun; tablette 2'ye, telefonda 1'e iner. */
@@ -421,6 +421,7 @@ select,input[type=text],input[type=number],input:not([type]),textarea{border-rad
 input.counter-val{background:rgba(0,0,0,.04)}
 ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(90,90,132,.3);border-radius:8px}::-webkit-scrollbar-track{background:transparent}
 select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
+:has(>select[id$="Date3"]),:has(>select[id$="DateSel3"]){grid-template-columns:none!important;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr)}
 </style>
 </head>
 <body>
@@ -1460,7 +1461,7 @@ select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
  <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
    <div class="card-title" style="margin:0">🔮 Yeni Tahmin ve 📊 Geçmiş Testler — yan yana</div>
-   <button onclick="_xkSon3()" style="font-size:.64rem;padding:4px 10px;border-radius:7px;border:1px solid rgba(16,185,129,.5);background:rgba(16,185,129,.1);color:#0a9a6a;cursor:pointer;font-weight:800">📅 Son 3 çekiliş</button>
+   
   </div>
   <div class="xk-date" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:10px">
    <div style="font-size:.66rem;font-weight:800;color:var(--accent);display:flex;align-items:center;height:33px">🔮 Yeni Tahmin</div>
@@ -1588,7 +1589,7 @@ select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
    üretilir. <strong>🔮 Yeni Tahmin</strong> sütununda kaynak en güncel çekiliştir (henüz sonucu yok);
    <strong>📅 Geçmiş test</strong> sütunlarında ise o tarihten BİR ÖNCEKİ çekiliştir ve adaylar o günün gerçek
    sonucuna göre ✓ net / ~ yakın işaretlenir — <strong>ileriye bakış yok</strong>.
-   Diğer sayfalardaki gibi yeni tahmin ve 3 geçmiş test yan yana gösterilir.
+   Diğer sayfalardaki gibi yeni tahmin ve 2 geçmiş test yan yana gösterilir.
   </div>
   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
    <div id="hnGameGrid" style="display:flex;gap:6px;flex-wrap:wrap"></div>
@@ -2028,16 +2029,6 @@ function _ckDateTest(slot,scope){
   if(!D.live)D.live=_ckKolon(g,draws,null,K,model);
   _ckRender(scope);
 }
-function _ckSon3(scope){
-  scope=scope||'';
-  const gid=_ckOyun(),model=_ckModel[gid];
-  if(!model){_ckRun(scope);setTimeout(()=>_ckSon3(scope),800);return;}
-  // Bazı oyunların (ör. On Numara — hafta no'dan tarihe çevrilen, "güvenilmez" takvim)
-  // arşivinde aynı tarih iki kez geçebilir; testTarihler'de yinelenirse 3 sütun da AYNI
-  // geçmiş çekilişe düşüyordu. Yinelenenleri at, 3 FARKLI tarih garanti et.
-  const izin=[...new Set(model.testTarihler)];
-  ['','2','3'].forEach((sl,i)=>{const e=document.getElementById('ckDate'+sl+scope);if(!e||!izin[i])return;e.value=izin[i];_ckDateTest(sl,scope);});
-}
 // Ana sayfanın en üstüne panel — oyun değişince tazelenir
 function _ckPanelYaz(){
   try{
@@ -2061,7 +2052,7 @@ function _ckPanelYaz(){
       +`<span id="ckDurum" style="font-size:.6rem;color:var(--muted)"></span>`
       +`<select onchange="_ckSetK(this.value)" style="font-size:.64rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 7px">${kSec}</select>`
       +`<button onclick="_ckRun()" style="font-size:.68rem;padding:5px 12px;border-radius:8px;border:1px solid rgba(124,58,237,.5);background:rgba(124,58,237,.12);color:#7c3aed;cursor:pointer;font-weight:800">🧠 Üret</button>`
-      +`<button onclick="_ckSon3()" style="font-size:.64rem;padding:5px 10px;border-radius:8px;border:1px solid rgba(244,114,63,.5);background:rgba(244,114,63,.1);color:#f97316;cursor:pointer;font-weight:800">📅 Son 3 çekiliş</button>`
+      
       +`</span></div>`
       +`<div class="aday-row" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-bottom:10px">`
       +['','2','3'].map(sl=>`<select id="ckDate${sl}" onchange="_ckDateTest('${sl}')" style="min-width:0;font-size:.68rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 8px"><option value="">— Geçmiş test —</option></select>`).join('')
@@ -21732,16 +21723,6 @@ function _mrDates(){
     const prev=sel.value;sel.innerHTML=h;if(prev)sel.value=prev;});
 }
 // Üç kutuyu son 3 çekilişle doldurur (yeniden eskiye, soldan sağa)
-function _mrSon3(){
-  const draws=_kbGetDraws(_mrGame)||[];
-  const uygun=draws.filter((d,i)=>draws.length-i-1>=40).slice(0,3);
-  ['','2','3'].forEach((sl,i)=>{
-    const sel=document.getElementById('mrDateSel'+sl);
-    if(!sel||!uygun[i])return;
-    sel.value=uygun[i].date;
-  });
-  ['','2','3'].forEach((sl,i)=>setTimeout(()=>_mrDateTest(sl),i*60));
-}
 function _mrStepDate(dir,slot){
   slot=slot||'';
   const sel=document.getElementById('mrDateSel'+slot);if(!sel||sel.options.length<2)return;
@@ -29147,15 +29128,6 @@ function _xkDates(){
     h+=`<option value="${d.date}">🎯 ${d.date}  [${(d.nums||[]).join(' ')}]${d.bonus&&d.bonus.length?' | '+d.bonus.join(' '):''}</option>`;});
   ['','2','3'].forEach(sl=>{const e=document.getElementById('xkDate'+sl);if(!e)return;
     const pv=e.value;e.innerHTML=h;if(pv)e.value=pv;});
-}
-function _xkSon3(){
-  const draws=_kbGetDraws(_xkOyun())||[];
-  const uygun=draws.filter((d,i)=>draws.length-i-1>=20).slice(0,3);
-  ['','2','3'].forEach((sl,i)=>{
-    const e=document.getElementById('xkDate'+sl);
-    if(e&&uygun[i])e.value=uygun[i].date;
-  });
-  ['','2','3'].forEach((sl,i)=>setTimeout(()=>_xkDateTest(sl),i*40));
 }
 function _xkDateTest(slot){
   slot=slot||'';
