@@ -1281,6 +1281,7 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3),select[id$="DateSel3"]:not
     <span style="font-size:.7rem;font-weight:800;color:var(--text)">📊 Excel</span>
     <span id="exBilgi" style="font-size:.58rem;color:var(--muted)"></span>
     <span style="flex:1"></span>
+    <select id="exCok" onchange="_exCokSec(this.value)" title="Çoklanan sayılar: aynı sayıyı en az N formül üretmişse göster" style="font-size:.64rem;background:var(--surface2);border:1px solid rgba(124,58,237,.45);color:#7c3aed;border-radius:12px;padding:3px 8px;font-weight:700"><option value="1">🔁 Çoklananlar: Tümü</option><option value="2">🔁 2+ formül</option><option value="3">🔁 3+ formül</option><option value="4">🔁 4+ formül</option><option value="5">🔁 5+ formül</option></select>
     <button onclick="_exEditToggle()" title="Formülleri göster/gizle ve düzenle" style="font-size:.78rem;font-weight:800;padding:3px 10px;border-radius:14px;border:1px solid rgba(10,126,164,.5);background:rgba(10,126,164,.08);color:#0a7ea4;cursor:pointer">ƒx</button>
     <button onclick="_exKopyala()" class="copy-btn" style="font-size:.62rem;padding:3px 10px;font-weight:700">📋 Tablo</button>
    </div>
@@ -29520,7 +29521,8 @@ function _exCtx(){
 }
 // 📊 Excel sekmesi — sıkıştırılmış görünüm: 🔮 Yeni Tahmin + en çok 3 geçmiş test SÜTUNU; her sütunda formüllerin ürettiği
 // sonuçlar küçük hücreler hâlinde (harf·değer). Formül düzenleme paneli ƒx ikonuyla açılır/kapanır (kapalıyken çizilmez → hafif).
-let _exEditAcik=false;
+let _exEditAcik=false,_exCokMin=1;
+function _exCokSec(v){_exCokMin=Math.max(1,parseInt(v)||1);_exRender();}
 function _exEditToggle(){_exEditAcik=!_exEditAcik;_exRender();}
 function _exSecenekDoldur(sifirla){
   const gid=_exGame||(state&&state.selectedGame)||GAMES[0].id;
@@ -29568,15 +29570,17 @@ function _exRender(){
   const kolHtml=c=>{
     const aS=c.actual?new Set(c.actual.nums||[]):null,yS=aS?_fadYakinSet(aS,g.max):null;
     const hucre=[];const dist=new Set();
-    formuller.forEach(k=>{
-      const v=_exDeger(k.h,c.r,ctx);
-      const n=typeof v==='number'&&isFinite(v)?Math.round(v):null;
-      const ok=n!=null&&n>=1&&n<=g.max;
+    // her formülün sonucu; çoklanan = aynı sayıyı üreten formül adedi
+    const sonuc=formuller.map(k=>{const v=_exDeger(k.h,c.r,ctx);const n=typeof v==='number'&&isFinite(v)?Math.round(v):null;return {k,n,ok:n!=null&&n>=1&&n<=g.max};});
+    const say={};sonuc.forEach(x=>{if(x.ok)say[x.n]=(say[x.n]||0)+1;});
+    sonuc.forEach(({k,n,ok})=>{
       if(ok)dist.add(n);
+      if(_exCokMin>1&&(!ok||say[n]<_exCokMin))return;       // 🔁 çoklanan filtresi
       const d=ok&&aS?_fadDurum(n,aS,yS):'';
-      hucre.push(`<span title="${k.h}" style="font-family:monospace;font-size:.6rem;line-height:1;padding:2px 4px;border-radius:5px;border:1px solid var(--border);`
+      hucre.push(`<span title="${k.h}${ok&&say[n]>1?' · '+say[n]+' formül aynı sayıyı üretti':''}" style="position:relative;display:flex;align-items:center;justify-content:center;gap:2px;font-family:monospace;font-size:.62rem;line-height:1;padding:3px 2px;border-radius:5px;border:1px solid var(--border);`
         +(d==='net'?'background:rgba(0,230,118,.22);color:var(--green);font-weight:800;border-color:rgba(0,200,100,.5);':d==='yakin'?'background:rgba(194,65,12,.1);color:#c2410c;font-weight:800;':ok?'':'opacity:.4;')
-        +`"><span style="opacity:.55;font-size:.48rem">${k.h}</span> ${n==null?'·':n}${d==='net'?'✓':d==='yakin'?'~':''}</span>`);
+        +`"><span style="opacity:.55;font-size:.46rem">${k.h}</span> ${n==null?'·':n}${d==='net'?'✓':d==='yakin'?'~':''}`
+        +(ok&&say[n]>1?`<span style="position:absolute;top:-5px;right:-3px;font-size:.44rem;font-weight:800;background:#7c3aed;color:#fff;border-radius:6px;padding:0 3px">×${say[n]}</span>`:'')+`</span>`);
     });
     const sirali=[...dist].sort((a,b)=>a-b);
     const net=aS?sirali.filter(n=>aS.has(n)).length:null,yk=aS?sirali.filter(n=>!aS.has(n)&&yS.has(n)).length:null;
@@ -29586,7 +29590,7 @@ function _exRender(){
       +(yeni?`<button class="copy-btn" onclick="_exYeniKopyala()" style="font-size:.54rem;padding:2px 8px">📋 Kopyala</button>`:'')+`</div>`
       +`<div style="font-size:.54rem;color:var(--muted);margin-bottom:4px">hedef ${c.tarih} · ${sirali.length} farklı sayı`
       +(aS?` · <strong style="color:var(--green)">✓ ${net} net</strong> · <strong style="color:#c2410c">~ ${yk} yakın</strong> · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${[...c.actual.nums].sort((a,b)=>a-b).join(' ')}</span>`:'')+`</div>`
-      +`<div style="display:flex;flex-wrap:wrap;gap:3px">${hucre.join('')}</div></div>`;
+      +`<div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px">${hucre.join('')||'<span style="grid-column:1/-1;font-size:.56rem;color:var(--muted)">Bu filtreye uyan sayı yok.</span>'}</div></div>`;
   };
   h+=`<div style="display:grid;grid-template-columns:repeat(${sut.length},minmax(0,1fr));gap:10px;align-items:start">${sut.map(kolHtml).join('')}</div>`;
   el.innerHTML=h;
