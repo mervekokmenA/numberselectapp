@@ -13,6 +13,7 @@ Uygulama tek dosya: `index.html` (vanilla HTML/JS, Türkçe arayüz). Test için
 
 ## 2. Standart tahmin/test tasarımı
 - Her tahmin kapsayıcısı: **🔮 Yeni Tahmin + en çok 2 adet 📊 Geçmiş Test** sütunu (3'lü değil, **2'li**; 3. tarih seçicileri global olarak gizli/devre dışı).
+- İSTİSNA: 🧫 Test sayfası 4 geçmiş test kullanır (`tfDateSel3/4`).
 - İSTİSNA: Excel sayfasının iki sekmesi de (📊 Excel: `exDateSel3`, 🧪 Deneme Excel: `dxDateSel3`) 🔮 Yeni Tahmin + **3** geçmiş test kullanır (`dxDateSel3` gizlenmez, menüdeki 📅 Son 2 yine de 3 alanı da doldurur).
 - Geçmiş test seçili değilse **boş yer/boşluk bırakma**; seçilmeyen sütun hiç yer kaplamaz (tüm sayfalarda).
 - Henüz üretilmemiş (boş) 🔮 Yeni Tahmin sütunu da, geçmiş test sütunları açıkken yer tutmaz (Anlık/Basit `qt-pair-row`, Nihai, Net Odaklı).
@@ -37,7 +38,7 @@ Uygulama tek dosya: `index.html` (vanilla HTML/JS, Türkçe arayüz). Test için
 - Sıradaki çekilişin tarihi `_predNextDrawDate` (yoksa `_dxSonraki`); formüller o günün gün/ayına bakar.
 - 🧪 Deneme Excel: formüller `_DX_SABLON`, motor `_dxMotor`; Sayısal Joker sırası `_DX_JOKER` ile geri konur. Çalışma kitabıyla doğrulandı (4660 hücrenin 4649'u aynı). Deneme Excel × Gülay kapsayıcısı: 🟣 Aynı + 🟠 Yakın (±1), Anlık Tahmin sayfasının en üstünde ve Excel sayfasının Deneme sekmesinde.
 - 📊 Excel sekmesi: sıkıştırılmış görünüm — 🔮 Yeni Tahmin + 3 geçmiş test sütunu, her sütunda formül sonuçları küçük 'harf·değer' hücreleri (formül metni gösterilmez); hücreler sabit sütunlu ızgarada (`.ex-izgara`: dar 3, orta 4, geniş 6) ve okunur boyutta; 🔁 Çoklananlar filtresi (2+/3+/4+/5+ formül aynı sayıyı üretmişse göster, hücrede mor ×N); formül düzenleme/ekleme paneli ƒx ikonuyla açılır; girişler `onchange` (donma olmasın). Formüller kullanıcının Deneme Excel çalışma kitabından (`_DX_SABLON`) gelir ve `_dxMotor` ile hesaplanır (yeni tahmin satırı sıradaki çekilişin tarihini kullanır); sekmedeki düzenlemeler `_dxMotor`'a `ovr` olarak geçer. Uygulama genelindeki Excel yıldızları (`_exYeniTahminSayilari`) da bu formülleri kullanır. Yeni Excel gelince `_DX_SABLON` yeniden üretilir.
-- 🧫 Test sayfası (`page-test`, `_ts*`): Yeni Bilet Sistemi (`_nnCore`) × Net Odaklı Havuz (`_npPool`) × Excel (`_dxHesapla`) × Gülay (`_dxGulay`) ortak(≥2 kaynak)/yakın işaretleme, analiz tipi seçilip BİLET üretilir (`_TS_TIP`, `_tsBiletler`; bilet başına ✓/~ ve basılı tutarak kopyalama), 🔮 Yeni + 2 geçmiş test, 'Ölç' tablosu (walk-forward, bilet bazlı). Algoritma eklerken ölçümle rastgele beklentiyle karşılaştır; ölçüm sonuçlarını dürüst raporla.
+- 🧫 Test sayfası (`page-test`, `_ts*`): Yeni Bilet Sistemi (`_nnCore`) × Net Odaklı Havuz (`_npPool`) × Excel (`_dxHesapla`) × Gülay (`_dxGulay`) ortak(≥2 kaynak)/yakın işaretleme, analiz tipi seçilip BİLET üretilir (`_TS_TIP`, `_tsBiletler`; bilet başına ✓/~ ve basılı tutarak kopyalama), 🔮 Yeni + **4** geçmiş test (`tfDateSel`…`tfDateSel4`; Test sayfası istisna). Ölçüm alanı kullanıcı isteğiyle KALDIRILDI (geri koyma). Algoritma eklerken ölçümle rastgele beklentiyle karşılaştır; ölçüm sonuçlarını dürüst raporla.
 - Kazanan/Kronoloji: hane filtre kutuları + "tüm hanelerde ara" + Filtrele; internetten yeni ikramiye kazananı tarama butonu.
 
 ## 5. Kaldırılan alanlar (geri getirme)

@@ -423,7 +423,7 @@ button,select,input,textarea{font-family:inherit}
 select,input[type=text],input[type=number],input:not([type]),textarea{border-radius:10px}
 input.counter-val{background:rgba(0,0,0,.04)}
 ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(90,90,132,.3);border-radius:8px}::-webkit-scrollbar-track{background:transparent}
-select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3),select[id$="DateSel3"]:not(#dxDateSel3):not(#exDateSel3){display:none!important}
+select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3),select[id$="DateSel3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3){display:none!important}
 @media(min-width:601px){.qt-pair-row.qt-n1{grid-template-columns:minmax(0,1fr)!important}.qt-pair-row.qt-n2{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(min-width:1101px){.qt-pair-row.qt-n3{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
 /* Excel sekmesi hücre ızgarası: sabit sütun sayısı (dar ekranda 3, orta 4, geniş 6) — okunur boyut */
@@ -1332,6 +1332,8 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3),select[id$="DateSel3"]:not
   <div style="display:flex;gap:6px;margin-bottom:10px">
    <select id="tfDateSel" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
    <select id="tfDateSel2" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
+   <select id="tfDateSel3" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
+   <select id="tfDateSel4" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:7px 9px;border:1px solid rgba(124,58,237,.35);border-radius:10px;background:rgba(124,58,237,.05)">
    <span style="font-size:.64rem;font-weight:800;color:#7c3aed">🎫 Bilet analizi</span>
@@ -1340,15 +1342,6 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3),select[id$="DateSel3"]:not
    <span style="font-size:.56rem;color:var(--muted)">Analiz tipini seç → biletler Yeni Tahmin ve geçmiş testlerde o analizden üretilir. Bilete basılı tutunca kopyalanır.</span>
   </div>
   <div id="tfOut" data-ny-yok="1"></div>
- </div>
- <div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-   <div class="card-title" style="margin:0">📈 Ölçüm — Kaynaklar ve Algoritmalar</div>
-   <span style="display:flex;gap:6px;align-items:center"><span id="tfOlcDurum" style="font-size:.6rem;color:var(--muted)"></span>
-    <select id="tfOlcN" style="font-size:.66rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 8px"><option value="10">Son 10</option><option value="20" selected>Son 20</option><option value="40">Son 40</option></select>
-    <button onclick="_tsOlc()" style="font-size:.68rem;padding:4px 14px;border-radius:14px;border:1px solid rgba(124,58,237,.5);background:rgba(124,58,237,.12);color:#7c3aed;cursor:pointer;font-weight:800">📈 Ölç</button></span>
-  </div>
-  <div id="tfOlcOut"></div>
  </div>
 </div>
 
@@ -18291,7 +18284,7 @@ function _t3Tarihler(sel){
 function _t3Kapat(){
   let n=0;
   document.querySelectorAll('select[id]').forEach(e=>{
-    if(!/(Date|DateSel|Date2|DateSel2|Date3|DateSel3)$/.test(e.id)&&!/Date[Sel]*[23]?$/.test(e.id))return;
+    if(!/(Date|DateSel|Date2|DateSel2|Date3|DateSel3)$/.test(e.id)&&!/Date[Sel]*[234]?$/.test(e.id))return;
     if(!e.value||![...e.options].some(o=>o.value===''))return;
     e.value='';n++;
     try{e.dispatchEvent(new Event('change',{bubbles:true}));}catch(x){}
@@ -18305,12 +18298,12 @@ function _t3Doldur(){
   const seller=[...document.querySelectorAll('select[id]')];
   let grup=0,alan=0;
   seller.forEach(s=>{
-    if(/[23]$/.test(s.id))return;                       // 2./3. slotlar gruba göre bulunur
+    if(/[234]$/.test(s.id))return;                      // 2./3./4. slotlar gruba göre bulunur
     if(!_t3Gorunur(s))return;
     const kendi=_t3Tarihler(s);
     if(kendi.length<2)return;
     const g=[s];
-    ['2','3'].forEach(k=>{const e=document.getElementById(s.id+k);if(e&&_t3Gorunur(e))g.push(e);});
+    ['2','3','4'].forEach(k=>{const e=document.getElementById(s.id+k);if(e&&_t3Gorunur(e))g.push(e);});
     // en yeni → en eski (tarih dizgileri sıralanabilir)
     const sirali=[...new Set(kendi)].sort().reverse();
     let dolduruldu=false;
@@ -30032,14 +30025,14 @@ function _dxHesRender(gid){
 // gün/ayıyla, bilet sistemi geçmiş çekiliş verisiyle çalışır. Altta "Son N çekilişte ölç" ile algoritmalar sayısal ölçülür.
 // ═══════════════════════════════════════════════════════════════════════════
 const _TS_K={sans:9,super:16,sayisal:24,onnumara:40};   // algoritma çıktısının sayı adedi (3+ net hedefi için kapsama)
-let _tsGame=null,_tsCache={},_tsOlcSonuc=null,_tsToken=0;
-function _tsSetGame(){_tsGame=(state&&state.selectedGame)||GAMES[0].id;_tsOlcSonuc=null;if(_curPage==='test'){_tsSecenek(true);_tsRender();}}
+let _tsGame=null,_tsCache={},_tsToken=0;
+function _tsSetGame(){_tsGame=(state&&state.selectedGame)||GAMES[0].id;if(_curPage==='test'){_tsSecenek(true);_tsRender();}}
 function _tsSecenek(sifirla){
   const ta=document.getElementById('tfAlgo');if(ta&&!ta.options.length)ta.innerHTML=_TS_TIP.map(t=>`<option value="${t.id}">${t.ad}</option>`).join('');
   const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id;_tsGame=gid;
   const draws=_kbGetDraws(gid)||[];
   const h='<option value="">— geçmiş test seç —</option>'+draws.slice(0,85).map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
-  ['tfDateSel','tfDateSel2'].forEach((id,i)=>{
+  ['tfDateSel','tfDateSel2','tfDateSel3','tfDateSel4'].forEach((id,i)=>{
     const e=document.getElementById(id);if(!e)return;
     const prev=e.value;e.innerHTML=h;
     if(!sifirla&&prev)e.value=prev;else if(draws[i]&&draws.length>80)e.value=draws[i].date;
@@ -30169,13 +30162,13 @@ function _tsRender(){
   const bas=document.getElementById('tfBaslik');if(bas)bas.textContent='🧫 Test — '+g.emoji+' '+g.name;
   if(draws.length<90){el.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:10px">Yeterli veri yok (≥90 çekiliş gerekli).</div>';return;}
   const sut=[{prior:draws,tarih:_dxSonraki(gid),actual:null}];
-  ['tfDateSel','tfDateSel2'].forEach((id,i)=>{
+  ['tfDateSel','tfDateSel2','tfDateSel3','tfDateSel4'].forEach((id,i)=>{
     const v=(document.getElementById(id)||{}).value;if(!v)return;
     const ix=draws.findIndex(d=>d.date===v);if(ix<0||draws.length-ix-1<70)return;
     sut.push({prior:draws.slice(ix+1),tarih:v,actual:draws[ix]});
   });
   const tok=++_tsToken;
-  el.innerHTML=`<div id="tfGrid" style="display:grid;grid-template-columns:repeat(${sut.length},minmax(0,1fr));gap:14px;align-items:start">${sut.map(()=>'<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Kuruluyor…</div>').join('')}</div>`;
+  el.innerHTML=`<div id="tfGrid" style="display:grid;grid-template-columns:repeat(${sut.length},minmax(0,1fr));gap:14px;align-items:start;grid-template-columns:repeat(auto-fit,minmax(270px,1fr))">${sut.map(()=>'<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Kuruluyor…</div>').join('')}</div>`;
   const grid=document.getElementById('tfGrid');
   sut.forEach((c,i)=>setTimeout(()=>{
     if(tok!==_tsToken)return;
@@ -30185,45 +30178,7 @@ function _tsRender(){
 }
 function _tsInit(){
   _tsGame=(state&&state.selectedGame)||GAMES[0].id;
-  _tsSecenek(false);_tsRender();_tsOlcYaz();
-}
-// ── 📈 Ölçüm: son N çekilişte (walk-forward) her analiz tipinin biletleri ──
-function _tsOlcYaz(){
-  const el=document.getElementById('tfOlcOut');if(!el)return;
-  const r=_tsOlcSonuc;
-  if(!r||r.gid!==_tsGame){el.innerHTML='<div style="font-size:.64rem;color:var(--muted)">Henüz ölçülmedi. "Ölç" tuşu son N çekilişi her biri için o günden ÖNCEKİ verilerle yeniden kurup biletleri sonuçla karşılaştırır.</div>';return;}
-  const sat=r.satir.map(s=>`<tr><td style="padding:4px 6px;font-weight:700">${s.ad}</td><td style="text-align:right;padding:4px 6px;font-weight:800;color:var(--green)">${s.enIyi.toFixed(2)}</td><td style="text-align:right;padding:4px 6px;font-weight:800;color:#7c3aed">%${s.g3.toFixed(0)}</td><td style="text-align:right;padding:4px 6px">%${s.g4.toFixed(0)}</td><td style="text-align:right;padding:4px 6px">${s.biletNet.toFixed(2)}</td><td style="text-align:right;padding:4px 6px;color:var(--muted)">${s.beklenen.toFixed(2)}</td><td style="text-align:right;padding:4px 6px;color:#c2410c">${s.biletYk.toFixed(2)}</td></tr>`).join('');
-  el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:5px">${r.t} çekiliş × ${r.adet} bilet ölçüldü (${r.ilk} → ${r.son}). "3+ net" = o çekilişte en az bir biletin 3 veya daha fazla net tutması. "Rastgele" = aynı sayıda sayıyı rastgele seçmenin bilet başı ortalama neti.</div>`
-    +`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.64rem"><thead><tr style="color:var(--muted);text-align:right"><th style="text-align:left;padding:4px 6px">Analiz tipi</th><th style="padding:4px 6px">en iyi bilet net</th><th style="padding:4px 6px">3+ net</th><th style="padding:4px 6px">4+ net</th><th style="padding:4px 6px">bilet başı net</th><th style="padding:4px 6px">rastgele</th><th style="padding:4px 6px">bilet başı yakın</th></tr></thead><tbody>${sat}</tbody></table></div>`;
-}
-function _tsOlc(){
-  const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id,g=getGame(gid),draws=_kbGetDraws(gid)||[];
-  const N=Math.min(parseInt((document.getElementById('tfOlcN')||{value:20}).value)||20,draws.length-75);
-  const adet=parseInt((document.getElementById('tfAdet')||{}).value)||10;
-  const durum=document.getElementById('tfOlcDurum'),tok=++_tsToken;
-  const acc={};_TS_TIP.forEach(t=>{acc[t.id]={ad:t.ad,enIyi:0,g3:0,g4:0,biletNet:0,biletYk:0,bilet:0,beklenen:0,t:0};});
-  let i=0;
-  const adim=()=>{
-    if(tok!==_tsToken)return;
-    if(i>=N){
-      const sat=Object.values(acc).map(a=>({ad:a.ad,enIyi:a.enIyi/a.t,g3:100*a.g3/a.t,g4:100*a.g4/a.t,biletNet:a.biletNet/a.bilet,biletYk:a.biletYk/a.bilet,beklenen:a.beklenen/a.t}));
-      _tsOlcSonuc={gid,t:N,adet,ilk:draws[N-1].date,son:draws[0].date,satir:sat};
-      if(durum)durum.textContent='';_tsOlcYaz();return;
-    }
-    const a=draws[i],prior=draws.slice(i+1);
-    try{
-      const S=_tsKaynak(gid,prior,a.date),F=_tsOzellik(gid,S),aS=new Set(a.nums||[]),yS=_fadYakinSet(aS,g.max);
-      _TS_TIP.forEach(tip=>{
-        const x=acc[tip.id],bil=_tsBiletler(gid,S,F,tip,adet);if(!bil.length)return;
-        let en=0;x.t++;x.beklenen+=g.count*aS.size/g.max;
-        bil.forEach(t=>{const n=t.filter(v=>aS.has(v)).length;x.biletNet+=n;x.biletYk+=t.filter(v=>!aS.has(v)&&yS.has(v)).length;x.bilet++;if(n>en)en=n;});
-        x.enIyi+=en;if(en>=3)x.g3++;if(en>=4)x.g4++;
-      });
-    }catch(e){}
-    i++;if(durum)durum.textContent='⏳ '+i+' / '+N;
-    setTimeout(adim,10);
-  };
-  adim();
+  _tsSecenek(false);_tsRender();
 }
 
 
@@ -30792,7 +30747,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
 // 3. slot seçicisi gizlenir ve değeri hep '' döner → hiçbir sayfa 3. geçmiş test sütunu kurmaz,
 // "son çekilişleri doldur" da yalnızca 2 alanı doldurur.
 (function _iki(){
-  const sec='select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3),select[id$="DateSel3"]:not(#dxDateSel3):not(#exDateSel3)';
+  const sec='select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3),select[id$="DateSel3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3)';
   function nötr(){
     document.querySelectorAll(sec).forEach(e=>{
       if(e.dataset.iki)return;e.dataset.iki='1';
@@ -30867,7 +30822,8 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
       if(!row.offsetWidth)return;
       if(getComputedStyle(row).display!=='grid')return;
       const cols=cocuk(row);if(cols.length<2)return;
-      if(getComputedStyle(row).gridTemplateColumns.split(' ').length<2)return;   // tek sütuna inmişse (telefon) gerek yok
+      const tc=getComputedStyle(row).gridTemplateColumns.split(' ').length;
+      if(tc<2||tc<cols.length)return;       // tek sütun ya da alt satıra sarmış ızgarada hizalama yapılmaz   // tek sütuna inmişse (telefon) gerek yok
       const top=kur(cols,false);if(top<2)return;
       kaydet(row);row.style.rowGap='0';
       cols.forEach(c=>kaydet(c));
