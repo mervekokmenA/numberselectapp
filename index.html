@@ -30049,7 +30049,10 @@ function _tsKaynak(gid,prior,tarih){
   const D=_dxHesapla(gid,prior,tarih),G=_dxGulay(gid,prior);
   const wMap=(nn&&nn.C&&nn.C.wMap)||{};let wmax=0;for(let n=1;n<=g.max;n++)wmax=Math.max(wmax,wMap[n]||0);
   const hot={};prior.slice(0,15).forEach(d=>(d.nums||[]).forEach(n=>{hot[n]=(hot[n]||0)+1;}));
-  const S={nnUni:new Set(nn?nn.uni:[]),nn,pool:new Set(pool),ex:D.E,G,wMap,wmax,hot,tarih};
+  // Eş-görünüm: son 300 çekilişte, son çekilişin sayılarıyla birlikte çıkmış sayılar
+  const co={};prior.slice(0,300).forEach(d=>{const a=d.nums||[];a.forEach(x=>a.forEach(y=>{if(x!==y)co[x*100+y]=(co[x*100+y]||0)+1;}));});
+  const pair={};let pmax=0;for(let n=1;n<=g.max;n++){let t=0;(prior[0].nums||[]).forEach(m=>{t+=co[n*100+m]||0;});pair[n]=t;if(t>pmax)pmax=t;}
+  const S={nnUni:new Set(nn?nn.uni:[]),nn,pool:new Set(pool),ex:D.E,G,wMap,wmax,hot,tarih,pair,pmax};
   _tsCache[key]=S;return S;
 }
 function _tsOzellik(gid,S){
@@ -30058,7 +30061,7 @@ function _tsOzellik(gid,S){
   for(let n=1;n<=g.max;n++){
     const f=F[n];
     f.ex=(S.ex.get(n)||[]).length;f.gt=S.G.top.has(n)?1:0;f.gc=S.G.cik.has(n)?1:0;
-    f.w=S.wmax?(S.wMap[n]||0)/S.wmax:0;f.nn=S.nnUni.has(n)?1:0;f.np=S.pool.has(n)?1:0;f.hot=hm?(S.hot[n]||0)/hm:0;
+    f.w=S.wmax?(S.wMap[n]||0)/S.wmax:0;f.pair=S.pmax?(S.pair[n]||0)/S.pmax:0;f.nn=S.nnUni.has(n)?1:0;f.np=S.pool.has(n)?1:0;f.hot=hm?(S.hot[n]||0)/hm:0;
     f.src=(f.ex>0?1:0)+((f.gt||f.gc)?1:0)+f.nn+f.np;
   }
   return F;
@@ -30082,6 +30085,7 @@ function _tsAlgoSeti(gid,S,F,algo){
 // ── Analiz tipleri: kullanıcı seçer, bilet bu analizin sayı puanlarından üretilir ──
 const _TS_TIP=[
   ..._TS_ALGO.map(a=>({id:a.id,ad:a.ad,ac:a.ac,puan:a.puan})),
+  {id:'cf',ad:'🤝 Eş-Görünüm (son çekilişle birlikte çıkanlar)',ac:'Son 300 çekilişte, son çekilişin sayılarıyla en sık birlikte çıkan sayılar. Keşif testinde (3 oyun, 2 ayrı dönem) şansın altına düşmeyen tek analiz — ama fark küçük, istatistiksel olarak anlamlı değil.',puan:(F,n)=>F[n].pair+0.15*F[n].w},
   {id:'ex',ad:'🧪 Excel formülleri',ac:'Excel formüllerinin ürettiği sayılar (çoklanan önde)',puan:(F,n)=>F[n].ex+0.15*F[n].w},
   {id:'gu',ad:'🔮 Gülay (toplama/çıkarma)',ac:'Gülay toplama ve çıkarma sayıları',puan:(F,n)=>F[n].gt+F[n].gc+0.15*F[n].w},
   {id:'an',ad:'⏱️ Anlık Tahmin uzlaşısı',ac:'Anlık Tahmin kaynaklarının birleşik ağırlığı',puan:(F,n)=>F[n].w},
