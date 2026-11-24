@@ -14531,7 +14531,7 @@ function _comboSetMinSupport(level){
 }
 function _kbRenderComboBlock(combo,bt,labelOverride){
   const cnt=combo.cnt;
-  const title=labelOverride?.title||'🧬 Hızlı Tahmin Birleşimi — Geriye Dönük Test (deneysel)';
+  const title=labelOverride?.title||'🧬 Hızlı Tahmin Birleşimi — Geriye Dönük Test (deneysel — ölçümde şansı geçmedi)';
   const desc=labelOverride?.desc||`Gülay Analiz, Gülay AI, Sisal-LCG, B10 Kuponu ve Listeler AI (basit) — bu ${combo.sourceCount} kaynak her tur SADECE o tarihten önceki verilerle yeniden hesaplanıp en çok kaynakta ortak çıkan ${cnt} sayı gerçek sonuçla karşılaştırıldı. "Listeler AI (basit)", canlı sayfadaki Listeler AI'nin sadece tarihten önceki verilerle hesaplanabilen sinyallerini (frekans, NS zinciri, gecikme) kullanır. NSA Banko (kullanıcının o anki manuel filtrelerine bağlı) ve Listeler'den gelen Kırmızı/Ortak (canlı oturum verisine bağlı, 2000 biletlik geri test/tahmin — bunu turlarca tekrarlamak pratik değil) bu otomatik teste hâlâ dahil edilmedi.`;
   // Destek filtresi seviyesi artık sadece açıklama metnini değil, üstteki başlık istatistiklerini
   // (ort. isabet / kazanç) de belirler — eskiden bu kutular her zaman sabit "üst N" seçimini
@@ -30052,7 +30052,7 @@ function _tsKaynak(gid,prior,tarih){
   // Eş-görünüm: son 300 çekilişte, son çekilişin sayılarıyla birlikte çıkmış sayılar
   const co={};prior.slice(0,300).forEach(d=>{const a=d.nums||[];a.forEach(x=>a.forEach(y=>{if(x!==y)co[x*100+y]=(co[x*100+y]||0)+1;}));});
   const pair={};let pmax=0;for(let n=1;n<=g.max;n++){let t=0;(prior[0].nums||[]).forEach(m=>{t+=co[n*100+m]||0;});pair[n]=t;if(t>pmax)pmax=t;}
-  const S={nnUni:new Set(nn?nn.uni:[]),nn,pool:new Set(pool),ex:D.E,G,wMap,wmax,hot,tarih,pair,pmax,prior};
+  const S={nnUni:new Set(nn?nn.uni:[]),nn,pool:new Set(pool),ex:D.E,G,wMap,wmax,hot,tarih,pair,pmax,prior,gid};
   _tsCache[key]=S;return S;
 }
 function _tsOzellik(gid,S){
@@ -30176,13 +30176,100 @@ const _TS_TIP_YENI=[
   {id:'tk',ad:'🔁 Tekrar Kotası',ac:'İki çekiliş arası tipik tekrar sayısı kadar sayıyı son çekilişten, kalanını taban puandan alır (ölçümde şansı geçmedi)',uret:_tsUretTekrar}
 ];
 _TS_TIP_YENI.forEach(t=>{t.yeni=true;_TS_TIP.push(t);});
+// ── 2. tur keşif analizleri ──
+function _tsMemo(S,key,fn){S._m=S._m||{};return key in S._m?S._m[key]:(S._m[key]=fn());}
+function _tsFrek(S,gid,L){return _tsMemo(S,'frek'+L,()=>{const o=[];for(let n=0;n<=getGame(gid).max+1;n++)o[n]=0;(S.prior||[]).slice(0,L).forEach(d=>(d.nums||[]).forEach(n=>{o[n]++;}));return o;});}
+// Hazard: bir sayının mevcut gecikmede, geçmiş çıkış aralıklarına göre çıkma olasılığı
+function _tsHazard(S,gid){return _tsMemo(S,'hz',()=>{
+  const M=getGame(gid).max,pr=(S.prior||[]).slice(0,600),h=[];
+  for(let n=0;n<=M+1;n++)h[n]=0;
+  for(let n=1;n<=M;n++){
+    const idx=[];pr.forEach((d,j)=>{if((d.nums||[]).includes(n))idx.push(j);});
+    if(!idx.length){h[n]=0;continue;}
+    const cur=idx[0]+1,ints=[];for(let k=1;k<idx.length;k++)ints.push(idx[k]-idx[k-1]);
+    const ge=ints.filter(x=>x>=cur).length,eq=ints.filter(x=>x===cur).length;
+    h[n]=(eq+0.2)/(ge+1.2);
+  }
+  return h;});}
+function _tsGecikmeli(S){return _tsMemo(S,'lag',()=>{const a=new Set((S.prior[1]||{nums:[]}).nums),b=new Set((S.prior[2]||{nums:[]}).nums);return {a,b};});}
+// Markov-2: son iki çekilişteki sayıların "ardından çıkma" geçmişi
+function _tsMarkov(S,gid){return _tsMemo(S,'mk',()=>{
+  const M=getGame(gid).max,pr=(S.prior||[]).slice(0,350),T1={},T2={};
+  for(let j=1;j<pr.length;j++){(pr[j].nums||[]).forEach(m=>(pr[j-1].nums||[]).forEach(n=>{T1[m*100+n]=(T1[m*100+n]||0)+1;}));}
+  for(let j=2;j<pr.length;j++){(pr[j].nums||[]).forEach(m=>(pr[j-2].nums||[]).forEach(n=>{T2[m*100+n]=(T2[m*100+n]||0)+1;}));}
+  const o=[];for(let n=0;n<=M+1;n++)o[n]=0;
+  for(let n=1;n<=M;n++){let s=0;(S.prior[0].nums||[]).forEach(m=>{s+=T1[m*100+n]||0;});(S.prior[1]?S.prior[1].nums:[]).forEach(m=>{s+=0.5*(T2[m*100+n]||0);});o[n]=s;}
+  const mx=Math.max(...o)||1;return o.map(v=>v/mx);});}
+function _tsBorda(S,F,gid){return _tsMemo(S,'bd',()=>{
+  const M=getGame(gid).max,sig=[];
+  const fr10=_tsFrek(S,gid,10),fr60=_tsFrek(S,gid,60),fr200=_tsFrek(S,gid,200),hz=_tsHazard(S,gid),mk=_tsMarkov(S,gid),lg=_tsGecikmeli(S);
+  sig.push(n=>F[n].hot,n=>F[n].pair,n=>F[n].ex,n=>F[n].gt+F[n].gc,n=>fr10[n],n=>fr60[n],n=>fr200[n],n=>hz[n],n=>mk[n],n=>lg.a.has(n)?1:0);
+  const rk=[];for(let n=0;n<=M+1;n++)rk[n]=0;
+  sig.forEach(f=>{const l=[];for(let n=1;n<=M;n++)l.push([n,f(n)]);l.sort((x,y)=>y[1]-x[1]);l.forEach((x,i)=>{rk[x[0]]+=(M-i)/M;});});
+  return rk.map(v=>v/sig.length);});}
+function _tsIlkTaban(gid,F){return _tsSirali(gid,F).map(x=>x.n);}
+// Sıcak-Soğuk karışık: sayıları 100 çekiliş sıklığına göre üçe böl; biletler %50 sıcak, %30 orta, %20 soğuk
+function _tsUretSicakSoguk(gid,S,F,adet){
+  const g=getGame(gid),cnt=g.count,M=g.max,fr=_tsFrek(S,gid,100);
+  const sr=[];for(let n=1;n<=M;n++)sr.push(n);sr.sort((a,b)=>fr[b]-fr[a]||a-b);
+  const u=Math.ceil(M/3),sic=sr.slice(0,u),ort=sr.slice(u,2*u),sog=sr.slice(2*u);
+  const ns=Math.round(cnt*0.5),no=Math.round(cnt*0.3),nc=cnt-ns-no,rnd=_tsLcg(2477),out=[];let guard=0;
+  const sec=(arr,k,t)=>{let c=0,tr=0;while(c<k&&tr++<200){const n=arr[Math.floor(rnd()*arr.length)];if(!t.includes(n)){t.push(n);c++;}}};
+  while(out.length<adet&&guard++<300){const t=[];sec(sic,ns,t);sec(ort,no,t);sec(sog,nc,t);t.sort((a,b)=>a-b);if(t.length===cnt&&_tsBenzersiz(out,t))out.push(t);}
+  return out;
+}
+// Mod-5 dengesi: kalan sınıflarının dengeli dağıldığı biletler (taban puan ağırlıklı)
+function _tsUretMod(gid,S,F,adet){
+  const g=getGame(gid),cnt=g.count,M=g.max,P=_tsSirali(gid,F).slice(0,Math.min(M,cnt*4)).map(x=>x.n),rnd=_tsLcg(3571),out=[];let guard=0;
+  const lim=Math.ceil(cnt/5)+ (cnt>=7?1:0);
+  while(out.length<adet&&guard++<3000){const t=[],cl={};let tr=0;
+    while(t.length<cnt&&tr++<400){const r=rnd(),n=P[Math.floor(r*r*P.length)];if(t.includes(n))continue;const c=n%5;if((cl[c]||0)>=lim)continue;cl[c]=(cl[c]||0)+1;t.push(n);}
+    t.sort((a,b)=>a-b);if(t.length===cnt&&_tsBenzersiz(out,t))out.push(t);}
+  return out;
+}
+// Ardışık kotası: geçmişte bir çekilişteki tipik ardışık sayı çifti adedi
+function _tsUretArdisik(gid,S,F,adet){
+  const g=getGame(gid),cnt=g.count,pr=(S.prior||[]).slice(0,300);
+  const c={};pr.forEach(d=>{const a=[...(d.nums||[])].sort((x,y)=>x-y);let k=0;for(let i=1;i<a.length;i++)if(a[i]-a[i-1]===1)k++;c[k]=(c[k]||0)+1;});
+  const hedef=Object.keys(c).map(Number).sort((a,b)=>c[b]-c[a])[0]||0;
+  const P=_tsSirali(gid,F).slice(0,Math.min(g.max,cnt*4)).map(x=>x.n),rnd=_tsLcg(9973),out=[];let guard=0;
+  while(out.length<adet&&guard++<4000){const t=[];while(t.length<cnt){const r=rnd(),n=P[Math.floor(r*r*P.length)];if(!t.includes(n))t.push(n);}
+    t.sort((a,b)=>a-b);let k=0;for(let i=1;i<t.length;i++)if(t[i]-t[i-1]===1)k++;
+    if(k===hedef&&_tsBenzersiz(out,t))out.push(t);}
+  return out;
+}
+// Pozisyon bazlı: k. küçük sayının geçmiş değer dağılımından, artan sırada bilet
+function _tsUretPozisyon(gid,S,F,adet){
+  const g=getGame(gid),cnt=g.count,M=g.max,pr=(S.prior||[]).slice(0,250),dist=[];
+  for(let p=0;p<cnt;p++)dist[p]=new Array(M+2).fill(0);
+  pr.forEach(d=>{const a=[...(d.nums||[])].sort((x,y)=>x-y);for(let p=0;p<cnt&&p<a.length;p++)dist[p][a[p]]+=1;});
+  const rnd=_tsLcg(60013),out=[];let guard=0;
+  while(out.length<adet&&guard++<2000){const t=[];let ok=true;
+    for(let p=0;p<cnt&&ok;p++){let tot=0;for(let n=(t[p-1]||0)+1;n<=M;n++)tot+=dist[p][n]+0.05;
+      if(tot<=0){ok=false;break;}let r=rnd()*tot,pick=-1;for(let n=(t[p-1]||0)+1;n<=M;n++){r-=dist[p][n]+0.05;if(r<=0){pick=n;break;}}
+      if(pick<0){ok=false;break;}t.push(pick);}
+    if(ok&&t.length===cnt&&_tsBenzersiz(out,t))out.push(t);}
+  return out;
+}
+const _TS_TIP_YENI2=[
+  {id:'sk',ad:'🔥❄️ Sıcak-Soğuk Karışım',ac:'Sayıları 100 çekiliş sıklığına göre sıcak/orta/soğuk üçe böler; her bilet %50 sıcak, %30 orta, %20 soğuk içerir (deneysel — ölçümde şansı geçmedi)',uret:_tsUretSicakSoguk},
+  {id:'hz',ad:'⏳ Hazard (gecikme olasılığı)',ac:'Her sayının, mevcut gecikmesinde geçmiş çıkış aralıklarına göre çıkma olasılığı (deneysel — ölçümde şansı geçmedi)',puan:(F,n,S)=>_tsHazard(S,S.gid)[n]},
+  {id:'lg',ad:'🕐 Gecikmeli Tekrar (2 ve 3 çekiliş önce)',ac:'Bir ve iki çekiliş önceki çekilişte çıkan sayılar (deneysel — ölçümde şansı geçmedi)',puan:(F,n,S)=>{const l=_tsGecikmeli(S);return (l.a.has(n)?1:0)+0.5*(l.b.has(n)?1:0)+0.1*F[n].pair;}},
+  {id:'mk',ad:'⛓️ Markov-2 (son iki çekiliş)',ac:'Son iki çekilişteki sayıların ardından geçmişte çıkan sayılar (deneysel — ölçümde şansı geçmedi)',puan:(F,n,S)=>_tsMarkov(S,S.gid)[n]},
+  {id:'md',ad:'🧮 Mod-5 Dengesi',ac:'Kalan sınıflarının (n mod 5) dengeli dağıldığı biletler (deneysel — ölçümde şansı geçmedi)',uret:_tsUretMod},
+  {id:'ar',ad:'🔗 Ardışık Kotası',ac:'Geçmişte tipik olan ardışık sayı çifti adedini taşıyan biletler (deneysel — ölçümde şansı geçmedi)',uret:_tsUretArdisik},
+  {id:'ks',ad:'✂️ Excel ∩ Gülay Kesişimi',ac:'Hem Excel formüllerinin hem Gülay\'ın ürettiği sayılar öncelikli (deneysel — ölçümde şansı geçmedi)',puan:(F,n)=>((F[n].ex>0&&(F[n].gt||F[n].gc))?2:0)+0.3*_tsTaban(F,n)},
+  {id:'bd',ad:'🗳️ Borda Oyu (10 sinyal)',ac:'Sıcaklık, eş-görünüm, Excel, Gülay, hazard, Markov, gecikmeli tekrar gibi 10 sinyalin sıra ortalaması (deneysel — ölçümde şansı geçmedi)',puan:(F,n,S)=>_tsBorda(S,F,S.gid)[n]},
+  {id:'ps',ad:'📍 Pozisyon Bazlı',ac:'k. küçük sayının geçmiş değer dağılımından artan sırada kurulan biletler (deneysel — ölçümde şansı geçmedi)',uret:_tsUretPozisyon}
+];
+_TS_TIP_YENI2.forEach(t=>{t.yeni=true;_TS_TIP.push(t);});
 // Bilet üretimi: puanı yüksek sayılardan, her biletle kullanılan sayıların puanı düşürülerek (kapsama) — belirleyici (rastgelelik yok)
 function _tsBiletler(gid,S,F,tip,adet){
   const g=getGame(gid),cnt=g.count;
   if(tip.uret){return tip.uret(gid,S,F,adet,tip);}
   if(tip.ozel){return ((S.nn&&S.nn.tickets)||[]).slice(0,adet).map(t=>[...t.main].sort((a,b)=>a-b));}
   const ham=[];let mx=0;
-  for(let n=1;n<=g.max;n++){const p=tip.puan(F,n);ham[n]=p;if(p>mx)mx=p;}
+  for(let n=1;n<=g.max;n++){const p=tip.puan(F,n,S);ham[n]=p;if(p>mx)mx=p;}
   const kul={},out=[];
   for(let i=0;i<adet;i++){
     const l=[];
