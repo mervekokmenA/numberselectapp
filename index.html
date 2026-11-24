@@ -30028,7 +30028,7 @@ const _TS_K={sans:9,super:16,sayisal:24,onnumara:40};   // algoritma çıktısı
 let _tsGame=null,_tsCache={},_tsToken=0;
 function _tsSetGame(){_tsGame=(state&&state.selectedGame)||GAMES[0].id;if(_curPage==='test'){_tsSecenek(true);_tsRender();}}
 function _tsSecenek(sifirla){
-  const ta=document.getElementById('tfAlgo');if(ta&&!ta.options.length)ta.innerHTML=_TS_TIP.map(t=>`<option value="${t.id}">${t.ad}</option>`).join('');
+  const ta=document.getElementById('tfAlgo');if(ta&&!ta.options.length)ta.innerHTML=_TS_TIP.filter(t=>!t.yeni).map(t=>`<option value="${t.id}">${t.ad}</option>`).join('')+'<optgroup label="🆕 Yeni Analizler (keşif)">'+_TS_TIP.filter(t=>t.yeni).map(t=>`<option value="${t.id}">${t.ad}</option>`).join('')+'</optgroup>';
   const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id;_tsGame=gid;
   const draws=_kbGetDraws(gid)||[];
   const h='<option value="">— geçmiş test seç —</option>'+draws.slice(0,85).map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
@@ -30052,7 +30052,7 @@ function _tsKaynak(gid,prior,tarih){
   // Eş-görünüm: son 300 çekilişte, son çekilişin sayılarıyla birlikte çıkmış sayılar
   const co={};prior.slice(0,300).forEach(d=>{const a=d.nums||[];a.forEach(x=>a.forEach(y=>{if(x!==y)co[x*100+y]=(co[x*100+y]||0)+1;}));});
   const pair={};let pmax=0;for(let n=1;n<=g.max;n++){let t=0;(prior[0].nums||[]).forEach(m=>{t+=co[n*100+m]||0;});pair[n]=t;if(t>pmax)pmax=t;}
-  const S={nnUni:new Set(nn?nn.uni:[]),nn,pool:new Set(pool),ex:D.E,G,wMap,wmax,hot,tarih,pair,pmax};
+  const S={nnUni:new Set(nn?nn.uni:[]),nn,pool:new Set(pool),ex:D.E,G,wMap,wmax,hot,tarih,pair,pmax,prior};
   _tsCache[key]=S;return S;
 }
 function _tsOzellik(gid,S){
@@ -30092,9 +30092,94 @@ const _TS_TIP=[
   {id:'np',ad:'🎯 Net Odaklı Havuz',ac:'Net Odaklı havuz üyeliği + uzlaşı ağırlığı',puan:(F,n)=>2*F[n].np+F[n].w},
   {id:'nn',ad:'🎫 Yeni Bilet Sistemi (Nihai)',ac:'Ana sayfadaki Nihai sistemin kendi biletleri',ozel:true}
 ];
+// ═══ 🆕 YENİ ANALİZ TİPLERİ (keşif) — listede en altta ayrı grup. Literatürdeki bilet-yapısı yaklaşımları:
+// Delta sistemi · Dengeli yapı (toplam/tek-çift/düşük-yüksek) · Çevirme (wheel) · Tekrar kotası. Hepsi deterministiktir.
+function _tsLcg(seed){let x=seed>>>0;return()=>{x=(Math.imul(x,1664525)+1013904223)>>>0;return x/4294967296;};}
+function _tsTaban(F,n){const x=F[n];return 0.8*x.hot+0.8*x.pair+0.25*Math.min(x.ex,4)+0.4*(x.gt+x.gc);}
+function _tsSirali(gid,F){const g=getGame(gid),l=[];for(let n=1;n<=g.max;n++)l.push({n,p:_tsTaban(F,n)});l.sort((a,b)=>b.p-a.p||a.n-b.n);return l;}
+function _tsBenzersiz(out,t){const k=t.join(',');return !out.some(o=>o.join(',')===k);}
+// 1) Delta sistemi: sıralı sayılar arası farkların (ve ilk sayının) geçmiş dağılımından bilet kurar
+function _tsUretDelta(gid,S,F,adet){
+  const g=getGame(gid),cnt=g.count,M=g.max,pr=(S.prior||[]).slice(0,150);
+  const fd={},ff={};
+  pr.forEach(d=>{const a=[...(d.nums||[])].sort((x,y)=>x-y);ff[a[0]]=(ff[a[0]]||0)+1;for(let i=1;i<a.length;i++){const dl=a[i]-a[i-1];fd[dl]=(fd[dl]||0)+1;}});
+  const delt=Object.keys(fd).map(Number).sort((a,b)=>fd[b]-fd[a]||a-b).slice(0,14);
+  const ilk=Object.keys(ff).map(Number).sort((a,b)=>ff[b]-ff[a]||a-b).slice(0,Math.max(adet,8));
+  const rnd=_tsLcg(7919),out=[];let guard=0;
+  while(out.length<adet&&guard++<400){
+    let cur=ilk[(out.length+guard)%ilk.length];const t=[cur];
+    while(t.length<cnt){
+      // sıradaki delta: sık deltalar öncelikli (ağırlıklı, deterministik rastgele)
+      let tot=0;delt.forEach(d=>{tot+=fd[d];});let r=rnd()*tot,dl=delt[0];for(const d of delt){r-=fd[d];if(r<=0){dl=d;break;}}
+      cur+=dl;if(cur>M)break;t.push(cur);
+    }
+    if(t.length===cnt&&_tsBenzersiz(out,t))out.push(t);
+  }
+  return out;
+}
+// 2) Dengeli yapı: toplam çeyrekleri içinde, tek/çift ve düşük/yüksek dağılımı geçmişin tipik aralığında biletler
+function _tsUretDengeli(gid,S,F,adet){
+  const g=getGame(gid),cnt=g.count,M=g.max,pr=(S.prior||[]).slice(0,300);
+  const sums=pr.map(d=>(d.nums||[]).reduce((a,b)=>a+b,0)).sort((a,b)=>a-b);
+  const q=p=>sums[Math.min(sums.length-1,Math.floor(p*sums.length))];
+  const lo=q(0.25),hi=q(0.75);
+  const mod=(f)=>{const c={};pr.forEach(d=>{const k=f(d);c[k]=(c[k]||0)+1;});return Object.keys(c).map(Number).sort((a,b)=>c[b]-c[a])[0];};
+  const tek=mod(d=>(d.nums||[]).filter(n=>n%2).length),dus=mod(d=>(d.nums||[]).filter(n=>n<=M/2).length);
+  const sir=_tsSirali(gid,F),P=sir.slice(0,Math.min(M,Math.ceil(cnt*3))).map(x=>x.n);
+  const rnd=_tsLcg(104729),out=[];let guard=0;
+  while(out.length<adet&&guard++<4000){
+    const t=[],kul=new Set();
+    while(t.length<cnt){const r=rnd();const i=Math.floor(r*r*P.length);const n=P[i];if(!kul.has(n)){kul.add(n);t.push(n);}}
+    t.sort((a,b)=>a-b);
+    const s=t.reduce((a,b)=>a+b,0),te=t.filter(n=>n%2).length,du=t.filter(n=>n<=M/2).length;
+    if(s<lo||s>hi||Math.abs(te-tek)>1||Math.abs(du-dus)>1)continue;
+    if(_tsBenzersiz(out,t))out.push(t);
+  }
+  return out;
+}
+// 3) Çevirme (wheel): havuzdan, ikili kapsamayı en çok artıran biletler (havuzdaki sayıların birkaçı tutarsa bir bilette birlikte bulunsun)
+function _tsUretCevirme(gid,S,F,adet){
+  const g=getGame(gid),cnt=g.count;
+  const P=_tsSirali(gid,F).slice(0,Math.min(g.max,Math.ceil(cnt*2.2))).map(x=>x.n).sort((a,b)=>a-b);
+  const rnd=_tsLcg(15485863),cov=new Set(),out=[];
+  for(let k=0;k<adet;k++){
+    let best=null,bs=-1;
+    for(let c=0;c<250;c++){
+      const kul=new Set(),t=[];while(t.length<cnt){const n=P[Math.floor(rnd()*P.length)];if(!kul.has(n)){kul.add(n);t.push(n);}}
+      t.sort((a,b)=>a-b);let yeni=0;for(let i=0;i<cnt;i++)for(let j=i+1;j<cnt;j++)if(!cov.has(t[i]*1000+t[j]))yeni++;
+      if(yeni>bs&&_tsBenzersiz(out,t)){bs=yeni;best=t;}
+    }
+    if(!best)break;out.push(best);
+    for(let i=0;i<cnt;i++)for(let j=i+1;j<cnt;j++)cov.add(best[i]*1000+best[j]);
+  }
+  return out;
+}
+// 4) Tekrar kotası: geçmişte iki çekiliş arası tipik tekrar sayısı (mod) kadar sayıyı son çekilişten al, kalanı taban puandan
+function _tsUretTekrar(gid,S,F,adet){
+  const g=getGame(gid),cnt=g.count,pr=S.prior||[];
+  const c={};for(let i=0;i<Math.min(200,pr.length-1);i++){const a=new Set(pr[i].nums||[]);const k=(pr[i+1].nums||[]).filter(n=>a.has(n)).length;c[k]=(c[k]||0)+1;}
+  let r=Object.keys(c).map(Number).sort((a,b)=>c[b]-c[a])[0]||0;r=Math.min(r,cnt-1);
+  const son=(pr[0]&&pr[0].nums||[]).slice().sort((a,b)=>_tsTaban(F,b)-_tsTaban(F,a)||a-b);
+  const sonS=new Set(son),sir=_tsSirali(gid,F).filter(x=>!sonS.has(x.n));
+  const kul={},out=[];
+  for(let i=0;i<adet;i++){
+    const a=son.map(n=>({n,p:_tsTaban(F,n)-0.2*(kul[n]||0)})).sort((x,y)=>y.p-x.p||x.n-y.n).slice(0,r).map(x=>x.n);
+    const b=sir.map(x=>({n:x.n,p:x.p-0.2*(kul[x.n]||0)})).sort((x,y)=>y.p-x.p||x.n-y.n).slice(0,cnt-r).map(x=>x.n);
+    const t=[...a,...b].sort((x,y)=>x-y);t.forEach(n=>{kul[n]=(kul[n]||0)+1;});out.push(t);
+  }
+  return out;
+}
+const _TS_TIP_YENI=[
+  {id:'dl',ad:'🔺 Delta Sistemi',ac:'Sıralı sayılar arası farkların (delta) ve ilk sayının geçmiş dağılımından bilet kurar (ölçümde şansı geçmedi)',uret:_tsUretDelta},
+  {id:'dg',ad:'⚖️ Dengeli Yapı',ac:'Toplamı geçmişin orta %50 aralığında, tek/çift ve düşük/yüksek dağılımı tipik olan biletler (ölçümde şansı geçmedi) (sayılar eş-görünüm + sıcak + Excel + Gülay taban puanından)',uret:_tsUretDengeli},
+  {id:'cv',ad:'🎡 Çevirme (Wheel)',ac:'Taban puanı yüksek havuzdan, ikili kapsamayı en çok artıran biletler (ölçümde şansı geçmedi)',uret:_tsUretCevirme},
+  {id:'tk',ad:'🔁 Tekrar Kotası',ac:'İki çekiliş arası tipik tekrar sayısı kadar sayıyı son çekilişten, kalanını taban puandan alır (ölçümde şansı geçmedi)',uret:_tsUretTekrar}
+];
+_TS_TIP_YENI.forEach(t=>{t.yeni=true;_TS_TIP.push(t);});
 // Bilet üretimi: puanı yüksek sayılardan, her biletle kullanılan sayıların puanı düşürülerek (kapsama) — belirleyici (rastgelelik yok)
 function _tsBiletler(gid,S,F,tip,adet){
   const g=getGame(gid),cnt=g.count;
+  if(tip.uret){return tip.uret(gid,S,F,adet,tip);}
   if(tip.ozel){return ((S.nn&&S.nn.tickets)||[]).slice(0,adet).map(t=>[...t.main].sort((a,b)=>a-b));}
   const ham=[];let mx=0;
   for(let n=1;n<=g.max;n++){const p=tip.puan(F,n);ham[n]=p;if(p>mx)mx=p;}
