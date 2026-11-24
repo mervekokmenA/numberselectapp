@@ -426,6 +426,10 @@ input.counter-val{background:rgba(0,0,0,.04)}
 select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3),select[id$="DateSel3"]:not(#dxDateSel3):not(#exDateSel3){display:none!important}
 @media(min-width:601px){.qt-pair-row.qt-n1{grid-template-columns:minmax(0,1fr)!important}.qt-pair-row.qt-n2{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(min-width:1101px){.qt-pair-row.qt-n3{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
+/* Excel sekmesi hücre ızgarası: sabit sütun sayısı (dar ekranda 3, orta 4, geniş 6) — okunur boyut */
+.ex-izgara{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 6px}
+@media(min-width:1000px){.ex-izgara{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(min-width:1700px){.ex-izgara{grid-template-columns:repeat(6,minmax(0,1fr))}}
 /* Nihai/Net Odaklı: Yeni Tahmin henüz üretilmediyse (boş) ve geçmiş test sütunları açıksa boş sütun yer tutmaz */
 @media(min-width:1101px){
  #nnGrid>div:not([data-col]):has(>#nnOut:empty):has(~[data-col]:not([style*="none"])),
@@ -29577,10 +29581,10 @@ function _exRender(){
       if(ok)dist.add(n);
       if(_exCokMin>1&&(!ok||say[n]<_exCokMin))return;       // 🔁 çoklanan filtresi
       const d=ok&&aS?_fadDurum(n,aS,yS):'';
-      hucre.push(`<span title="${k.h}${ok&&say[n]>1?' · '+say[n]+' formül aynı sayıyı üretti':''}" style="position:relative;display:flex;align-items:center;justify-content:center;gap:2px;font-family:monospace;font-size:.62rem;line-height:1;padding:3px 2px;border-radius:5px;border:1px solid var(--border);`
+      hucre.push(`<span title="${k.h}${ok&&say[n]>1?' · '+say[n]+' formül aynı sayıyı üretti':''}" style="position:relative;display:flex;align-items:center;justify-content:center;gap:2px;font-family:monospace;font-size:.78rem;line-height:1.1;padding:6px 3px;border-radius:7px;border:1px solid var(--border);`
         +(d==='net'?'background:rgba(0,230,118,.22);color:var(--green);font-weight:800;border-color:rgba(0,200,100,.5);':d==='yakin'?'background:rgba(194,65,12,.1);color:#c2410c;font-weight:800;':ok?'':'opacity:.4;')
-        +`"><span style="opacity:.55;font-size:.46rem">${k.h}</span> ${n==null?'·':n}${d==='net'?'✓':d==='yakin'?'~':''}`
-        +(ok&&say[n]>1?`<span style="position:absolute;top:-5px;right:-3px;font-size:.44rem;font-weight:800;background:#7c3aed;color:#fff;border-radius:6px;padding:0 3px">×${say[n]}</span>`:'')+`</span>`);
+        +`"><span style="opacity:.55;font-size:.55rem">${k.h}</span> ${n==null?'·':n}${d==='net'?'✓':d==='yakin'?'~':''}`
+        +(ok&&say[n]>1?`<span style="position:absolute;top:-5px;right:-3px;font-size:.52rem;font-weight:800;background:#7c3aed;color:#fff;border-radius:6px;padding:0 4px">×${say[n]}</span>`:'')+`</span>`);
     });
     const sirali=[...dist].sort((a,b)=>a-b);
     const net=aS?sirali.filter(n=>aS.has(n)).length:null,yk=aS?sirali.filter(n=>!aS.has(n)&&yS.has(n)).length:null;
@@ -29590,7 +29594,7 @@ function _exRender(){
       +(yeni?`<button class="copy-btn" onclick="_exYeniKopyala()" style="font-size:.54rem;padding:2px 8px">📋 Kopyala</button>`:'')+`</div>`
       +`<div style="font-size:.54rem;color:var(--muted);margin-bottom:4px">hedef ${c.tarih} · ${sirali.length} farklı sayı`
       +(aS?` · <strong style="color:var(--green)">✓ ${net} net</strong> · <strong style="color:#c2410c">~ ${yk} yakın</strong> · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${[...c.actual.nums].sort((a,b)=>a-b).join(' ')}</span>`:'')+`</div>`
-      +`<div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:4px">${hucre.join('')||'<span style="grid-column:1/-1;font-size:.56rem;color:var(--muted)">Bu filtreye uyan sayı yok.</span>'}</div></div>`;
+      +`<div class="ex-izgara">${hucre.join('')||'<span style="grid-column:1/-1;font-size:.56rem;color:var(--muted)">Bu filtreye uyan sayı yok.</span>'}</div></div>`;
   };
   h+=`<div style="display:grid;grid-template-columns:repeat(${sut.length},minmax(0,1fr));gap:10px;align-items:start">${sut.map(kolHtml).join('')}</div>`;
   el.innerHTML=h;
