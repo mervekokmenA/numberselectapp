@@ -1337,8 +1337,8 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3),select[id
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:7px 9px;border:1px solid rgba(124,58,237,.35);border-radius:10px;background:rgba(124,58,237,.05)">
    <span style="font-size:.64rem;font-weight:800;color:#7c3aed">🎫 Bilet analizi</span>
-   <select id="tfAlgo" onchange="_tsAlgoSec(1)" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;min-width:210px"></select>
-   <select id="tfAlgo2" onchange="_tsAlgoSec(2)" title="4 net / 5 net hedefli analizler (yukarıdaki listeden bağımsız, yalnızca biri seçili olur)" style="font-size:.7rem;background:var(--surface2);border:1px solid rgba(124,58,237,.45);color:#7c3aed;border-radius:6px;padding:4px 8px;min-width:210px;font-weight:700"></select>
+   <button onclick="_tsOk('tfAlgo',-1)" title="Önceki" style="font-size:.8rem;line-height:1;padding:3px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">◀</button><select id="tfAlgo" onchange="_tsAlgoSec(1)" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;min-width:210px"></select><button onclick="_tsOk('tfAlgo',1)" title="Sonraki" style="font-size:.8rem;line-height:1;padding:3px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">▶</button>
+   <button onclick="_tsOk('tfAlgo2',-1)" title="Önceki" style="font-size:.8rem;line-height:1;padding:3px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">◀</button><select id="tfAlgo2" onchange="_tsAlgoSec(2)" title="4 net / 5 net hedefli analizler (yukarıdaki listeden bağımsız, yalnızca biri seçili olur)" style="font-size:.7rem;background:var(--surface2);border:1px solid rgba(124,58,237,.45);color:#7c3aed;border-radius:6px;padding:4px 8px;min-width:210px;font-weight:700"></select><button onclick="_tsOk('tfAlgo2',1)" title="Sonraki" style="font-size:.8rem;line-height:1;padding:3px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">▶</button>
    <select id="tfAdet" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px"><option value="5">5 bilet</option><option value="10" selected>10 bilet</option><option value="15">15 bilet</option><option value="20">20 bilet</option></select>
    <span style="font-size:.56rem;color:var(--muted)">Analiz tipini seç → biletler Yeni Tahmin ve geçmiş testlerde o analizden üretilir. Bilete basılı tutunca kopyalanır.</span>
   </div>
@@ -30407,7 +30407,7 @@ function _tsRender(){
     if(tok!==_tsToken)return;
     let h;try{h=_tsKolonHtml(gid,c.prior,c.tarih,c.actual,!c.actual,i-1);}catch(e){h=`<div style="color:#cc2222;font-size:.7rem">Hata: ${e.message}</div>`;}
     const cell=grid.children[i];if(cell)cell.outerHTML=h;
-    if(++bitti===sut.length){try{_tsKaydet(gid,sut);}catch(e){}_tsGecmisRender();}
+    if(++bitti===sut.length){try{_tsKaydet(gid,sut);}catch(e){}_tsGecmisRender();setTimeout(_tsHedefSirala,200);}
   },30+i*40));
 }
 // ── 🕘 Geçmiş: oyun başına son 20 benzersiz Test ekranı (oluşma zamanıyla) ──
@@ -30444,6 +30444,42 @@ function _tsGecmisRender(){
     return `<details${idx===0?' open':''} style="border:1px solid var(--border);border-radius:10px;padding:6px 9px;margin-bottom:6px;background:var(--surface)"><summary style="cursor:pointer;font-size:.64rem"><strong>${zaman}</strong> · ${tipAd(e.tip)} · ${e.adet} bilet · hedef <strong>${e.hedef}</strong> · ${ozet}</summary>`
       +`<div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;align-items:start">${kolonlar.join('')}</div></details>`;
   }).join('');
+}
+// ◀ ▶ : listede bir önceki / sonraki seçeneğe geçiş (uçlarda başa/sona sarar); 4/5 net listesinde boş başlık atlanır
+function _tsOk(id,yon){
+  const e=document.getElementById(id);if(!e)return;
+  const op=[...e.options].filter(o=>o.value!=='');if(!op.length)return;
+  let i=op.findIndex(o=>o.value===e.value);
+  i=i<0?(yon>0?0:op.length-1):(i+yon+op.length)%op.length;
+  e.value=op[i].value;
+  e.dispatchEvent(new Event('change',{bubbles:true}));
+}
+// 🎯 4/5 net listelerini SON oyundaki (en yeni çekilişteki) başarıya göre sırala — yalnızca tfAlgo2
+let _tsSiraOnb={};
+function _tsHedefSirala(){
+  const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id,draws=_kbGetDraws(gid)||[],t2=document.getElementById('tfAlgo2');
+  if(!t2||draws.length<90)return;
+  const key=gid+'|'+draws[0].date,tok=_tsToken;
+  const uygula=(puan)=>{
+    const cur=t2.value,g=getGame(gid);
+    const op=k=>_TS_TIP.map(t=>({id:t.id+'_h'+k,ad:t.ad,p:puan[t.id+'_h'+k]||{b:-1,u:0,y:0}})).sort((a,b)=>b.p.b-a.p.b||b.p.u-a.p.u||b.p.y-a.p.y)
+      .map(x=>`<option value="${x.id}">${k} net · ${x.ad}${x.p.b>=0?' — son: '+x.p.b+' net'+(x.p.y?' · ~'+x.p.y:''):''}</option>`).join('');
+    t2.innerHTML='<option value="">🎯 4 net / 5 net hedefli… (son oyuna göre sıralı)</option><optgroup label="🎯 4 net hedefli">'+op(4)+'</optgroup><optgroup label="🎯 5 net hedefli">'+op(5)+'</optgroup>';
+    t2.value=cur;
+  };
+  if(_tsSiraOnb[key]){uygula(_tsSiraOnb[key]);return;}
+  setTimeout(()=>{
+    try{
+      const g=getGame(gid),prior=draws.slice(1),a=draws[0],S=_tsKaynak(gid,prior,a.date),F=_tsOzellik(gid,S),aS=new Set(a.nums||[]),yS=_fadYakinSet(aS,g.max),puan={};
+      [4,5].forEach(k=>_TS_TIP.forEach(t=>{
+        const tip=_tsTipBul(t.id+'_h'+k);let b=0,u=0,y=0;
+        _tsBiletler(gid,S,F,tip,10).forEach(bl=>{const n=bl.filter(v=>aS.has(v)).length,yk=bl.filter(v=>!aS.has(v)&&yS.has(v)).length;if(n>b||(n===b&&yk>y)){b=n;y=yk;}if(n>=3)u++;});
+        puan[tip.id]={b,u,y};
+      }));
+      _tsSiraOnb[key]=puan;
+      if(_curPage==='test'&&(_tsGame||(state&&state.selectedGame))===gid)uygula(puan);
+    }catch(e){}
+  },60);
 }
 function _tsInit(){
   _tsGame=(state&&state.selectedGame)||GAMES[0].id;
