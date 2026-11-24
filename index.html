@@ -421,7 +421,7 @@ button,select,input,textarea{font-family:inherit}
 select,input[type=text],input[type=number],input:not([type]),textarea{border-radius:10px}
 input.counter-val{background:rgba(0,0,0,.04)}
 ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(90,90,132,.3);border-radius:8px}::-webkit-scrollbar-track{background:transparent}
-select[id$="Date3"]:not(#dxDateSel3),select[id$="DateSel3"]:not(#dxDateSel3){display:none!important}
+select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3),select[id$="DateSel3"]:not(#dxDateSel3):not(#exDateSel3){display:none!important}
 @media(min-width:601px){.qt-pair-row.qt-n1{grid-template-columns:minmax(0,1fr)!important}.qt-pair-row.qt-n2{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(min-width:1101px){.qt-pair-row.qt-n3{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
 /* Nihai/Net Odaklı: Yeni Tahmin henüz üretilmediyse (boş) ve geçmiş test sütunları açıksa boş sütun yer tutmaz */
@@ -1274,16 +1274,18 @@ select[id$="Date3"]:not(#dxDateSel3),select[id$="DateSel3"]:not(#dxDateSel3){dis
   </div>
  </div>
  <div id="exTab_excel">
-  <div class="card">
-   <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-    <div class="card-title" style="margin:0">📊 Excel</div>
-    <span id="exBilgi" style="font-size:.62rem;color:var(--muted)"></span>
+  <div class="card" style="padding:8px 10px">
+   <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:6px">
+    <span style="font-size:.7rem;font-weight:800;color:var(--text)">📊 Excel</span>
+    <span id="exBilgi" style="font-size:.58rem;color:var(--muted)"></span>
+    <span style="flex:1"></span>
+    <button onclick="_exEditToggle()" title="Formülleri göster/gizle ve düzenle" style="font-size:.78rem;font-weight:800;padding:3px 10px;border-radius:14px;border:1px solid rgba(10,126,164,.5);background:rgba(10,126,164,.08);color:#0a7ea4;cursor:pointer">ƒx</button>
+    <button onclick="_exKopyala()" class="copy-btn" style="font-size:.62rem;padding:3px 10px;font-weight:700">📋 Tablo</button>
    </div>
-   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-    <select id="exSatir" onchange="_exSetSatir(this.value)" style="font-size:.72rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px 9px"></select>
-    <button onclick="_exEkle()" style="font-size:.72rem;padding:6px 13px;border-radius:8px;border:1px solid rgba(16,185,129,.5);background:rgba(16,185,129,.1);color:#0a9a6a;cursor:pointer;font-weight:700">➕ Formül Ekle</button>
-    <button onclick="_exKopyala()" class="copy-btn" style="font-size:.72rem;padding:6px 13px;font-weight:700">📋 Tabloyu Kopyala</button>
-    <button onclick="_exYeniKopyala()" title="Sadece 🔮 Yeni Tahmin satırındaki sayılar — yan yana" style="font-size:.72rem;padding:6px 13px;border-radius:8px;border:1px solid rgba(129,140,248,.55);background:rgba(129,140,248,.14);color:#6366f1;cursor:pointer;font-weight:700">🔮 Yeni Tahmini Kopyala</button>
+   <div style="display:flex;gap:6px">
+    <select id="exDateSel" onchange="_exRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
+    <select id="exDateSel2" onchange="_exRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
+    <select id="exDateSel3" onchange="_exRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
    </div>
   </div>
   <div id="exGrid"></div>
@@ -29514,57 +29516,86 @@ function _exCtx(){
   }catch(e){motor=null;}
   return {satirlar,harfMap,cache:{},calisan:{},motor};
 }
-// Satır başına bir kapsayıcı: 📊 Excel sekmesi donmasın diye geniş tablo YOK; yalnızca formül satırları çizilir,
-// girişler onchange ile işlenir (her tuşta yeniden çizim yok). Veri sütunları gizli kalır, formüller kullanır.
+// 📊 Excel sekmesi — sıkıştırılmış görünüm: 🔮 Yeni Tahmin + en çok 3 geçmiş test SÜTUNU; her sütunda formüllerin ürettiği
+// sonuçlar küçük hücreler hâlinde (harf·değer). Formül düzenleme paneli ƒx ikonuyla açılır/kapanır (kapalıyken çizilmez → hafif).
+let _exEditAcik=false;
+function _exEditToggle(){_exEditAcik=!_exEditAcik;_exRender();}
+function _exSecenekDoldur(sifirla){
+  const gid=_exGame||(state&&state.selectedGame)||GAMES[0].id;
+  const draws=_kbGetDraws(gid)||[];
+  const h='<option value="">— geçmiş test seç —</option>'+draws.slice(0,85).map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
+  const yeni=_exSecOyun!==gid;
+  ['exDateSel','exDateSel2','exDateSel3'].forEach((id,i)=>{
+    const e=document.getElementById(id);if(!e)return;
+    const prev=e.value;e.innerHTML=h;
+    if(!yeni&&!sifirla&&prev)e.value=prev;
+    else if(draws[i]&&draws.length>40)e.value=draws[i].date;
+  });
+  _exSecOyun=gid;
+}
+let _exSecOyun=null;
 function _exRender(){
   const el=document.getElementById('exGrid');if(!el)return;
   if(!_exGame)_exGame=(state&&state.selectedGame)||GAMES[0].id;
   if(!_exKol)_exKol=_exYukle(_exGame);
-  const g=getGame(_exGame),ctx=_exCtx();
+  if(_exSecOyun!==_exGame)_exSecenekDoldur(true);
+  _exSatir=Math.max(_exSatir,90);
+  const g=getGame(_exGame),ctx=_exCtx(),draws=_kbGetDraws(_exGame)||[];
   const formuller=_exKol.filter(k=>k.tip==='formul');
-  const bilgi=document.getElementById('exBilgi');
-  if(bilgi)bilgi.textContent=g.emoji+' '+g.name+' · '+formuller.length+' formül · '+Math.max(0,ctx.satirlar.length-1)+' geçmiş satır';
-  if(!formuller.length){
-    el.innerHTML='<div class="card" style="font-size:.7rem;color:var(--muted);line-height:1.6">Bu oyun için formül yok; <strong>➕ Formül Ekle</strong> ile elle formül yazabilirsin (örn. <code>=MOD(C{+1}+C{+2},'+g.max+')</code> — <code>{+1}</code> bir önceki çekiliş, <code>{+0}</code> hedef satır).<br>🧪 Hazır formüller için <strong>Deneme Excel</strong> sekmesine bak.</div>';
-    return;
-  }
-  const sayiSet=r=>{const st=ctx.satirlar[r];return st&&!st.gelecek?new Set([...(st.nums||[]),...(st.bonus||[])]):null;};
-  const fmt=v=>v==null?'·':(typeof v==='number'?String(Math.round(v*1000)/1000):String(v));
   const esc=s=>String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-  let h='';
-  formuller.forEach(k=>{
-    const yeni=_exDeger(k.h,0,ctx);
-    const yeniN=typeof yeni==='number'&&isFinite(yeni)?Math.round(yeni):null;
-    h+=`<div class="card" style="margin-bottom:8px;padding:9px 11px">`
-      +`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:6px">`
-      +`<span style="font-weight:800;font-size:.7rem;color:var(--muted);min-width:24px">${k.h}</span>`
-      +`<input value="${esc(k.b)}" placeholder="başlık" onchange="_exBaslikDegis('${k.h}',this.value)" style="width:110px;font-size:.62rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:3px 6px">`
-      +`<input value="${esc(k.f)}" placeholder="=MOD(…)" onchange="_exFormulDegis('${k.h}',this.value)" style="flex:1;min-width:160px;font-size:.62rem;font-family:monospace;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:#0a7ea4;padding:3px 6px">`
-      +`<span style="font-size:.62rem;font-weight:800;color:var(--accent)">🔮 ${fmt(yeni)}</span>`
-      +`<button onclick="_exSil('${k.h}')" title="Sil" style="border:none;background:none;color:#ef5350;cursor:pointer;font-size:.8rem">✕</button></div>`
-      +`<div style="display:flex;flex-wrap:wrap;gap:4px">`;
-    for(let r=1;r<ctx.satirlar.length;r++){
-      const st=ctx.satirlar[r],v=_exDeger(k.h,r,ctx),n=typeof v==='number'&&isFinite(v)?Math.round(v):null;
-      const aS=sayiSet(r),yS=aS?_fadYakinSet(aS,g.max):null;
-      const dur=n==null?'':_fadDurum(n,aS,yS);
-      h+=`<span title="${st.date}" style="font-family:monospace;font-size:.6rem;padding:2px 5px;border-radius:6px;border:1px solid var(--border);`
-        +(dur==='net'?'background:rgba(0,230,118,.2);color:var(--green);font-weight:800;border-color:rgba(0,200,100,.5);':dur==='yakin'?'background:rgba(194,65,12,.1);color:#c2410c;font-weight:800;':'color:var(--muted);')
-        +`"><span style="opacity:.6;font-size:.5rem">${(st.date||'').slice(5)}</span> ${fmt(v)}${dur==='net'?'✓':dur==='yakin'?'~':''}</span>`;
-    }
-    h+='</div></div>';
+  const bilgi=document.getElementById('exBilgi');
+  if(bilgi)bilgi.textContent=g.emoji+' '+g.name+' · '+formuller.length+' formül';
+  // sütunlar: 0 = yeni tahmin satırı, geçmiş testte satır = çekiliş sırası + 1
+  const sut=[{ad:'🔮 Yeni Tahmin',r:0,actual:null,tarih:_dxSonraki(_exGame)}];
+  ['exDateSel','exDateSel2','exDateSel3'].forEach((id,i)=>{
+    const v=(document.getElementById(id)||{}).value;if(!v)return;
+    const ix=draws.findIndex(d=>d.date===v);if(ix<0)return;
+    sut.push({ad:'📊 '+(i?(i+1)+'. ':'')+'Geçmiş Test · '+v,r:ix+1,actual:draws[ix],tarih:v});
   });
+  let h='';
+  if(_exEditAcik){
+    h+=`<div class="card" style="margin-bottom:10px;padding:8px 10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:.66rem;font-weight:800;color:var(--text)">ƒx Formüller</span>`
+      +`<button onclick="_exEkle()" style="font-size:.62rem;padding:3px 10px;border-radius:12px;border:1px solid rgba(16,185,129,.5);background:rgba(16,185,129,.1);color:#0a9a6a;cursor:pointer;font-weight:700">➕ Formül Ekle</button></div>`
+      +`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:4px 10px;max-height:46vh;overflow:auto">`
+      +formuller.map(k=>`<div style="display:flex;gap:4px;align-items:center"><span style="font-weight:800;font-size:.62rem;color:var(--muted);min-width:22px">${k.h}</span>`
+        +`<input value="${esc(k.f)}" onchange="_exFormulDegis('${k.h}',this.value)" style="flex:1;min-width:0;font-size:.58rem;font-family:monospace;background:var(--surface);border:1px solid var(--border);border-radius:5px;color:#0a7ea4;padding:2px 5px">`
+        +`<button onclick="_exSil('${k.h}')" title="Sil" style="border:none;background:none;color:#ef5350;cursor:pointer;font-size:.75rem;padding:0 2px">✕</button></div>`).join('')
+      +`</div></div>`;
+  }
+  if(!formuller.length){el.innerHTML=h+'<div class="card" style="font-size:.7rem;color:var(--muted)">Bu oyun için formül yok; ƒx ile elle formül ekleyebilirsin.</div>';return;}
+  const kolHtml=c=>{
+    const aS=c.actual?new Set(c.actual.nums||[]):null,yS=aS?_fadYakinSet(aS,g.max):null;
+    const hucre=[];const dist=new Set();
+    formuller.forEach(k=>{
+      const v=_exDeger(k.h,c.r,ctx);
+      const n=typeof v==='number'&&isFinite(v)?Math.round(v):null;
+      const ok=n!=null&&n>=1&&n<=g.max;
+      if(ok)dist.add(n);
+      const d=ok&&aS?_fadDurum(n,aS,yS):'';
+      hucre.push(`<span title="${k.h}" style="font-family:monospace;font-size:.6rem;line-height:1;padding:2px 4px;border-radius:5px;border:1px solid var(--border);`
+        +(d==='net'?'background:rgba(0,230,118,.22);color:var(--green);font-weight:800;border-color:rgba(0,200,100,.5);':d==='yakin'?'background:rgba(194,65,12,.1);color:#c2410c;font-weight:800;':ok?'':'opacity:.4;')
+        +`"><span style="opacity:.55;font-size:.48rem">${k.h}</span> ${n==null?'·':n}${d==='net'?'✓':d==='yakin'?'~':''}</span>`);
+    });
+    const sirali=[...dist].sort((a,b)=>a-b);
+    const net=aS?sirali.filter(n=>aS.has(n)).length:null,yk=aS?sirali.filter(n=>!aS.has(n)&&yS.has(n)).length:null;
+    const yeni=!c.actual;
+    return `<div style="min-width:0;border:1px solid ${yeni?'rgba(124,58,237,.5)':'var(--border)'};border-radius:10px;padding:6px 8px;background:${yeni?'rgba(124,58,237,.05)':'var(--surface)'}" data-ex-atla="1">`
+      +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.62rem;font-weight:800;color:${yeni?'#7c3aed':'var(--text)'}">${c.ad}</span>`
+      +(yeni?`<button class="copy-btn" onclick="_exYeniKopyala()" style="font-size:.54rem;padding:2px 8px">📋 Kopyala</button>`:'')+`</div>`
+      +`<div style="font-size:.54rem;color:var(--muted);margin-bottom:4px">hedef ${c.tarih} · ${sirali.length} farklı sayı`
+      +(aS?` · <strong style="color:var(--green)">✓ ${net} net</strong> · <strong style="color:#c2410c">~ ${yk} yakın</strong> · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${[...c.actual.nums].sort((a,b)=>a-b).join(' ')}</span>`:'')+`</div>`
+      +`<div style="display:flex;flex-wrap:wrap;gap:3px">${hucre.join('')}</div></div>`;
+  };
+  h+=`<div style="display:grid;grid-template-columns:repeat(${sut.length},minmax(0,1fr));gap:10px;align-items:start">${sut.map(kolHtml).join('')}</div>`;
   el.innerHTML=h;
 }
+
 function _exInit(){
   try{Object.keys(localStorage).filter(k=>(k.indexOf('_exKolon_')===0||k.indexOf('_exKol2_')===0)).forEach(k=>localStorage.removeItem(k));}catch(e){}
   const gid=(state&&state.selectedGame)||GAMES[0].id;
   if(_exGame!==gid){_exGame=gid;_exKol=_exYukle(gid);}
   if(!_exKol)_exKol=_exYukle(_exGame);
-  const sel=document.getElementById('exSatir');
-  if(sel&&!sel.options.length){
-    sel.innerHTML=[10,20,40,80].map(n=>`<option value="${n}"${n===Math.min(_exSatir,20)?' selected':''}>${n} satır</option>`).join('');
-    _exSatir=+sel.value||20;
-  }
+  _exSatir=Math.max(_exSatir,90);
   _exSekmeGoster();
   if(_exSekme==='deneme'){_dxSecenekDoldur(false);_dxExcelRender();}else _exRender();
 }
@@ -30519,7 +30550,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
 // 3. slot seçicisi gizlenir ve değeri hep '' döner → hiçbir sayfa 3. geçmiş test sütunu kurmaz,
 // "son çekilişleri doldur" da yalnızca 2 alanı doldurur.
 (function _iki(){
-  const sec='select[id$="Date3"]:not(#dxDateSel3),select[id$="DateSel3"]:not(#dxDateSel3)';
+  const sec='select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3),select[id$="DateSel3"]:not(#dxDateSel3):not(#exDateSel3)';
   function nötr(){
     document.querySelectorAll(sec).forEach(e=>{
       if(e.dataset.iki)return;e.dataset.iki='1';
