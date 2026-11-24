@@ -1337,7 +1337,8 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3),select[id
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:7px 9px;border:1px solid rgba(124,58,237,.35);border-radius:10px;background:rgba(124,58,237,.05)">
    <span style="font-size:.64rem;font-weight:800;color:#7c3aed">🎫 Bilet analizi</span>
-   <select id="tfAlgo" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;min-width:210px"></select>
+   <select id="tfAlgo" onchange="_tsAlgoSec(1)" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;min-width:210px"></select>
+   <select id="tfAlgo2" onchange="_tsAlgoSec(2)" title="4 net / 5 net hedefli analizler (yukarıdaki listeden bağımsız, yalnızca biri seçili olur)" style="font-size:.7rem;background:var(--surface2);border:1px solid rgba(124,58,237,.45);color:#7c3aed;border-radius:6px;padding:4px 8px;min-width:210px;font-weight:700"></select>
    <select id="tfAdet" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px"><option value="5">5 bilet</option><option value="10" selected>10 bilet</option><option value="15">15 bilet</option><option value="20">20 bilet</option></select>
    <span style="font-size:.56rem;color:var(--muted)">Analiz tipini seç → biletler Yeni Tahmin ve geçmiş testlerde o analizden üretilir. Bilete basılı tutunca kopyalanır.</span>
   </div>
@@ -30035,6 +30036,7 @@ const _TS_K={sans:9,super:16,sayisal:24,onnumara:40};   // algoritma çıktısı
 let _tsGame=null,_tsCache={},_tsToken=0;
 function _tsSetGame(){_tsGame=(state&&state.selectedGame)||GAMES[0].id;if(_curPage==='test'){_tsSecenek(true);_tsRender();}}
 function _tsSecenek(sifirla){
+  const t2=document.getElementById('tfAlgo2');if(t2&&!t2.options.length){const op=k=>_TS_TIP.map(t=>`<option value="${t.id}_h${k}">${k} net · ${t.ad}</option>`).join('');t2.innerHTML='<option value="">🎯 4 net / 5 net hedefli…</option><optgroup label="🎯 4 net hedefli (yeni)">'+op(4)+'</optgroup><optgroup label="🎯 5 net hedefli (yeni)">'+op(5)+'</optgroup>';}
   const ta=document.getElementById('tfAlgo');if(ta&&!ta.options.length)ta.innerHTML=_TS_TIP.filter(t=>!t.yeni).map(t=>`<option value="${t.id}">${t.ad}</option>`).join('')+'<optgroup label="🆕 Yeni Analizler (keşif)">'+_TS_TIP.filter(t=>t.yeni).map(t=>`<option value="${t.id}">${t.ad}</option>`).join('')+'</optgroup>';
   const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id;_tsGame=gid;
   const draws=_kbGetDraws(gid)||[];
@@ -30270,8 +30272,56 @@ const _TS_TIP_YENI2=[
   {id:'ps',ad:'📍 Pozisyon Bazlı',ac:'k. küçük sayının geçmiş değer dağılımından artan sırada kurulan biletler (deneysel — ölçümde şansı geçmedi)',uret:_tsUretPozisyon}
 ];
 _TS_TIP_YENI2.forEach(t=>{t.yeni=true;_TS_TIP.push(t);});
+// ═══ 🎯 4 NET / 5 NET HEDEFLİ VERSİYONLAR — mevcut analizlere DOKUNMAZ; her analizin sayı puanından havuz seçip,
+// havuzdaki k'lı (4'lü / 5'li) sayı gruplarını en çok kapsayan biletleri kurar (havuzdan ≥k sayı çıkarsa bir bilette birlikte olsun).
+function _tsKomb(arr,k,fn){const n=arr.length,idx=[];(function rec(b){if(idx.length===k){fn(idx.map(i=>arr[i]).join(','));return;}for(let i=b;i<=n-(k-idx.length);i++){idx.push(i);rec(i+1);idx.pop();}})(0);}
+function _tsTipBul(id){
+  const t=_TS_TIP.find(x=>x.id===id);if(t)return t;
+  const m=/^(.+)_h([45])$/.exec(id||'');if(!m)return null;
+  const base=_TS_TIP.find(x=>x.id===m[1]);if(!base)return null;
+  _tsHedefOnb=_tsHedefOnb||{};
+  return _tsHedefOnb[id]||(_tsHedefOnb[id]={id,ad:'🎯 '+m[2]+' net · '+base.ad,ac:base.ac+' — '+m[2]+' net hedefli kapsama (yeni)',hedef:+m[2],taban:base,yeni:true});
+}
+let _tsHedefOnb=null;
+function _tsAktifTip(){
+  const v2=(document.getElementById('tfAlgo2')||{}).value;
+  if(v2){const t=_tsTipBul(v2);if(t)return t;}
+  const v=(document.getElementById('tfAlgo')||{}).value;
+  return _tsTipBul(v)||_TS_TIP[0];
+}
+// iki seçicinin tek anda yalnızca biri aktif olur
+function _tsAlgoSec(hangi){
+  const a=document.getElementById('tfAlgo'),b=document.getElementById('tfAlgo2');
+  if(hangi===2){if(b&&b.value&&a)a.selectedIndex=-1;else if(a&&a.selectedIndex<0)a.selectedIndex=0;}
+  else if(b)b.value='';
+  _tsRender();
+}
+function _tsHedefBilet(gid,S,F,tip,adet){
+  const g=getGame(gid),cnt=g.count,M=g.max,k=tip.hedef,base=tip.taban;
+  const sk=new Array(M+2).fill(0);
+  if(base.puan){for(let n=1;n<=M;n++)sk[n]=base.puan(F,n,S);}
+  else{_tsBiletler(gid,S,F,base,Math.max(adet,20)).forEach(t=>t.forEach(n=>{sk[n]+=1;}));for(let n=1;n<=M;n++)sk[n]+=0.001*_tsTaban(F,n);}
+  const P=Math.min(M,cnt+(k>=5?3:4));
+  const havuz=[];for(let n=1;n<=M;n++)havuz.push(n);
+  havuz.sort((a,b)=>sk[b]-sk[a]||a-b);const H=havuz.slice(0,P);
+  const rnd=_tsLcg(86243),cov=new Set(),out=[];
+  for(let i=0;i<adet;i++){
+    let best=null,bs=-1;
+    for(let c=0;c<300;c++){
+      const a=H.slice();for(let x=0;x<cnt;x++){const y=x+Math.floor(rnd()*(a.length-x));const tmp=a[x];a[x]=a[y];a[y]=tmp;}
+      const t=a.slice(0,cnt).sort((u,v)=>u-v);
+      if(!_tsBenzersiz(out,t))continue;
+      let yeni=0;_tsKomb(t,k,key=>{if(!cov.has(key))yeni++;});
+      const sc=yeni+0.0001*t.reduce((q,n)=>q+sk[n],0);
+      if(sc>bs){bs=sc;best=t;}
+    }
+    if(!best)break;out.push(best);_tsKomb(best,k,key=>cov.add(key));
+  }
+  return out;
+}
 // Bilet üretimi: puanı yüksek sayılardan, her biletle kullanılan sayıların puanı düşürülerek (kapsama) — belirleyici (rastgelelik yok)
 function _tsBiletler(gid,S,F,tip,adet){
+  if(tip.hedef)return _tsHedefBilet(gid,S,F,tip,adet);
   const g=getGame(gid),cnt=g.count;
   if(tip.uret){return tip.uret(gid,S,F,adet,tip);}
   if(tip.ozel){return ((S.nn&&S.nn.tickets)||[]).slice(0,adet).map(t=>[...t.main].sort((a,b)=>a-b));}
@@ -30305,9 +30355,8 @@ function _tsKolonHtml(gid,prior,tarih,actual,yeni,k){
   const roz=n=>_fadRozet(n,_fadDurum(n,aS,yS));
   const say=l=>aS?{net:l.filter(n=>aS.has(n)).length,yk:l.filter(n=>!aS.has(n)&&yS.has(n)).length}:null;
   const ozet=l=>{const s=say(l);return `<span style="font-size:.56rem;color:var(--muted)">${l.length} sayı${s?` · <strong style="color:var(--green)">✓ ${s.net} net</strong> · <strong style="color:#c2410c">~ ${s.yk} yakın</strong>${s.net>=3?' · <strong style="color:#7c3aed">3+ ✔</strong>':''}`:''}</span>`;};
-  const tipId=(document.getElementById('tfAlgo')||{}).value||_TS_TIP[0].id;
   const adet=parseInt((document.getElementById('tfAdet')||{}).value)||10;
-  const tip=_TS_TIP.find(t=>t.id===tipId)||_TS_TIP[0];
+  const tip=_tsAktifTip(),esik=tip.hedef||3;
   let h=`<div style="min-width:0" data-ex-atla="1"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'}">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+tarih}</span>`;
   const bil=_tsBiletler(gid,S,F,tip,adet);
   if(yeni){window._tsBiletTxt=`${tip.ad} — ${g.name} (${tarih}) — ${bil.length} bilet\n`+bil.map((t,i)=>`#${i+1}  ${t.join(' ')}`).join('\n');
@@ -30315,9 +30364,9 @@ function _tsKolonHtml(gid,prior,tarih,actual,yeni,k){
   h+=`</div><div style="font-size:.56rem;color:var(--muted);margin-bottom:5px">hedef <strong style="color:var(--text)">${tarih}</strong>${actual?` · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${[...actual.nums].sort((a,b)=>a-b).join(' ')}${(actual.bonus||[]).length?' | '+actual.bonus.join(' '):''}</span>`:''}</div>`;
   // 🎫 Biletler
   let en=0,enYk=0,uc=0;
-  if(aS)bil.forEach(t=>{const n=t.filter(x=>aS.has(x)).length,yk=t.filter(x=>!aS.has(x)&&yS.has(x)).length;if(n>en||(n===en&&yk>enYk)){en=n;enYk=yk;}if(n>=3)uc++;});
+  if(aS)bil.forEach(t=>{const n=t.filter(x=>aS.has(x)).length,yk=t.filter(x=>!aS.has(x)&&yS.has(x)).length;if(n>en||(n===en&&yk>enYk)){en=n;enYk=yk;}if(n>=esik)uc++;});
   h+=`<div style="font-size:.64rem;font-weight:800;color:#7c3aed;margin:2px 0 3px" title="${tip.ac}">🎫 ${tip.ad} <span style="font-weight:600;color:var(--muted)">· ${bil.length} bilet</span></div>`
-    +(aS?`<div style="font-size:.58rem;margin-bottom:4px"><strong style="color:var(--green)">✓ en iyi bilet ${en} net</strong> · <strong style="color:#c2410c">~ ${enYk} yakın</strong> · <strong style="color:#7c3aed">3+ net: ${uc}/${bil.length} bilet</strong></div>`:'')
+    +(aS?`<div style="font-size:.58rem;margin-bottom:4px"><strong style="color:var(--green)">✓ en iyi bilet ${en} net</strong> · <strong style="color:#c2410c">~ ${enYk} yakın</strong> · <strong style="color:#7c3aed">${esik}+ net: ${uc}/${bil.length} bilet</strong></div>`:'')
     +_nnRenderTickets(g,bil.map(t=>({main:t})),aS);
   // 🟣 Ortak / 🟠 Yakın — kaynak kesişimi (açılır)
   const ks=_tsKaynakSetleri(gid,S);
@@ -30366,7 +30415,7 @@ const _TS_GECMIS_N=20;
 function _tsGecmisOku(gid){try{const j=JSON.parse(localStorage.getItem('_tsGecmis_'+gid)||'[]');return Array.isArray(j)?j:[];}catch(e){return [];}}
 function _tsKaydet(gid,sut){
   const st=window._tsSonKol||{},y=st.y;if(!y||!y.bil||!y.bil.length)return;
-  const tipId=(document.getElementById('tfAlgo')||{}).value||'',adet=parseInt((document.getElementById('tfAdet')||{}).value)||10;
+  const tipId=_tsAktifTip().id,adet=parseInt((document.getElementById('tfAdet')||{}).value)||10;
   const key=[gid,tipId,adet,y.tarih,y.bil.map(t=>t.join(' ')).join('/')].join('|');
   let l=_tsGecmisOku(gid);
   if(l.some(e=>e.key===key))return;                         // aynı ekran zaten kayıtlı (benzersiz)
@@ -30382,7 +30431,7 @@ function _tsGecmisRender(){
   const l=_tsGecmisOku(gid);
   const bas=document.getElementById('tfGecmisBaslik');if(bas)bas.textContent='🕘 Test Geçmişi — '+g.emoji+' '+g.name+' (son '+_TS_GECMIS_N+', benzersiz)';
   if(!l.length){el.innerHTML='<div style="font-size:.64rem;color:var(--muted)">Henüz kayıt yok. Bu sayfada oluşan her yeni bilet kümesi (oluşma zamanıyla) burada saklanır.</div>';return;}
-  const tipAd=id=>((_TS_TIP.find(t=>t.id===id)||{}).ad)||id;
+  const tipAd=id=>(_tsTipBul(id)||{}).ad||id;
   el.innerHTML=l.map(e=>{
     const act=draws.find(d=>d.date===e.hedef),aS=act?new Set(act.nums||[]):null,yS=aS?_fadYakinSet(aS,g.max):null;
     let en=0,enYk=0,toplamEn=0;
