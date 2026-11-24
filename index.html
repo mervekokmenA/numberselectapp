@@ -1333,6 +1333,12 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3),select[id$="DateSel3"]:not
    <select id="tfDateSel" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
    <select id="tfDateSel2" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
   </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:7px 9px;border:1px solid rgba(124,58,237,.35);border-radius:10px;background:rgba(124,58,237,.05)">
+   <span style="font-size:.64rem;font-weight:800;color:#7c3aed">🎫 Bilet analizi</span>
+   <select id="tfAlgo" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;min-width:210px"></select>
+   <select id="tfAdet" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px"><option value="5">5 bilet</option><option value="10" selected>10 bilet</option><option value="15">15 bilet</option><option value="20">20 bilet</option></select>
+   <span style="font-size:.56rem;color:var(--muted)">Analiz tipini seç → biletler Yeni Tahmin ve geçmiş testlerde o analizden üretilir. Bilete basılı tutunca kopyalanır.</span>
+  </div>
   <div id="tfOut" data-ny-yok="1"></div>
  </div>
  <div class="card">
@@ -18891,7 +18897,7 @@ function _nnRenderTickets(game,tickets,aSet){
     t.main.forEach(n=>{const m=_nnMark(n,aSet);if(m==='net')net++;else if(m==='near')near++;});
     const tot=net+near;
     const ok=tot>=3;
-    h+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 9px;background:${aSet?(ok?'rgba(0,230,118,.09)':'var(--surface2)'):'var(--surface2)'};border:1px solid ${aSet&&ok?'rgba(0,200,100,.45)':'var(--border)'};border-radius:8px;margin-bottom:4px;flex-wrap:wrap">`;
+    h+=`<div data-lp="${t.main.join(' ')}" style="display:flex;align-items:center;gap:8px;padding:5px 9px;background:${aSet?(ok?'rgba(0,230,118,.09)':'var(--surface2)'):'var(--surface2)'};border:1px solid ${aSet&&ok?'rgba(0,200,100,.45)':'var(--border)'};border-radius:8px;margin-bottom:4px;flex-wrap:wrap">`;
     h+=`<span style="font-size:.58rem;color:var(--muted);font-weight:700;min-width:26px">#${i+1}</span>`;
     h+=`<span style="display:flex;gap:5px;flex-wrap:wrap;flex:1">${t.main.map(n=>{const m=_nnMark(n,aSet);return `<span style="font-family:monospace;font-size:.82rem;font-weight:${m?800:600};color:${m==='net'?'var(--green)':m==='near'?'#c2410c':'var(--muted)'}">${n}${m==='net'?'✓':m==='near'?'~':''}</span>`;}).join('')}${t.bonus&&t.bonus.length?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
     if(aSet)h+=`<span style="font-size:.62rem;font-weight:800;color:${ok?'var(--green)':'var(--muted)'};flex-shrink:0">${tot} (${net} net · ${near} yakın)</span>`;
@@ -30029,6 +30035,7 @@ const _TS_K={sans:9,super:16,sayisal:24,onnumara:40};   // algoritma çıktısı
 let _tsGame=null,_tsCache={},_tsOlcSonuc=null,_tsToken=0;
 function _tsSetGame(){_tsGame=(state&&state.selectedGame)||GAMES[0].id;_tsOlcSonuc=null;if(_curPage==='test'){_tsSecenek(true);_tsRender();}}
 function _tsSecenek(sifirla){
+  const ta=document.getElementById('tfAlgo');if(ta&&!ta.options.length)ta.innerHTML=_TS_TIP.map(t=>`<option value="${t.id}">${t.ad}</option>`).join('');
   const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id;_tsGame=gid;
   const draws=_kbGetDraws(gid)||[];
   const h='<option value="">— geçmiş test seç —</option>'+draws.slice(0,85).map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
@@ -30079,6 +30086,32 @@ function _tsAlgoSeti(gid,S,F,algo){
   l.sort((a,b)=>b.p-a.p||b.w-a.w||a.n-b.n);
   return l.slice(0,K).map(x=>x.n).sort((a,b)=>a-b);
 }
+// ── Analiz tipleri: kullanıcı seçer, bilet bu analizin sayı puanlarından üretilir ──
+const _TS_TIP=[
+  ..._TS_ALGO.map(a=>({id:a.id,ad:a.ad,ac:a.ac,puan:a.puan})),
+  {id:'ex',ad:'🧪 Excel formülleri',ac:'Excel formüllerinin ürettiği sayılar (çoklanan önde)',puan:(F,n)=>F[n].ex+0.15*F[n].w},
+  {id:'gu',ad:'🔮 Gülay (toplama/çıkarma)',ac:'Gülay toplama ve çıkarma sayıları',puan:(F,n)=>F[n].gt+F[n].gc+0.15*F[n].w},
+  {id:'an',ad:'⏱️ Anlık Tahmin uzlaşısı',ac:'Anlık Tahmin kaynaklarının birleşik ağırlığı',puan:(F,n)=>F[n].w},
+  {id:'np',ad:'🎯 Net Odaklı Havuz',ac:'Net Odaklı havuz üyeliği + uzlaşı ağırlığı',puan:(F,n)=>2*F[n].np+F[n].w},
+  {id:'nn',ad:'🎫 Yeni Bilet Sistemi (Nihai)',ac:'Ana sayfadaki Nihai sistemin kendi biletleri',ozel:true}
+];
+// Bilet üretimi: puanı yüksek sayılardan, her biletle kullanılan sayıların puanı düşürülerek (kapsama) — belirleyici (rastgelelik yok)
+function _tsBiletler(gid,S,F,tip,adet){
+  const g=getGame(gid),cnt=g.count;
+  if(tip.ozel){return ((S.nn&&S.nn.tickets)||[]).slice(0,adet).map(t=>[...t.main].sort((a,b)=>a-b));}
+  const ham=[];let mx=0;
+  for(let n=1;n<=g.max;n++){const p=tip.puan(F,n);ham[n]=p;if(p>mx)mx=p;}
+  const kul={},out=[];
+  for(let i=0;i<adet;i++){
+    const l=[];
+    for(let n=1;n<=g.max;n++)l.push({n,p:(mx?ham[n]/mx:0)-0.16*(kul[n]||0)+F[n].w*0.02});
+    l.sort((a,b)=>b.p-a.p||a.n-b.n);
+    const t=l.slice(0,cnt).map(x=>x.n).sort((a,b)=>a-b);
+    t.forEach(n=>{kul[n]=(kul[n]||0)+1;});
+    out.push(t);
+  }
+  return out;
+}
 function _tsKaynakSetleri(gid,S){
   const sn=new Set();S.ex.forEach((v,k)=>sn.add(k));
   return [
@@ -30095,43 +30128,38 @@ function _tsKolonHtml(gid,prior,tarih,actual,yeni,k){
   const aS=actual?new Set(actual.nums||[]):null,yS=aS?_fadYakinSet(aS,g.max):null;
   const roz=n=>_fadRozet(n,_fadDurum(n,aS,yS));
   const say=l=>aS?{net:l.filter(n=>aS.has(n)).length,yk:l.filter(n=>!aS.has(n)&&yS.has(n)).length}:null;
-  const ozet=(l,adet)=>{const s=say(l);return `<span style="font-size:.56rem;color:var(--muted)">${l.length} sayı${s?` · <strong style="color:var(--green)">✓ ${s.net} net</strong> · <strong style="color:#c2410c">~ ${s.yk} yakın</strong>${s.net>=3?' · <strong style="color:#7c3aed">3+ ✔</strong>':''}`:''}</span>`;};
-  let h=`<div style="min-width:0" data-ex-atla="1"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'}">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+tarih}</span></div>`
-    +`<div style="font-size:.56rem;color:var(--muted);margin-bottom:6px">hedef <strong style="color:var(--text)">${tarih}</strong>${actual?` · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${[...actual.nums].sort((a,b)=>a-b).join(' ')}${(actual.bonus||[]).length?' | '+actual.bonus.join(' '):''}</span>`:''}</div>`;
-  // 1) Yeni algoritmalar
-  h+=`<div style="font-size:.64rem;font-weight:800;color:#7c3aed;margin:2px 0 4px">🧠 Yeni Algoritmalar <span style="font-weight:600;color:var(--muted)">(${_TS_K[gid]||12} sayı · hedef 3+ net)</span></div>`;
-  _TS_ALGO.forEach(a=>{
-    const set=_tsAlgoSeti(gid,S,F,a);
-    if(yeni)window['_tsTxt_'+a.id]=`${a.ad} — ${g.name} (${tarih})\n${set.join(' ')}`;
-    h+=`<div style="border:1px solid var(--border);border-radius:9px;padding:5px 7px;margin-bottom:6px;background:var(--surface)" data-lp="${set.join(' ')}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.6rem;font-weight:800;color:var(--text)" title="${a.ac}">${a.ad}</span>`
-      +(yeni?`<button class="copy-btn" onclick="_caCopy(window['_tsTxt_${a.id}']);showToast('📋 Kopyalandı')" style="font-size:.52rem;padding:1px 7px">📋</button>`:'')+`</div>`
-      +`<div style="margin-bottom:3px">${ozet(set)}</div><div style="display:flex;flex-wrap:wrap;gap:4px">${set.map(roz).join('')}</div></div>`;
-  });
-  // 2) Ortak (≥2 kaynak) ve yakın
+  const ozet=l=>{const s=say(l);return `<span style="font-size:.56rem;color:var(--muted)">${l.length} sayı${s?` · <strong style="color:var(--green)">✓ ${s.net} net</strong> · <strong style="color:#c2410c">~ ${s.yk} yakın</strong>${s.net>=3?' · <strong style="color:#7c3aed">3+ ✔</strong>':''}`:''}</span>`;};
+  const tipId=(document.getElementById('tfAlgo')||{}).value||_TS_TIP[0].id;
+  const adet=parseInt((document.getElementById('tfAdet')||{}).value)||10;
+  const tip=_TS_TIP.find(t=>t.id===tipId)||_TS_TIP[0];
+  let h=`<div style="min-width:0" data-ex-atla="1"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'}">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+tarih}</span>`;
+  const bil=_tsBiletler(gid,S,F,tip,adet);
+  if(yeni){window._tsBiletTxt=`${tip.ad} — ${g.name} (${tarih}) — ${bil.length} bilet\n`+bil.map((t,i)=>`#${i+1}  ${t.join(' ')}`).join('\n');
+    h+=`<button class="copy-btn" onclick="_caCopy(window._tsBiletTxt);showToast('📋 Tüm biletler kopyalandı')" style="font-size:.56rem;padding:2px 9px">📋 Biletleri Kopyala</button>`;}
+  h+=`</div><div style="font-size:.56rem;color:var(--muted);margin-bottom:5px">hedef <strong style="color:var(--text)">${tarih}</strong>${actual?` · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${[...actual.nums].sort((a,b)=>a-b).join(' ')}${(actual.bonus||[]).length?' | '+actual.bonus.join(' '):''}</span>`:''}</div>`;
+  // 🎫 Biletler
+  let en=0,enYk=0,uc=0;
+  if(aS)bil.forEach(t=>{const n=t.filter(x=>aS.has(x)).length,yk=t.filter(x=>!aS.has(x)&&yS.has(x)).length;if(n>en||(n===en&&yk>enYk)){en=n;enYk=yk;}if(n>=3)uc++;});
+  h+=`<div style="font-size:.64rem;font-weight:800;color:#7c3aed;margin:2px 0 3px" title="${tip.ac}">🎫 ${tip.ad} <span style="font-weight:600;color:var(--muted)">· ${bil.length} bilet</span></div>`
+    +(aS?`<div style="font-size:.58rem;margin-bottom:4px"><strong style="color:var(--green)">✓ en iyi bilet ${en} net</strong> · <strong style="color:#c2410c">~ ${enYk} yakın</strong> · <strong style="color:#7c3aed">3+ net: ${uc}/${bil.length} bilet</strong></div>`:'')
+    +_nnRenderTickets(g,bil.map(t=>({main:t})),aS);
+  // 🟣 Ortak / 🟠 Yakın — kaynak kesişimi (açılır)
   const ks=_tsKaynakSetleri(gid,S);
   const rozKaynak=n=>{
     const b=[];if(S.nnUni.has(n))b.push('N');if(S.pool.has(n))b.push('H');if(S.ex.has(n))b.push('E'+((S.ex.get(n)||[]).length>1?'×'+S.ex.get(n).length:''));if(S.G.top.has(n)||S.G.cik.has(n))b.push('G');
     return b;};
   const ortak=[],yakin=[];
-  for(let n=1;n<=g.max;n++){
-    const x=F[n];
-    if(x.src>=2)ortak.push(n);
-    else if(x.src<=1&&(F[n-1].src>=2||F[n+1].src>=2))yakin.push(n);
-  }
+  for(let n=1;n<=g.max;n++){const x=F[n];if(x.src>=2)ortak.push(n);else if(F[n-1].src>=2||F[n+1].src>=2)yakin.push(n);}
   ortak.sort((a,b)=>F[b].src-F[a].src||a-b);
   const cip=n=>`<span title="${rozKaynak(n).join(' ')}" style="position:relative;display:inline-flex">${roz(n)}<span style="position:absolute;bottom:-6px;left:-1px;font-size:.42rem;font-weight:800;color:#6c5ce7;white-space:nowrap">${rozKaynak(n).join('')}</span></span>`;
-  h+=`<div style="font-size:.64rem;font-weight:800;color:var(--text);margin:8px 0 3px">🟣 Ortak <span style="font-weight:600;color:var(--muted)">(≥2 kaynak: N bilet sistemi · H havuz · E excel · G Gülay)</span></div><div style="margin-bottom:3px">${ozet(ortak)}</div>`
+  h+=`<details style="margin-top:8px"><summary style="cursor:pointer;font-size:.62rem;font-weight:800;color:var(--text)">🟣 Ortak / 🟠 Yakın sayılar <span style="font-weight:600;color:var(--muted)">(N bilet sistemi · H havuz · E excel · G Gülay)</span></summary>`
+    +`<div style="font-size:.6rem;font-weight:800;margin:6px 0 3px">🟣 Ortak (≥2 kaynak)</div><div style="margin-bottom:3px">${ozet(ortak)}</div>`
     +`<div style="display:flex;flex-wrap:wrap;gap:7px 5px;margin-bottom:12px" data-lp="${ortak.join(' ')}">${ortak.map(cip).join('')||'<span style="font-size:.58rem;color:var(--muted)">Ortak sayı yok.</span>'}</div>`
-    +`<div style="font-size:.64rem;font-weight:800;color:var(--text);margin:2px 0 3px">🟠 Yakın <span style="font-weight:600;color:var(--muted)">(ortak sayıların ±1 komşuları)</span></div><div style="margin-bottom:3px">${ozet(yakin)}</div>`
-    +`<div style="display:flex;flex-wrap:wrap;gap:7px 5px;margin-bottom:10px" data-lp="${yakin.join(' ')}">${yakin.map(cip).join('')||'<span style="font-size:.58rem;color:var(--muted)">Yakın sayı yok.</span>'}</div>`;
-  // 3) Kaynak kümeleri
-  h+=`<div style="font-size:.64rem;font-weight:800;color:var(--text);margin:4px 0 3px">📚 Kaynaklar</div>`;
-  ks.forEach(s=>{h+=`<div style="margin-bottom:6px"><div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;margin-bottom:2px"><span style="font-size:.58rem;font-weight:800;color:var(--text)">${s.ad}</span>${ozet(s.set)}</div><div style="display:flex;flex-wrap:wrap;gap:3px" data-lp="${s.set.join(' ')}">${s.set.map(roz).join('')}</div></div>`;});
-  // 4) Yeni bilet sistemi biletleri (geçmiş oyun bileti oluşturma yapısı)
-  if(S.nn&&S.nn.tickets&&typeof _nnRenderTickets==='function'){
-    h+=`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:.62rem;font-weight:800;color:var(--accent)">🎫 Yeni Bilet Sistemi biletleri (${S.nn.tickets.length})</summary>`
-      +`<div style="margin-top:5px">${_nnRenderTickets(g,S.nn.tickets,aS)}</div></details>`;
-  }
+    +`<div style="font-size:.6rem;font-weight:800;margin:2px 0 3px">🟠 Yakın (ortakların ±1 komşuları)</div><div style="margin-bottom:3px">${ozet(yakin)}</div>`
+    +`<div style="display:flex;flex-wrap:wrap;gap:7px 5px;margin-bottom:6px" data-lp="${yakin.join(' ')}">${yakin.map(cip).join('')||'<span style="font-size:.58rem;color:var(--muted)">Yakın sayı yok.</span>'}</div></details>`;
+  h+=`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:.62rem;font-weight:800;color:var(--text)">📚 Kaynak kümeleri</summary>`;
+  ks.forEach(s=>{h+=`<div style="margin:5px 0"><div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;margin-bottom:2px"><span style="font-size:.58rem;font-weight:800">${s.ad}</span>${ozet(s.set)}</div><div style="display:flex;flex-wrap:wrap;gap:3px" data-lp="${s.set.join(' ')}">${s.set.map(roz).join('')}</div></div>`;});
+  h+=`</details>`;
   return h+'</div>';
 }
 function _tsRender(){
@@ -30159,41 +30187,45 @@ function _tsInit(){
   _tsGame=(state&&state.selectedGame)||GAMES[0].id;
   _tsSecenek(false);_tsRender();_tsOlcYaz();
 }
-// ── 📈 Ölçüm: son N çekilişte (walk-forward) kaynaklar ve algoritmalar ──
+// ── 📈 Ölçüm: son N çekilişte (walk-forward) her analiz tipinin biletleri ──
 function _tsOlcYaz(){
   const el=document.getElementById('tfOlcOut');if(!el)return;
   const r=_tsOlcSonuc;
-  if(!r||r.gid!==_tsGame){el.innerHTML='<div style="font-size:.64rem;color:var(--muted)">Henüz ölçülmedi. "Ölç" tuşu son N çekilişi her biri için o günden ÖNCEKİ verilerle yeniden kurup sonuçla karşılaştırır.</div>';return;}
-  const sat=r.satir.map(s=>`<tr><td style="padding:4px 6px;font-weight:700">${s.ad}</td><td style="text-align:right;padding:4px 6px">${s.boyut.toFixed(1)}</td><td style="text-align:right;padding:4px 6px;font-weight:800;color:var(--green)">${s.net.toFixed(2)}</td><td style="text-align:right;padding:4px 6px;color:var(--muted)">${s.beklenen.toFixed(2)}</td><td style="text-align:right;padding:4px 6px;color:#c2410c">${s.yakin.toFixed(2)}</td><td style="text-align:right;padding:4px 6px;font-weight:800;color:#7c3aed">%${s.g3.toFixed(0)}</td><td style="text-align:right;padding:4px 6px">%${s.g4.toFixed(0)}</td></tr>`).join('');
-  el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:5px">${r.t} çekiliş ölçüldü (${r.ilk} → ${r.son}). "Beklenen" = aynı sayıda sayıyı rastgele seçmenin ortalama neti.</div>`
-    +`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.64rem"><thead><tr style="color:var(--muted);text-align:right"><th style="text-align:left;padding:4px 6px">Kaynak / Algoritma</th><th style="padding:4px 6px">sayı</th><th style="padding:4px 6px">ort. net</th><th style="padding:4px 6px">beklenen</th><th style="padding:4px 6px">ort. yakın</th><th style="padding:4px 6px">3+ net</th><th style="padding:4px 6px">4+ net</th></tr></thead><tbody>${sat}</tbody></table></div>`;
+  if(!r||r.gid!==_tsGame){el.innerHTML='<div style="font-size:.64rem;color:var(--muted)">Henüz ölçülmedi. "Ölç" tuşu son N çekilişi her biri için o günden ÖNCEKİ verilerle yeniden kurup biletleri sonuçla karşılaştırır.</div>';return;}
+  const sat=r.satir.map(s=>`<tr><td style="padding:4px 6px;font-weight:700">${s.ad}</td><td style="text-align:right;padding:4px 6px;font-weight:800;color:var(--green)">${s.enIyi.toFixed(2)}</td><td style="text-align:right;padding:4px 6px;font-weight:800;color:#7c3aed">%${s.g3.toFixed(0)}</td><td style="text-align:right;padding:4px 6px">%${s.g4.toFixed(0)}</td><td style="text-align:right;padding:4px 6px">${s.biletNet.toFixed(2)}</td><td style="text-align:right;padding:4px 6px;color:var(--muted)">${s.beklenen.toFixed(2)}</td><td style="text-align:right;padding:4px 6px;color:#c2410c">${s.biletYk.toFixed(2)}</td></tr>`).join('');
+  el.innerHTML=`<div style="font-size:.6rem;color:var(--muted);margin-bottom:5px">${r.t} çekiliş × ${r.adet} bilet ölçüldü (${r.ilk} → ${r.son}). "3+ net" = o çekilişte en az bir biletin 3 veya daha fazla net tutması. "Rastgele" = aynı sayıda sayıyı rastgele seçmenin bilet başı ortalama neti.</div>`
+    +`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:.64rem"><thead><tr style="color:var(--muted);text-align:right"><th style="text-align:left;padding:4px 6px">Analiz tipi</th><th style="padding:4px 6px">en iyi bilet net</th><th style="padding:4px 6px">3+ net</th><th style="padding:4px 6px">4+ net</th><th style="padding:4px 6px">bilet başı net</th><th style="padding:4px 6px">rastgele</th><th style="padding:4px 6px">bilet başı yakın</th></tr></thead><tbody>${sat}</tbody></table></div>`;
 }
 function _tsOlc(){
   const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id,g=getGame(gid),draws=_kbGetDraws(gid)||[];
   const N=Math.min(parseInt((document.getElementById('tfOlcN')||{value:20}).value)||20,draws.length-75);
+  const adet=parseInt((document.getElementById('tfAdet')||{}).value)||10;
   const durum=document.getElementById('tfOlcDurum'),tok=++_tsToken;
-  const acc={};const ekle=(id,ad)=>{if(!acc[id])acc[id]={ad,boyut:0,net:0,yakin:0,beklenen:0,g3:0,g4:0,t:0};return acc[id];};
+  const acc={};_TS_TIP.forEach(t=>{acc[t.id]={ad:t.ad,enIyi:0,g3:0,g4:0,biletNet:0,biletYk:0,bilet:0,beklenen:0,t:0};});
   let i=0;
   const adim=()=>{
     if(tok!==_tsToken)return;
     if(i>=N){
-      const sat=Object.values(acc).map(a=>({ad:a.ad,boyut:a.boyut/a.t,net:a.net/a.t,yakin:a.yakin/a.t,beklenen:a.beklenen/a.t,g3:100*a.g3/a.t,g4:100*a.g4/a.t}));
-      _tsOlcSonuc={gid,t:N,ilk:draws[N-1].date,son:draws[0].date,satir:sat};
+      const sat=Object.values(acc).map(a=>({ad:a.ad,enIyi:a.enIyi/a.t,g3:100*a.g3/a.t,g4:100*a.g4/a.t,biletNet:a.biletNet/a.bilet,biletYk:a.biletYk/a.bilet,beklenen:a.beklenen/a.t}));
+      _tsOlcSonuc={gid,t:N,adet,ilk:draws[N-1].date,son:draws[0].date,satir:sat};
       if(durum)durum.textContent='';_tsOlcYaz();return;
     }
     const a=draws[i],prior=draws.slice(i+1);
     try{
       const S=_tsKaynak(gid,prior,a.date),F=_tsOzellik(gid,S),aS=new Set(a.nums||[]),yS=_fadYakinSet(aS,g.max);
-      const kayda=(id,ad,set)=>{const x=ekle(id,ad);const net=set.filter(n=>aS.has(n)).length,yk=set.filter(n=>!aS.has(n)&&yS.has(n)).length;
-        x.t++;x.boyut+=set.length;x.net+=net;x.yakin+=yk;x.beklenen+=set.length*aS.size/g.max;if(net>=3)x.g3++;if(net>=4)x.g4++;};
-      _tsKaynakSetleri(gid,S).forEach(s=>kayda(s.id,s.ad,s.set));
-      _TS_ALGO.forEach(al=>kayda(al.id,al.ad,_tsAlgoSeti(gid,S,F,al)));
+      _TS_TIP.forEach(tip=>{
+        const x=acc[tip.id],bil=_tsBiletler(gid,S,F,tip,adet);if(!bil.length)return;
+        let en=0;x.t++;x.beklenen+=g.count*aS.size/g.max;
+        bil.forEach(t=>{const n=t.filter(v=>aS.has(v)).length;x.biletNet+=n;x.biletYk+=t.filter(v=>!aS.has(v)&&yS.has(v)).length;x.bilet++;if(n>en)en=n;});
+        x.enIyi+=en;if(en>=3)x.g3++;if(en>=4)x.g4++;
+      });
     }catch(e){}
     i++;if(durum)durum.textContent='⏳ '+i+' / '+N;
     setTimeout(adim,10);
   };
   adim();
 }
+
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 🗄️ VERİTABANI (Neon Postgres) — sunucusuz API üzerinden

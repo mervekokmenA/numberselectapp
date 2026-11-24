@@ -32,11 +32,12 @@ Uygulama tek dosya: `index.html` (vanilla HTML/JS, Türkçe arayüz). Test için
 - Net Odaklı Aday Havuzu'nda turuncu ±1 yakınlar da gösterilir.
 
 ## 4. Veri ve motorlar
+- Bilet satırlarında (`_nnRenderTickets`) `data-lp` bulunur: basılı tutunca bilet kopyalanır. Yeni bilet çizen yerlerde de `data-lp` koy.
 - Çekiliş verisi: `_kbGetDraws(gid)` / `_scanGetDraws(gid)` (yeniden eskiye `{date,nums,bonus}`). Oyunlar: sans, super, sayisal, onnumara.
 - Sıradaki çekilişin tarihi `_predNextDrawDate` (yoksa `_dxSonraki`); formüller o günün gün/ayına bakar.
 - 🧪 Deneme Excel: formüller `_DX_SABLON`, motor `_dxMotor`; Sayısal Joker sırası `_DX_JOKER` ile geri konur. Çalışma kitabıyla doğrulandı (4660 hücrenin 4649'u aynı). Deneme Excel × Gülay kapsayıcısı: 🟣 Aynı + 🟠 Yakın (±1), Anlık Tahmin sayfasının en üstünde ve Excel sayfasının Deneme sekmesinde.
 - 📊 Excel sekmesi: sıkıştırılmış görünüm — 🔮 Yeni Tahmin + 3 geçmiş test sütunu, her sütunda formül sonuçları küçük 'harf·değer' hücreleri (formül metni gösterilmez); hücreler sabit sütunlu ızgarada (`.ex-izgara`: dar 3, orta 4, geniş 6) ve okunur boyutta; 🔁 Çoklananlar filtresi (2+/3+/4+/5+ formül aynı sayıyı üretmişse göster, hücrede mor ×N); formül düzenleme/ekleme paneli ƒx ikonuyla açılır; girişler `onchange` (donma olmasın). Formüller kullanıcının Deneme Excel çalışma kitabından (`_DX_SABLON`) gelir ve `_dxMotor` ile hesaplanır (yeni tahmin satırı sıradaki çekilişin tarihini kullanır); sekmedeki düzenlemeler `_dxMotor`'a `ovr` olarak geçer. Uygulama genelindeki Excel yıldızları (`_exYeniTahminSayilari`) da bu formülleri kullanır. Yeni Excel gelince `_DX_SABLON` yeniden üretilir.
-- 🧫 Test sayfası (`page-test`, `_ts*`): Yeni Bilet Sistemi (`_nnCore`) × Net Odaklı Havuz (`_npPool`) × Excel (`_dxHesapla`) × Gülay (`_dxGulay`) ortak(≥2 kaynak)/yakın işaretleme, 4 yeni algoritma (`_TS_ALGO`), 🔮 Yeni + 2 geçmiş test, 'Ölç' tablosu (walk-forward). Algoritma eklerken ölçümle rastgele beklentiyle karşılaştır; ölçüm sonuçlarını dürüst raporla.
+- 🧫 Test sayfası (`page-test`, `_ts*`): Yeni Bilet Sistemi (`_nnCore`) × Net Odaklı Havuz (`_npPool`) × Excel (`_dxHesapla`) × Gülay (`_dxGulay`) ortak(≥2 kaynak)/yakın işaretleme, analiz tipi seçilip BİLET üretilir (`_TS_TIP`, `_tsBiletler`; bilet başına ✓/~ ve basılı tutarak kopyalama), 🔮 Yeni + 2 geçmiş test, 'Ölç' tablosu (walk-forward, bilet bazlı). Algoritma eklerken ölçümle rastgele beklentiyle karşılaştır; ölçüm sonuçlarını dürüst raporla.
 - Kazanan/Kronoloji: hane filtre kutuları + "tüm hanelerde ara" + Filtrele; internetten yeni ikramiye kazananı tarama butonu.
 
 ## 5. Kaldırılan alanlar (geri getirme)
