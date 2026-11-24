@@ -13,6 +13,7 @@ Uygulama tek dosya: `index.html` (vanilla HTML/JS, Türkçe arayüz). Test için
 
 ## 2. Standart tahmin/test tasarımı
 - Her tahmin kapsayıcısı: **🔮 Yeni Tahmin + en çok 2 adet 📊 Geçmiş Test** sütunu (3'lü değil, **2'li**; 3. tarih seçicileri global olarak gizli/devre dışı).
+- İSTİSNA: Excel sayfasının 🧪 Deneme Excel sekmesi 🔮 Yeni Tahmin + **3** geçmiş test kullanır (`dxDateSel3` gizlenmez, menüdeki 📅 Son 2 yine de 3 alanı da doldurur).
 - Geçmiş test seçili değilse **boş yer/boşluk bırakma**; seçilmeyen sütun hiç yer kaplamaz (tüm sayfalarda).
 - Henüz üretilmemiş (boş) 🔮 Yeni Tahmin sütunu da, geçmiş test sütunları açıkken yer tutmaz (Anlık/Basit `qt-pair-row`, Nihai, Net Odaklı).
 - Geçmiş testler **ileriye bakmaz** (walk-forward): hedef tarihten ÖNCEKİ verilerle kurulur.

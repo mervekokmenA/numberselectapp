@@ -421,7 +421,7 @@ button,select,input,textarea{font-family:inherit}
 select,input[type=text],input[type=number],input:not([type]),textarea{border-radius:10px}
 input.counter-val{background:rgba(0,0,0,.04)}
 ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(90,90,132,.3);border-radius:8px}::-webkit-scrollbar-track{background:transparent}
-select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
+select[id$="Date3"]:not(#dxDateSel3),select[id$="DateSel3"]:not(#dxDateSel3){display:none!important}
 @media(min-width:601px){.qt-pair-row.qt-n1{grid-template-columns:minmax(0,1fr)!important}.qt-pair-row.qt-n2{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(min-width:1101px){.qt-pair-row.qt-n3{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
 /* Nihai/Net Odaklı: Yeni Tahmin henüz üretilmediyse (boş) ve geçmiş test sütunları açıksa boş sütun yer tutmaz */
@@ -29919,10 +29919,10 @@ function _dxHesRender(gid){
   const sec=_dxHesSecim(gid);
   // 🔮 Yeni Tahmin + en çok 2 geçmiş test (üstteki tarih seçicileri); geçmiş testte "son çekiliş" = hedefin bir öncesi
   const sut=[{ad:'🔮 Yeni Tahmin',son:draws[0],hedef:_dxSonraki(gid),actual:null}];
-  ['dxDateSel','dxDateSel2'].forEach((id,i)=>{
+  ['dxDateSel','dxDateSel2','dxDateSel3'].forEach((id,i)=>{
     const v=(document.getElementById(id)||{}).value;if(!v)return;
     const ix=draws.findIndex(d=>d.date===v);if(ix<0||!draws[ix+1])return;
-    sut.push({ad:'📊 '+(i?'2. ':'')+'Geçmiş Test · '+v,son:draws[ix+1],hedef:v,actual:draws[ix]});
+    sut.push({ad:'📊 '+(i?(i+1)+'. ':'')+'Geçmiş Test · '+v,son:draws[ix+1],hedef:v,actual:draws[ix]});
   });
   const kolHtml=c=>{
     const G=_dxHesGruplar(gid,c.son),aS=c.actual?new Set(c.actual.nums||[]):null,yS=aS?_fadYakinSet(aS,g.max):null;
@@ -30519,7 +30519,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
 // 3. slot seçicisi gizlenir ve değeri hep '' döner → hiçbir sayfa 3. geçmiş test sütunu kurmaz,
 // "son çekilişleri doldur" da yalnızca 2 alanı doldurur.
 (function _iki(){
-  const sec='select[id$="Date3"],select[id$="DateSel3"]';
+  const sec='select[id$="Date3"]:not(#dxDateSel3),select[id$="DateSel3"]:not(#dxDateSel3)';
   function nötr(){
     document.querySelectorAll(sec).forEach(e=>{
       if(e.dataset.iki)return;e.dataset.iki='1';
