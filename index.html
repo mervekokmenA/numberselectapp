@@ -414,6 +414,7 @@ button,select,input,textarea{font-family:inherit}
 select,input[type=text],input[type=number],input:not([type]),textarea{border-radius:10px}
 input.counter-val{background:rgba(0,0,0,.04)}
 ::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-thumb{background:rgba(90,90,132,.3);border-radius:8px}::-webkit-scrollbar-track{background:transparent}
+select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
 </style>
 </head>
 <body>
@@ -448,8 +449,8 @@ input.counter-val{background:rgba(0,0,0,.04)}
   <div id="globalOyunRow" style="display:flex;gap:5px;flex-wrap:wrap;flex:1;min-width:0"></div>
   <button onclick="_globalVeriKontrol()" id="globalVeriBtn" title="Seçili oyunun çekiliş verileri güncel mi? Kaynaktan kontrol et"
     style="font-size:.8rem;line-height:1;padding:5px 10px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;flex-shrink:0">🔄</button>
-  <button onclick="_t3Doldur()" title="Bu sayfadaki geçmiş test tarihlerini son 3 çekilişle (yeniden eskiye) doldurur"
-    style="font-size:.66rem;font-weight:700;padding:5px 12px;border-radius:7px;border:1px solid rgba(0,150,58,.35);background:rgba(0,150,58,.09);color:var(--text);cursor:pointer;flex-shrink:0">📅 Son 3 çekilişi doldur</button>
+  <button onclick="_t3Doldur()" title="Bu sayfadaki geçmiş test tarihlerini son 2 çekilişle (yeniden eskiye) doldurur"
+    style="font-size:.66rem;font-weight:700;padding:5px 12px;border-radius:7px;border:1px solid rgba(0,150,58,.35);background:rgba(0,150,58,.09);color:var(--text);cursor:pointer;flex-shrink:0">📅 Son 2 çekilişi doldur</button>
 </div>
 
 <div class="app">
@@ -27231,7 +27232,7 @@ function _kkKume(){
 let _KK_SEC={};
 function _kkSecim(cid){return _KK_SEC[cid]||(_KK_SEC[cid]=['','','']);}
 // select id'leri "<cid>Date" / "<cid>Date2" / "<cid>Date3" — menü altındaki
-// 📅 Son 3 çekilişi doldur butonu (_t3Doldur) bu adlandırmayı kendiliğinden yakalar.
+// 📅 Son 2 çekilişi doldur butonu (_t3Doldur) bu adlandırmayı kendiliğinden yakalar.
 function _kkTarihSec(cid,slot,val){
   const s=_kkSecim(cid);
   s[slot]=val||'';
@@ -27284,7 +27285,7 @@ function _kkRender(){
     const sec=_kkSecim(cid);
     // Tarih seçicileri başlık satırında küçük durur; 📊 sütunları YALNIZCA tarih seçilince açılır
     // (kullanıcı isteği: boş geçmiş alanları baştan yer kaplamasın). Seçiciler görünür kaldığı için
-    // 📅 Son 3 çekilişi doldur (_t3Doldur) onları bulmaya devam eder.
+    // 📅 Son 2 çekilişi doldur (_t3Doldur) onları bulmaya devam eder.
     const seciciler=['','2','3'].map((sl,i)=>{
       const val=sec[i]||'';
       const opsiyon=`<option value="">📊 ${i===0?'Geçmiş test':(i+1)+'. geçmiş test'}</option>`
@@ -30431,6 +30432,23 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
   }
 })();
 
+
+// ═══ Geçmiş test alanları 2'li: 3. tarih seçicileri her yerde devre dışı ═══
+// 3. slot seçicisi gizlenir ve değeri hep '' döner → hiçbir sayfa 3. geçmiş test sütunu kurmaz,
+// "son çekilişleri doldur" da yalnızca 2 alanı doldurur.
+(function _iki(){
+  const sec='select[id$="Date3"],select[id$="DateSel3"]';
+  function nötr(){
+    document.querySelectorAll(sec).forEach(e=>{
+      if(e.dataset.iki)return;e.dataset.iki='1';
+      try{Object.defineProperty(e,'value',{get(){return '';},set(){},configurable:true});}catch(x){}
+      e.style.display='none';
+    });
+  }
+  nötr();
+  let t=null;
+  new MutationObserver(()=>{clearTimeout(t);t=setTimeout(nötr,30);}).observe(document.documentElement,{childList:true,subtree:true});
+})();
 </script>
 
 <!-- ═══════════ GİZLİ ANALİZ SAYFASI ═══════════ -->
