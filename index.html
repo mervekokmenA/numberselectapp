@@ -983,11 +983,17 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
 
 <!-- ═══════════ PAGE: GEÇMİŞ KAZANAN + KRONOLOJİ ═══════════ -->
 <div style="grid-column:1/-1;display:none" id="page-kazanan">
+ <!-- 🌐 Geçmiş kazanan verisi güncel olmayabilir: internetten (mynet ikramiye sayfaları) güncelle -->
+ <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+  <button id="kznNetBtn" onclick="_kznInternet()" title="Son çekilişlerin ikramiye sayfalarını internetten tarar; büyük ikramiyenin çıktığı çekilişleri Geçmiş Kazanan listesine ekler" style="font-size:.74rem;padding:7px 15px;border-radius:9px;border:1px solid rgba(16,185,129,.55);background:rgba(16,185,129,.12);color:#0a9a6a;cursor:pointer;font-weight:800">🌐 Geçmiş Kazananları İnternetten Güncelle</button>
+  <span id="kznNetDurum" style="font-size:.62rem;color:var(--muted)"></span>
+ </div>
  <div class="tabs" id="kazTabs">
   <button class="tab-btn active" id="kazTabBtn-kazanan" onclick="_kazSwitchTab('kazanan')">🏆 Kazanan</button>
   <button class="tab-btn" id="kazTabBtn-kronoloji" onclick="_kazSwitchTab('kronoloji')">📜 Kronoloji</button>
  </div>
  <div class="tab-panel active" id="kazTab-kazanan">
+  <div id="kznFiltBar"></div>
   <div class="card">
    <div class="card-title">🏆 Geçmiş Kazanan</div>
    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -1007,6 +1013,7 @@ input.counter-val::-webkit-outer-spin-button,input.counter-val::-webkit-inner-sp
   </div>
  </div>
  <div class="tab-panel" id="kazTab-kronoloji">
+  <div id="kronFiltBar"></div>
   <div class="card" style="margin-bottom:12px;border:2px solid rgba(190,24,93,.45);background:linear-gradient(135deg,rgba(190,24,93,.05),transparent)">
    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
     <div class="card-title" style="margin:0">🔗 Örüntü Tahmini — Ardışık Çekiliş İlişkileri</div>
@@ -19779,12 +19786,162 @@ function _kazananSetCtx(val){
   const inp=document.getElementById('kznCtxInput');if(inp)inp.value=_kazananCtx;
   _kazananRender();
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🔎 SAYI FİLTRESİ — Kazanan ve Kronoloji sekmeleri (kullanıcı isteği)
+// Tabın hemen altında oyunun çekilen sayı adedi kadar kutucuk. Her kutucuğa elle sayı yazılır;
+// yalnızca 🔎 Filtrele'ye basınca uygulanır.
+//   ☐ işaretsiz  → her dolu kutucuk, çekilişte AYNI SIRADAKİ (o hane) sayıyla birebir eşleşmeli.
+//   ☑ işaretli   → "tüm hanelerde ara": yazılan sayıların HEPSİ çekilişte (sıra fark etmeksizin) bulunmalı.
+// Kazanan sekmesinde ☑ ile işaretlenmiş çekilişler ve ± bağlam satırları filtreden BAĞIMSIZ gösterilir.
+// ═══════════════════════════════════════════════════════════════════════════
+const _SF={kzn:{aktif:false,deger:[],bonus:null,sirasiz:false},kron:{aktif:false,deger:[],bonus:null,sirasiz:false}};
+function _sfKutuAdet(gids){
+  let n=0,b=false;
+  (gids||[]).forEach(gid=>{
+    const dr=(typeof _scanGetDraws==='function'?_scanGetDraws(gid):[])||[];
+    for(let i=0;i<Math.min(40,dr.length);i++)n=Math.max(n,(dr[i].nums||[]).length);
+    const g=getGame(gid);if(g&&g.bonusCount>0)b=true;
+  });
+  return {n:n||6,b};
+}
+function _sfBar(p,gids){
+  const el=document.getElementById(p+'FiltBar');if(!el)return;
+  const {n,b}=_sfKutuAdet(gids);
+  const imza=n+'|'+(b?1:0);
+  if(el.dataset.imza!==imza){
+    el.dataset.imza=imza;
+    const kutu=(id,ph)=>`<input type="number" id="${id}" min="1" max="99" placeholder="${ph}" onkeydown="if(event.key==='Enter')_sfUygula('${p}')" style="width:46px;text-align:center;font-size:.76rem;font-family:monospace;padding:5px 3px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:7px">`;
+    let h=`<div class="card" style="margin-bottom:12px;padding:10px 12px"><div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">`
+      +`<span style="font-size:.66rem;font-weight:800;color:var(--accent);margin-right:2px">🔎 Sayı Filtresi</span>`;
+    for(let i=0;i<n;i++)h+=kutu(p+'SfK'+i,(i+1)+'.');
+    if(b)h+=`<span style="color:var(--muted)">|</span>`+kutu(p+'SfB','bonus');
+    h+=`<label style="display:inline-flex;align-items:center;gap:5px;font-size:.66rem;color:var(--muted);cursor:pointer;margin-left:auto" title="İşaretliyse yazdığın sayıları TÜM hanelerde (sıra fark etmeksizin) arar; işaretli değilse her sayı yalnızca yazdığın kutucuğun hanesinde aranır"><input type="checkbox" id="${p}SfSirasiz" style="cursor:pointer;accent-color:var(--accent)">Tüm hanelerde ara (sıra fark etmez)</label>`
+      +`<button onclick="_sfUygula('${p}')" style="font-size:.72rem;padding:6px 16px;border-radius:8px;border:1px solid rgba(108,99,255,.55);background:rgba(108,99,255,.16);color:var(--accent);cursor:pointer;font-weight:800">🔎 Filtrele</button>`
+      +`<button onclick="_sfTemizle('${p}')" style="font-size:.66rem;padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);color:var(--muted);cursor:pointer">Temizle</button>`
+      +`</div><div id="${p}SfDurum" style="font-size:.6rem;color:var(--muted);margin-top:6px"></div></div>`;
+    el.innerHTML=h;
+    // kutu sayısı değiştiyse (oyun değişimi) eski filtre geçersiz
+    _SF[p]={aktif:false,deger:[],bonus:null,sirasiz:false};
+  }
+}
+function _sfOku(p){
+  const el=document.getElementById(p+'FiltBar');if(!el)return null;
+  const n=parseInt((el.dataset.imza||'0').split('|')[0])||0;
+  const deger=[];for(let i=0;i<n;i++){const v=parseInt(document.getElementById(p+'SfK'+i)?.value);deger.push(v>0?v:null);}
+  const bv=parseInt(document.getElementById(p+'SfB')?.value);
+  const bonus=bv>0?bv:null;
+  const sirasiz=!!document.getElementById(p+'SfSirasiz')?.checked;
+  return {deger,bonus,sirasiz,aktif:deger.some(v=>v!=null)||bonus!=null};
+}
+function _sfUygula(p){
+  const f=_sfOku(p);if(!f)return;
+  _SF[p]=f;
+  if(p==='kzn')_kazananRender();else _kronRender();
+}
+function _sfTemizle(p){
+  const el=document.getElementById(p+'FiltBar');if(el)el.querySelectorAll('input[type=number]').forEach(i=>{i.value='';});
+  const c=document.getElementById(p+'SfSirasiz');if(c)c.checked=false;
+  _SF[p]={aktif:false,deger:[],bonus:null,sirasiz:false};
+  if(p==='kzn')_kazananRender();else _kronRender();
+}
+// Çekiliş filtreye uyuyor mu? (haneler = ekranda göründüğü sırayla)
+function _sfEslesir(d,F){
+  if(!F||!F.aktif)return true;
+  const nums=d.nums||[],bon=d.bonus||[];
+  if(F.bonus!=null&&bon.indexOf(F.bonus)<0)return false;
+  const dolu=F.deger.map((v,i)=>[v,i]).filter(x=>x[0]!=null);
+  if(F.sirasiz)return dolu.every(([v])=>nums.indexOf(v)>=0);
+  return dolu.every(([v,i])=>nums[i]===v);
+}
+// Eşleşen sayıları vurgulamak için: hangi (hane,sayı) çiftleri filtreden geldi
+function _sfVurgu(F){
+  if(!F||!F.aktif)return null;
+  return {sirasiz:F.sirasiz,set:new Set(F.deger.filter(v=>v!=null)),poz:F.deger};
+}
+function _sfDurumYaz(p,n,toplam,sabit){
+  const el=document.getElementById(p+'SfDurum');if(!el)return;
+  const f=_SF[p];
+  el.innerHTML=f&&f.aktif
+    ?`Filtre aktif · <strong style="color:var(--text)">${n}</strong> çekiliş eşleşti${toplam!=null?` / ${toplam}`:''}${sabit?` · <span style="color:var(--green)">☑ işaretli + bağlam ${sabit} satır filtreden bağımsız gösterildi</span>`:''} · ${f.sirasiz?'tüm hanelerde, sırasız':'haneye göre birebir'}`
+    :'Filtre kapalı — kutucuklara sayı yazıp 🔎 Filtrele\'ye bas.';
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 🌐 GEÇMİŞ KAZANAN — internetten güncelleme (mynet ikramiye sayfaları)
+// Her çekilişin sayfasında en üst kademenin "X bilen kişi sayısı" ve "kişi başına ikramiye"
+// satırı var; kişi sayısı > 0 ise büyük ikramiye çıkmıştır, toplam = kişi × kişi başı.
+// Sonuç localStorage'da tutulur ve gömülü JACKPOT_DATA ile birleştirilir (gömülü veri değişmez).
+// ═══════════════════════════════════════════════════════════════════════════
+const _KZN_SLUG={sayisal:'sayisal-loto',super:'super-loto',sans:'sans-topu',onnumara:'on-numara'};
+const _KZN_AY=['ocak','subat','mart','nisan','mayis','haziran','temmuz','agustos','eylul','ekim','kasim','aralik'];
+const _KZN_AY_TR=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+function _kznCanli(){try{return JSON.parse(localStorage.getItem('_kznCanli')||'{}');}catch(e){return {};}}
+function _kznCanliKaydet(o){try{localStorage.setItem('_kznCanli',JSON.stringify(o));}catch(e){}}
+// Gömülü + internetten gelen kazananlar
+function _kznOnayli(gid){return Object.assign({},JACKPOT_DATA[gid]||{},(_kznCanli()[gid]||{}));}
+// HTML ya da düz metin (r.jina.ai) — ikisini de kabul eder.
+function _kznParse(metin,tarih){
+  const t=String(metin||'').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<[^>]+>/g,' ').replace(/[*|#]/g,' ').replace(/&nbsp;/g,' ').replace(/\s+/g,' ');
+  const [y,mo,d]=tarih.split('-').map(Number);
+  // Sayfa gerçekten İSTENEN tarihe mi ait? (geçersiz tarihte site en güncele yönlendirebilir)
+  if(!new RegExp('(?:^|\\D)0?'+d+'\\s+'+_KZN_AY_TR[mo-1]+'\\s+'+y,'i').test(t))return null;
+  const m=/(\d+(?:\+\d+)?)\s*bilen kişi sayısı:?\s*([\d.]+)\s*Kişi başına düşen ikramiye tutarı:?\s*([\d.]+,\d{2})/i.exec(t);
+  if(!m)return null;
+  const kisi=+m[2].replace(/\./g,''),tutar=+m[3].replace(/\./g,'').replace(',','.');
+  return {kademe:m[1],kisi,tutar,toplam:Math.round(kisi*tutar)};
+}
+let _kznNetCalisiyor=false;
+async function _kznInternet(){
+  if(_kznNetCalisiyor)return;
+  _kznNetCalisiyor=true;
+  const btn=document.getElementById('kznNetBtn'),dur=document.getElementById('kznNetDurum');
+  const yaz=t=>{if(dur)dur.textContent=t;};
+  if(btn){btn.disabled=true;btn.style.opacity='.6';}
+  const canli=_kznCanli();let yeni=0,bakilan=0,hata=0;
+  try{
+    const isler=[];
+    GAMES.forEach(g=>{
+      (_scanGetDraws(g.id)||[]).slice(0,10).forEach(d=>isler.push({gid:g.id,tarih:d.date.slice(0,10)}));
+    });
+    let i=0;
+    const calis=async()=>{
+      while(i<isler.length){
+        const is=isler[i++];
+        const [y,mo,d]=is.tarih.split('-');
+        const url='https://www.mynet.com/sans-oyunlari/'+_KZN_SLUG[is.gid]+'-sonuclari/'+d+'-'+_KZN_AY[+mo-1]+'-'+y;
+        try{
+          let html;try{html=await proxyFetch(url);}catch(e1){html=await proxyFetch(url);}   // proxy aralıklı düşüyor: bir kez daha dene
+          const r=_kznParse(html,is.tarih);
+          bakilan++;
+          if(r){
+            if(!canli[is.gid])canli[is.gid]={};
+            const onceki=(canli[is.gid][is.tarih]||0)||((JACKPOT_DATA[is.gid]||{})[is.tarih]||0);
+            if(r.kisi>0&&r.toplam>0){if(!onceki)yeni++;canli[is.gid][is.tarih]=r.toplam;}
+            else if(canli[is.gid][is.tarih]!==undefined&&!(JACKPOT_DATA[is.gid]||{})[is.tarih])delete canli[is.gid][is.tarih];
+          }else hata++;
+        }catch(e){hata++;}
+        yaz('⏳ '+(bakilan+hata)+' / '+isler.length+' çekiliş tarandı…');
+      }
+    };
+    await Promise.all([calis(),calis(),calis()]);
+    _kznCanliKaydet(canli);
+    const zaman=new Date().toLocaleString('tr-TR');
+    yaz(bakilan?('✅ '+bakilan+' çekiliş tarandı · '+yeni+' yeni kazanan eklendi'+(hata?' · '+hata+' sayfaya ulaşılamadı':'')+' · '+zaman):'⚠️ Hiçbir sayfaya ulaşılamadı — internet/proxy engelliyor olabilir.');
+    if(typeof showToast==='function')showToast(bakilan?('🌐 '+yeni+' yeni kazanan eklendi'):'⚠️ İnternetten veri alınamadı');
+    try{_kazananRender();}catch(e){}
+  }finally{
+    _kznNetCalisiyor=false;
+    if(btn){btn.disabled=false;btn.style.opacity='';}
+  }
+}
 function _kazananRender(){
   const el=document.getElementById('kznList');if(!el)return;
+  _sfBar('kzn',[_kazananGame||state.selectedGame||GAMES[0].id]);
   const gameId=_kazananGame||state.selectedGame||GAMES[0].id;
   const draws=_scanGetDraws(gameId);
   const userMarks=_kazananMarks[gameId]||{};
-  const confirmed=JACKPOT_DATA[gameId]||{};
+  const confirmed=_kznOnayli(gameId);
   const allWins=new Set([...Object.keys(confirmed),...Object.keys(userMarks)]);
   const ctx=_kazananCtx;
   if(!draws.length){el.innerHTML='<div style="text-align:center;padding:24px;color:var(--muted);font-size:.78rem">Bu oyun için veri yok</div>';return;}
@@ -19792,26 +19949,54 @@ function _kazananRender(){
   let showIdx=null;
   const markedSet=new Set(Object.keys(userMarks));
   const confirmedSet=new Set(Object.keys(confirmed));
-  if(!_kazananShowAll){
-    if(ctx>0&&markedSet.size>0){
-      // Context mode: only marked rows ± ctx draws around them
-      showIdx=new Set();
-      draws.forEach((d,i)=>{
-        if(markedSet.has(d.date)){
-          for(let j=Math.max(0,i-ctx);j<=Math.min(draws.length-1,i+ctx);j++)showIdx.add(j);
+  const F=_SF.kzn,filtreAktif=!!(F&&F.aktif);
+  let sabitSay=0;
+  if(filtreAktif){
+    // 🔎 Filtre: taban küme (Sadece Kazananlar ya da Tüm Çekilişler) filtreden geçer. ☑ işaretli çekilişler
+    // ve ± bağlam satırları filtreden BAĞIMSIZ her zaman gösterilir (kullanıcı isteği).
+    showIdx=new Set();
+    draws.forEach((d,i)=>{
+      const tabanda=_kazananShowAll||confirmedSet.has(d.date)||markedSet.has(d.date);
+      if(tabanda&&_sfEslesir(d,F))showIdx.add(i);
+    });
+    const eslesen=showIdx.size;
+    draws.forEach((d,i)=>{
+      if(markedSet.has(d.date)){
+        for(let j=Math.max(0,i-ctx);j<=Math.min(draws.length-1,i+ctx);j++){if(!showIdx.has(j))sabitSay++;showIdx.add(j);}
+      }
+    });
+    _sfDurumYaz('kzn',eslesen,_kazananShowAll?draws.length:confirmedSet.size,sabitSay);
+    if(!showIdx.size){
+      el.innerHTML='<div style="text-align:center;padding:32px;color:var(--muted);font-size:.78rem;line-height:2">Filtreye uyan çekiliş yok.<br><span style="font-size:.7rem;opacity:.7">'+(_kazananShowAll?'':'Yalnızca kazanan çekilişlerde aranıyor — tüm çekilişlerde aramak için <strong>Tüm Çekilişler</strong>\'e geç.')+'</span></div>';
+      return;
+    }
+  }else{
+    _sfDurumYaz('kzn',0);
+    if(!_kazananShowAll){
+      if(ctx>0&&markedSet.size>0){
+        // Context mode: only marked rows ± ctx draws around them
+        showIdx=new Set();
+        draws.forEach((d,i)=>{
+          if(markedSet.has(d.date)){
+            for(let j=Math.max(0,i-ctx);j<=Math.min(draws.length-1,i+ctx);j++)showIdx.add(j);
+          }
+        });
+      } else {
+        // Default: show only confirmed jackpot rows (+ user-marked)
+        showIdx=new Set();
+        draws.forEach((d,i)=>{if(confirmedSet.has(d.date)||markedSet.has(d.date))showIdx.add(i);});
+        if(showIdx.size===0){
+          el.innerHTML='<div style="text-align:center;padding:32px;color:var(--muted);font-size:.78rem;line-height:2">Bu oyun için işaretli kazanan yok.<br><span style="font-size:.7rem;opacity:.7">Tüm Çekilişler butonuyla göz atıp işaret ekleyebilirsin.</span></div>';
+          return;
         }
-      });
-    } else {
-      // Default: show only confirmed jackpot rows (+ user-marked)
-      showIdx=new Set();
-      draws.forEach((d,i)=>{if(confirmedSet.has(d.date)||markedSet.has(d.date))showIdx.add(i);});
-      if(showIdx.size===0){
-        el.innerHTML='<div style="text-align:center;padding:32px;color:var(--muted);font-size:.78rem;line-height:2">Bu oyun için işaretli kazanan yok.<br><span style="font-size:.7rem;opacity:.7">Tüm Çekilişler butonuyla göz atıp işaret ekleyebilirsin.</span></div>';
-        return;
       }
     }
   }
-  const numSpan=(n,gold)=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 3px;border-radius:5px;background:${gold?'rgba(0,150,58,.14)':'rgba(0,0,0,.06)'};color:var(--text);font-size:.72rem;font-weight:${gold?800:500};font-family:monospace">${n}</span>`;
+  const vurgu=_sfVurgu(filtreAktif?F:null);
+  const numSpan=(n,gold,hane)=>{
+    const vur=vurgu&&(vurgu.sirasiz?vurgu.set.has(n):vurgu.poz[hane]===n);
+    const bg=vur?'rgba(108,99,255,.30)':gold?'rgba(0,150,58,.14)':'rgba(0,0,0,.06)';
+    return `<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 3px;border-radius:5px;background:${bg};${vur?'outline:2px solid var(--accent);':''}color:var(--text);font-size:.72rem;font-weight:${gold||vur?800:500};font-family:monospace">${n}</span>`;};
   const bonusSpan=n=>`<span style="display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:22px;padding:0 3px;border-radius:5px;background:rgba(129,140,248,.12);color:var(--accent);font-size:.72rem;font-weight:500;font-family:monospace">${n}</span>`;
   let html='';
   let prevIdx=-2;
@@ -19824,7 +20009,7 @@ function _kazananRender(){
     if(showIdx&&i>prevIdx+1&&html!=='')html+=`<div style="text-align:center;padding:4px 0;color:rgba(0,0,0,.12);font-size:.62rem;letter-spacing:.1em">· · ·</div>`;
     const bg=isConfirmed?'rgba(0,150,58,.05)':isUserMarked?'rgba(0,150,58,.08)':isCtxRow?'rgba(108,99,255,.03)':'transparent';
     const bd=isConfirmed?'1px solid rgba(0,150,58,.28)':isUserMarked?'1px solid rgba(0,150,58,.35)':'1px solid transparent';
-    const numsHtml=(d.nums||[]).map(n=>numSpan(n,isConfirmed)).join('');
+    const numsHtml=(d.nums||[]).map((n,hi)=>numSpan(n,isConfirmed,hi)).join('');
     const bonusHtml=(d.bonus||[]).length?`<span style="color:rgba(0,0,0,.12);margin:0 3px">|</span>`+(d.bonus||[]).map(bonusSpan).join(''):'';
     // Left icon: checkbox for win rows, neutral dot for context rows
     const leftIcon=isCtxRow
@@ -20888,8 +21073,13 @@ function _kronLoadMore(){
 function _kronRenderInner(){
   const el=document.getElementById('kronResult');if(!el)return;
   _kronPrevDrawIdx={};
-  const draws=_kronCollectDraws();
-  if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>Henüz çekiliş verisi yok.</div>';return;}
+  _sfBar('kron',GAMES.filter(g=>g.id!=='onnumara'&&(!_kronGameFilter||g.id===_kronGameFilter)).map(g=>g.id));
+  const tumDraws=_kronCollectDraws();
+  const KF=_SF.kron;
+  const draws=(KF&&KF.aktif)?tumDraws.filter(d=>_sfEslesir(d,KF)):tumDraws;
+  _sfDurumYaz('kron',draws.length,tumDraws.length);
+  const kronVurgu=_sfVurgu(KF&&KF.aktif?KF:null);
+  if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>'+((KF&&KF.aktif)?'Filtreye uyan çekiliş yok.':'Henüz çekiliş verisi yok.')+'</div>';return;}
   const weekMap=new Map();
   draws.forEach(d=>{
     const wk=_kronWeekStart(d.date);
@@ -20934,7 +21124,7 @@ function _kronRenderInner(){
   visibleKeys.forEach((wk,idx)=>{
     if(idx>0)html+=`<tr><td colspan="6" style="height:12px;border:1px solid var(--border)"></td></tr>`;
     weekMap.get(wk).forEach(d=>{
-      const numsStr=d.nums.join(', ');
+      const numsStr=d.nums.map((n,hi)=>{const vur=kronVurgu&&(kronVurgu.sirasiz?kronVurgu.set.has(n):kronVurgu.poz[hi]===n);return vur?`<span style="background:rgba(108,99,255,.30);outline:2px solid var(--accent);border-radius:4px;padding:0 3px;font-weight:800">${n}</span>`:n;}).join(', ');
       const bonusStr=d.bonus&&d.bonus.length?` <span style="color:var(--muted)">|</span> ${d.bonus.join(', ')}`:'';
       const game=getGame(d.gameId);
       const srcDraw=game?_kronPrevDraw(d):null;
