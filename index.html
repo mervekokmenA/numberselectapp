@@ -1343,6 +1343,13 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3),select[id
   </div>
   <div id="tfOut" data-ny-yok="1"></div>
  </div>
+ <div class="card">
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+   <div id="tfGecmisBaslik" class="card-title" style="margin:0">🕘 Test Geçmişi</div>
+   <button onclick="_tsGecmisSil()" style="font-size:.6rem;padding:3px 10px;border-radius:12px;border:1px solid rgba(220,60,60,.4);background:rgba(220,60,60,.08);color:#c0392b;cursor:pointer">🗑️ Temizle</button>
+  </div>
+  <div id="tfGecmisOut" data-ny-yok="1" data-ex-atla="1"></div>
+</div>
 </div>
 
 
@@ -30329,6 +30336,7 @@ function _tsKolonHtml(gid,prior,tarih,actual,yeni,k){
   h+=`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:.62rem;font-weight:800;color:var(--text)">📚 Kaynak kümeleri</summary>`;
   ks.forEach(s=>{h+=`<div style="margin:5px 0"><div style="display:flex;gap:6px;align-items:baseline;flex-wrap:wrap;margin-bottom:2px"><span style="font-size:.58rem;font-weight:800">${s.ad}</span>${ozet(s.set)}</div><div style="display:flex;flex-wrap:wrap;gap:3px" data-lp="${s.set.join(' ')}">${s.set.map(roz).join('')}</div></div>`;});
   h+=`</details>`;
+  (window._tsSonKol=window._tsSonKol||{})[yeni?'y':'g'+k]={tarih,bil,ortak:[...ortak],yakin:[...yakin]};
   return h+'</div>';
 }
 function _tsRender(){
@@ -30343,18 +30351,56 @@ function _tsRender(){
     const ix=draws.findIndex(d=>d.date===v);if(ix<0||draws.length-ix-1<70)return;
     sut.push({prior:draws.slice(ix+1),tarih:v,actual:draws[ix]});
   });
-  const tok=++_tsToken;
+  const tok=++_tsToken;let bitti=0;window._tsSonKol={};
   el.innerHTML=`<div id="tfGrid" style="display:grid;grid-template-columns:repeat(${sut.length},minmax(0,1fr));gap:14px;align-items:start;grid-template-columns:repeat(auto-fit,minmax(270px,1fr))">${sut.map(()=>'<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Kuruluyor…</div>').join('')}</div>`;
   const grid=document.getElementById('tfGrid');
   sut.forEach((c,i)=>setTimeout(()=>{
     if(tok!==_tsToken)return;
     let h;try{h=_tsKolonHtml(gid,c.prior,c.tarih,c.actual,!c.actual,i-1);}catch(e){h=`<div style="color:#cc2222;font-size:.7rem">Hata: ${e.message}</div>`;}
     const cell=grid.children[i];if(cell)cell.outerHTML=h;
+    if(++bitti===sut.length){try{_tsKaydet(gid,sut);}catch(e){}_tsGecmisRender();}
   },30+i*40));
+}
+// ── 🕘 Geçmiş: oyun başına son 20 benzersiz Test ekranı (oluşma zamanıyla) ──
+const _TS_GECMIS_N=20;
+function _tsGecmisOku(gid){try{const j=JSON.parse(localStorage.getItem('_tsGecmis_'+gid)||'[]');return Array.isArray(j)?j:[];}catch(e){return [];}}
+function _tsKaydet(gid,sut){
+  const st=window._tsSonKol||{},y=st.y;if(!y||!y.bil||!y.bil.length)return;
+  const tipId=(document.getElementById('tfAlgo')||{}).value||'',adet=parseInt((document.getElementById('tfAdet')||{}).value)||10;
+  const key=[gid,tipId,adet,y.tarih,y.bil.map(t=>t.join(' ')).join('/')].join('|');
+  let l=_tsGecmisOku(gid);
+  if(l.some(e=>e.key===key))return;                         // aynı ekran zaten kayıtlı (benzersiz)
+  l.unshift({key,t:Date.now(),tip:tipId,adet,hedef:y.tarih,yeni:{bil:y.bil,ortak:y.ortak,yakin:y.yakin},
+    gecmis:sut.slice(1).map((c,i)=>{const x=st['g'+i];return x?{tarih:x.tarih,bil:x.bil}:null;}).filter(Boolean)});
+  l=l.slice(0,_TS_GECMIS_N);
+  try{localStorage.setItem('_tsGecmis_'+gid,JSON.stringify(l));}catch(e){}
+}
+function _tsGecmisSil(){const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id;if(!confirm(getGame(gid).name+' için kayıtlı Test geçmişi silinsin mi?'))return;try{localStorage.removeItem('_tsGecmis_'+gid);}catch(e){}_tsGecmisRender();}
+function _tsGecmisRender(){
+  const el=document.getElementById('tfGecmisOut');if(!el)return;
+  const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id,g=getGame(gid),draws=_kbGetDraws(gid)||[];
+  const l=_tsGecmisOku(gid);
+  const bas=document.getElementById('tfGecmisBaslik');if(bas)bas.textContent='🕘 Test Geçmişi — '+g.emoji+' '+g.name+' (son '+_TS_GECMIS_N+', benzersiz)';
+  if(!l.length){el.innerHTML='<div style="font-size:.64rem;color:var(--muted)">Henüz kayıt yok. Bu sayfada oluşan her yeni bilet kümesi (oluşma zamanıyla) burada saklanır.</div>';return;}
+  const tipAd=id=>((_TS_TIP.find(t=>t.id===id)||{}).ad)||id;
+  el.innerHTML=l.map(e=>{
+    const act=draws.find(d=>d.date===e.hedef),aS=act?new Set(act.nums||[]):null,yS=aS?_fadYakinSet(aS,g.max):null;
+    let en=0,enYk=0,toplamEn=0;
+    if(aS)e.yeni.bil.forEach(t=>{const n=t.filter(x=>aS.has(x)).length,yk=t.filter(x=>!aS.has(x)&&yS.has(x)).length;if(n+yk>toplamEn||(n+yk===toplamEn&&n>en)){toplamEn=n+yk;en=n;enYk=yk;}});
+    const zaman=new Date(e.t).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const roz=n=>_fadRozet(n,_fadDurum(n,aS,yS));
+    const ozet=aS?`<strong style="color:var(--green)">✓ en iyi bilet ${en} net</strong> · <strong style="color:#c2410c">~ ${enYk} yakın</strong> <span style="color:var(--muted)">(sonuç ${[...act.nums].sort((a,b)=>a-b).join(' ')})</span>`:'<span style="color:var(--muted)">sonuç bekleniyor</span>';
+    return `<details style="border:1px solid var(--border);border-radius:10px;padding:6px 9px;margin-bottom:6px;background:var(--surface)"><summary style="cursor:pointer;font-size:.64rem"><strong>${zaman}</strong> · ${tipAd(e.tip)} · ${e.adet} bilet · hedef <strong>${e.hedef}</strong> · ${ozet}</summary>`
+      +`<div style="margin-top:6px"><div style="font-size:.6rem;font-weight:800;color:var(--accent);margin-bottom:3px">🔮 Yeni Tahmin biletleri</div>${_nnRenderTickets(g,e.yeni.bil.map(t=>({main:t})),aS)}`
+      +`<div style="font-size:.58rem;font-weight:800;margin:6px 0 3px">🟣 Ortak</div><div style="display:flex;flex-wrap:wrap;gap:4px" data-lp="${e.yeni.ortak.join(' ')}">${e.yeni.ortak.map(roz).join('')||'—'}</div>`
+      +`<div style="font-size:.58rem;font-weight:800;margin:6px 0 3px">🟠 Yakın</div><div style="display:flex;flex-wrap:wrap;gap:4px" data-lp="${e.yeni.yakin.join(' ')}">${e.yeni.yakin.map(roz).join('')||'—'}</div>`
+      +(e.gecmis&&e.gecmis.length?e.gecmis.map(c=>{const a2=draws.find(d=>d.date===c.tarih),s2=a2?new Set(a2.nums||[]):null;return `<div style="font-size:.6rem;font-weight:800;margin:8px 0 3px">📊 Geçmiş Test · ${c.tarih}</div>${_nnRenderTickets(g,c.bil.map(t=>({main:t})),s2)}`;}).join(''):'')
+      +`</div></details>`;
+  }).join('');
 }
 function _tsInit(){
   _tsGame=(state&&state.selectedGame)||GAMES[0].id;
-  _tsSecenek(false);_tsRender();
+  _tsSecenek(false);_tsRender();_tsGecmisRender();
 }
 
 
@@ -30366,7 +30412,7 @@ function _tsInit(){
 const _DB_AYAR_KEY='_dbAyar';
 // Veritabanına taşınan kullanıcı verileri
 const _DB_ANAHTARLAR=['_predNotes','_onaTickets','_kazananMarks','_astroInputs','_hbInput','_oyunSecimGlobal'];
-const _DB_ONEKLER=['_exKol3_','drawCache_','drawDel_'];
+const _DB_ONEKLER=['_tsGecmis_','_exKol3_','drawCache_','drawDel_'];
 let _dbAyar={url:'',key:'',acik:false};
 let _dbDurum={bagli:false,mesaj:'kapalı',sonSenk:null};
 let _dbBekleyen={},_dbZaman=null;
