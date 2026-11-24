@@ -405,7 +405,8 @@ body::before{background:radial-gradient(ellipse at 15% 8%,rgba(82,72,212,.06) 0%
 .main-nav{padding:4px 6px}
 .nav-inner{max-width:none!important;margin:0!important}
 .nav-links{border:1px solid var(--border);background:rgba(255,255,255,.7);border-radius:26px;padding:4px 6px;flex:1 1 0;min-width:0}
-.nav-links .nav-link{flex:1 1 auto;text-align:center}
+.nav-links .nav-link{flex:0 0 auto;text-align:left}
+.nav-links{justify-content:flex-start;align-content:flex-start}
 .nav-links{gap:2px}
 .nav-links .nav-link{padding:5px 6px;font-size:.7rem}
 .nav-link{border-radius:20px;color:var(--muted);font-weight:500}
@@ -803,7 +804,6 @@ select[id$="Date3"],select[id$="DateSel3"]{display:none!important}
         style="width:64px;font-size:.8rem;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;text-align:center"
         oninput="this.value=Math.max(1,Math.min(10000,parseInt(this.value)||1))">
       <span style="font-size:.72rem;color:var(--muted)">bilet</span>
-      <button onclick="listelerHizliUret()" style="padding:7px 16px;background:linear-gradient(135deg,rgba(255,101,132,.22),rgba(129,140,248,.18));border:1px solid rgba(255,101,132,.5);color:#e53973;border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:800" title="Son 4 çekilişi geçmiş test olarak ekler (kırmızı hücre hesabının dayanağı), yeni tahmini üretir ve Kontrol'ü otomatik çalıştırır — Bulunan Sayılar'da son 2'si gösterilir">🚀 Son 2 + Yeni Tahmin Üret</button>
       <button onclick="listelerVeriDurumu()" style="padding:7px 14px;background:rgba(0,150,58,.09);border:1px solid rgba(0,150,58,.35);color:var(--text);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">📥 Veri Durumu</button>
       <button onclick="listelerRunBacktest()" style="padding:7px 16px;background:linear-gradient(135deg,rgba(0,230,118,.2),rgba(0,230,118,.08));border:1px solid rgba(0,230,118,.4);color:var(--green);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:700">🔬 Geçmiş Testi Çalıştır</button>
       <input type="date" id="listelerPredDate" title="Yeni tahmin hedef tarihi" style="font-size:.72rem;background:var(--surface2);border:1px solid rgba(108,99,255,.35);color:var(--text);border-radius:6px;padding:5px 8px;max-width:130px">
@@ -18243,6 +18243,8 @@ function _t3Tarihler(sel){
   return out;
 }
 function _t3Doldur(){
+  // Listeler: geçmiş testler seçici değil sütun geçmişidir — menü butonu son 2 çekilişi test olarak ekler + yeni tahmin üretir
+  if(typeof _curPage!=='undefined'&&_curPage==='listeler'&&typeof listelerHizliUret==='function'){listelerHizliUret();return;}
   const seller=[...document.querySelectorAll('select[id]')];
   let grup=0,alan=0;
   seller.forEach(s=>{

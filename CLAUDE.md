@@ -17,6 +17,7 @@ Uygulama tek dosya: `index.html` (vanilla HTML/JS, Türkçe arayüz). Test için
 - Henüz üretilmemiş (boş) 🔮 Yeni Tahmin sütunu da, geçmiş test sütunları açıkken yer tutmaz (Anlık/Basit `qt-pair-row`, Nihai, Net Odaklı).
 - Geçmiş testler **ileriye bakmaz** (walk-forward): hedef tarihten ÖNCEKİ verilerle kurulur.
 - **Kopyala butonu yalnızca 🔮 Yeni Tahmin** için; geçmiş sütunlarda kopyala yok.
+- Sayfa içi kapsayıcılarda 'son N geçmiş test' / tarih doldurma butonu OLMAZ; hepsi menüdeki 📅 Son 2 ile dolar (Listeler'de aynı buton son 2 çekilişi test sütunu olarak ekler + yeni tahmin üretir).
 - "📅 Son 2" (🔄 veri kontrolü ile birlikte) menünün sağ üst köşesinde TEK yerde durur; sayfalara tek tek 'Son 3' vb. buton konmaz.
 - Aynı bilgiyi tekrar eden bölümler yerine tek yerde göster; bir sayfada zaten tarihe göre geçmiş gösteriliyorsa ayrıca "Geçmiş Test" kapsayıcısı koyma.
 
@@ -42,4 +43,5 @@ Tarihli Çekiliş Verisi en üstte → … → 🎯 Nihai Tahmin → 🎯 Net Od
 
 ## 7. Görsel tema
 - Açık renk arka plan (koyu tema istenmedi). hamol.studio'dan alınan genel dil: Manrope yazı tipi, hap biçimli menü, yuvarlak ince çizgili kartlar, geniş harf aralıklı kart başlıkları.
+- Menü itemları sola yaslı ve sıralı (hap içinde, gerilmez/dağıtılmaz).
 - 🔲 Bölünmüş Ekran butonu menünün sol üst köşesinde (marka yanında), küçük.
