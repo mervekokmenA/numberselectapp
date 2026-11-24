@@ -30411,7 +30411,7 @@ function _tsRender(){
   },30+i*40));
 }
 // ── 🕘 Geçmiş: oyun başına son 20 benzersiz Test ekranı (oluşma zamanıyla) ──
-const _TS_GECMIS_N=20;
+const _TS_GECMIS_N=100;
 function _tsGecmisOku(gid){try{const j=JSON.parse(localStorage.getItem('_tsGecmis_'+gid)||'[]');return Array.isArray(j)?j:[];}catch(e){return [];}}
 function _tsKaydet(gid,sut){
   const st=window._tsSonKol||{},y=st.y;if(!y||!y.bil||!y.bil.length)return;
@@ -30419,7 +30419,7 @@ function _tsKaydet(gid,sut){
   const key=[gid,tipId,adet,y.tarih,y.bil.map(t=>t.join(' ')).join('/')].join('|');
   let l=_tsGecmisOku(gid);
   if(l.some(e=>e.key===key))return;                         // aynı ekran zaten kayıtlı (benzersiz)
-  l.unshift({key,t:Date.now(),tip:tipId,adet,hedef:y.tarih,yeni:{bil:y.bil,ortak:y.ortak,yakin:y.yakin},
+  l.unshift({key,t:Date.now(),tip:tipId,adet,hedef:y.tarih,yeni:{bil:y.bil},
     gecmis:sut.slice(1).map((c,i)=>{const x=st['g'+i];return x?{tarih:x.tarih,bil:x.bil}:null;}).filter(Boolean)});
   l=l.slice(0,_TS_GECMIS_N);
   try{localStorage.setItem('_tsGecmis_'+gid,JSON.stringify(l));}catch(e){}
@@ -30429,22 +30429,20 @@ function _tsGecmisRender(){
   const el=document.getElementById('tfGecmisOut');if(!el)return;
   const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id,g=getGame(gid),draws=_kbGetDraws(gid)||[];
   const l=_tsGecmisOku(gid);
-  const bas=document.getElementById('tfGecmisBaslik');if(bas)bas.textContent='🕘 Test Geçmişi — '+g.emoji+' '+g.name+' (son '+_TS_GECMIS_N+', benzersiz)';
+  const bas=document.getElementById('tfGecmisBaslik');if(bas)bas.textContent='🕘 Test Geçmişi — '+g.emoji+' '+g.name+' (oyun başına son '+_TS_GECMIS_N+', benzersiz)';
   if(!l.length){el.innerHTML='<div style="font-size:.64rem;color:var(--muted)">Henüz kayıt yok. Bu sayfada oluşan her yeni bilet kümesi (oluşma zamanıyla) burada saklanır.</div>';return;}
   const tipAd=id=>(_tsTipBul(id)||{}).ad||id;
-  el.innerHTML=l.map(e=>{
+  el.innerHTML=l.map((e,idx)=>{
     const act=draws.find(d=>d.date===e.hedef),aS=act?new Set(act.nums||[]):null,yS=aS?_fadYakinSet(aS,g.max):null;
     let en=0,enYk=0,toplamEn=0;
     if(aS)e.yeni.bil.forEach(t=>{const n=t.filter(x=>aS.has(x)).length,yk=t.filter(x=>!aS.has(x)&&yS.has(x)).length;if(n+yk>toplamEn||(n+yk===toplamEn&&n>en)){toplamEn=n+yk;en=n;enYk=yk;}});
     const zaman=new Date(e.t).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const roz=n=>_fadRozet(n,_fadDurum(n,aS,yS));
     const ozet=aS?`<strong style="color:var(--green)">✓ en iyi bilet ${en} net</strong> · <strong style="color:#c2410c">~ ${enYk} yakın</strong> <span style="color:var(--muted)">(sonuç ${[...act.nums].sort((a,b)=>a-b).join(' ')})</span>`:'<span style="color:var(--muted)">sonuç bekleniyor</span>';
-    return `<details style="border:1px solid var(--border);border-radius:10px;padding:6px 9px;margin-bottom:6px;background:var(--surface)"><summary style="cursor:pointer;font-size:.64rem"><strong>${zaman}</strong> · ${tipAd(e.tip)} · ${e.adet} bilet · hedef <strong>${e.hedef}</strong> · ${ozet}</summary>`
-      +`<div style="margin-top:6px"><div style="font-size:.6rem;font-weight:800;color:var(--accent);margin-bottom:3px">🔮 Yeni Tahmin biletleri</div>${_nnRenderTickets(g,e.yeni.bil.map(t=>({main:t})),aS)}`
-      +`<div style="font-size:.58rem;font-weight:800;margin:6px 0 3px">🟣 Ortak</div><div style="display:flex;flex-wrap:wrap;gap:4px" data-lp="${e.yeni.ortak.join(' ')}">${e.yeni.ortak.map(roz).join('')||'—'}</div>`
-      +`<div style="font-size:.58rem;font-weight:800;margin:6px 0 3px">🟠 Yakın</div><div style="display:flex;flex-wrap:wrap;gap:4px" data-lp="${e.yeni.yakin.join(' ')}">${e.yeni.yakin.map(roz).join('')||'—'}</div>`
-      +(e.gecmis&&e.gecmis.length?e.gecmis.map(c=>{const a2=draws.find(d=>d.date===c.tarih),s2=a2?new Set(a2.nums||[]):null;return `<div style="font-size:.6rem;font-weight:800;margin:8px 0 3px">📊 Geçmiş Test · ${c.tarih}</div>${_nnRenderTickets(g,c.bil.map(t=>({main:t})),s2)}`;}).join(''):'')
-      +`</div></details>`;
+    const kol=(bas,bil,s2,renk)=>`<div style="min-width:0"><div style="font-size:.66rem;font-weight:800;color:${renk};margin-bottom:4px">${bas}</div>${_nnRenderTickets(g,bil.map(t=>({main:t})),s2)}</div>`;
+    const kolonlar=[kol('🔮 Yeni Tahmin',e.yeni.bil,aS,'var(--accent)')].concat((e.gecmis||[]).map(c=>{const a2=draws.find(d=>d.date===c.tarih);return kol('📊 Geçmiş Test · '+c.tarih,c.bil,a2?new Set(a2.nums||[]):null,'var(--text)');}));
+    return `<details${idx===0?' open':''} style="border:1px solid var(--border);border-radius:10px;padding:6px 9px;margin-bottom:6px;background:var(--surface)"><summary style="cursor:pointer;font-size:.64rem"><strong>${zaman}</strong> · ${tipAd(e.tip)} · ${e.adet} bilet · hedef <strong>${e.hedef}</strong> · ${ozet}</summary>`
+      +`<div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;align-items:start">${kolonlar.join('')}</div></details>`;
   }).join('');
 }
 function _tsInit(){
