@@ -30043,7 +30043,9 @@ function _tsAlgo2Doldur(){
   const t2=document.getElementById('tfAlgo2');if(!t2)return;
   const cur=t2.value,op=k=>_TS_TIP.map(t=>`<option value="${t.id}_h${k}">${k} net · ${t.ad}</option>`).join('');
   const h9=_tsH9Aktif()?'<optgroup label="🎯 9 net hedefli (yalnızca On Numara)">'+_TS_H9.map(id=>`<option value="${id}_h9">9 net · ${(_TS_TIP.find(t=>t.id===id)||{}).ad}</option>`).join('')+'</optgroup>':'';
-  t2.innerHTML='<option value="">🎯 4 net / 5 net'+(_tsH9Aktif()?' / 9 net':'')+' hedefli…</option><optgroup label="🎯 4 net hedefli (yeni)">'+op(4)+'</optgroup><optgroup label="🎯 5 net hedefli (yeni)">'+op(5)+'</optgroup>'+h9;
+  const g4='<optgroup label="🎯 4 net hedefli (yeni)">'+op(4)+'</optgroup>',g5='<optgroup label="🎯 5 net hedefli (yeni)">'+op(5)+'</optgroup>';
+  // On Numara'da iç liste sırası: 9 net → 5 net → 4 net
+  t2.innerHTML='<option value="">🎯 4 net / 5 net'+(_tsH9Aktif()?' / 9 net':'')+' hedefli…</option>'+(_tsH9Aktif()?h9+g5+g4:g4+g5);
   t2.value=cur;
   if(t2.value===''){const a=document.getElementById('tfAlgo');if(a&&a.selectedIndex<0)a.selectedIndex=0;}
 }
@@ -30480,7 +30482,9 @@ function _tsHedefSirala(){
     const op9=()=>_TS_H9.map(id=>({id:id+'_h9',ad:(_TS_TIP.find(t=>t.id===id)||{}).ad,p:puan[id+'_h9']||{b:-1,u:0,y:0}})).sort((a,b)=>b.p.b-a.p.b||b.p.u-a.p.u||b.p.y-a.p.y)
       .map(x=>`<option value="${x.id}">9 net · ${x.ad}${x.p.b>=0?' — son: '+x.p.b+' net'+(x.p.y?' · ~'+x.p.y:''):''}</option>`).join('');
     const h9=_tsH9Aktif()?'<optgroup label="🎯 9 net hedefli (yalnızca On Numara)">'+op9()+'</optgroup>':'';
-    t2.innerHTML='<option value="">🎯 4 / 5'+(_tsH9Aktif()?' / 9':'')+' net hedefli… (son oyuna göre sıralı)</option><optgroup label="🎯 4 net hedefli">'+op(4)+'</optgroup><optgroup label="🎯 5 net hedefli">'+op(5)+'</optgroup>'+h9;
+    const s4='<optgroup label="🎯 4 net hedefli">'+op(4)+'</optgroup>',s5='<optgroup label="🎯 5 net hedefli">'+op(5)+'</optgroup>';
+    // On Numara'da iç liste sırası: 9 net → 5 net → 4 net
+    t2.innerHTML='<option value="">🎯 4 / 5'+(_tsH9Aktif()?' / 9':'')+' net hedefli… (son oyuna göre sıralı)</option>'+(_tsH9Aktif()?h9+s5+s4:s4+s5)
     t2.value=cur;
   };
   if(_tsSiraOnb[key]){uygula(_tsSiraOnb[key]);return;}
