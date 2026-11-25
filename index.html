@@ -30613,13 +30613,20 @@ async function _hoKaynakA(){
   throw new Error(hata);
 }
 async function _hoKaynakB(){
-  const ac=new AbortController();setTimeout(()=>ac.abort(),30000);
-  let metin=null;
-  try{const r=await fetch('https://r.jina.ai/'+_HO_URL,{headers:{'X-No-Cache':'true'},signal:ac.signal,credentials:'omit'});if(r.ok)metin=await r.text();}catch(e){}
-  let l=_hoAyristir(metin);
-  if(!l.length){try{l=_hoAyristir(await proxyFetch(_HO_URL));}catch(e){}}
-  if(!l.length)throw new Error('sayfada çekiliş bulunamadı');
-  return l;
+  // jina bazen sayfayı çekilişler yüklenmeden verir → boş gelirse 3 kez dener (her seferinde farklı adres/ön bellek atlatma)
+  const adresler=[_HO_URL,_HO_URL+'?t='+Date.now(),_HO_URL+'?r='+Math.random().toString(36).slice(2)];
+  for(let k=0;k<3;k++){
+    let metin=null;
+    try{
+      const ac=new AbortController();const tm=setTimeout(()=>ac.abort(),45000);
+      const r=await fetch('https://r.jina.ai/'+adresler[k],{headers:{'X-No-Cache':'true','X-Timeout':'40'},signal:ac.signal,credentials:'omit'});
+      clearTimeout(tm);if(r.ok)metin=await r.text();
+    }catch(e){}
+    const l=_hoAyristir(metin);if(l.length)return l;
+    if(k===1){try{const l2=_hoAyristir(await proxyFetch(_HO_URL));if(l2.length)return l2;}catch(e){}}
+    await new Promise(r=>setTimeout(r,1500));
+  }
+  throw new Error('sayfada çekiliş bulunamadı');
 }
 async function _hoGuncelle(sessiz){
   if(_hoGunBusy)return;_hoGunBusy=true;_hoSonGun=Date.now();
@@ -30627,13 +30634,19 @@ async function _hoGuncelle(sessiz){
   if(!sessiz)yaz('⏳ Eksik sonuçlar aranıyor (GitHub verisi + Milli Piyango sayfası)…');
   try{
     const [a,b]=await Promise.allSettled([_hoKaynakA(),_hoKaynakB()]);
-    const rap=[];let ek=0;
+    const rap=[];let ek=0;const oncekiNo=_hoDraws[0]?_hoDraws[0].no:0;
     if(a.status==='fulfilled'){const n=_hoBirlestir(a.value);ek+=n;rap.push(`GitHub verisi: ${a.value.length} kayıt, <strong>${n}</strong> yeni`);}
     else rap.push(`<span style="color:#c2410c">GitHub verisi alınamadı (${(a.reason&&a.reason.message)||'hata'})</span>`);
     if(b.status==='fulfilled'){const n=_hoBirlestir(b.value);ek+=n;rap.push(`Sonuç sayfası: ${b.value.length} çekiliş, <strong>${n}</strong> yeni`);}
     else rap.push(`<span style="color:#c2410c">Sonuç sayfası okunamadı</span>`);
     const tam=a.status==='fulfilled'||b.status==='fulfilled';
     yaz((tam?'✅ ':'<span style="color:#cc2222">⚠️ Hiçbir kaynaktan alınamadı — "Toplu içe aktar" ile ekle.</span> ')+rap.join(' · ')+_hoBosluk());
+    // kalan boşluk: önceki en yeni çekilişle şimdiki en yeni arasında numara atlaması var mı?
+    if(oncekiNo&&_hoDraws[0]){
+      const yeniler=_hoDraws.filter(d=>d.no>oncekiNo).length,eksik=_hoDraws[0].no-oncekiNo-yeniler;
+      if(eksik>0)dz&&(dz.innerHTML+=` <span style="color:#cc2222;font-weight:700">· ⚠️ ${eksik} çekiliş (≈${eksik*5} dk) HÂLÂ eksik — bu aralığı "Toplu içe aktar" ile tamamla.</span>`);
+      else if(yeniler)dz&&(dz.innerHTML+=` <span style="color:var(--green);font-weight:700">· ✓ boşluk kapandı, son çekilişe kadar eksiksiz.</span>`);
+    }
     _hoDurumYaz();if(ek)_hoRender();
   }finally{_hoGunBusy=false;}
 }
