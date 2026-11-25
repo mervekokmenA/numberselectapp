@@ -30624,7 +30624,7 @@ async function _hoGuncelle(sessiz){
   if(!sessiz)yaz('⏳ Eksik sonuçlar aranıyor (GitHub verisi + Milli Piyango sayfası)…');
   try{
     const [b]=await Promise.allSettled([_hoKaynakB()]);
-    let ek=0;const oncekiNo=_hoDraws[0]?_hoDraws[0].no:0;
+    let ek=0;const oncekiNo=_hoDraws[0]?_hoDraws[0].no:0,eskiUst=_hoDraws.slice(0,4).map(d=>d.date);
     if(b.status==='fulfilled'){ek=_hoBirlestir(b.value);yaz(`✅ Sonuç sayfası: ${b.value.length} çekiliş okundu, <strong>${ek}</strong> yeni eklendi.`+_hoBosluk());}
     else yaz('<span style="color:#cc2222">⚠️ Sonuç sayfası okunamadı (3 deneme). Biraz sonra tekrar bas ya da yer imiyle / "Toplu içe aktar" ile ekle.</span>');
     // kalan boşluk: önceki en yeni çekilişle şimdiki en yeni arasında numara atlaması var mı?
@@ -30633,7 +30633,7 @@ async function _hoGuncelle(sessiz){
       if(eksik>0)dz&&(dz.innerHTML+=` <span style="color:#cc2222;font-weight:700">· ⚠️ ${eksik} çekiliş (≈${eksik*5} dk) HÂLÂ eksik — bu aralığı "Toplu içe aktar" ile tamamla.</span>`);
       else if(yeniler)dz&&(dz.innerHTML+=` <span style="color:var(--green);font-weight:700">· ✓ boşluk kapandı, son çekilişe kadar eksiksiz.</span>`);
     }
-    _hoDurumYaz();if(ek)_hoRender();
+    _hoDurumYaz();if(ek){_hoSecYenile(eskiUst);_hoRender();}
   }finally{_hoGunBusy=false;}
 }
 // Çekiliş numaralarındaki boşluklar (son 24 saat için eksik çekiliş sayısı)
@@ -30664,33 +30664,43 @@ window.addEventListener('message',async e=>{
   try{
     if(e.origin!=='https://www.millipiyangoonline.com'||!e.data||!Array.isArray(e.data.hizlion))return;
     await _hoYukle();
+    const eskiUst=_hoDraws.slice(0,4).map(d=>d.date);
     const ek=_hoBirlestir(e.data.hizlion);
     try{e.source.postMessage('hizlion-ok:'+ek,e.origin);}catch(x){}
     if(typeof showMainPage==='function'&&_curPage!=='hizlion')showMainPage('hizlion');
     const dz=document.getElementById('hoDurum');if(dz)dz.innerHTML=`✅ Yer imiyle <strong>${e.data.hizlion.length}</strong> çekiliş alındı, <strong>${ek}</strong> yeni eklendi.`+_hoBosluk();
-    _hoDurumYaz();_hoSecenek(false);_hoRender();
+    _hoDurumYaz();_hoSecYenile(eskiUst);_hoRender();
   }catch(x){}
 });
 function _hoSnippetKopya(){const k=document.getElementById('hoKod');if(k)k.value=_HO_SNIPPET;_caCopy(_HO_SNIPPET);showToast('📋 Kod kopyalandı — millipiyangoonline.com sayfasında F12 → Console\'a yapıştır');}
 function _hoIceAktar(){
   const t=document.getElementById('hoYapistir'),dz=document.getElementById('hoDurum');if(!t)return;
   let j;try{j=JSON.parse(t.value);}catch(e){if(dz)dz.innerHTML='<span style="color:#cc2222">⚠️ Yapıştırılan metin geçerli JSON değil.</span>';return;}
+  const eskiUst=_hoDraws.slice(0,4).map(d=>d.date);
   const ek=_hoBirlestir(Array.isArray(j)?j:[]);t.value='';
   if(dz)dz.innerHTML=`✅ <strong>${ek}</strong> yeni çekiliş eklendi.`+_hoBosluk();
-  _hoDurumYaz();_hoSecenek(false);_hoRender();
+  _hoDurumYaz();_hoSecYenile(eskiUst);_hoRender();
 }
 function _hoSil(){if(!confirm('Hızlı On verisi ve geçmişi bu cihazdan silinsin mi?'))return;try{localStorage.removeItem(_HO_KEY);localStorage.removeItem(_HO_GEC);}catch(e){}_hoDraws=[];_hoCache={};_hoYuklendi=false;_hoDurumYaz();_hoRender();_hoGecmisRender();}
 
 // ── Seçiciler ──
-function _hoSecenek(sifirla){
+function _hoSecenek(sifirla,koruBos){
   const ta=document.getElementById('hoAlgo');
   if(ta&&!ta.options.length)ta.innerHTML=_HO_TIPS.map(id=>{const t=_TS_TIP.find(x=>x.id===id);return `<option value="${id}">${t.ad}</option>`;}).join('');
   _hoAlgo2Doldur();
-  const h='<option value="">— geçmiş test seç —</option>'+_hoDraws.slice(0,600).map(d=>`<option value="${d.date}">${d.date.slice(8,10)}.${d.date.slice(5,7)} ${d.date.slice(11)} · ${d.no}</option>`).join('');
+  const h='<option value="">— geçmiş test seç —</option>'+_hoDraws.slice(0,2000).map(d=>`<option value="${d.date}">${d.date.slice(8,10)}.${d.date.slice(5,7)} ${d.date.slice(11)} · ${d.no}</option>`).join('');
   ['hoDateSel','hoDateSel2','hoDateSel3','hoDateSel4'].forEach((id,i)=>{
     const e=document.getElementById(id);if(!e)return;const prev=e.value;e.innerHTML=h;
-    if(!sifirla&&prev)e.value=prev;else if(_hoDraws[i]&&_hoDraws.length>200)e.value=_hoDraws[i].date;
+    if(!sifirla&&(prev||koruBos))e.value=prev;else if(_hoDraws[i]&&_hoDraws.length>200)e.value=_hoDraws[i].date;
   });
+}
+const _HO_DATE_IDS=['hoDateSel','hoDateSel2','hoDateSel3','hoDateSel4'];
+// Yeni çekiliş eklenince geçmiş test listeleri yeniden kurulur. Seçimler varsayılan durumdaysa (en yeni 4 çekiliş) yeni en yenilere kayar;
+// kullanıcı kendi tarihlerini seçtiyse (ya da ✕ ile kapattıysa) olduğu gibi korunur.
+function _hoSecYenile(eskiUst){
+  const v=_HO_DATE_IDS.map(id=>(document.getElementById(id)||{}).value);
+  const varsayilan=v.every((x,i)=>x&&x===eskiUst[i]);
+  _hoSecenek(varsayilan,true);
 }
 function _hoAlgo2Doldur(puan){
   const t2=document.getElementById('hoAlgo2');if(!t2)return;const cur=t2.value;
