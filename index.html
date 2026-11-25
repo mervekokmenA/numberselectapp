@@ -1365,7 +1365,8 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
    <span id="hoBilgi" style="font-size:.62rem;color:var(--muted)"></span>
    <span id="hoDurum" style="font-size:.6rem;color:var(--muted)"></span>
   </div>
-  <details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:.6rem;font-weight:800;color:var(--text)">📥 Toplu içe aktar (uzun eksikler için)</summary>
+  <details style="margin-bottom:10px"><summary style="cursor:pointer;font-size:.6rem;font-weight:800;color:var(--text)">📥 Uzun eksikler için: 🔖 yer imi / toplu içe aktar</summary>
+   <div style="font-size:.58rem;color:var(--muted);line-height:1.6;margin:6px 0;padding:6px 8px;border:1px dashed var(--border);border-radius:8px"><strong style="color:var(--text)">🔖 Tek tıklık yol:</strong> <a id="hoYerImi" href="#" onclick="return false" draggable="true" style="font-size:.64rem;font-weight:800;color:#7c3aed;padding:2px 10px;border:1px solid rgba(124,58,237,.5);border-radius:10px;text-decoration:none">⚡ Hızlı On'a gönder</a> bağlantısını yer imleri çubuğuna <strong>sürükle</strong> (bir kez). Sonra <a href="https://www.millipiyangoonline.com/hizli-on-numara/cekilis-sonuclari" target="_blank" rel="noopener" style="color:var(--accent)">sonuç sayfasını</a> aç ve yer imine tıkla → kaç gün istediğini sorar → bu uygulama yeni sekmede açılır ve veriler kendiliğinden eklenir (açılır pencere izni gerekir).</div>
    <div style="font-size:.58rem;color:var(--muted);line-height:1.6;margin:6px 0">Buton, Milli Piyango sonuç sayfasındaki <strong>son ~10 çekilişi</strong> alır. Daha uzun bir boşluk varsa: <a href="https://www.millipiyangoonline.com/hizli-on-numara/cekilis-sonuclari" target="_blank" rel="noopener" style="color:var(--accent)">sonuç sayfasını</a> aç → F12 → Console → <button onclick="_hoSnippetKopya()" style="font-size:.58rem;padding:1px 8px;border-radius:8px;border:1px solid var(--border);cursor:pointer">📋 kodu kopyala</button> yapıştırıp Enter <span style="color:var(--text)">(yalnızca aşağıdaki kutudaki TEK satırı yapıştır; başka metin eklenirse hata verir)</span> (gün sayısını sorar) → çıkan metni (zaten panoya kopyalanır) buraya yapıştır.</div>
    <textarea id="hoKod" readonly rows="2" onclick="this.select()" style="width:100%;font-size:.56rem;font-family:monospace;background:var(--surface2);border:1px dashed var(--border);color:var(--muted);border-radius:6px;padding:5px;margin-bottom:6px"></textarea>
    <textarea id="hoYapistir" rows="2" placeholder="[[71176,&quot;2026-11-24 20:57&quot;,[...]], ...]" style="width:100%;font-size:.62rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px"></textarea>
@@ -30598,20 +30599,9 @@ function _hoAyristir(metin){
     out.push([+m[1],new Date(Date.parse(`${m[4]}-${m[3]}-${m[2]}T${m[5]}:${m[6]}:00Z`)+3*36e5).toISOString().slice(0,16).replace('T',' '),m[7].trim().split(/\s+/).map(Number)]);}
   return out;
 }
-// Eksik sonuçlar iki kaynaktan birlikte aranır, gelenler birleştirilir:
-//  A) GitHub'daki zamanlanmış toplayıcının verisi (hizlion-data dalı, ~10 dk gecikmeli ama TAM — aylık geçmişi de kapatır)
-//  B) Milli Piyango sonuç sayfası (r.jina.ai ile; yalnızca son ~10 çekiliş, jina bazen sayfayı eksik render eder)
-const _HO_RAW='https://raw.githubusercontent.com/mervekokmenA/numberselectapp/hizlion-data/hizlion.json';
-let _hoGunBusy=false,_hoSonGun=0;
-async function _hoKaynakA(){
-  const ac=new AbortController();setTimeout(()=>ac.abort(),20000);
-  let hata='';
-  for(const u of [_HO_RAW+'?t='+Date.now(),'hizlion.json?t='+Date.now()]){   // 2. adres: sitenin kendi (son dağıtılan) kopyası
-    try{const r=await fetch(u,{cache:'no-store',signal:ac.signal});if(!r.ok){hata='HTTP '+r.status;continue;}
-      const j=await r.json();if(Array.isArray(j)&&j.length)return j;hata='biçim';}catch(e){hata=e.message||'ağ';}
-  }
-  throw new Error(hata);
-}
+// Eksik sonuçlar YALNIZCA butona basılınca aranır (kendiliğinden/zamanlanmış çalışma yok — kullanıcı kuralı).
+// Kaynak: Milli Piyango sonuç sayfası (r.jina.ai ile; yalnızca son ~10 çekiliş). Daha eskisi için yer imi / konsol içe aktarması.
+let _hoGunBusy=false;
 async function _hoKaynakB(){
   // jina bazen sayfayı çekilişler yüklenmeden verir → boş gelirse 3 kez dener (her seferinde farklı adres/ön bellek atlatma)
   const adresler=[_HO_URL,_HO_URL+'?t='+Date.now(),_HO_URL+'?r='+Math.random().toString(36).slice(2)];
@@ -30629,18 +30619,14 @@ async function _hoKaynakB(){
   throw new Error('sayfada çekiliş bulunamadı');
 }
 async function _hoGuncelle(sessiz){
-  if(_hoGunBusy)return;_hoGunBusy=true;_hoSonGun=Date.now();
+  if(_hoGunBusy)return;_hoGunBusy=true;
   const dz=document.getElementById('hoDurum');const yaz=t=>{if(dz)dz.innerHTML=t;};
   if(!sessiz)yaz('⏳ Eksik sonuçlar aranıyor (GitHub verisi + Milli Piyango sayfası)…');
   try{
-    const [a,b]=await Promise.allSettled([_hoKaynakA(),_hoKaynakB()]);
-    const rap=[];let ek=0;const oncekiNo=_hoDraws[0]?_hoDraws[0].no:0;
-    if(a.status==='fulfilled'){const n=_hoBirlestir(a.value);ek+=n;rap.push(`GitHub verisi: ${a.value.length} kayıt, <strong>${n}</strong> yeni`);}
-    else rap.push(`<span style="color:#c2410c">GitHub verisi alınamadı (${(a.reason&&a.reason.message)||'hata'})</span>`);
-    if(b.status==='fulfilled'){const n=_hoBirlestir(b.value);ek+=n;rap.push(`Sonuç sayfası: ${b.value.length} çekiliş, <strong>${n}</strong> yeni`);}
-    else rap.push(`<span style="color:#c2410c">Sonuç sayfası okunamadı</span>`);
-    const tam=a.status==='fulfilled'||b.status==='fulfilled';
-    yaz((tam?'✅ ':'<span style="color:#cc2222">⚠️ Hiçbir kaynaktan alınamadı — "Toplu içe aktar" ile ekle.</span> ')+rap.join(' · ')+_hoBosluk());
+    const [b]=await Promise.allSettled([_hoKaynakB()]);
+    let ek=0;const oncekiNo=_hoDraws[0]?_hoDraws[0].no:0;
+    if(b.status==='fulfilled'){ek=_hoBirlestir(b.value);yaz(`✅ Sonuç sayfası: ${b.value.length} çekiliş okundu, <strong>${ek}</strong> yeni eklendi.`+_hoBosluk());}
+    else yaz('<span style="color:#cc2222">⚠️ Sonuç sayfası okunamadı (3 deneme). Biraz sonra tekrar bas ya da yer imiyle / "Toplu içe aktar" ile ekle.</span>');
     // kalan boşluk: önceki en yeni çekilişle şimdiki en yeni arasında numara atlaması var mı?
     if(oncekiNo&&_hoDraws[0]){
       const yeniler=_hoDraws.filter(d=>d.no>oncekiNo).length,eksik=_hoDraws[0].no-oncekiNo-yeniler;
@@ -30664,6 +30650,27 @@ function _hoDurumYaz(){
   e.innerHTML=`<strong>${_hoDraws.length}</strong> çekiliş · ${i.date.slice(5,16)} → <strong>${s.date.slice(5,16)}</strong> · son no <strong>${s.no}</strong> · son çekiliş <strong>${yas<90?yas+' dk':Math.round(yas/60)+' sa'}</strong> önce`;
 }
 const _HO_SNIPPET="(async()=>{const G=+prompt('Kaç gün (1-31)? 1=bugün',1)||1;const g=window.sisalsansglobal,te=new TextEncoder();const key=await crypto.subtle.importKey('raw',te.encode(g.secretkey),{name:'HMAC',hash:'SHA-256'},false,['sign']);const out=[];const n=Date.now()+3*36e5;for(let d=0;d<G;d++){const t=new Date(n-d*864e5);for(let h=23;h>=0;h--){const u=`https://lotteryservice.millipiyangoonline.com/api/hizli-on-numara/v1/hourly-draws-history/${t.getUTCFullYear()}/${t.getUTCMonth()+1}/${t.getUTCDate()}/${h}?caller=web-portal`;try{const hm=[...new Uint8Array(await crypto.subtle.sign('HMAC',key,te.encode(u+'GET')))].map(x=>x.toString(16).padStart(2,'0')).join('');const r=await fetch(u,{headers:{'Internal-Key':g.internalkey,'X-GW-Client-Id':'web-portal','X-GW-Origin':location.origin,'X-GW-HMAC':hm}});if(!r.ok)continue;(await r.json()).forEach(x=>out.push([x.drawId.number,new Date(new Date(x.drawDate).getTime()+3*36e5).toISOString().slice(0,16),x.winningNumbers[0].numbers]));}catch(e){}}}const j=JSON.stringify(out),k=document.createElement('textarea');k.value=j;k.style.cssText='position:fixed;top:8px;left:8px;width:70vw;height:90px;z-index:99999;background:#fff;color:#000';document.body.appendChild(k);k.select();let ok=false;try{ok=document.execCommand('copy');}catch(e){}try{navigator.clipboard.writeText(j);}catch(e){}window.__hizlion=j;console.log(out.length+' çekiliş'+(ok?' panoya kopyalandı':' — sayfanın sol üstündeki kutuyu seçip Ctrl+C ile kopyala'));})();//";
+// ── 🔖 Yer imi: Milli Piyango sayfasında tıklanınca veriyi toplar, uygulamayı yeni sekmede açıp postMessage ile gönderir
+//    (pano/konsol gerekmez; uzun boşluklar için). Uygulama yalnızca millipiyangoonline.com kaynaklı mesajı kabul eder, veri katı doğrulanır.
+function _hoYerImiKod(){
+  const A=location.origin+location.pathname,O=location.origin;
+  return "(async()=>{const A="+JSON.stringify(A)+",O="+JSON.stringify(O)+";const w=window.open(A+'#hizlion','hizlionApp');if(!w){alert('Açılır pencere engellendi: bu site için izin ver.');return;}const G=+prompt('Kaç gün (1-31)? 1=bugün',1)||1;const g=window.sisalsansglobal,te=new TextEncoder();const key=await crypto.subtle.importKey('raw',te.encode(g.secretkey),{name:'HMAC',hash:'SHA-256'},false,['sign']);const out=[];const n=Date.now()+3*36e5;for(let d=0;d<G;d++){const t=new Date(n-d*864e5);for(let h=23;h>=0;h--){const u=`https://lotteryservice.millipiyangoonline.com/api/hizli-on-numara/v1/hourly-draws-history/${t.getUTCFullYear()}/${t.getUTCMonth()+1}/${t.getUTCDate()}/${h}?caller=web-portal`;try{const hm=[...new Uint8Array(await crypto.subtle.sign('HMAC',key,te.encode(u+'GET')))].map(x=>x.toString(16).padStart(2,'0')).join('');const r=await fetch(u,{headers:{'Internal-Key':g.internalkey,'X-GW-Client-Id':'web-portal','X-GW-Origin':location.origin,'X-GW-HMAC':hm}});if(!r.ok)continue;(await r.json()).forEach(x=>out.push([x.drawId.number,new Date(new Date(x.drawDate).getTime()+3*36e5).toISOString().slice(0,16),x.winningNumbers[0].numbers]));}catch(e){}}}let k=0;const iv=setInterval(()=>{try{w.postMessage({hizlion:out},O);}catch(e){}if(++k>60)clearInterval(iv);},1000);window.addEventListener('message',e=>{if(e.origin===O&&typeof e.data==='string'&&e.data.indexOf('hizlion-ok')===0){clearInterval(iv);alert(out.length+' çekiliş gönderildi ('+e.data.slice(11)+' yeni eklendi).');}});})()";
+}
+function _hoYerImiYaz(){
+  const a=document.getElementById('hoYerImi');if(!a)return;
+  a.href='javascript:'+encodeURIComponent(_hoYerImiKod());
+}
+window.addEventListener('message',async e=>{
+  try{
+    if(e.origin!=='https://www.millipiyangoonline.com'||!e.data||!Array.isArray(e.data.hizlion))return;
+    await _hoYukle();
+    const ek=_hoBirlestir(e.data.hizlion);
+    try{e.source.postMessage('hizlion-ok:'+ek,e.origin);}catch(x){}
+    if(typeof showMainPage==='function'&&_curPage!=='hizlion')showMainPage('hizlion');
+    const dz=document.getElementById('hoDurum');if(dz)dz.innerHTML=`✅ Yer imiyle <strong>${e.data.hizlion.length}</strong> çekiliş alındı, <strong>${ek}</strong> yeni eklendi.`+_hoBosluk();
+    _hoDurumYaz();_hoSecenek(false);_hoRender();
+  }catch(x){}
+});
 function _hoSnippetKopya(){const k=document.getElementById('hoKod');if(k)k.value=_HO_SNIPPET;_caCopy(_HO_SNIPPET);showToast('📋 Kod kopyalandı — millipiyangoonline.com sayfasında F12 → Console\'a yapıştır');}
 function _hoIceAktar(){
   const t=document.getElementById('hoYapistir'),dz=document.getElementById('hoDurum');if(!t)return;
@@ -30802,9 +30809,7 @@ function _hoSirala(){
 async function _hoInit(){
   {const k=document.getElementById('hoKod');if(k)k.value=_HO_SNIPPET;}
   await _hoYukle();_hoDurumYaz();_hoSecenek(false);_hoRender();_hoGecmisRender();
-  // son çekiliş 10 dakikadan eskiyse (ve 2 dk içinde denenmediyse) eksikleri kendiliğinden ara
-  const son=_hoDraws[0]?Date.parse(_hoDraws[0].date.replace(' ','T')+':00Z')-3*36e5:0;
-  if(Date.now()-son>10*60e3&&Date.now()-_hoSonGun>120e3)_hoGuncelle(false);
+  _hoYerImiYaz();
 }
 
 

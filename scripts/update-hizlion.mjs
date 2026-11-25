@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// ⚡ Hızlı On sonuçlarını toplar → <çıktı>.json ([no,"YYYY-MM-DD HH:MM"(TR),[20 sayı]], yeniden eskiye, son 31 gün).
+// (ELLE çalıştırılan araç; zamanlanmış çalışma yok) ⚡ Hızlı On sonuçlarını toplar → <çıktı>.json ([no,"YYYY-MM-DD HH:MM"(TR),[20 sayı]], yeniden eskiye, son 31 gün).
 // Milli Piyango'nun çekiliş API'si dışarıdan 403 verir; istekler sayfanın kendi gizli anahtarıyla imzalanır
 // (X-GW-HMAC = HMAC-SHA256(secretkey, tamURL+"GET")). Bu yüzden gerçek bir tarayıcıyla (Playwright) sitenin
 // sayfası açılır ve istekler SAYFANIN İÇİNDEN atılır. Anahtarlar sayfadan çalışma anında okunur (depoda tutulmaz).
