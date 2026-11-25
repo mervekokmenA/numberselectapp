@@ -1390,11 +1390,10 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
   <div id="hoOut" data-ny-yok="1"></div>
  </div>
  <div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-   <div class="card-title" style="margin:0">🕘 Geçmiş (son 100 benzersiz ekran)</div>
-   <button onclick="_hoGecSil()" style="font-size:.6rem;padding:3px 10px;border-radius:12px;border:1px solid rgba(220,60,60,.4);background:rgba(220,60,60,.08);color:#c0392b;cursor:pointer">🗑️ Temizle</button>
-  </div>
+  <details id="hoGecDet"><summary class="card-title" style="margin:0;cursor:pointer">🕘 Geçmiş (son 100 benzersiz ekran) <span style="font-weight:500;font-size:.6rem;color:var(--muted)">— açmak için tıkla</span></summary>
+  <div style="display:flex;justify-content:flex-end;margin:6px 0"><button onclick="_hoGecSil()" style="font-size:.6rem;padding:3px 10px;border-radius:12px;border:1px solid rgba(220,60,60,.4);background:rgba(220,60,60,.08);color:#c0392b;cursor:pointer">🗑️ Temizle</button></div>
   <div id="hoGecmisOut" data-ny-yok="1" data-ex-atla="1"></div>
+  </details>
  </div>
  <div class="card" style="border:2px dashed rgba(124,58,237,.45)">
   <div style="font-size:.74rem;font-weight:800;color:#7c3aed;margin-bottom:3px">🔬 Deneme: yalnızca bir önceki çekilişin sayılarıyla tahmin</div>
@@ -1403,12 +1402,26 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
    <span style="font-size:.6rem;color:var(--muted)">Sıradaki çekiliş için bilet:</span>
    <select id="hoOnAlgo" onchange="_hoOnBilet()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;min-width:210px"></select>
   </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:12px;align-items:start;margin-bottom:8px">
+  <div style="min-width:0">
   <details open style="margin-bottom:8px"><summary style="cursor:pointer;font-size:.62rem;font-weight:800;color:var(--text)">✍️ Sonuçları elle gir (henüz yüklenmeyen çekilişler için)</summary>
    <div style="font-size:.58rem;color:var(--muted);line-height:1.6;margin:6px 0">Çekilişin <strong>20 sayısını</strong> yaz (tek satırda ya da 10+10 gibi bölünmüş; boşluk/virgül olur). Tamamı elinde değilse <strong>en az bilet boyu kadar</strong> (ör. 10) kendi sayılarını yazabilirsin; böyle bir grubu bitirmek için <strong>boş satır</strong> bırak. Sayılar 1–80 ve tekrarsız olmalı. Yazmayı bırakınca biletler kendiliğinden yenilenir. Birden fazla çekiliş girersen <strong>en eskisi üstte, en yenisi altta</strong> olsun; bunlar kayıtlı verinin üzerine "en yeni çekilişler" olarak eklenip sıradaki çekiliş biletleri onlara göre kurulur. Kaydedilmez, yalnızca aşağıdaki bilet üretimi için kullanılır.</div>
    <textarea id="hoOnEl" rows="4" oninput="_hoOnElDurum()" placeholder="4 5 10 14 19 23 26 35 40 44 45 51 53 56 57 58 60 61 65 80" style="width:100%;box-sizing:border-box;font-size:.64rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px"></textarea>
-   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:5px"><button onclick="_hoOnBilet();_hoOnElDurum()" class="copy-btn" style="font-size:.62rem;padding:3px 12px">✔ Bu sonuçlarla bilet üret</button><button onclick="_hoOnElTemizle()" style="font-size:.6rem;padding:3px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">Temizle</button><span id="hoOnElDurum" style="font-size:.6rem"></span></div>
+   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:5px"><button onclick="window._hoOnZorla=true;_hoOnBilet();_hoOnElDurum()" class="copy-btn" style="font-size:.62rem;padding:3px 12px">✔ Bu sonuçlarla bilet üret</button><button onclick="_hoOnElTemizle()" style="font-size:.6rem;padding:3px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">Temizle</button><span id="hoOnElDurum" style="font-size:.6rem"></span></div>
   </details>
+  </div>
+  <div style="min-width:0">
+   <div style="font-size:.62rem;font-weight:800;color:var(--text)">✅ Gerçek sonuç (sıradaki çekilişin)</div>
+   <div style="font-size:.58rem;color:var(--muted);line-height:1.6;margin:6px 0">Sıradaki çekilişin <strong>gerçek 20 sayısı</strong> belli olunca buraya yaz: aşağıdaki biletlerde tutan sayılar <strong style="color:var(--green)">✓ net</strong>, ±1 yakınlar <strong style="color:#c2410c">~</strong> işaretlenir ve kaç bilet tuttuğu yazılır. Sonuç, deneme geçmişine de işlenir.</div>
+   <textarea id="hoOnGercek" rows="4" oninput="_hoOnGercekDurum()" placeholder="4 5 10 14 19 23 26 35 40 44 45 51 53 56 57 58 60 61 65 80" style="width:100%;box-sizing:border-box;font-size:.64rem;font-family:monospace;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:5px"></textarea>
+   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:5px"><button onclick="document.getElementById('hoOnGercek').value='';_hoOnGercekDurum()" style="font-size:.6rem;padding:3px 10px;border-radius:12px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">Temizle</button><span id="hoOnGercekDurum" style="font-size:.6rem"></span></div>
+  </div>
+  </div>
   <div id="hoOnBil" data-ny-yok="1" data-ex-atla="1"></div>
+  <details id="hoOnGecDet" style="margin-top:12px;border-top:1px solid var(--border);padding-top:8px"><summary style="cursor:pointer;font-size:.66rem;font-weight:800;color:var(--text)">🕘 Deneme geçmişi (son 100) <span style="font-weight:500;font-size:.58rem;color:var(--muted)">— açmak için tıkla</span></summary>
+   <div style="display:flex;justify-content:flex-end;margin:6px 0"><button onclick="_hoOnGecSil()" style="font-size:.6rem;padding:3px 10px;border-radius:12px;border:1px solid rgba(220,60,60,.4);background:rgba(220,60,60,.08);color:#c0392b;cursor:pointer">🗑️ Temizle</button></div>
+   <div id="hoOnGecOut" data-ny-yok="1" data-ex-atla="1"></div>
+  </details>
  </div>
 </div>
 
@@ -30920,17 +30933,69 @@ function _hoOnElDurum(){
   clearTimeout(window._hoOnElT);window._hoOnElT=setTimeout(()=>{if(o.draws.length)_hoOnBilet();},600);   // yazmayı bırakınca biletler kendiliğinden yenilenir
 }
 function _hoOnElTemizle(){const t=document.getElementById('hoOnEl');if(t)t.value='';_hoOnElDurum();_hoOnBilet();}
+function _hoOnGercekOku(){
+  const t=(document.getElementById('hoOnGercek')||{}).value||'',a=(t.match(/\d+/g)||[]).map(Number),u=[...new Set(a)];
+  const ok=a.length===20&&u.length===20&&u.every(n=>n>=1&&n<=80);
+  return {nums:ok?u.sort((x,y)=>x-y):null,n:a.length};
+}
+function _hoOnGercekDurum(){
+  const d=document.getElementById('hoOnGercekDurum');if(!d)return;
+  const o=_hoOnGercekOku();
+  d.innerHTML=o.nums?'<strong style="color:var(--green)">20 sayı geçerli</strong>':(o.n?`<span style="color:#c2410c">${o.n}/20 sayı — tam 20 farklı sayı (1–80) olmalı</span>`:'');
+  clearTimeout(window._hoOnGT);window._hoOnGT=setTimeout(()=>{if(o.nums||!o.n)_hoOnBilet();},400);
+}
+// En iyi bilet / 3+ net özeti (✓ net · ~ yakın) — biletler ve gerçek sonuç kümesi verilir
+function _hoOnOzet(bil,aS){
+  let en=0,enYk=0,uc=0;
+  bil.forEach(t=>{const n=t.filter(x=>aS.has(x)).length,yk=t.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length;if(n>en||(n===en&&yk>enYk)){en=n;enYk=yk;}if(n>=3)uc++;});
+  return {en,enYk,uc};
+}
+// ── Deneme geçmişi (son 100 benzersiz; `_hoOnGecmis`) ──
+const _HO_ON_GEC='_hoOnGecmis';
+function _hoOnGecOku(){try{const j=JSON.parse(localStorage.getItem(_HO_ON_GEC)||'[]');return Array.isArray(j)?j:[];}catch(e){return [];}}
+function _hoOnGecYaz(l){try{localStorage.setItem(_HO_ON_GEC,JSON.stringify(l.slice(0,100)));}catch(e){}}
+function _hoOnKaydet(tip,zaman,onc,bil,elle,gercek,zorla){
+  const key=[tip.id,zaman,[...onc].join(','),bil.map(t=>t.join(' ')).join('/')].join('|');
+  const l=_hoOnGecOku(),e=l.find(x=>x.key===key);
+  if(e){if(gercek&&JSON.stringify(e.gercek)!==JSON.stringify(gercek)){e.gercek=gercek;_hoOnGecYaz(l);}return;}
+  if(elle&&!zorla&&!gercek)return;   // elle girişte her yazım adımı kaydedilmez: yalnızca düğmeyle ya da gerçek sonuç girilince
+  l.unshift({key,t:Date.now(),tip:tip.id,adet:bil.length,sayi:_HO_GAME.count,zaman,elle:!!elle,kaynak:[...onc].sort((a,b)=>a-b),bil,gercek:gercek||null});
+  _hoOnGecYaz(l);
+}
+function _hoOnGecSil(){if(!confirm('Deneme geçmişi silinsin mi?'))return;try{localStorage.removeItem(_HO_ON_GEC);}catch(e){}_hoOnGecRender();}
+function _hoOnGecRender(){
+  const el=document.getElementById('hoOnGecOut');if(!el)return;
+  const l=_hoOnGecOku();
+  if(!l.length){el.innerHTML='<div style="font-size:.64rem;color:var(--muted)">Henüz kayıt yok. Bu alanda üretilen her yeni bilet kümesi (oluşma zamanıyla) burada saklanır; gerçek sonuç girilince tutanlar işaretlenir.</div>';return;}
+  const tipAd=id=>(_tsTipBul(id)||{}).ad||id;
+  el.innerHTML=l.map((e,idx)=>{
+    const g=e.gercek||((_hoDraws.find(d=>d.date===e.zaman)||{}).nums)||null,aS=g?new Set(g):null;
+    const oz=aS?_hoOnOzet(e.bil,aS):null;
+    const zaman=new Date(e.t).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+    const ozet=oz?`<strong style="color:var(--green)">✓ en iyi bilet ${oz.en} net</strong> · <strong style="color:#c2410c">~ ${oz.enYk} yakın</strong> · <strong style="color:#7c3aed">3+ net: ${oz.uc}/${e.bil.length}</strong>`:'<span style="color:var(--muted)">sonuç bekleniyor</span>';
+    return `<details style="border:1px solid var(--border);border-radius:10px;padding:6px 9px;margin-bottom:6px;background:var(--surface)"><summary style="cursor:pointer;font-size:.64rem"><strong>${zaman}</strong> · ${tipAd(e.tip)} · ${e.adet} bilet × ${e.sayi||10} sayı · hedef <strong>${String(e.zaman).slice(5)}</strong>${e.elle?' · ✍️ elle':''} · ${ozet}</summary>`
+      +`<div style="margin-top:6px;font-size:.58rem;color:var(--muted)">Kaynak (önceki çekiliş): <span style="font-family:monospace;font-weight:700;color:var(--text)">${e.kaynak.join(' ')}</span>${g?`<br>Gerçek sonuç${e.gercek?'':' (kayıtlı veriden)'}: <span style="font-family:monospace;font-weight:700;color:var(--green)">${g.join(' ')}</span>`:''}</div>`
+      +`<div style="margin-top:6px">${_nnRenderTickets(_HO_GAME,e.bil.map(t=>({main:t})),aS)}</div></details>`;
+  }).join('');
+}
 function _hoOnBilet(){
   const el=document.getElementById('hoOnBil');if(!el)return;
   if(_hoDraws.length<130){el.innerHTML='';return;}
   const tip=_tsTipBul((document.getElementById('hoOnAlgo')||{}).value)||_tsTipBul(_HO_TIPS[0]);
   _hoSecimBuyuklugu();
+  const zorla=!!window._hoOnZorla;window._hoOnZorla=false;
   const PR=_hoOnPrior(),pri=PR.prior,zaman=new Date(Date.parse(pri[0].date.replace(' ','T')+':00Z')+300000).toISOString().slice(0,16).replace('T',' ');
   const onc=new Set(pri[0].nums),S=_hoKaynak(pri,zaman,true),F=_tsOzellik('hizlion',S);
   const adet=parseInt((document.getElementById('hoAdet')||{}).value)||10,bil=_hoOncekiBilet(S,F,tip,adet,onc);
   window._hoOnBiletler=bil.map(t=>t.slice());
   window._hoOnTxt=`${tip.ad} (yalnızca önceki çekiliş sayıları) — ${_HO_GAME.name} (${zaman}) — ${bil.length} bilet\n`+bil.map((t,i)=>`#${i+1}  ${t.join(' ')}`).join('\n');
-  el.innerHTML=`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 4px"><span style="font-size:.64rem;font-weight:800;color:#7c3aed">🔮 Sıradaki çekiliş (${zaman.slice(5)}) — kaynak: ${PR.el?`elle girdiğin son çekiliş (${PR.el} elle girilen çekiliş kullanıldı)`:'no '+_hoDraws[0].no+' sayıları'}</span><button class="copy-btn" onclick="_caCopy(window._hoOnTxt);showToast('📋 Biletler kopyalandı')" style="font-size:.56rem;padding:2px 9px">📋 Biletleri Kopyala</button><button class="copy-btn" onclick="_hoKuponKopya(window._hoOnBiletler)" style="font-size:.56rem;padding:2px 9px">🧾 Kupon Kodu</button></div><div style="font-size:.58rem;color:var(--muted);margin-bottom:5px">Önceki çekiliş: <span style="font-family:monospace;font-weight:700;color:var(--text)">${pri[0].nums.join(' ')}</span></div>`+_nnRenderTickets(_HO_GAME,bil.map(t=>({main:t})),null);
+  const G=_hoOnGercekOku().nums,aS=G?new Set(G):null,oz=aS?_hoOnOzet(bil,aS):null;
+  try{_hoOnKaydet(tip,zaman,onc,bil,PR.el>0,G,zorla);}catch(e){}
+  const tum=new Set();bil.forEach(t=>t.forEach(n=>tum.add(n)));
+  el.innerHTML=`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 4px"><span style="font-size:.64rem;font-weight:800;color:#7c3aed">🔮 Sıradaki çekiliş (${zaman.slice(5)}) — kaynak: ${PR.el?`elle girdiğin son çekiliş (${PR.el} elle girilen çekiliş kullanıldı)`:'no '+_hoDraws[0].no+' sayıları'}</span><button class="copy-btn" onclick="_caCopy(window._hoOnTxt);showToast('📋 Biletler kopyalandı')" style="font-size:.56rem;padding:2px 9px">📋 Biletleri Kopyala</button><button class="copy-btn" onclick="_hoKuponKopya(window._hoOnBiletler)" style="font-size:.56rem;padding:2px 9px">🧾 Kupon Kodu</button></div><div style="font-size:.58rem;color:var(--muted);margin-bottom:5px">Önceki çekiliş: <span style="font-family:monospace;font-weight:700;color:var(--text)">${pri[0].nums.join(' ')}</span></div>`
+    +(aS?`<div style="font-size:.6rem;margin-bottom:5px;padding:5px 8px;border:1px solid rgba(0,200,100,.4);border-radius:8px;background:rgba(0,230,118,.06)"><div style="margin-bottom:3px">Gerçek sonuç: <span style="font-family:monospace;font-weight:700">${G.map(n=>`<span style="color:${tum.has(n)?'var(--green)':'var(--muted)'}">${n}${tum.has(n)?'✓':''}</span>`).join(' ')}</span></div><strong style="color:var(--green)">✓ en iyi bilet ${oz.en} net</strong> · <strong style="color:#c2410c">~ ${oz.enYk} yakın</strong> · <strong style="color:#7c3aed">3+ net: ${oz.uc}/${bil.length} bilet</strong> · tüm biletlerin birleşimi gerçek sonuçtan <strong>${G.filter(n=>tum.has(n)).length}/20</strong> sayıyı kapsıyor</div>`:'')
+    +_nnRenderTickets(_HO_GAME,bil.map(t=>({main:t})),aS);
+  _hoOnGecRender();
 }
 function _hoOnInit(){
   const a=document.getElementById('hoOnAlgo');
