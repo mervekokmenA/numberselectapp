@@ -1395,6 +1395,19 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
   </div>
   <div id="hoGecmisOut" data-ny-yok="1" data-ex-atla="1"></div>
  </div>
+ <div class="card" style="border:2px dashed rgba(124,58,237,.45)">
+  <div style="font-size:.74rem;font-weight:800;color:#7c3aed;margin-bottom:3px">🔬 Deneme: yalnızca bir önceki çekilişin sayılarıyla tahmin</div>
+  <div style="font-size:.58rem;color:var(--muted);line-height:1.55;margin-bottom:8px">Yukarıdaki aynı analizler, ama biletler <strong>yalnızca bir önceki çekilişte çıkan 20 sayıdan</strong> kurulur. Başarı, geçmiş çekilişlerde (her çekilişte yalnızca o günden ÖNCEKİ veriyle) analizin normal hâline ve rastgele biletlere karşı ölçülür. Bu alan ayrı bir deneydir; yukarıdaki analizleri değiştirmez.</div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+   <select id="hoOnN" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px"><option value="100">son 100 çekiliş</option><option value="200" selected>son 200 çekiliş</option><option value="400">son 400 çekiliş</option><option value="800">son 800 çekiliş</option></select>
+   <select id="hoOnDonem" title="İki ayrı dönemde doğrula" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px"><option value="yeni" selected>en yeni dönem</option><option value="onceki">bir önceki dönem</option></select>
+   <button onclick="_hoOnOlc()" style="font-size:.7rem;padding:6px 14px;border-radius:10px;border:1px solid rgba(124,58,237,.55);background:rgba(124,58,237,.12);color:#7c3aed;cursor:pointer;font-weight:800">▶ Başarıyı ölç</button>
+   <span style="font-size:.6rem;color:var(--muted)">Sıradaki çekiliş için bilet:</span>
+   <select id="hoOnAlgo" onchange="_hoOnBilet()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;min-width:210px"></select>
+  </div>
+  <div id="hoOnOut" data-ny-yok="1" data-ex-atla="1"></div>
+  <div id="hoOnBil" data-ny-yok="1" data-ex-atla="1"></div>
+ </div>
 </div>
 
 <!-- ═══════════ PAGE: HABER YÖNTEMLERİ + YÖNTEM LABORATUVARI ═══════════ -->
@@ -30661,8 +30674,8 @@ function _hoYerImiKod(){
 function _hoKuponKod(bil){
   return "(async()=>{const T="+JSON.stringify(bil)+";const bk=ms=>new Promise(r=>setTimeout(r,ms));let d=document;if(!d.querySelector('.single-number-setting')){let f=null;try{f=[...document.querySelectorAll('iframe')].map(x=>x.contentDocument).find(x=>x&&x.querySelector('.single-number-setting'));}catch(e){}if(!f){alert('Kupon bu sayfada ayrı bir çerçevenin (iframe) içinde. Konsolun üstündeki \"top\" yazan listeyi aç, adında schedina geçen digital.millipiyangoonline.com çerçevesini seç ve kodu tekrar yapıştır.');return;}d=f;}const bekle=async(fn,ms)=>{const t=Date.now();while(Date.now()-t<(ms||4000)){const v=fn();if(v)return v;await bk(100);}return null;};const sec=()=>{const e=d.querySelector('.LT-container-box-schedina.selected');return e?+e.id.replace('pannello-',''):-1;};let b0=sec();if(b0<0)b0=0;let n=0;if(b0+T.length>10)console.log('Kuponda 10 kolon var; yalnızca ilk '+(10-b0)+' bilet doldurulacak.');for(let i=0;i<T.length&&b0+i<10;i++){const t=T[i],h=b0+i;if(sec()!==h){const p=d.getElementById('pannello-'+h);if(p)p.click();if(!await bekle(()=>sec()===h)){console.log('Kolon '+(h+1)+' açılamadı');break;}}const ad=await bekle(()=>[...d.querySelectorAll('.single-number-setting')].find(e=>e.textContent.trim()===String(t.length)));if(!ad){console.log('Adet düğmesi bulunamadı: '+t.length);break;}ad.click();await bk(300);for(const x of t){const bt=await bekle(()=>[...d.querySelectorAll('button.grc2-numero')].find(e=>e.textContent.trim()===String(x)));if(!bt){console.log('Sayı düğmesi yok: '+x);continue;}bt.click();await bk(120);}n++;await bk(450);}console.log(n+' kolon dolduruldu. Kuponu kontrol et; oynama işlemini sen yap.');})();//";
 }
-function _hoKuponKopya(){
-  const b=window._hoBiletler||[];if(!b.length){showToast('Önce bilet üretilmeli');return;}
+function _hoKuponKopya(liste){
+  const b=Array.isArray(liste)?liste:(window._hoBiletler||[]);if(!b.length){showToast('Önce bilet üretilmeli');return;}
   _caCopy(_hoKuponKod(b));
   showToast('🧾 Kupon kodu kopyalandı → Milli Piyango Hızlı On sayfasında F12 → Console (üstteki "top"u kupon çerçevesine çevir) → yapıştır');
 }
@@ -30740,13 +30753,14 @@ function _hoAktifTip(){
 }
 function _hoSecimBuyuklugu(){const v=parseInt((document.getElementById('hoSecim')||{}).value)||10;_HO_GAME.count=v;return v;}
 // ── Kaynaklar (yalnızca geçmiş çekilişlerden; Excel/Gülay/Nihai yok) ──
-function _hoKaynak(prior,tarih){
+function _hoKaynak(prior,tarih,cachesiz){
   const key=prior.length?prior[0].no+'|'+prior.length:'0';
-  if(_hoCache[key])return _hoCache[key];
+  if(!cachesiz&&_hoCache[key])return _hoCache[key];
   const hot={};prior.slice(0,15).forEach(d=>d.nums.forEach(n=>{hot[n]=(hot[n]||0)+1;}));
   const co={};prior.slice(0,300).forEach(d=>d.nums.forEach(x=>d.nums.forEach(y=>{if(x!==y)co[x*100+y]=(co[x*100+y]||0)+1;})));
   const pair={};let pmax=0;for(let n=1;n<=80;n++){let t=0;(prior[0].nums||[]).forEach(m=>{t+=co[n*100+m]||0;});pair[n]=t;if(t>pmax)pmax=t;}
   const S={gid:'hizlion',prior,ex:new Map(),G:{top:new Set(),cik:new Set(),hepsi:new Set()},hot,pair,pmax,wMap:{},wmax:0,nnUni:new Set(),pool:new Set(),nn:null,tarih};
+  if(cachesiz)return S;
   return _hoCache[key]=S;
 }
 // ── Sütun ──
@@ -30832,10 +30846,106 @@ function _hoSirala(){
       puan[tip.id]={b,u,y};}));
     _hoSiraOnb[key]=puan;if(_curPage==='hizlion')_hoAlgo2Doldur(puan);}catch(e){}},60);
 }
+// ═══ 🔬 DENEME: yalnızca BİR ÖNCEKİ çekilişin 20 sayısıyla tahmin ═══
+// Aynı analizlerin biletleri yalnızca önceki çekilişte çıkan sayılardan kurulur. Geçmiş çekilişlerde (walk-forward) ölçülür ve
+// (a) analizin normal (80 sayılık) hâli, (b) rastgele biletlerle karşılaştırılır. Tek çekilişin sayıları bağımsızsa kısıtlamanın katkısı beklenmez.
+function _hoOncekiBilet(S,F,tip,adet,onc){
+  const cnt=_HO_GAME.count,cand=[...onc].sort((a,b)=>a-b);
+  if(tip.puan&&!tip.hedef){
+    const ham={};let mx=0;cand.forEach(n=>{const p=tip.puan(F,n,S);ham[n]=p;if(p>mx)mx=p;});
+    // 20 adaydan cnt sayılık biletlerde kapsama cezası yetmezse aynı bilet tekrarlanır → tekrar eden bilet olmasın diye ceza artırılır
+    const kul={},out=[],gor=new Set();let ceza=0.16,guard=0;
+    while(out.length<adet&&guard++<adet*8){
+      const l=cand.map(n=>({n,p:(mx?ham[n]/mx:0)-ceza*(kul[n]||0)+F[n].w*0.02}));
+      l.sort((a,b)=>b.p-a.p||a.n-b.n);
+      const t=l.slice(0,cnt).map(x=>x.n).sort((a,b)=>a-b),k=t.join(',');
+      t.forEach(n=>{kul[n]=(kul[n]||0)+1;});
+      if(gor.has(k)){ceza+=0.1;continue;}
+      gor.add(k);out.push(t);
+    }
+    return out;
+  }
+  // üretici tipler: normal bileti üret, önceki çekilişte çıkmamış sayıları o çekilişin en yüksek puanlı kalan sayılarıyla değiştir
+  const skor=n=>tip.puan?tip.puan(F,n,S):(tip.taban&&tip.taban.puan?tip.taban.puan(F,n,S):_tsTaban(F,n));
+  const sirali=cand.map(n=>({n,p:skor(n)})).sort((a,b)=>b.p-a.p||a.n-b.n).map(x=>x.n);
+  return _tsBiletler('hizlion',S,F,tip,adet).map(t=>{
+    const kal=t.filter(n=>onc.has(n)),eks=cnt-kal.length;
+    if(!eks)return t.slice();
+    const ek=sirali.filter(n=>!kal.includes(n)).slice(0,eks);
+    return kal.concat(ek).sort((a,b)=>a-b);
+  });
+}
+let _hoOnTok=0;
+function _hoOnOlc(){
+  const el=document.getElementById('hoOnOut');if(!el)return;
+  const OF0=(document.getElementById('hoOnDonem')||{}).value==='onceki'?(parseInt((document.getElementById('hoOnN')||{}).value)||200):0;
+  const N=Math.min(parseInt((document.getElementById('hoOnN')||{}).value)||200,Math.max(0,_hoDraws.length-130-OF0));
+  if(N<30){el.innerHTML='<div style="font-size:.66rem;color:var(--muted)">Ölçüm için yeterli veri yok.</div>';return;}
+  const tok=++_hoOnTok,tipler=_HO_TIPS.map(id=>_tsTipBul(id));
+  const yeniAcc=()=>({s:0,s2:0,b:0,b5:0,n:0});
+  const A=tipler.map(()=>({u:yeniAcc(),o:yeniAcc()})),RU={u:yeniAcc()},R80=yeniAcc(),R20=yeniAcc();let tekrar=0,i=0;const t0=Date.now();
+  const ekle=(a,hits)=>{if(!hits.length)return;a.n++;const m=hits.reduce((x,y)=>x+y,0)/hits.length,b=Math.max(...hits);a.s+=m;a.s2+=m*m;a.b+=b;if(b>=5)a.b5++;};
+  const say=(bil,aS)=>bil.map(t=>t.filter(n=>aS.has(n)).length);
+  const adim=()=>{
+    if(tok!==_hoOnTok)return;
+    const t1=Date.now();
+    while(i<N&&Date.now()-t1<80){
+      const ix=OF0+i++,hedef=_hoDraws[ix],prior=_hoDraws.slice(ix+1,ix+701),aS=new Set(hedef.nums),onc=new Set(prior[0].nums);
+      for(const n of onc)if(aS.has(n))tekrar++;
+      const S=_hoKaynak(prior,hedef.date,true),F=_tsOzellik('hizlion',S);
+      tipler.forEach((tip,k)=>{
+        try{ekle(A[k].u,say(_tsBiletler('hizlion',S,F,tip,10),aS));}catch(e){}
+        try{ekle(A[k].o,say(_hoOncekiBilet(S,F,tip,10,onc),aS));}catch(e){}
+      });
+      const rnd=_tsLcg(1234567+hedef.no),sec=(havuz)=>{const a=havuz.slice();for(let x=0;x<_HO_GAME.count;x++){const y=x+Math.floor(rnd()*(a.length-x));const q=a[x];a[x]=a[y];a[y]=q;}return a.slice(0,_HO_GAME.count);};
+      const h80=[],h20=[];for(let r=0;r<10;r++){h80.push(sec(Array.from({length:80},(_,q)=>q+1)));h20.push(sec([...onc]));}
+      ekle(R80,say(h80,aS));ekle(R20,say(h20,aS));
+    }
+    const pg=document.getElementById('hoOnProg');if(pg)pg.textContent=`⏳ ${i}/${N} çekiliş ölçüldü…`;
+    if(i<N){setTimeout(adim,0);return;}
+    _hoOnYaz(A,RU,R80,R20,N,tekrar,tipler,Date.now()-t0,OF0);
+  };
+  el.innerHTML='<div id="hoOnProg" style="font-size:.66rem;color:var(--muted)">⏳ Başlıyor…</div>';
+  setTimeout(adim,20);
+}
+function _hoOnYaz(A,RU,R80,R20,N,tekrar,tipler,ms,OF0){
+  const el=document.getElementById('hoOnOut');if(!el)return;
+  const E=2.5,st=a=>{const n=a.n||0;if(n<10)return {m:NaN,z:0,b:NaN,b5:NaN,n};const m=a.s/n,v=Math.max(0,a.s2/n-m*m),se=Math.sqrt(v/(n-1))||1e-9;return {m,z:(m-E)/se,b:a.b/n,b5:100*a.b5/n,n};};
+  const zr=z=>`<span style="color:${z>=2?'var(--green)':z<=-2?'#cc2222':'var(--muted)'};font-weight:${Math.abs(z)>=2?800:500}">${(z>=0?'+':'')+z.toFixed(1)}</span>`;
+  const yok=n=>`<td colspan="3" style="padding:3px 6px;text-align:right;color:var(--muted)">bilet üretemedi (${n}/${N} çekilişte üretti)</td>`;
+  const sat=(ad,a,renk)=>{const x=st(a);if(isNaN(x.m))return yok(x.n);return `<td style="padding:3px 6px;text-align:right;color:${renk||'inherit'}">${x.m.toFixed(3)} <small>(z ${zr(x.z)})</small>${x.n<N?` <small title="bilet üretilebilen çekiliş">n=${x.n}</small>`:''}</td><td style="padding:3px 6px;text-align:right">${x.b.toFixed(2)}</td><td style="padding:3px 6px;text-align:right">%${x.b5.toFixed(0)}</td>`;};
+  const satir=A.map((a,k)=>({ad:tipler[k].ad,u:st(a.u),o:st(a.o),a}));
+  satir.sort((x,y)=>(isNaN(y.o.m)?-9:y.o.z)-(isNaN(x.o.m)?-9:x.o.z));
+  const zs=satir.flatMap(r=>[r.u,r.o]).filter(x=>!isNaN(x.m)).map(x=>x.z),guclu=zs.filter(z=>z>=2).length,zayif=zs.filter(z=>z<=-2).length;
+  const rp=tekrar/N;
+  let h=`<div style="font-size:.66rem;line-height:1.6;margin-bottom:6px;padding:6px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface2)">📌 Önceki çekilişteki 20 sayıdan ortalama <strong>${rp.toFixed(2)}</strong> tanesi sonrakinde tekrar çıkıyor (her sayı bağımsız ve eşit olasılıklıysa beklenen <strong>5.00</strong>). Ölçülen: <strong>${N}</strong> çekiliş (${OF0?'bir önceki dönem':'en yeni dönem'}), her çekilişte 10 bilet × ${_HO_GAME.count} sayı, ${Math.round(ms/1000)} sn.</div>`;
+  h+=`<div style="overflow:auto"><table style="border-collapse:collapse;font-size:.62rem;width:100%"><thead><tr style="color:var(--muted);text-align:right"><th style="text-align:left;padding:3px 6px">Analiz</th><th colspan="3" style="padding:3px 6px;border-left:1px solid var(--border)">Normal (80 sayılık)</th><th colspan="3" style="padding:3px 6px;border-left:1px solid var(--border);color:#7c3aed">Yalnızca önceki çekiliş sayıları</th></tr><tr style="color:var(--muted);text-align:right;font-size:.56rem"><th></th><th style="padding:2px 6px;border-left:1px solid var(--border)">ort. net/bilet</th><th>en iyi bilet ort.</th><th>5+ net (en iyi)</th><th style="padding:2px 6px;border-left:1px solid var(--border)">ort. net/bilet</th><th>en iyi bilet ort.</th><th>5+ net (en iyi)</th></tr></thead><tbody>`;
+  satir.forEach(r=>{h+=`<tr style="border-top:1px solid var(--border)"><td style="padding:3px 6px">${r.ad}</td>${sat('',r.a.u)}${isNaN(r.o.m)?`<td style="border-left:1px solid var(--border)"></td>`+yok(r.o.n):`<td style="padding:3px 6px;text-align:right;border-left:1px solid var(--border);color:#7c3aed">${r.o.m.toFixed(3)} <small>(z ${zr(r.o.z)})</small>${r.o.n<N?` <small>n=${r.o.n}</small>`:''}</td><td style="padding:3px 6px;text-align:right">${r.o.b.toFixed(2)}</td><td style="padding:3px 6px;text-align:right">%${r.o.b5.toFixed(0)}</td>`}</tr>`;});
+  const rr=(ad,a1,a2)=>{const x=a1?st(a1):null,y=st(a2);return `<tr style="border-top:2px solid var(--border);background:rgba(124,58,237,.05)"><td style="padding:3px 6px;font-weight:800">${ad}</td>${x?`<td style="padding:3px 6px;text-align:right">${x.m.toFixed(3)} <small>(z ${zr(x.z)})</small></td><td style="padding:3px 6px;text-align:right">${x.b.toFixed(2)}</td><td style="padding:3px 6px;text-align:right">%${x.b5.toFixed(0)}</td>`:'<td colspan="3"></td>'}<td style="padding:3px 6px;text-align:right;border-left:1px solid var(--border)">${y.m.toFixed(3)} <small>(z ${zr(y.z)})</small></td><td style="padding:3px 6px;text-align:right">${y.b.toFixed(2)}</td><td style="padding:3px 6px;text-align:right">%${y.b5.toFixed(0)}</td></tr>`;};
+  h+=rr('🎲 Rastgele bilet (referans)',R80,R20);
+  h+=`</tbody></table></div><div style="font-size:.58rem;color:var(--muted);line-height:1.6;margin-top:6px">Rastgele satırı: solda 80 sayıdan, sağda yalnızca önceki çekilişin 20 sayısından rastgele bilet. <strong>z</strong>: ortalamanın şans beklentisi 2.50'den kaç standart hata saptığı (çekilişler birim). <strong>En iyi bilet</strong> sütunları bilet çeşitliliğine bağlıdır (birbirine benzeyen analiz biletlerinde, çeşitli rastgele biletlerden düşük çıkar); adil karşılaştırma <strong>ort. net/bilet</strong>'tir. 26 karşılaştırmada şans eseri ≈1 tanesinin |z|&gt;2 çıkması beklenir. <strong>Sonuç:</strong> z≥2 olan ${guclu}, z≤−2 olan ${zayif} karşılaştırma var. ${guclu<=1&&zayif<=1?'Bu, şans düzeyinden ayırt edilemez — önceki çekilişe kısıtlamak başarıyı anlamlı biçimde artırmıyor görünüyor.':'Aykırı değerler var; farklı bir dönemde (çekiliş sayısını değiştirip) tekrarlayarak doğrula, tek ölçüme güvenme.'}</div>`;
+  el.innerHTML=h;
+}
+function _hoOnBilet(){
+  const el=document.getElementById('hoOnBil');if(!el)return;
+  if(_hoDraws.length<130){el.innerHTML='';return;}
+  const tip=_tsTipBul((document.getElementById('hoOnAlgo')||{}).value)||_tsTipBul(_HO_TIPS[0]);
+  _hoSecimBuyuklugu();
+  const onc=new Set(_hoDraws[0].nums),S=_hoKaynak(_hoDraws,_hoSonrakiZaman(),true),F=_tsOzellik('hizlion',S);
+  const adet=parseInt((document.getElementById('hoAdet')||{}).value)||10,bil=_hoOncekiBilet(S,F,tip,adet,onc);
+  window._hoOnBiletler=bil.map(t=>t.slice());
+  window._hoOnTxt=`${tip.ad} (yalnızca önceki çekiliş sayıları) — ${_HO_GAME.name} (${_hoSonrakiZaman()}) — ${bil.length} bilet\n`+bil.map((t,i)=>`#${i+1}  ${t.join(' ')}`).join('\n');
+  el.innerHTML=`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 4px"><span style="font-size:.64rem;font-weight:800;color:#7c3aed">🔮 Sıradaki çekiliş (${_hoSonrakiZaman().slice(5)}) — kaynak: no ${_hoDraws[0].no} sayıları</span><button class="copy-btn" onclick="_caCopy(window._hoOnTxt);showToast('📋 Biletler kopyalandı')" style="font-size:.56rem;padding:2px 9px">📋 Biletleri Kopyala</button><button class="copy-btn" onclick="_hoKuponKopya(window._hoOnBiletler)" style="font-size:.56rem;padding:2px 9px">🧾 Kupon Kodu</button></div><div style="font-size:.58rem;color:var(--muted);margin-bottom:5px">Önceki çekiliş: <span style="font-family:monospace;font-weight:700;color:var(--text)">${_hoDraws[0].nums.join(' ')}</span></div>`+_nnRenderTickets(_HO_GAME,bil.map(t=>({main:t})),null);
+}
+function _hoOnInit(){
+  const a=document.getElementById('hoOnAlgo');
+  if(a&&!a.options.length)a.innerHTML=_HO_TIPS.map(id=>`<option value="${id}">${(_TS_TIP.find(x=>x.id===id)||{}).ad}</option>`).join('');
+  _hoOnBilet();
+}
 async function _hoInit(){
   {const k=document.getElementById('hoKod');if(k)k.value=_HO_SNIPPET;}
   await _hoYukle();_hoDurumYaz();_hoSecenek(false);_hoRender();_hoGecmisRender();
-  _hoYerImiYaz();
+  _hoYerImiYaz();_hoOnInit();
 }
 
 
