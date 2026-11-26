@@ -1383,8 +1383,9 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
    <span style="font-size:.64rem;font-weight:800;color:#7c3aed">🎫 Bilet analizi</span>
    <button onclick="_tsOk('hoAlgo',-1)" title="Önceki" style="font-size:.7rem;line-height:1;padding:3px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">◀</button><select id="hoAlgo" onchange="_hoAlgoSec(1)" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;min-width:210px"></select><button onclick="_tsOk('hoAlgo',1)" title="Sonraki" style="font-size:.7rem;line-height:1;padding:3px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">▶</button>
    <button onclick="_tsOk('hoAlgo2',-1)" title="Önceki" style="font-size:.7rem;line-height:1;padding:3px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">◀</button><select id="hoAlgo2" onchange="_hoAlgoSec(2)" title="4 / 5 / 7 net hedefli analizler (soldaki listeden bağımsız, yalnızca biri seçili olur)" style="font-size:.7rem;background:var(--surface2);border:1px solid rgba(124,58,237,.45);color:#7c3aed;border-radius:6px;padding:4px 8px;min-width:210px;font-weight:700"></select><button onclick="_tsOk('hoAlgo2',1)" title="Sonraki" style="font-size:.7rem;line-height:1;padding:3px 8px;border-radius:7px;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer">▶</button>
-   <select id="hoAdet" onchange="_hoRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px"><option value="5">5 bilet</option><option value="10" selected>10 bilet</option><option value="15">15 bilet</option><option value="20">20 bilet</option></select>
+   <select id="hoAdet" onchange="_hoRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px"><option value="1">1 bilet</option><option value="2">2 bilet</option><option value="3">3 bilet</option><option value="5">5 bilet</option><option value="10" selected>10 bilet</option><option value="15">15 bilet</option><option value="20">20 bilet</option></select>
    <select id="hoSecim" onchange="_hoRender()" title="Bir biletteki sayı adedi" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px"><option value="10" selected>10 sayılı bilet</option><option value="9">9 sayılı</option><option value="8">8 sayılı</option><option value="7">7 sayılı</option><option value="6">6 sayılı</option><option value="5">5 sayılı (5/5)</option><option value="4">4 sayılı (4/4)</option></select>
+   <button onclick="_hoKucukKupon(4)" title="Tek bilet, 4 sayı (4/4 hedefi)" style="font-size:.66rem;padding:4px 10px;border-radius:8px;border:1px solid rgba(124,58,237,.55);background:rgba(124,58,237,.1);color:#7c3aed;cursor:pointer;font-weight:800">🎯 Tek bilet: 4 sayı</button><button onclick="_hoKucukKupon(5)" title="Tek bilet, 5 sayı (5/5 hedefi)" style="font-size:.66rem;padding:4px 10px;border-radius:8px;border:1px solid rgba(124,58,237,.55);background:rgba(124,58,237,.1);color:#7c3aed;cursor:pointer;font-weight:800">🎯 Tek bilet: 5 sayı</button>
    <span style="font-size:.56rem;color:var(--muted)">Analiz tipini seç → biletler Yeni Tahmin ve geçmiş testlerde o analizden üretilir. Bilete basılı tutunca kopyalanır. Çıkan sayılar 20 olduğundan şans beklentisi yüksektir; analizlerin şansı geçtiği ölçülmedi.</span>
   </div>
   <div id="hoOut" data-ny-yok="1"></div>
@@ -30732,6 +30733,13 @@ async function _hoHashAl(){
   setTimeout(()=>{const dz=document.getElementById('hoDurum');if(dz)dz.innerHTML=`✅ Yer imiyle <strong>${j.length}</strong> çekiliş alındı, <strong>${ek}</strong> yeni eklendi.`+_hoBosluk();_hoDurumYaz();_hoSecenek(false);_hoRender();},900);
 }
 if(document.readyState==='complete')setTimeout(_hoHashAl,1200);else window.addEventListener('load',()=>setTimeout(_hoHashAl,1200));
+// 🎯 Tek bilet, 4 ya da 5 sayı: hedef biletin TÜMÜNÜN tutması (garanti YOK: 4/4 ≈ %0.31, 5/5 ≈ %0.064 — bkz. şans satırı)
+function _hoKucukKupon(k){
+  const sc=document.getElementById('hoSecim'),ad=document.getElementById('hoAdet');
+  if(sc)sc.value=String(k);if(ad)ad.value='1';
+  _hoRender();
+  setTimeout(()=>{const e=document.getElementById('hoGrid');if(e&&e.scrollIntoView)e.scrollIntoView({block:'start',behavior:'smooth'});},150);
+}
 function _hoYerImiTikla(ev){
   if(ev)ev.preventDefault();
   _caCopy('javascript:'+encodeURIComponent(_hoYerImiKod()));
@@ -30841,6 +30849,7 @@ function _hoKolonHtml(prior,hedef,actual,yeni,k){
 function _hoRender(){
   const el=document.getElementById('hoOut');if(!el)return;
   _hoSecimBuyuklugu();
+  setTimeout(()=>{try{_hoOnBilet();}catch(e){}},0);   // deneme alanı da aynı bilet adedi/boyuna uysun
   if(_hoDraws.length<120){el.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:10px">Yeterli veri yok (en az ~120 çekiliş gerekli). Üstteki "Eksik sonuçları ekle" ya da toplu içe aktar ile veri ekle.</div>';return;}
   const sut=[{prior:_hoDraws,hedef:_hoSonrakiZaman(),actual:null}];
   ['hoDateSel','hoDateSel2','hoDateSel3','hoDateSel4'].forEach(id=>{
