@@ -1337,7 +1337,6 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
    <select id="tfDateSel" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
    <select id="tfDateSel2" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
    <select id="tfDateSel3" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
-   <select id="tfDateSel4" onchange="_tsRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:7px 9px;border:1px solid rgba(124,58,237,.35);border-radius:10px;background:rgba(124,58,237,.05)">
    <span style="font-size:.64rem;font-weight:800;color:#7c3aed">🎫 Bilet analizi</span>
@@ -1349,11 +1348,10 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
   <div id="tfOut" data-ny-yok="1"></div>
  </div>
  <div class="card">
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
-   <div id="tfGecmisBaslik" class="card-title" style="margin:0">🕘 Geçmiş</div>
-   <button onclick="_tsGecmisSil()" style="font-size:.6rem;padding:3px 10px;border-radius:12px;border:1px solid rgba(220,60,60,.4);background:rgba(220,60,60,.08);color:#c0392b;cursor:pointer">🗑️ Temizle</button>
-  </div>
+  <details id="tfGecDet"><summary class="card-title" style="margin:0;cursor:pointer"><span id="tfGecmisBaslik">🕘 Geçmiş</span> <span style="font-weight:500;font-size:.6rem;color:var(--muted)">— açmak için tıkla</span></summary>
+  <div style="display:flex;justify-content:flex-end;margin:6px 0"><button onclick="_tsGecmisSil()" style="font-size:.6rem;padding:3px 10px;border-radius:12px;border:1px solid rgba(220,60,60,.4);background:rgba(220,60,60,.08);color:#c0392b;cursor:pointer">🗑️ Temizle</button></div>
   <div id="tfGecmisOut" data-ny-yok="1" data-ex-atla="1"></div>
+  </details>
 </div>
 </div>
 
@@ -30143,7 +30141,7 @@ function _tsSecenek(sifirla){
   const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id;_tsGame=gid;
   const draws=_kbGetDraws(gid)||[];
   const h='<option value="">— geçmiş test seç —</option>'+draws.slice(0,85).map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
-  ['tfDateSel','tfDateSel2','tfDateSel3','tfDateSel4'].forEach((id,i)=>{
+  ['tfDateSel','tfDateSel2','tfDateSel3'].forEach((id,i)=>{
     const e=document.getElementById(id);if(!e)return;
     const prev=e.value;e.innerHTML=h;
     if(!sifirla&&prev)e.value=prev;else if(draws[i]&&draws.length>80)e.value=draws[i].date;
@@ -30498,7 +30496,7 @@ function _tsRender(){
   const bas=document.getElementById('tfBaslik');if(bas)bas.textContent='🧫 Markov ve Hazard — '+g.emoji+' '+g.name;
   if(draws.length<90){el.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:10px">Yeterli veri yok (≥90 çekiliş gerekli).</div>';return;}
   const sut=[{prior:draws,tarih:_dxSonraki(gid),actual:null}];
-  ['tfDateSel','tfDateSel2','tfDateSel3','tfDateSel4'].forEach((id,i)=>{
+  ['tfDateSel','tfDateSel2','tfDateSel3'].forEach((id,i)=>{
     const v=(document.getElementById(id)||{}).value;if(!v)return;
     const ix=draws.findIndex(d=>d.date===v);if(ix<0||draws.length-ix-1<70)return;
     sut.push({prior:draws.slice(ix+1),tarih:v,actual:draws[ix]});
