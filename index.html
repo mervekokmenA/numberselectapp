@@ -31000,6 +31000,14 @@ function _hoOnGecRender(){
       +`<div style="margin-top:6px">${_nnRenderTickets(_HO_GAME,e.bil.map(t=>({main:t})),aS)}</div></details>`;
   }).join('');
 }
+// Şans referansı: 10 sayılı bilette tek bilet P(6+)=%1.32 (hipergeometrik). Çeşitlendirilmiş sette 'en az bir bilet 6+' olasılığı (Monte Carlo, 200k çekiliş)
+function _hoSansSatiri(n,yapi){
+  const T=[[1,1.32],[5,6.64],[8,10.42],[10,12.93],[16,19.90],[20,23.91]];let v=T[T.length-1][1];
+  for(let i=1;i<T.length;i++)if(n<=T[i][0]){const a=T[i-1],b=T[i];v=a[1]+(b[1]-a[1])*(n-a[0])/(b[0]-a[0]);break;}
+  if(_HO_GAME.count!==10)return '';
+  const vv=yapi==='onc20'?v*0.68:v;   // aynı 20 sayıdan kurulu bilet seti ≈ %32 daha düşük (10 bilette ≈%8.7)
+  return `<div style="font-size:.56rem;color:var(--muted);margin:2px 0 6px">🎲 Şans referansı (${_HO_ODUL}+ doğru ödül): tek bilet %1.32 · bu ${n} biletlik sette <strong>en az bir bilet ${_HO_ODUL}+ tutma ≈ %${vv.toFixed(1)}</strong> · beklenen ödüllü bilet ≈ ${(n*0.0132).toFixed(2)}. Analizler bu referansı ölçümlerde aşamadı.</div>`;
+}
 function _hoOnBilet(){
   const el=document.getElementById('hoOnBil');if(!el)return;
   if(_hoDraws.length<130){el.innerHTML='';return;}
@@ -31016,6 +31024,7 @@ function _hoOnBilet(){
   try{_hoOnKaydet(tip,zaman,onc,bil,PR.el>0,G,zorla,yapi);}catch(e){}
   const tum=new Set();bil.forEach(t=>t.forEach(n=>tum.add(n)));
   el.innerHTML=`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 4px"><span style="font-size:.64rem;font-weight:800;color:#7c3aed">🔮 Sıradaki çekiliş (${zaman.slice(5)}) — ${yapi==='onc20'?'kaynak:':'analiz sıralaması için veri:'} ${PR.el?`elle girdiğin son çekiliş (${PR.el} elle girilen çekiliş kullanıldı)`:'no '+_hoDraws[0].no+' sayıları'}</span><button class="copy-btn" onclick="_caCopy(window._hoOnTxt);showToast('📋 Biletler kopyalandı')" style="font-size:.56rem;padding:2px 9px">📋 Biletleri Kopyala</button><button class="copy-btn" onclick="_hoKuponKopya(window._hoOnBiletler)" style="font-size:.56rem;padding:2px 9px">🧾 Kupon Kodu</button></div><div style="font-size:.58rem;color:var(--muted);margin-bottom:5px">Önceki çekiliş: <span style="font-family:monospace;font-weight:700;color:var(--text)">${pri[0].nums.join(' ')}</span></div>`
+    +_hoSansSatiri(bil.length,yapi)
     +(aS?`<div style="font-size:.6rem;margin-bottom:5px;padding:5px 8px;border:1px solid rgba(0,200,100,.4);border-radius:8px;background:rgba(0,230,118,.06)"><div style="margin-bottom:3px">Gerçek sonuç: <span style="font-family:monospace;font-weight:700">${G.map(n=>`<span style="color:${tum.has(n)?'var(--green)':'var(--muted)'}">${n}${tum.has(n)?'✓':''}</span>`).join(' ')}</span></div><strong style="color:var(--green)">✓ en iyi bilet ${oz.en} net</strong> · <strong style="color:#c2410c">~ ${oz.enYk} yakın</strong> · <strong style="color:#7c3aed">${_HO_ODUL}+ net (ödül): ${oz.uc}/${bil.length} bilet</strong> · 5+ net: ${oz.u5} · tüm biletlerin birleşimi gerçek sonuçtan <strong>${G.filter(n=>tum.has(n)).length}/20</strong> sayıyı kapsıyor</div>`:'')
     +_nnRenderTickets(_HO_GAME,bil.map(t=>({main:t})),aS);
   _hoOnGecRender();
