@@ -30449,6 +30449,7 @@ _TS_TIP_YENI3.forEach(t=>{t.yeni=true;t.arastirma=true;_TS_TIP.push(t);});
 function _tsKomb(arr,k,fn){const n=arr.length,idx=[];(function rec(b){if(idx.length===k){fn(idx.map(i=>arr[i]).join(','));return;}for(let i=b;i<=n-(k-idx.length);i++){idx.push(i);rec(i+1);idx.pop();}})(0);}
 function _tsTipBul(id){
   const t=_TS_TIP.find(x=>x.id===id);if(t)return t;
+  if(id==='y_km1')return _TS_TIP.find(x=>x.id==='km1')||null;
   if(/^y_/.test(id||'')&&typeof _HO_TIP_YENI!=='undefined'){const y=_HO_TIP_YENI.find(x=>x.id===id);if(y)return y;}   // 🧪 yeni analizler (Hızlı On ile ortak)
   const m=/^(.+)_h([4579])$/.exec(id||'');if(!m)return null;
   const base=_TS_TIP.find(x=>x.id===m[1]);if(!base)return null;
@@ -30705,9 +30706,11 @@ function _hoGecis(S){return _tsMemo(S,'hogc',()=>{
 const _HO_TIP_EK=[
   // Ölçüm (14.582 çekiliş, iki dönem, 4/5 sayılı bilet): şans düzeyinde ama denenen yeni analizler içinde 4/4 ve 5/5 sayısı en yüksek olan (bkz. CLAUDE.md).
   {id:'gt',ad:'🔁 Geçiş Tablosu (hangi sayıdan sonra ne çıktı)',ac:'Son çekilişteki her sayıdan sonra geçmişte (≤2000 çekiliş) en sık çıkan sayılar; ölçümde şans düzeyi',puan:(F,n,S)=>_hoGecis(S)[n]},
-  {id:'lr',ad:'🤖 Öğrenen Model (4/5 için en iyi ölçülen)',ac:'Her sayı için son 250 çekilişte eğitilen lojistik regresyon: son 1-3 çekilişte çıkma, 10/50/200 sıklık, gecikme',puan:(F,n,S)=>_hoLR(S)[n]}
+  {id:'lr',ad:'🤖 Öğrenen Model (4/5 için en iyi ölçülen)',ac:'Her sayı için son 250 çekilişte eğitilen lojistik regresyon: son 1-3 çekilişte çıkma, 10/50/200 sıklık, gecikme',puan:(F,n,S)=>_hoLR(S)[n]},
+  {id:'km1',ad:'🔗 Kişisel Markov-1',ac:'Her sayı için “önceki çekilişte çıktı/çıkmadı” durumuna göre kendi çıkma oranı (kullanıcı isteğiyle standart listeye taşındı)',puan:(F,n,S)=>_hoYNorm(S,'km1')[n]}
 ];
 const _HO_TIP_EK_IDS=_HO_TIP_EK.map(t=>t.id);
+_TS_TIP.push(_HO_TIP_EK.find(t=>t.id==='km1'));   // 🔗 Kişisel Markov-1 Markov-Hazard sayfasının da standart listesinde (ortak kod)
 // ═══ 🧪 YENİ ANALİZLER — ayrı seçici `hoAlgo3` (kullanıcı isteği 2026-11-26: 'onlarca yeni analiz, ayrı dropdown').
 // Hepsi yalnızca hedef çekilişten ÖNCEKİ çekilişlerden hesaplanır. Daha önce silinen analizler (bkz. CLAUDE.md) burada YOK.
 // Oyundan bağımsız: M = sayı aralığı, K = çekilişte çıkan sayı, p = K/M (Hızlı On 80/20; Markov-Hazard sayfasındaki oyunlar da kullanır)
@@ -30724,6 +30727,17 @@ function _hoSon(S,k){return ((S.prior||[])[k]||{nums:[]}).nums||[];}
 function _hoGecisG(S,adim){return _tsMemo(S,'hgg'+adim,()=>{const {M,p}=_hoMP(S),pr=(S.prior||[]).slice(0,2000),T=Array.from({length:M+1},()=>new Float32Array(M+1)),cx=new Float32Array(M+1),o=_hoA(S);
   for(let j=adim;j<pr.length;j++){for(const x of (pr[j].nums||[])){if(x<1||x>M)continue;cx[x]++;for(const y of (pr[j-adim].nums||[]))if(y>=1&&y<=M)T[x][y]++;}}
   const kay=_hoSon(S,adim-1);for(let y=1;y<=M;y++){let t=0;for(const x of kay)if(x>=1&&x<=M)t+=Math.log((T[x][y]+1)/(cx[x]*p+1/p));o[y]=t;}return o;});}
+// Kişisel Markov zinciri sayacı: her sayı n için durum st(P,i,n) (i = geçmişin başladığı satır; P[0] en yeni) → sonraki çekilişte çıkma.
+// Tüm sayılardan havuzlanmış durum oranına büzülür (A = önsel ağırlık); yy>0 ise yarı ömrü yy çekiliş olan üstel ağırlık.
+function _hoMk(S,key,L0,st,ns,A,yy){return _tsMemo(S,'ymk_'+key,()=>{const {M,p}=_hoMP(S),P=_hoB(S,L0),L=P.length,o=_hoA(S),D=6;
+  const H=new Float64Array(ns),C=new Float64Array(ns),h=Array.from({length:M+1},()=>new Float64Array(ns)),c=Array.from({length:M+1},()=>new Float64Array(ns));
+  for(let t=0;t+D<L;t++){const w=yy?Math.pow(0.5,t/yy):1;for(let n=1;n<=M;n++){const s2=st(P,t+1,n);if(s2<0||s2>=ns)continue;const y=P[t][n];h[n][s2]+=w*y;c[n][s2]+=w;H[s2]+=w*y;C[s2]+=w;}}
+  for(let n=1;n<=M;n++){const s2=st(P,0,n);if(s2<0||s2>=ns){o[n]=p;continue;}const pool=(H[s2]+p)/(C[s2]+1);o[n]=(h[n][s2]+A*pool)/(c[n][s2]+A);}
+  return o;});}
+// Her sayının en güçlü "eşi": son 500 çekilişte birlikte çıkma oranı şansa göre en yüksek olan sayı
+function _hoEs(S){return _tsMemo(S,'hes',()=>{const M=_hoMP(S).M,P=_hoB(S,500),L=P.length,f=_hoFrq(S,0,500),C=Array.from({length:M+1},()=>new Float64Array(M+1)),es=new Array(M+1).fill(0);
+  for(let t=0;t<L;t++){const a=[];for(let n=1;n<=M;n++)if(P[t][n])a.push(n);for(const x of a)for(const y of a)if(x!==y)C[x][y]++;}
+  for(let x=1;x<=M;x++){let b=-1;for(let y=1;y<=M;y++)if(y!==x&&f[y]>0){const l=C[x][y]/(f[y]+1);if(l>b){b=l;es[x]=y;}}}return es;});}
 const _HO_Y={
   ew5:S=>_hoEw(S,5), ew20:S=>_hoEw(S,20), ew100:S=>_hoEw(S,100),
   mom:S=>_tsMemo(S,'ymom',()=>{const M=_hoMP(S).M,a=_hoFrq(S,0,20),b=_hoFrq(S,20,120),o=_hoA(S);for(let n=1;n<=M;n++)o[n]=a[n]/20-b[n]/100;return o;}),
@@ -30763,6 +30777,37 @@ const _HO_Y={
   bnt:S=>_tsMemo(S,'ybnt',()=>{const {M,p}=_hoMP(S),{cur}=_hoGap(S),f=_hoFrq(S,0,200),o=_hoA(S),mer=3/p,gen=2.5/p;for(let n=1;n<=M;n++)o[n]=Math.max(0,1-Math.abs(cur[n]-mer)/gen)+0.002*f[n];return o;}),
   tam:S=>_tsMemo(S,'ytam',()=>{const {M,p}=_hoMP(S),P=_hoB(S,200),f=_hoFrq(S,0,200),o=_hoA(S),W=Math.max(1,Math.round(1/p));for(let n=1;n<=M;n++){let u=0;for(let k=0;k<W;k++)if(P[k]&&P[k][n])u=1;o[n]=(u?0:1)+0.002*f[n];}return o;}),
   coks:S=>_tsMemo(S,'ycoks',()=>{const M=_hoMP(S).M,o=_hoA(S),K=[5,20,80,320];for(let i=0;i<K.length-1;i++){const a=_hoFrq(S,0,K[i]),b=_hoFrq(S,0,K[i+1]);for(let n=1;n<=M;n++)o[n]+=a[n]/K[i]-b[n]/K[i+1];}return o;}),
+  // ⛓️ MARKOV TÜREVLERİ (kullanıcı isteği 2026-11-26: Kişisel Markov-1'den türetilmiş en az 10 yeni deneme)
+  mk1k:S=>_hoMk(S,'mk1k',200,(P,i,n)=>P[i][n],2,4),
+  mk1b:S=>_hoMk(S,'mk1b',1500,(P,i,n)=>P[i][n],2,60),
+  mk1e:S=>_hoMk(S,'mk1e',2000,(P,i,n)=>P[i][n],2,4,300),
+  mk2k:S=>_hoMk(S,'mk2k',1500,(P,i,n)=>2*P[i][n]+P[i+1][n],4,8),
+  mk3k:S=>_hoMk(S,'mk3k',2000,(P,i,n)=>4*P[i][n]+2*P[i+1][n]+P[i+2][n],8,8),
+  mk2a:S=>_hoMk(S,'mk2a',1500,(P,i,n)=>P[i+1][n],2,4),
+  mksd:S=>_hoMk(S,'mksd',1500,(P,i,n)=>P[i][n]+P[i+1][n]+P[i+2][n]+P[i+3][n]+P[i+4][n],6,10),
+  mkgd:S=>_hoMk(S,'mkgd',2000,(P,i,n)=>{let g=0;while(g<40&&i+g<P.length&&!P[i+g][n])g++;return g<=3?g:g<=5?4:g<=8?5:g<=13?6:g<=20?7:8;},9,10),
+  mkkd:S=>_hoMk(S,'mkkd',1500,(P,i,n)=>2*P[i][n]+((P[i][n-1]||P[i][n+1])?1:0),4,8),
+  mkor:S=>{const es=_hoEs(S);return _hoMk(S,'mkor',1500,(P,i,n)=>2*P[i][n]+(es[n]?P[i][es[n]]:0),4,8);},
+  mkvl:S=>_tsMemo(S,'ymkvl',()=>{const {M,p}=_hoMP(S),P=_hoB(S,2000),L=P.length,o=_hoA(S),D=4,A=10;
+    for(let n=1;n<=M;n++){const h=Array.from({length:D+1},()=>({})),c=Array.from({length:D+1},()=>({}));let H0=1,C0=1/p;
+      for(let t=0;t+D<L;t++){const y=P[t][n];H0+=y;C0++;let k=0;for(let d=1;d<=D;d++){k=k*2+P[t+d][n];h[d][k]=(h[d][k]||0)+y;c[d][k]=(c[d][k]||0)+1;}}
+      let est=H0/C0,k=0;for(let d=1;d<=D;d++){k=k*2+(P[d-1]?P[d-1][n]:0);est=((h[d][k]||0)+A*est)/((c[d][k]||0)+A);}o[n]=est;}
+    return o;}),
+  mkhm:S=>_tsMemo(S,'ymkhm',()=>{const {M,p}=_hoMP(S),P=_hoB(S,600),L=P.length,o=_hoA(S);
+    for(let n=1;n<=M;n++){let e=[Math.min(0.95,p*1.4),p*0.7],A=[[0.95,0.05],[0.05,0.95]],pi=[0.5,0.5];const x=[];for(let t=L-1;t>=0;t--)x.push(P[t][n]);const T=x.length;let al=null;
+      for(let it=0;it<5;it++){al=[];const sc=[];let a=[0,1].map(s=>pi[s]*(x[0]?e[s]:1-e[s]));let z=a[0]+a[1]||1;a=a.map(v=>v/z);al.push(a);sc.push(z);
+        for(let t=1;t<T;t++){const b=[0,1].map(s=>(al[t-1][0]*A[0][s]+al[t-1][1]*A[1][s])*(x[t]?e[s]:1-e[s]));z=b[0]+b[1]||1;al.push(b.map(v=>v/z));sc.push(z);}
+        if(it===4)break;
+        let be=[1,1];const g=new Array(T),xi=[[0,0],[0,0]];g[T-1]=al[T-1].slice();
+        for(let t=T-2;t>=0;t--){const em=[0,1].map(s=>x[t+1]?e[s]:1-e[s]);const nb=[0,1].map(s=>A[s][0]*em[0]*be[0]+A[s][1]*em[1]*be[1]);const zz=nb[0]+nb[1]||1;
+          for(let i=0;i<2;i++)for(let j=0;j<2;j++)xi[i][j]+=al[t][i]*A[i][j]*em[j]*be[j]/((al[t][0]*(A[0][0]*em[0]*be[0]+A[0][1]*em[1]*be[1])+al[t][1]*(A[1][0]*em[0]*be[0]+A[1][1]*em[1]*be[1]))||1);
+          be=nb.map(v=>v/zz);const gg=[al[t][0]*be[0],al[t][1]*be[1]],zg=gg[0]+gg[1]||1;g[t]=gg.map(v=>v/zg);}
+        const sg=[0,0],sh=[0,0];for(let t=0;t<T;t++)for(let s2=0;s2<2;s2++){sg[s2]+=g[t][s2];sh[s2]+=g[t][s2]*x[t];}
+        e=[0,1].map(s2=>Math.min(0.98,Math.max(0.01,(sh[s2]+p)/(sg[s2]+1))));
+        for(let i=0;i<2;i++){const r=xi[i][0]+xi[i][1]||1;A[i]=[(xi[i][0]+1)/(r+2),(xi[i][1]+1)/(r+2)];}pi=g[0];}
+      const f=al[T-1];o[n]=[0,1].reduce((q,s2)=>q+(f[0]*A[0][s2]+f[1]*A[1][s2])*e[s2],0);}
+    return o;}),
+  mktp:S=>_tsMemo(S,'ymktp',()=>{const M=_hoMP(S).M,L=['km1','mk2k','mk3k','mkvl','mkhm','mk1e'].map(k=>_hoRk(_HO_Y[k](S),S)),o=_hoA(S);for(let n=1;n<=M;n++)o[n]=L.reduce((q,r)=>q+r[n],0)/L.length;return o;}),
   ens:S=>_tsMemo(S,'yens',()=>{const M=_hoMP(S).M,L=['ew20','km1','gh','knn','ppr','kal','uyp','nb'].map(k=>_hoRk(_HO_Y[k](S),S)),o=_hoA(S);for(let n=1;n<=M;n++)o[n]=L.reduce((q,r)=>q+r[n],0)/L.length;return o;})
 };
 const _HO_TIP_YENI=[
@@ -30775,7 +30820,6 @@ const _HO_TIP_YENI=[
   ['ovr','⏰ Gecikme / Ortalama Aralık Oranı','Mevcut gecikmesi kendi ortalama çıkış aralığını en çok aşan sayılar'],
   ['reg','📐 Aralık Düzenliliği','Çıkış aralıkları düzenli olan ve tam “sırası gelmiş” sayılar'],
   ['per','🔂 Periyodiklik (kendi gecikme döngüsü)','Her sayının en güçlü tekrar döngüsüne (2–40 çekiliş) göre sırası gelenler'],
-  ['km1','🔗 Kişisel Markov-1','Her sayı için “önceki çekilişte çıktı/çıkmadı” durumuna göre kendi çıkma oranı'],
   ['gh','📉 Genel Gecikme Eğrisi','Tüm sayılardan öğrenilen “X çekiliştir çıkmayan sayı ne sıklıkla çıkar” eğrisi'],
   ['kom','🧭 Komşu Sayılar (son çekiliş ±1…±3)','Son çekilişteki sayıların yakın komşuları'],
   ['kup','🔲 Kupon Satır/Sütun Sıcaklığı','Kupon ızgarasında (8 satır × 10 sütun) son 10 çekilişte sıcak satır ve sütunlar'],
@@ -30796,12 +30840,25 @@ const _HO_TIP_YENI=[
   ['bnt','🎯 Orta Gecikme Bandı','Ortalama çıkış aralığının yaklaşık 0.5–5.5 katı süredir çıkmayan sayılar (Hızlı On\'da ≈2–22 çekiliş)'],
   ['tam','🧩 Tamamlayıcı (son birkaç çekilişte yok)','Son birkaç çekilişin (Hızlı On\'da 4) hiçbirinde çıkmayan sayılar'],
   ['coks','🌊 Çok Ölçekli Eğilim','5/20/80/320 çekilişlik ölçeklerde art arda yükselen sayılar'],
+  ['mk1k','⛓️ Kısa Hafızalı Markov-1 (son 200)','Kişisel Markov-1, yalnızca son 200 çekilişten'],
+  ['mk1b','⛓️ Bayes Büzülmeli Markov-1','Kişisel Markov-1, tüm sayıların ortak geçiş oranına güçlü büzülmeyle'],
+  ['mk1e','⛓️ Üstel Ağırlıklı Markov-1','Kişisel Markov-1, yakın çekilişlere daha çok ağırlık (yarı ömür 300)'],
+  ['mk2k','⛓️ Kişisel Markov-2 (4 durum)','Son iki çekilişteki çıktı/çıkmadı durumuna göre her sayının kendi çıkma oranı'],
+  ['mk3k','⛓️ Kişisel Markov-3 (8 durum)','Son üç çekilişteki durumuna göre her sayının kendi çıkma oranı'],
+  ['mk2a','⛓️ İki Adım Kişisel Markov','Sondan bir önceki çekilişteki durumuna göre (t−2 → t)'],
+  ['mksd','⛓️ Sıklık Durumlu Markov','Son 5 çekilişte kaç kez çıktığı (0–5) durum olarak'],
+  ['mkgd','⛓️ Gecikme Durumlu Markov','Kaç çekiliştir çıkmadığı (gruplu) durum olarak, sayı başına'],
+  ['mkkd','⛓️ Komşu Durumlu Markov','Kendisi ve ±1 komşusunun son çekilişteki durumu'],
+  ['mkor','⛓️ Eş Durumlu Markov','Kendisi ve en güçlü eşinin (birlikte en çok çıkan) son çekilişteki durumu'],
+  ['mkvl','⛓️ Değişken Dereceli Markov (1–4)','Derece 1’den 4’e kadar kademeli birleştirilen (PPM tarzı) kişisel Markov'],
+  ['mkhm','⛓️ Saklı Markov Modeli (sıcak/soğuk)','Her sayı için gizli sıcak/soğuk durumlu 2 durumlu HMM (Baum-Welch)'],
+  ['mktp','⛓️ Markov Topluluğu','Kişisel Markov-1/2/3, Değişken Dereceli, Saklı Markov ve Üstel Markov-1 sıra ortalaması'],
   ['ens','🗳️ Yeni Topluluk (8 yeni sinyal)','Üstel sıklık, Kişisel Markov, Gecikme Eğrisi, kNN, PageRank, Kalman, Uyarlanır Pencere, Naive Bayes sıra ortalaması']
 ].map(([k,ad,ac])=>({id:'y_'+k,ad,ac:ac+' (yeni — başarı iddiası yok)',yeniHo:true,puan:(F,n,S)=>_hoYNorm(S,k)[n]}));
 function _hoYNorm(S,k){return _tsMemo(S,'yn_'+k,()=>{const M=_hoMP(S).M,v=_HO_Y[k](S);let lo=Infinity,hi=-Infinity;for(let n=1;n<=M;n++){const x=+v[n]||0;if(x<lo)lo=x;if(x>hi)hi=x;}const o=_hoA(S),d=hi-lo||1;for(let n=1;n<=M;n++)o[n]=((+v[n]||0)-lo)/d;return o;});}   // 0–1 (bilet üretici negatif puanda çalışmaz)
 const _HO_TIPS_STD=['mk','hz'];   // kullanıcı isteği: Hazard ve Markov dışındaki tüm analizler SİLİNDİ (geri koyma)
 const _HO_TIPS=['mk','hz'].concat(_HO_TIP_EK_IDS);   // + yalnızca Hızlı On'a ait yeni ileri analizler
-function _hoTip(id){return _HO_TIP_EK.find(t=>t.id===id)||_HO_TIP_YENI.find(t=>t.id===id)||_tsTipBul(id);}
+function _hoTip(id){if(id==='y_km1')id='km1';return _HO_TIP_EK.find(t=>t.id===id)||_HO_TIP_YENI.find(t=>t.id===id)||_tsTipBul(id);}
 let _hoDraws=[],_hoYuklendi=false,_hoCache={},_hoToken=0,_hoSonKol={},_hoSiraOnb={};
 function _hoOku(){try{const j=JSON.parse(localStorage.getItem(_HO_KEY)||'[]');return Array.isArray(j)?j:[];}catch(e){return [];}}
 function _hoDepola(){try{localStorage.setItem(_HO_KEY,JSON.stringify(_hoDraws.map(d=>[d.no,d.date,d.nums])));}catch(e){}}
