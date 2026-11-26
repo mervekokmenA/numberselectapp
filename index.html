@@ -30724,59 +30724,46 @@ function _hoGap(S){return _tsMemo(S,'hgap',()=>{const P=_hoB(S,2000),M=_hoMP(S).
 function _hoEw(S,h){return _tsMemo(S,'hew'+h,()=>{const P=_hoB(S,2000),M=_hoMP(S).M,o=_hoA(S),L=Math.min(P.length,h*8);for(let i=0;i<L;i++){const w=Math.pow(0.5,i/h);for(let n=1;n<=M;n++)if(P[i][n])o[n]+=w;}return o;});}
 function _hoRk(o,S){const M=S?_hoMP(S).M:80,id=[];for(let n=1;n<=M;n++)id.push(n);id.sort((a,b)=>(o[a]||0)-(o[b]||0)||a-b);const r=_hoA(S);id.forEach((n,i)=>{r[n]=i/Math.max(1,M-1);});return r;}
 function _hoSon(S,k){return ((S.prior||[])[k]||{nums:[]}).nums||[];}
-function _hoGecisG(S,adim){return _tsMemo(S,'hgg'+adim,()=>{const {M,p}=_hoMP(S),pr=(S.prior||[]).slice(0,2000),T=Array.from({length:M+1},()=>new Float32Array(M+1)),cx=new Float32Array(M+1),o=_hoA(S);
-  for(let j=adim;j<pr.length;j++){for(const x of (pr[j].nums||[])){if(x<1||x>M)continue;cx[x]++;for(const y of (pr[j-adim].nums||[]))if(y>=1&&y<=M)T[x][y]++;}}
-  const kay=_hoSon(S,adim-1);for(let y=1;y<=M;y++){let t=0;for(const x of kay)if(x>=1&&x<=M)t+=Math.log((T[x][y]+1)/(cx[x]*p+1/p));o[y]=t;}return o;});}
 // Kişisel Markov zinciri sayacı: her sayı n için durum st(P,i,n) (i = geçmişin başladığı satır; P[0] en yeni) → sonraki çekilişte çıkma.
 // Tüm sayılardan havuzlanmış durum oranına büzülür (A = önsel ağırlık); yy>0 ise yarı ömrü yy çekiliş olan üstel ağırlık.
-function _hoMk(S,key,L0,st,ns,A,yy){return _tsMemo(S,'ymk_'+key,()=>{const {M,p}=_hoMP(S),P=_hoB(S,L0),L=P.length,o=_hoA(S),D=6;
+function _hoMk(S,key,L0,st,ns,A,yy,kom){return _tsMemo(S,'ymk_'+key,()=>{const {M,p}=_hoMP(S),P=_hoB(S,L0),L=P.length,o=_hoA(S),D=6;
   const H=new Float64Array(ns),C=new Float64Array(ns),h=Array.from({length:M+1},()=>new Float64Array(ns)),c=Array.from({length:M+1},()=>new Float64Array(ns));
   for(let t=0;t+D<L;t++){const w=yy?Math.pow(0.5,t/yy):1;for(let n=1;n<=M;n++){const s2=st(P,t+1,n);if(s2<0||s2>=ns)continue;const y=P[t][n];h[n][s2]+=w*y;c[n][s2]+=w;H[s2]+=w*y;C[s2]+=w;}}
-  for(let n=1;n<=M;n++){const s2=st(P,0,n);if(s2<0||s2>=ns){o[n]=p;continue;}const pool=(H[s2]+p)/(C[s2]+1);o[n]=(h[n][s2]+A*pool)/(c[n][s2]+A);}
+  for(let n=1;n<=M;n++){const s2=st(P,0,n);if(s2<0||s2>=ns){o[n]=p;continue;}const pool=(H[s2]+p)/(C[s2]+1);
+    let hh=h[n][s2],cc=c[n][s2];if(kom){for(const m of [n-1,n+1])if(m>=1&&m<=M){hh+=kom*h[m][s2];cc+=kom*c[m][s2];}}   // uzamsal düzleştirme: komşu sayıların aynı durumdaki oranları
+    o[n]=(hh+A*pool)/(cc+A);}
+  return o;});}
+// Komşu (±d) son çekilişte var mı (0/1)
+function _hoNb(P,i,n,d){return ((P[i][n-d]||0)||(P[i][n+d]||0))?1:0;}
+// Kademeli (PPM tarzı) kişisel Markov: sırayla daha ayrıntılı durumlara geçer, her kademe bir öncekine A ağırlıkla büzülür
+function _hoMkKas(S,key,L0,stl,A){return _tsMemo(S,'ymkk_'+key,()=>{const {M,p}=_hoMP(S),P=_hoB(S,L0),L=P.length,o=_hoA(S),D=6;
+  for(let n=1;n<=M;n++){const h=stl.map(()=>({})),c=stl.map(()=>({}));let H0=0,C0=0;
+    for(let t=0;t+D<L;t++){const y=P[t][n];H0+=y;C0++;stl.forEach((f,j)=>{const k=f(P,t+1,n);h[j][k]=(h[j][k]||0)+y;c[j][k]=(c[j][k]||0)+1;});}
+    let est=(H0+p*4)/(C0+4);stl.forEach((f,j)=>{const k=f(P,0,n);est=((h[j][k]||0)+A*est)/((c[j][k]||0)+A);});o[n]=est;}
   return o;});}
 // Her sayının en güçlü "eşi": son 500 çekilişte birlikte çıkma oranı şansa göre en yüksek olan sayı
 function _hoEs(S){return _tsMemo(S,'hes',()=>{const M=_hoMP(S).M,P=_hoB(S,500),L=P.length,f=_hoFrq(S,0,500),C=Array.from({length:M+1},()=>new Float64Array(M+1)),es=new Array(M+1).fill(0);
   for(let t=0;t<L;t++){const a=[];for(let n=1;n<=M;n++)if(P[t][n])a.push(n);for(const x of a)for(const y of a)if(x!==y)C[x][y]++;}
   for(let x=1;x<=M;x++){let b=-1;for(let y=1;y<=M;y++)if(y!==x&&f[y]>0){const l=C[x][y]/(f[y]+1);if(l>b){b=l;es[x]=y;}}}return es;});}
 const _HO_Y={
-  ew5:S=>_hoEw(S,5), ew20:S=>_hoEw(S,20), ew100:S=>_hoEw(S,100),
-  mom:S=>_tsMemo(S,'ymom',()=>{const M=_hoMP(S).M,a=_hoFrq(S,0,20),b=_hoFrq(S,20,120),o=_hoA(S);for(let n=1;n<=M;n++)o[n]=a[n]/20-b[n]/100;return o;}),
-  rev:S=>_tsMemo(S,'yrev',()=>{const {M,p}=_hoMP(S),f=_hoFrq(S,0,1000),N=Math.min(1000,(S.prior||[]).length),o=_hoA(S);for(let n=1;n<=M;n++)o[n]=-(f[n]-N*p)/Math.sqrt(N*p*(1-p));return o;}),
-  js:S=>_tsMemo(S,'yjs',()=>{const {M,p}=_hoMP(S),a=_hoFrq(S,0,30),b=_hoFrq(S,0,1000),Nb=Math.max(1,Math.min(1000,(S.prior||[]).length)),o=_hoA(S);let v=0;for(let n=1;n<=M;n++)v+=Math.pow(a[n]/30-p,2);v/=M;const s2=p*(1-p)/30,k=Math.max(0,1-s2/Math.max(v,1e-9));for(let n=1;n<=M;n++)o[n]=b[n]/Nb+k*(a[n]/30-b[n]/Nb);return o;}),
-  ovr:S=>_tsMemo(S,'yovr',()=>{const {M,p}=_hoMP(S),{cur,iv}=_hoGap(S),o=_hoA(S);for(let n=1;n<=M;n++){const m=iv[n].length?iv[n].reduce((q,x)=>q+x,0)/iv[n].length:1/p;o[n]=(cur[n]+1)/m;}return o;}),
+  ew5:S=>_hoEw(S,5), ew20:S=>_hoEw(S,20),
   reg:S=>_tsMemo(S,'yreg',()=>{const M=_hoMP(S).M,{cur,iv}=_hoGap(S),o=_hoA(S);for(let n=1;n<=M;n++){const l=iv[n];if(l.length<3){o[n]=-99;continue;}const m=l.reduce((q,x)=>q+x,0)/l.length,sd=Math.sqrt(l.reduce((q,x)=>q+(x-m)*(x-m),0)/l.length);o[n]=-Math.abs(cur[n]+1-m)/(sd+0.5);}return o;}),
-  per:S=>_tsMemo(S,'yper',()=>{const {M,p}=_hoMP(S),P=_hoB(S,1200),L=P.length,o=_hoA(S);for(let n=1;n<=M;n++){let best=0;for(let lag=2;lag<=40;lag++){let a=0,b=0;for(let t=0;t+lag<L;t++)if(P[t+lag][n]){b++;if(P[t][n])a++;}const ac=b?a/b-p:0;if(P[lag-1]&&P[lag-1][n]&&ac>best)best=ac;}o[n]=best;}return o;}),
   km1:S=>_tsMemo(S,'ykm1',()=>{const M=_hoMP(S).M,P=_hoB(S,1500),L=P.length,o=_hoA(S);for(let n=1;n<=M;n++){let a1=1,b1=4,a0=1,b0=4;for(let t=0;t+1<L;t++){if(P[t+1][n]){b1++;if(P[t][n])a1++;}else{b0++;if(P[t][n])a0++;}}o[n]=P[0]&&P[0][n]?a1/b1:a0/b0;}return o;}),
   gh:S=>_tsMemo(S,'ygh',()=>{const M=_hoMP(S).M,P=_hoB(S,1500),L=P.length,C=200,c=new Float64Array(C),h=new Float64Array(C),g=new Array(M+1).fill(-1),o=_hoA(S);
     for(let t=L-1;t>=0;t--){for(let n=1;n<=M;n++){if(g[n]>=0){const k=Math.min(C-1,g[n]);c[k]++;if(P[t][n])h[k]++;}}for(let n=1;n<=M;n++){if(P[t][n])g[n]=0;else if(g[n]>=0)g[n]++;}}
     const {cur}=_hoGap(S);for(let n=1;n<=M;n++){const k=Math.min(C-1,cur[n]);o[n]=(h[k]+1)/(c[k]+4);}return o;}),
-  kom:S=>_tsMemo(S,'ykom',()=>{const M=_hoMP(S).M,o=_hoA(S),w=[0.3,1,0.5,0.2];_hoSon(S,0).forEach(m=>{for(let d=-3;d<=3;d++){const n=m+d;if(n>=1&&n<=M)o[n]+=w[Math.abs(d)];}});return o;}),
-  kup:S=>_tsMemo(S,'ykup',()=>{const M=_hoMP(S).M,R=Math.ceil(M/10),f=_hoFrq(S,0,10),r=new Array(R).fill(0),c=new Array(10).fill(0),o=_hoA(S);for(let n=1;n<=M;n++){r[Math.floor((n-1)/10)]+=f[n];c[(n-1)%10]+=f[n];}for(let n=1;n<=M;n++)o[n]=r[Math.floor((n-1)/10)]/10+c[(n-1)%10]/R;return o;}),
   dek:S=>_tsMemo(S,'ydek',()=>{const {M,p}=_hoMP(S),R=Math.ceil(M/10),f=_hoFrq(S,0,20),f2=_hoFrq(S,0,200),d=new Array(R).fill(0),o=_hoA(S);for(let n=1;n<=M;n++)d[Math.floor((n-1)/10)]+=f[n];for(let n=1;n<=M;n++){const gi=Math.floor((n-1)/10),boy=Math.min(10,M-gi*10);o[n]=-(d[gi]-20*boy*p)/Math.max(1,boy)+0.001*f2[n];}return o;}),
   srk:S=>_tsMemo(S,'ysrk',()=>{const M=_hoMP(S).M,f=_hoFrq(S,0,30),d=new Array(10).fill(0),o=_hoA(S);for(let n=1;n<=M;n++)d[n%10]+=f[n];for(let n=1;n<=M;n++)o[n]=d[n%10]+0.05*f[n];return o;}),
-  kar:S=>_tsMemo(S,'ykar',()=>{const M=_hoMP(S).M,o=_hoA(S),W=[];for(let k=0;k<10;k++)W.push(_hoFrq(S,k*50,k*50+50));for(let n=1;n<=M;n++){const v=W.map(w=>w[n]),m=v.reduce((q,x)=>q+x,0)/10,sd=Math.sqrt(v.reduce((q,x)=>q+(x-m)*(x-m),0)/10);o[n]=m/(sd+1);}return o;}),
-  orta:S=>_tsMemo(S,'yorta',()=>{const M=_hoMP(S).M,r=_hoRk(_hoFrq(S,0,500),S),o=_hoA(S);for(let n=1;n<=M;n++)o[n]=-Math.abs(r[n]-0.5);return o;}),
   uyp:S=>_tsMemo(S,'yuyp',()=>{const {M,K}=_hoMP(S),P=_hoB(S,600),Ws=[5,10,20,50,100,200,500];let bw=50,bs=-1;
     for(const W of Ws){let hit=0,ok=false;for(let t=0;t<40;t++){if(t+1+W>P.length)break;ok=true;const f=new Array(M+1).fill(0);for(let i=t+1;i<t+1+W;i++)for(let n=1;n<=M;n++)f[n]+=P[i][n];const id=[];for(let n=1;n<=M;n++)id.push(n);id.sort((a,b)=>f[b]-f[a]||a-b);for(let q=0;q<K;q++)hit+=P[t][id[q]];}if(ok&&hit>bs){bs=hit;bw=W;}}
     return _hoFrq(S,0,bw);}),
   knn:S=>_tsMemo(S,'yknn',()=>{const {M,K,p}=_hoMP(S),P=_hoB(S,2000),s0=_hoSon(S,0),L=P.length,sc=[],o=_hoA(S),taban=K*p-1;for(let j=1;j<L;j++){let q=0;for(const m of s0)q+=P[j][m]||0;sc.push([q,j]);}sc.sort((a,b)=>b[0]-a[0]||a[1]-b[1]);sc.slice(0,60).forEach(([q,j])=>{for(let n=1;n<=M;n++)o[n]+=P[j-1][n]*Math.max(0.1,q-taban);});return o;}),
-  knn2:S=>_tsMemo(S,'yknn2',()=>{const M=_hoMP(S).M,P=_hoB(S,2000),s0=_hoSon(S,0),s1=_hoSon(S,1),L=P.length,sc=[],o=_hoA(S);for(let j=1;j+1<L;j++){let q=0;for(const m of s0)q+=P[j][m]||0;for(const m of s1)q+=P[j+1][m]||0;sc.push([q,j]);}sc.sort((a,b)=>b[0]-a[0]||a[1]-b[1]);sc.slice(0,60).forEach(([q,j])=>{for(let n=1;n<=M;n++)o[n]+=P[j-1][n];});return o;}),
   nb:S=>_tsMemo(S,'ynb',()=>{const M=_hoMP(S).M,P=_hoB(S,1500),L=P.length,o=_hoA(S);for(let n=1;n<=M;n++){const c=[[1,1],[1,1],[1,1]],cn=[[1,1],[1,1],[1,1]];let y1=1,y0=1;for(let t=0;t+3<L;t++){const y=P[t][n];if(y)y1++;else y0++;for(let k=0;k<3;k++){const x=P[t+1+k][n];(y?c:cn)[k][x]++;}}let lp=Math.log(y1/y0);for(let k=0;k<3;k++){const x=P[k]?P[k][n]:0;lp+=Math.log(c[k][x]/(c[k][0]+c[k][1]))-Math.log(cn[k][x]/(cn[k][0]+cn[k][1]));}o[n]=lp;}return o;}),
-  cen:S=>_tsMemo(S,'ycen',()=>{const {M,K}=_hoMP(S),P=_hoB(S,500),L=P.length,f=_hoFrq(S,0,500),E=Array.from({length:M+1},()=>new Float64Array(M+1));for(let t=0;t<L;t++){const a=[];for(let n=1;n<=M;n++)if(P[t][n])a.push(n);for(const x of a)for(const y of a)if(x!==y)E[x][y]++;}
-    const bek=L?(K-1)/(L*K*(M-1)/M):0;for(let x=1;x<=M;x++)for(let y=1;y<=M;y++)if(x!==y)E[x][y]-=f[x]*f[y]*bek;
-    let v=new Float64Array(M+1).fill(1);for(let it=0;it<30;it++){const w=new Float64Array(M+1);let nr=0;for(let x=1;x<=M;x++){let q=0;for(let y=1;y<=M;y++)q+=E[x][y]*v[y];w[x]=q;nr+=q*q;}nr=Math.sqrt(nr)||1;for(let x=1;x<=M;x++)v[x]=w[x]/nr;}
-    let sg=0;for(let x=1;x<=M;x++)sg+=v[x];const o=_hoA(S);for(let n=1;n<=M;n++)o[n]=sg<0?-v[n]:v[n];return o;}),
   ppr:S=>_tsMemo(S,'yppr',()=>{const M=_hoMP(S).M,P=_hoB(S,1000),L=P.length,T=Array.from({length:M+1},()=>new Float64Array(M+1));for(let j=1;j<L;j++)for(let x=1;x<=M;x++)if(P[j][x])for(let y=1;y<=M;y++)if(P[j-1][y])T[x][y]++;
     for(let x=1;x<=M;x++){let t=0;for(let y=1;y<=M;y++)t+=T[x][y];if(t)for(let y=1;y<=M;y++)T[x][y]/=t;}
     const s0=_hoSon(S,0).filter(m=>m>=1&&m<=M),e=new Float64Array(M+1);s0.forEach(m=>{e[m]=1/Math.max(1,s0.length);});let v=e.slice();for(let it=0;it<20;it++){const w=new Float64Array(M+1);for(let x=1;x<=M;x++)if(v[x])for(let y=1;y<=M;y++)w[y]+=0.85*v[x]*T[x][y];for(let y=1;y<=M;y++)w[y]+=0.15*e[y];v=w;}
     const o=_hoA(S);for(let n=1;n<=M;n++)o[n]=v[n];return o;}),
-  ters:S=>_tsMemo(S,'yters',()=>{const M=_hoMP(S).M,g=_hoGecisG(S,1),o=_hoA(S);for(let n=1;n<=M;n++)o[n]=-g[n];return o;}),
-  ad2:S=>_hoGecisG(S,2),
   kal:S=>_tsMemo(S,'ykal',()=>{const {M,p}=_hoMP(S),P=_hoB(S,400),L=P.length,o=_hoA(S);for(let n=1;n<=M;n++){let x=p,pv=0.01;const q=0.0004,r=p*(1-p);for(let t=L-1;t>=0;t--){pv+=q;const k=pv/(pv+r);x+=k*(P[t][n]-x);pv*=(1-k);}o[n]=x;}return o;}),
-  pat:S=>_tsMemo(S,'ypat',()=>{const {M,p}=_hoMP(S),a=_hoFrq(S,0,15),o=_hoA(S);for(let n=1;n<=M;n++)o[n]=(a[n]-15*p)/Math.sqrt(15*p*(1-p));return o;}),
-  bnt:S=>_tsMemo(S,'ybnt',()=>{const {M,p}=_hoMP(S),{cur}=_hoGap(S),f=_hoFrq(S,0,200),o=_hoA(S),mer=3/p,gen=2.5/p;for(let n=1;n<=M;n++)o[n]=Math.max(0,1-Math.abs(cur[n]-mer)/gen)+0.002*f[n];return o;}),
-  tam:S=>_tsMemo(S,'ytam',()=>{const {M,p}=_hoMP(S),P=_hoB(S,200),f=_hoFrq(S,0,200),o=_hoA(S),W=Math.max(1,Math.round(1/p));for(let n=1;n<=M;n++){let u=0;for(let k=0;k<W;k++)if(P[k]&&P[k][n])u=1;o[n]=(u?0:1)+0.002*f[n];}return o;}),
-  coks:S=>_tsMemo(S,'ycoks',()=>{const M=_hoMP(S).M,o=_hoA(S),K=[5,20,80,320];for(let i=0;i<K.length-1;i++){const a=_hoFrq(S,0,K[i]),b=_hoFrq(S,0,K[i+1]);for(let n=1;n<=M;n++)o[n]+=a[n]/K[i]-b[n]/K[i+1];}return o;}),
   // ⛓️ MARKOV TÜREVLERİ (kullanıcı isteği 2026-11-26: Kişisel Markov-1'den türetilmiş en az 10 yeni deneme)
   mk1k:S=>_hoMk(S,'mk1k',200,(P,i,n)=>P[i][n],2,4),
   mk1b:S=>_hoMk(S,'mk1b',1500,(P,i,n)=>P[i][n],2,60),
@@ -30787,6 +30774,17 @@ const _HO_Y={
   mksd:S=>_hoMk(S,'mksd',1500,(P,i,n)=>P[i][n]+P[i+1][n]+P[i+2][n]+P[i+3][n]+P[i+4][n],6,10),
   mkgd:S=>_hoMk(S,'mkgd',2000,(P,i,n)=>{let g=0;while(g<40&&i+g<P.length&&!P[i+g][n])g++;return g<=3?g:g<=5?4:g<=8?5:g<=13?6:g<=20?7:8;},9,10),
   mkkd:S=>_hoMk(S,'mkkd',1500,(P,i,n)=>2*P[i][n]+((P[i][n-1]||P[i][n+1])?1:0),4,8),
+  // 🧭 KOMŞU DURUMLU MARKOV TÜREVLERİ (kullanıcı isteği 2026-11-26: Markov-Hazard'da son oyunda 4 net bulan Komşu Durumlu Markov'u ileri seviyeye taşı, türet)
+  mkk2:S=>_hoMk(S,'mkk2',2000,(P,i,n)=>8*P[i][n]+4*_hoNb(P,i,n,1)+2*P[i+1][n]+_hoNb(P,i+1,n,1),16,10),
+  mkkg:S=>_hoMk(S,'mkkg',2000,(P,i,n)=>5*P[i][n]+(P[i][n-1]||0)+(P[i][n+1]||0)+(P[i][n-2]||0)+(P[i][n+2]||0),10,8),
+  mkky:S=>_hoMk(S,'mkky',2000,(P,i,n)=>4*P[i][n]+2*(P[i][n-1]||0)+(P[i][n+1]||0),8,8),
+  mkks:S=>_hoMk(S,'mkks',2000,(P,i,n)=>{let k=0;for(let d=1;d<=3;d++)k+=(P[i][n-d]||0)+(P[i][n+d]||0);return 7*P[i][n]+k;},14,10),
+  mkkp:S=>_hoMk(S,'mkkp',2000,(P,i,n)=>{const r=(n-1)%10;const k=(r>0?(P[i][n-1]||0):0)+(r<9?(P[i][n+1]||0):0)+(P[i][n-10]||0)+(P[i][n+10]||0);return 5*P[i][n]+k;},10,8),
+  mkkz:S=>{const ort=Math.max(2,Math.round(1/_hoMP(S).p));return _hoMk(S,'mkkz',2000,(P,i,n)=>{let g=0;while(g<=ort&&i+g<P.length&&!P[i+g][n])g++;return 3*_hoNb(P,i,n,1)+(g===0?0:g<=ort?1:2);},6,8);},
+  mkke:S=>_hoMk(S,'mkke',2000,(P,i,n)=>2*P[i][n]+_hoNb(P,i,n,1),4,4,300),
+  mkkv:S=>_hoMkKas(S,'mkkv',2000,[(P,i,n)=>P[i][n],(P,i,n)=>2*P[i][n]+_hoNb(P,i,n,1),(P,i,n)=>8*P[i][n]+4*_hoNb(P,i,n,1)+2*P[i+1][n]+_hoNb(P,i+1,n,1),(P,i,n)=>{let k=0;for(let d=2;d<=3;d++)k+=(P[i][n-d]||0)+(P[i][n+d]||0);return (8*P[i][n]+4*_hoNb(P,i,n,1)+2*P[i+1][n]+_hoNb(P,i+1,n,1))*5+k;}],10),
+  mkku:S=>_hoMk(S,'mkku',2000,(P,i,n)=>2*P[i][n]+_hoNb(P,i,n,1),4,8,0,0.5),
+  mkkt:S=>_tsMemo(S,'ymkkt',()=>{const M=_hoMP(S).M,L=['mkkd','mkk2','mkkg','mkky','mkks','mkkp','mkkz','mkke','mkkv','mkku'].map(k=>_hoRk(_HO_Y[k](S),S)),o=_hoA(S);for(let n=1;n<=M;n++)o[n]=L.reduce((q,r)=>q+r[n],0)/L.length;return o;}),
   mkor:S=>{const es=_hoEs(S);return _hoMk(S,'mkor',1500,(P,i,n)=>2*P[i][n]+(es[n]?P[i][es[n]]:0),4,8);},
   mkvl:S=>_tsMemo(S,'ymkvl',()=>{const {M,p}=_hoMP(S),P=_hoB(S,2000),L=P.length,o=_hoA(S),D=4,A=10;
     for(let n=1;n<=M;n++){const h=Array.from({length:D+1},()=>({})),c=Array.from({length:D+1},()=>({}));let H0=1,C0=1/p;
@@ -30812,34 +30810,12 @@ const _HO_Y={
 };
 const _HO_TIP_YENI=[
   ['ew5','⚡ Üstel Ağırlıklı Sıklık (yarı ömür 5 çekiliş)','Yakın çekilişler çok, eskiler az ağırlıkla sayılır'],
-  ['ew20','🌤️ Üstel Ağırlıklı Sıklık (yarı ömür 20)','Orta vadeli, yakına ağırlık veren sıklık'],
-  ['ew100','🌥️ Üstel Ağırlıklı Sıklık (yarı ömür 100)','Uzun vadeli, yumuşak sıklık'],
-  ['mom','🚀 Momentum (son 20 vs önceki 100)','Son 20 çekilişte, önceki 100 çekilişe göre hızlanan sayılar'],
-  ['rev','↩️ Ortalamaya Dönüş (1000 çekiliş)','Uzun dönemde beklenenin altında kalan sayılar'],
-  ['js','🧮 James-Stein Büzülme','Kısa dönem sıklığını uzun dönem ortalamasına istatistiksel olarak büzen tahmin'],
-  ['ovr','⏰ Gecikme / Ortalama Aralık Oranı','Mevcut gecikmesi kendi ortalama çıkış aralığını en çok aşan sayılar'],
   ['reg','📐 Aralık Düzenliliği','Çıkış aralıkları düzenli olan ve tam “sırası gelmiş” sayılar'],
-  ['per','🔂 Periyodiklik (kendi gecikme döngüsü)','Her sayının en güçlü tekrar döngüsüne (2–40 çekiliş) göre sırası gelenler'],
   ['gh','📉 Genel Gecikme Eğrisi','Tüm sayılardan öğrenilen “X çekiliştir çıkmayan sayı ne sıklıkla çıkar” eğrisi'],
-  ['kom','🧭 Komşu Sayılar (son çekiliş ±1…±3)','Son çekilişteki sayıların yakın komşuları'],
-  ['kup','🔲 Kupon Satır/Sütun Sıcaklığı','Kupon ızgarasında (8 satır × 10 sütun) son 10 çekilişte sıcak satır ve sütunlar'],
   ['dek','🔟 Onluk Dengesi','Son 20 çekilişte az çıkan onluk gruplarındaki sayılar'],
   ['srk','🔚 Son Rakam Döngüsü','Son 30 çekilişte sık çıkan son rakamları taşıyan sayılar'],
-  ['kar','🧱 Kararlı Sıklık','10 ayrı 50 çekilişlik dönemde istikrarlı biçimde çok çıkan sayılar'],
-  ['orta','⚖️ Orta Yol','Ne çok sıcak ne çok soğuk: 500 çekilişte ortalama sıklıktaki sayılar'],
-  ['uyp','🎚️ Uyarlanır Pencere','Son 40 çekilişte en iyi işleyen sıklık penceresini (5…500) kendisi seçer'],
   ['knn','👯 Benzer Çekilişler (kNN)','Son çekilişe en çok benzeyen 60 geçmiş çekilişten SONRA gelen sayılar'],
-  ['knn2','👯‍♂️ Benzer Çekiliş Çifti (kNN-2)','Son iki çekilişe birlikte en çok benzeyen dönemlerden sonra gelen sayılar'],
-  ['nb','🧠 Naive Bayes (son 3 çekiliş)','Her sayının son 3 çekilişteki durumundan Bayes olasılığı'],
-  ['cen','🕸️ Ağ Merkeziliği','Birlikte çıkma ağında (500 çekiliş) merkezde duran sayılar'],
   ['ppr','🧲 Geçiş PageRank','Geçiş ağında son çekilişten başlayan rastgele yürüyüşün en çok uğradığı sayılar'],
-  ['ters','🔄 Ters Geçiş','Son çekilişten sonra geçmişte EN AZ çıkan sayılar (karşıt görüş)'],
-  ['ad2','2️⃣ İki Adım Geçiş Tablosu','Sondan bir önceki çekilişin sayılarından İKİ çekiliş sonra geçmişte çıkanlar'],
-  ['kal','📡 Kalman Filtresi','Her sayının çıkma olasılığını gürültüden ayıklayan yerel düzey tahmini'],
-  ['pat','💥 Patlama Algılama','Son 15 çekilişte Poisson beklentisinin üstünde çıkan sayılar'],
-  ['bnt','🎯 Orta Gecikme Bandı','Ortalama çıkış aralığının yaklaşık 0.5–5.5 katı süredir çıkmayan sayılar (Hızlı On\'da ≈2–22 çekiliş)'],
-  ['tam','🧩 Tamamlayıcı (son birkaç çekilişte yok)','Son birkaç çekilişin (Hızlı On\'da 4) hiçbirinde çıkmayan sayılar'],
-  ['coks','🌊 Çok Ölçekli Eğilim','5/20/80/320 çekilişlik ölçeklerde art arda yükselen sayılar'],
   ['mk1k','⛓️ Kısa Hafızalı Markov-1 (son 200)','Kişisel Markov-1, yalnızca son 200 çekilişten'],
   ['mk1b','⛓️ Bayes Büzülmeli Markov-1','Kişisel Markov-1, tüm sayıların ortak geçiş oranına güçlü büzülmeyle'],
   ['mk1e','⛓️ Üstel Ağırlıklı Markov-1','Kişisel Markov-1, yakın çekilişlere daha çok ağırlık (yarı ömür 300)'],
@@ -30849,6 +30825,16 @@ const _HO_TIP_YENI=[
   ['mksd','⛓️ Sıklık Durumlu Markov','Son 5 çekilişte kaç kez çıktığı (0–5) durum olarak'],
   ['mkgd','⛓️ Gecikme Durumlu Markov','Kaç çekiliştir çıkmadığı (gruplu) durum olarak, sayı başına'],
   ['mkkd','⛓️ Komşu Durumlu Markov','Kendisi ve ±1 komşusunun son çekilişteki durumu'],
+  ['mkk2','🧭 Komşu Durumlu Markov-2 (16 durum)','Kendisi ve ±1 komşularının SON İKİ çekilişteki durumu'],
+  ['mkkg','🧭 Geniş Komşuluk Markov (±2)','Kendisi + ±1 ve ±2 komşularından kaçının son çekilişte çıktığı'],
+  ['mkky','🧭 Yönlü Komşu Markov','Kendisi, sol (−1) ve sağ (+1) komşusu AYRI AYRI'],
+  ['mkks','🧭 Komşu Sayısı Markov (±3)','Kendisi + ±3 içindeki komşulardan kaç tanesi son çekilişte çıktı'],
+  ['mkkp','🧭 Kupon Izgarası Komşu Markov','Kupondaki yatay (±1) ve dikey (±10) komşuların son çekilişteki durumu'],
+  ['mkkz','🧭 Komşu + Gecikme Markov','±1 komşu durumu ile kendi gecikmesi (yeni çıktı / kısa / uzun) birlikte'],
+  ['mkke','🧭 Üstel Ağırlıklı Komşu Markov','Komşu Durumlu Markov, yakın çekilişlere daha çok ağırlık (yarı ömür 300)'],
+  ['mkkv','🧭 Kademeli Komşu Markov (PPM)','Kendisi → +komşu → +2 çekiliş → +±2/±3 komşu kademeli birleştirme'],
+  ['mkku','🧭 Uzamsal Düzleştirilmiş Komşu Markov','Komşu Durumlu Markov; komşu sayıların aynı durumdaki oranlarıyla düzleştirilmiş'],
+  ['mkkt','🧭 Komşu Markov Topluluğu','10 Komşu Markov türevinin sıra ortalaması'],
   ['mkor','⛓️ Eş Durumlu Markov','Kendisi ve en güçlü eşinin (birlikte en çok çıkan) son çekilişteki durumu'],
   ['mkvl','⛓️ Değişken Dereceli Markov (1–4)','Derece 1’den 4’e kadar kademeli birleştirilen (PPM tarzı) kişisel Markov'],
   ['mkhm','⛓️ Saklı Markov Modeli (sıcak/soğuk)','Her sayı için gizli sıcak/soğuk durumlu 2 durumlu HMM (Baum-Welch)'],
