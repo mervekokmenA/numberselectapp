@@ -30623,8 +30623,17 @@ function _hoLR(S){return _tsMemo(S,'holr',()=>{
   for(let ep=0;ep<3;ep++)for(let t=249;t>=0;t--)for(let n=1;n<=80;n++){const x=oz(t,n);let z=0;for(let k=0;k<8;k++)z+=w[k]*x[k];const p=1/(1+Math.exp(-z)),e=P[t][n]-p;for(let k=0;k<8;k++)w[k]+=lr*e*x[k]*(k?1:0.2);}
   for(let n=1;n<=80;n++){const x=oz(-1,n);let z=0;for(let k=0;k<8;k++)z+=w[k]*x[k];o[n]=1/(1+Math.exp(-z));}
   return o;});}
+// 🔁 Geçiş tablosu: son ≤2000 çekilişte "X bir çekilişte çıktıysa, SONRAKİ çekilişte Y kaç kez çıktı" sayımı; sıradaki çekiliş için
+// son çekilişin 20 sayısının her birinden Y'ye geçiş oranlarının (şansa göre, log) toplamı. Kullanıcı isteği (2026-11-26); ölçümde şans düzeyi.
+function _hoGecis(S){return _tsMemo(S,'hogc',()=>{
+  const pr=(S.prior||[]).slice(0,2000),T=Array.from({length:81},()=>new Float32Array(81)),cx=new Float32Array(81),o=new Array(82).fill(0);
+  for(let j=1;j<pr.length;j++){const ond=pr[j].nums,son=pr[j-1].nums;for(const x of ond){cx[x]++;for(const y of son)T[x][y]++;}}   // pr yeniden eskiye: pr[j] önce, pr[j-1] sonra
+  const sonCek=(pr[0]||{nums:[]}).nums;
+  for(let y=1;y<=80;y++){let t=0;for(const x of sonCek)t+=Math.log((T[x][y]+1)/(cx[x]*0.25+4));o[y]=t;}
+  return o;});}
 const _HO_TIP_EK=[
   // Ölçüm (14.582 çekiliş, iki dönem, 4/5 sayılı bilet): şans düzeyinde ama denenen yeni analizler içinde 4/4 ve 5/5 sayısı en yüksek olan (bkz. CLAUDE.md).
+  {id:'gt',ad:'🔁 Geçiş Tablosu (hangi sayıdan sonra ne çıktı)',ac:'Son çekilişteki her sayıdan sonra geçmişte (≤2000 çekiliş) en sık çıkan sayılar; ölçümde şans düzeyi',puan:(F,n,S)=>_hoGecis(S)[n]},
   {id:'lr',ad:'🤖 Öğrenen Model (4/5 için en iyi ölçülen)',ac:'Her sayı için son 250 çekilişte eğitilen lojistik regresyon: son 1-3 çekilişte çıkma, 10/50/200 sıklık, gecikme',puan:(F,n,S)=>_hoLR(S)[n]}
 ];
 const _HO_TIP_EK_IDS=_HO_TIP_EK.map(t=>t.id);
