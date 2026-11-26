@@ -21351,7 +21351,13 @@ function _kronRenderInner(){
   _sfDurumYaz('kron',draws.length,tumDraws.length);
   try{_kronSonrakiYaz(KF);}catch(e){}
   const kronVurgu=_sfVurgu(KF&&KF.aktif?KF:null);
-  if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>'+((KF&&KF.aktif)?'Filtreye uyan çekiliş yok.':'Henüz çekiliş verisi yok.')+'</div>';return;}
+  const isaretSay=GAMES.reduce((t,g)=>t+Object.keys(_kazananMarks[g.id]||{}).length,0);
+  const bar=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">`
+    +`<button onclick="_kronSetSadece()" style="font-size:.7rem;padding:5px 12px;border-radius:8px;border:1px solid ${_kronSadeceIsaret?'rgba(0,150,58,.6)':'var(--border)'};background:${_kronSadeceIsaret?'rgba(0,150,58,.14)':'var(--surface2)'};color:${_kronSadeceIsaret?'var(--green)':'var(--muted)'};cursor:pointer;font-weight:700">${_kronSadeceIsaret?'📜 Tüm Çekilişler':'☑ Sadece İşaretliler'}</button>`
+    +`<label style="font-size:.7rem;color:var(--muted)">Bağlam ±</label><input type="number" min="0" max="100" value="${_kronCtx}" onchange="_kronSetCtx(this.value)" style="width:58px;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.72rem">`
+    +`<span style="font-size:.62rem;color:var(--muted)">çekiliş · ${isaretSay} işaretli (Kazanan sayfasıyla ortak)</span></div>`;
+  // Liste boş olsa da üst çubuk (📜 Tüm Çekilişler / Bağlam) HER ZAMAN çizilir — yoksa 'Sadece işaretliler' kipinden çıkılamıyordu (hata düzeltmesi)
+  if(!draws.length){const msj=_kronSadeceIsaret?(tumDraws.length?'Bu seçimde işaretli çekiliş yok. Tüm çekilişleri görmek için <strong>📜 Tüm Çekilişler</strong>’e bas.':'Henüz çekiliş verisi yok.'):((KF&&KF.aktif)?'Filtreye uyan çekiliş yok.':'Henüz çekiliş verisi yok.');el.innerHTML=bar+'<div class="empty-state"><span class="empty-icon">📭</span>'+msj+'</div>';return;}
   const weekMap=new Map();
   draws.forEach(d=>{
     const wk=_kronWeekStart(d.date);
@@ -21365,11 +21371,6 @@ function _kronRenderInner(){
   const remaining=totalWeeks-visibleCount;
   const visibleDrawCount=visibleKeys.reduce((s,k)=>s+weekMap.get(k).length,0);
   const kronCell='border:1px solid var(--border);padding:5px 6px';
-  const isaretSay=GAMES.reduce((t,g)=>t+Object.keys(_kazananMarks[g.id]||{}).length,0);
-  const bar=`<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px">`
-    +`<button onclick="_kronSetSadece()" style="font-size:.7rem;padding:5px 12px;border-radius:8px;border:1px solid ${_kronSadeceIsaret?'rgba(0,150,58,.6)':'var(--border)'};background:${_kronSadeceIsaret?'rgba(0,150,58,.14)':'var(--surface2)'};color:${_kronSadeceIsaret?'var(--green)':'var(--muted)'};cursor:pointer;font-weight:700">${_kronSadeceIsaret?'📜 Tüm Çekilişler':'☑ Sadece İşaretliler'}</button>`
-    +`<label style="font-size:.7rem;color:var(--muted)">Bağlam ±</label><input type="number" min="0" max="100" value="${_kronCtx}" onchange="_kronSetCtx(this.value)" style="width:58px;padding:4px 8px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.72rem">`
-    +`<span style="font-size:.62rem;color:var(--muted)">çekiliş · ${isaretSay} işaretli (Kazanan sayfasıyla ortak)</span></div>`;
   let html=bar+`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Gösterilen: <strong style="color:var(--text)">${visibleCount}</strong> / ${totalWeeks} hafta · <strong style="color:var(--text)">${visibleDrawCount}</strong> / ${draws.length} çekiliş.</div>`;
   html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;border:1px solid var(--border);font-size:.68rem">`;
   html+=`<thead><tr>`
