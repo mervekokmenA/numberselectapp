@@ -1094,7 +1094,10 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
     <button onclick="_kronRender()" style="font-size:.66rem;padding:5px 12px;border-radius:7px;border:1px solid rgba(129,140,248,.4);background:rgba(129,140,248,.1);color:var(--accent);cursor:pointer;font-weight:700">🔄 Yenile</button>
    </div>
    
-   <div id="kronGameRow" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"></div>
+   <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;margin-bottom:10px">
+    <div id="kronGameRow" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    <div id="kronSonraki" style="flex:1 1 320px;min-width:0;max-width:760px"></div>
+   </div>
    <div id="kronResult"><div class="empty-state"><span class="empty-icon">📜</span>Yükleniyor…</div></div>
   </div>
  </div>
@@ -21287,6 +21290,32 @@ function _kronPredictionRows(){
   return rows;
 }
 let _kronSadeceIsaret=false,_kronCtx=0;
+// 🔜 Seçilen ana çekilişlerin (☑ Sadece işaretliler açıkken işaretliler; değilse sayı filtresine uyanlar) SONRASINDA gelen
+// çekilişlerin sayıları (Bağlam ± kadar, en az 1): tekrar edenler (×N) + benzersiz sayı grubu. Oyun başına ayrı (oyunlar karışmaz).
+function _kronSonrakiYaz(KF){
+  const el=document.getElementById('kronSonraki');if(!el)return;
+  const filtre=KF&&KF.aktif;
+  if(!_kronSadeceIsaret&&!filtre){el.innerHTML='';return;}
+  const k=Math.max(1,_kronCtx),bloklar=[];
+  GAMES.filter(g=>!_kronGameFilter||g.id===_kronGameFilter).forEach(g=>{
+    const arr=_kbGetDraws(g.id)||[],mk=_kazananMarks[g.id]||{};   // arr: yeniden eskiye
+    const ana=[];arr.forEach((d,i)=>{if(_kronSadeceIsaret?mk[d.date]:_sfEslesir({...d,gameId:g.id},KF))ana.push(i);});
+    if(!ana.length)return;
+    const sonIdx=new Set();ana.forEach(i=>{for(let j=1;j<=k;j++)if(i-j>=0)sonIdx.add(i-j);});
+    const son=[...sonIdx].sort((a,b)=>b-a).map(i=>arr[i]);
+    const say={};son.forEach(d=>(d.nums||[]).forEach(n=>{say[n]=(say[n]||0)+1;}));
+    const tekrar=Object.keys(say).map(Number).filter(n=>say[n]>=2).sort((a,b)=>say[b]-say[a]||a-b);
+    const tum=Object.keys(say).map(Number).sort((a,b)=>a-b);
+    const bekleyen=ana.filter(i=>i===0).length;
+    const rz=(n,c)=>`<span style="display:inline-block;padding:1px 6px;margin:1px;border-radius:6px;border:1px solid rgba(124,58,237,.45);background:rgba(124,58,237,.08);font-family:monospace;font-weight:800;color:var(--text)">${n}${c?`<span style="color:#7c3aed;font-size:.85em"> ×${c}</span>`:''}</span>`;
+    bloklar.push(`<div style="border:1px solid var(--border);border-radius:10px;padding:6px 9px;margin-bottom:6px;background:var(--surface)">`
+      +`<div style="font-size:.66rem;font-weight:800;margin-bottom:3px">${g.emoji} ${g.name} <span style="font-weight:500;color:var(--muted)">· ${ana.length} ana çekiliş → sonrasındaki ${son.length} çekiliş (${k} sonraki)${bekleyen?` · ${bekleyen} ana çekilişin sonrası henüz yok`:''}</span></div>`
+      +(son.length?`<div style="font-size:.64rem;margin-bottom:2px"><strong style="color:#7c3aed">🔁 Tekrar edenler (${tekrar.length}):</strong> ${tekrar.length?tekrar.map(n=>rz(n,say[n])).join(''):'<span style="color:var(--muted)">yok</span>'}</div>`
+      +`<div style="font-size:.64rem"><strong>🔜 Sonrasında çıkan sayılar (${tum.length}):</strong> <span style="font-family:monospace">${tum.join(' ')}</span></div>`:'<div style="font-size:.62rem;color:var(--muted)">Sonrasında henüz çekiliş yok.</div>')
+      +`</div>`);
+  });
+  el.innerHTML=bloklar.length?bloklar.join(''):`<div style="font-size:.62rem;color:var(--muted)">${_kronSadeceIsaret?'Bu oyunda işaretli çekiliş yok.':'Filtreye uyan çekiliş yok.'}</div>`;
+}
 function _kronToggleMark(gid,date){
   if(!_kazananMarks[gid])_kazananMarks[gid]={};
   if(_kazananMarks[gid][date])delete _kazananMarks[gid][date];else _kazananMarks[gid][date]=1;
@@ -21320,6 +21349,7 @@ function _kronRenderInner(){
     draws=tumDraws.filter(d=>keep.has(d.gameId+'|'+d.date));
   }
   _sfDurumYaz('kron',draws.length,tumDraws.length);
+  try{_kronSonrakiYaz(KF);}catch(e){}
   const kronVurgu=_sfVurgu(KF&&KF.aktif?KF:null);
   if(!draws.length){el.innerHTML='<div class="empty-state"><span class="empty-icon">📭</span>'+((KF&&KF.aktif)?'Filtreye uyan çekiliş yok.':'Henüz çekiliş verisi yok.')+'</div>';return;}
   const weekMap=new Map();
