@@ -21321,6 +21321,14 @@ function _kronToggleMark(gid,date){
   if(_kazananMarks[gid][date])delete _kazananMarks[gid][date];else _kazananMarks[gid][date]=1;
   _kazananSaveMarks();_kronRenderInner();
 }
+// ☑ Başlıktaki kutu: listedeki (filtre/oyun/işaret kipine göre görünen) TÜM çekilişleri işaretle ya da hepsinin işaretini kaldır
+let _kronListe=[];
+// Listede en az bir işaret varsa HEPSİNİ kaldırır; hiç yoksa hepsini işaretler (işaret kipinde bağlam satırları listeyi büyüttüğü için 'hepsi' durumu sabit kalmaz)
+function _kronTumIsaretle(){
+  const isaretle=!_kronListe.some(([g,t])=>(_kazananMarks[g]||{})[t]);
+  _kronListe.forEach(([g,t])=>{if(!_kazananMarks[g])_kazananMarks[g]={};if(isaretle)_kazananMarks[g][t]=1;else delete _kazananMarks[g][t];});
+  _kazananSaveMarks();_kronRenderInner();
+}
 function _kronSetSadece(){_kronSadeceIsaret=!_kronSadeceIsaret;_kronWeeksLoaded=_KRON_PAGE_WEEKS;_kronRenderInner();}
 function _kronSetCtx(v){_kronCtx=Math.max(0,parseInt(v)||0);_kronRenderInner();}
 const _KRON_PAGE_WEEKS=20;
@@ -21373,8 +21381,11 @@ function _kronRenderInner(){
   const kronCell='border:1px solid var(--border);padding:5px 6px';
   let html=bar+`<div style="font-size:.62rem;color:var(--muted);margin-bottom:8px">Gösterilen: <strong style="color:var(--text)">${visibleCount}</strong> / ${totalWeeks} hafta · <strong style="color:var(--text)">${visibleDrawCount}</strong> / ${draws.length} çekiliş.</div>`;
   html+=`<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;border:1px solid var(--border);font-size:.68rem">`;
+  _kronListe=draws.map(d=>[d.gameId,d.date]);
+  const _isrSay=_kronListe.filter(([g,t])=>(_kazananMarks[g]||{})[t]).length,kronTumDurum=!_isrSay?'yok':_isrSay===_kronListe.length?'hepsi':'kismi';
+  setTimeout(()=>{const cb=document.getElementById('kronTumIsaret');if(cb)cb.indeterminate=kronTumDurum==='kismi';},0);
   html+=`<thead><tr>`
-    +`<th style="${kronCell};width:22px"></th>`
+    +`<th style="${kronCell};width:22px;text-align:center"><input type="checkbox" id="kronTumIsaret" ${kronTumDurum==='hepsi'?'checked':''} onchange="_kronTumIsaretle()" title="${_isrSay?'Listedeki tüm işaretleri kaldır':'Listedeki tüm çekilişleri işaretle'}" style="width:15px;height:15px;accent-color:#69f0ae;cursor:pointer"></th>`
     +`<th style="${kronCell};text-align:left;color:var(--muted)">Tarih</th>`
     +`<th style="${kronCell};text-align:left;color:var(--muted)">Oyun</th>`
     +`<th style="${kronCell};text-align:left;color:var(--muted)">Sonuç</th>`
