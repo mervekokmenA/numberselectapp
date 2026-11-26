@@ -30611,8 +30611,6 @@ const _HO_URL='https://www.millipiyangoonline.com/hizli-on-numara/cekilis-sonucl
 // Hepsi yalnızca hedeften ÖNCEKİ çekilişleri (S.prior) kullanır. Ölçüm sonuçları CLAUDE.md'de (başarı iddia etme).
 function _hoBit(S){return _tsMemo(S,'hobit',()=>{const pr=(S.prior||[]).slice(0,700);return pr.map(d=>{const b=new Uint8Array(81);d.nums.forEach(n=>{b[n]=1;});return b;});});}
 function _hoRankNorm(arr){const id=[];for(let n=1;n<=80;n++)id.push(n);id.sort((a,b)=>(arr[a]||0)-(arr[b]||0));const r=new Array(82).fill(0);id.forEach((n,i)=>{r[n]=i/79;});return r;}
-// 🧬 Markov × Hazard birleşik sıra puanı (kullanıcının en iyi bulduğu iki analizin ortak kararı)
-function _hoMH(S){return _tsMemo(S,'homh',()=>{const a=_hoRankNorm(_tsMarkov(S,'hizlion')),b=_hoRankNorm(_tsHazard(S,'hizlion'));const o=new Array(82).fill(0);for(let n=1;n<=80;n++)o[n]=(a[n]+b[n])/2;return o;});}
 // 🤖 Öğrenen model: her sayı için çevrimiçi lojistik regresyon (öznitelikler: son 1-3 çekilişte çıktı mı, 10/50/200 çekiliş sıklığı, gecikme)
 function _hoLR(S){return _tsMemo(S,'holr',()=>{
   const P=_hoBit(S),L=P.length,o=new Array(82).fill(0);if(L<460)return o;
@@ -30625,20 +30623,9 @@ function _hoLR(S){return _tsMemo(S,'holr',()=>{
   for(let ep=0;ep<3;ep++)for(let t=249;t>=0;t--)for(let n=1;n<=80;n++){const x=oz(t,n);let z=0;for(let k=0;k<8;k++)z+=w[k]*x[k];const p=1/(1+Math.exp(-z)),e=P[t][n]-p;for(let k=0;k<8;k++)w[k]+=lr*e*x[k]*(k?1:0.2);}
   for(let n=1;n<=80;n++){const x=oz(-1,n);let z=0;for(let k=0;k<8;k++)z+=w[k]*x[k];o[n]=1/(1+Math.exp(-z));}
   return o;});}
-// 🔗 Koşullu kurucu: ilk sayı Markov×Hazard'ın en iyisi; sonraki her sayı, seçilenlerle GEÇMİŞTE BİRLİKTE çıkma olasılığı en yüksek olan (4'lü/5'li "hepsi birlikte" hedefi)
-function _hoKosulCo(S){return _tsMemo(S,'hoco',()=>{const pr=(S.prior||[]).slice(0,2000),co=Array.from({length:81},()=>new Float32Array(81)),f=new Float32Array(81);
-  pr.forEach(d=>{const a=d.nums;a.forEach(x=>{f[x]++;a.forEach(y=>{if(x!==y)co[x][y]++;});});});return {co,f,n:pr.length||1};});}
 const _HO_TIP_EK=[
-  {id:'mh',ad:'🧬 Markov × Hazard Birleşik',ac:'Markov-2 ve Hazard sıralarının ortalaması: iki analizin ortak kararı',puan:(F,n,S)=>_hoMH(S)[n]},
-  {id:'lr',ad:'🤖 Öğrenen Model (lojistik regresyon)',ac:'Her sayı için son 250 çekilişte eğitilen model: son 1-3 çekilişte çıkma, 10/50/200 sıklık, gecikme',puan:(F,n,S)=>_hoLR(S)[n]},
-  {id:'kk',ad:'🔗 Koşullu Kurucu (4/5 birlikte)',ac:'İlk sayı Markov×Hazard en iyisi; sonrakiler seçilenlerle geçmişte birlikte çıkma olasılığı en yüksek sayılar',
-   puan:(F,n,S)=>_hoMH(S)[n],
-   uret:(gid,S,F,adet)=>{const cnt=_HO_GAME.count,mh=_hoMH(S),K=_hoKosulCo(S),sira=[];for(let n=1;n<=80;n++)sira.push(n);sira.sort((a,b)=>mh[b]-mh[a]||a-b);
-     const out=[],gor=new Set();
-     for(const sd of sira){if(out.length>=adet)break;const t=[sd];
-       while(t.length<cnt){let bn=-1,bs=-1;for(let n=1;n<=80;n++){if(t.includes(n))continue;let p=1;for(const m of t)p*=(K.co[m][n]+1)/(K.f[m]+4);p*=0.5+mh[n];if(p>bs){bs=p;bn=n;}}t.push(bn);}
-       t.sort((a,b)=>a-b);const key=t.join(',');if(!gor.has(key)){gor.add(key);out.push(t);}}
-     return out;}}
+  // Ölçüm (14.582 çekiliş, iki dönem, 4/5 sayılı bilet): şans düzeyinde ama denenen yeni analizler içinde 4/4 ve 5/5 sayısı en yüksek olan (bkz. CLAUDE.md).
+  {id:'lr',ad:'🤖 Öğrenen Model (4/5 için en iyi ölçülen)',ac:'Her sayı için son 250 çekilişte eğitilen lojistik regresyon: son 1-3 çekilişte çıkma, 10/50/200 sıklık, gecikme',puan:(F,n,S)=>_hoLR(S)[n]}
 ];
 const _HO_TIP_EK_IDS=_HO_TIP_EK.map(t=>t.id);
 const _HO_TIPS_STD=['mk','hz'];   // kullanıcı isteği: Hazard ve Markov dışındaki tüm analizler SİLİNDİ (geri koyma)
