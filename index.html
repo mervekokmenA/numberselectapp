@@ -1380,7 +1380,6 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
    <select id="hoDateSel" onchange="_hoRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
    <select id="hoDateSel2" onchange="_hoRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
    <select id="hoDateSel3" onchange="_hoRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
-   <select id="hoDateSel4" onchange="_hoRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
   </div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;padding:7px 9px;border:1px solid rgba(124,58,237,.35);border-radius:10px;background:rgba(124,58,237,.05)">
    <span style="font-size:.64rem;font-weight:800;color:#7c3aed">🎫 Bilet analizi</span>
@@ -30804,12 +30803,12 @@ function _hoSecenek(sifirla,koruBos){
   if(ta&&!ta.options.length)ta.innerHTML=_HO_TIPS.map(id=>{const t=_hoTip(id);return `<option value="${id}">${t.ad}</option>`;}).join('');
   _hoAlgo2Doldur();
   const h='<option value="">— geçmiş test seç —</option>'+_hoDraws.slice(0,2000).map(d=>`<option value="${d.date}">${d.date.slice(8,10)}.${d.date.slice(5,7)} ${d.date.slice(11)} · ${d.no}</option>`).join('');
-  ['hoDateSel','hoDateSel2','hoDateSel3','hoDateSel4'].forEach((id,i)=>{
+  ['hoDateSel','hoDateSel2','hoDateSel3'].forEach((id,i)=>{
     const e=document.getElementById(id);if(!e)return;const prev=e.value;e.innerHTML=h;
     if(!sifirla&&(prev||koruBos))e.value=prev;else if(i===0&&_hoDraws[0]&&_hoDraws.length>200)e.value=_hoDraws[0].date;   // varsayılan: yalnızca EN SON geçmiş test dolu (kullanıcı isteği)
   });
 }
-const _HO_DATE_IDS=['hoDateSel','hoDateSel2','hoDateSel3','hoDateSel4'];
+const _HO_DATE_IDS=['hoDateSel','hoDateSel2','hoDateSel3'];
 // Yeni çekiliş eklenince geçmiş test listeleri yeniden kurulur. Seçimler varsayılan durumdaysa (en yeni 4 çekiliş) yeni en yenilere kayar;
 // kullanıcı kendi tarihlerini seçtiyse (ya da ✕ ile kapattıysa) olduğu gibi korunur.
 function _hoSecYenile(eskiUst){
@@ -30873,7 +30872,7 @@ function _hoRender(){
   setTimeout(()=>{try{_hoOnBilet();}catch(e){}try{_hoExcelRender();}catch(e){}},0);   // deneme + Excel alanı da aynı bilet adedi/boyuna ve geçmiş testlere uysun
   if(_hoDraws.length<120){el.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:10px">Yeterli veri yok (en az ~120 çekiliş gerekli). Üstteki "Eksik sonuçları ekle" ya da toplu içe aktar ile veri ekle.</div>';return;}
   const sut=[{prior:_hoDraws,hedef:_hoSonrakiZaman(),actual:null}];
-  ['hoDateSel','hoDateSel2','hoDateSel3','hoDateSel4'].forEach(id=>{
+  ['hoDateSel','hoDateSel2','hoDateSel3'].forEach(id=>{
     const v=(document.getElementById(id)||{}).value;if(!v)return;
     const ix=_hoDraws.findIndex(d=>d.date===v);if(ix<0||_hoDraws.length-ix-1<100)return;
     sut.push({prior:_hoDraws.slice(ix+1),hedef:v,actual:_hoDraws[ix]});
