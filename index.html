@@ -1286,7 +1286,7 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
 </div>
 
 <!-- ═══════════ PAGE: EXCEL ═══════════ -->
-<div style="grid-column:1/-1;display:none" id="page-excel">
+<div style="grid-column:1/-1;display:none;min-width:0;max-width:100%" id="page-excel">
  <div class="card" style="padding:8px 10px">
   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
    <button id="exTabBtn_excel" onclick="_exSekmeSec('excel')" style="font-size:.72rem;padding:6px 13px;border-radius:8px;border:1px solid var(--border);cursor:pointer;font-weight:700">📊 Excel</button>
@@ -32436,8 +32436,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
   }
   function hesapla(g){
     const yr=satirlar(g.yeni),gl=g.gec.map(k=>({kol:k,tarih:tarihOku(k),rows:satirlar(k)}));
-    gl.sort((a,b)=>a.tarih<b.tarih?1:a.tarih>b.tarih?-1:0);   // yeni → eski
-    const yeni=konumlar(yr,gl.map(x=>x.rows));
+    const yeni=konumlar(yr,gl.map(x=>x.rows));   // sütun sırası = altındaki sütunların DOM sırası (kutu sütunları onlarla hizalanır)
     const pv=saglayici(g);let imza='';
     if(pv){imza=sv(()=>pv.imza())||'';onbImza=imza;if(onb.size>80){onb=new Map();kuyruk=[];}}
     const gecmis=gl.map((x,i)=>{
@@ -32449,7 +32448,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
         if(rows.some(r=>!r.length))return {tarih:x.tarih,slots:null,neden:'önceki çekiliş sütunu üretilemedi',onceki:ds};
         return {tarih:x.tarih,slots:konumlar(x.rows,rows),onceki:ds};
       }
-      const eski=gl.slice(i+1);
+      const eski=gl.filter(y=>y.tarih&&x.tarih&&y.tarih<x.tarih);
       return {tarih:x.tarih,slots:eski.length?konumlar(x.rows,eski.map(y=>y.rows)):null,neden:'bu sayfada gizli üretim yok; daha eski açık geçmiş test de yok',acikTest:true,nEski:eski.length};
     });
     return {yeni,gecmis};
@@ -32467,19 +32466,20 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
     return {say:m.size,net:ent.filter(([n,o])=>o.st==='net').length,yk:ent.filter(([n,o])=>o.st==='yakin').length,h:h||'<span style="color:var(--muted)">yok</span>'};
   }
   const kisa=t=>t?(t.length>=16?t.slice(5,16):t.slice(5)||t):'';
-  function satir(ad,slots,gecmisMi,x){
-    if(x&&x.bekle)return `<div style="color:var(--muted)">${ad} — <em>⏳ önceki 2 çekiliş (${x.onceki.map(kisa).join(', ')}) hesaplanıyor…</em></div>`;
-    if(slots===null)return `<div style="color:var(--muted)">${ad} — <em>${(x&&x.neden)||'hesaplanamadı'}</em></div>`;
+  // sütun hücresi: başlık + 🟩 tutan + 🟧 yakın (alt alta)
+  function sutun(ad,slots,gecmisMi,x){
+    const cs='min-width:0;padding:4px 7px;border:1px solid rgba(0,200,100,.3);border-radius:8px;background:var(--surface)';
+    if(x&&x.bekle)return `<div style="${cs};color:var(--muted)"><div>${ad}</div><em>⏳ önceki 2 çekiliş (${x.onceki.map(kisa).join(', ')}) hesaplanıyor…</em></div>`;
+    if(slots===null)return `<div style="${cs};color:var(--muted)"><div>${ad}</div><em>${(x&&x.neden)||'hesaplanamadı'}</em></div>`;
     const a=liste(slots,'net',gecmisMi),b=liste(slots,'yakin',gecmisMi);
     const so=y=>gecmisMi&&y.say?` <span style="font-size:.9em;color:var(--muted)">→ <strong style="color:var(--green)">✓ ${y.net}</strong> · <strong style="color:#c2410c">~ ${y.yk}</strong> / ${y.say}</span>`:'';
-    const kay=x&&x.onceki?` <span style="color:var(--muted);font-size:.9em">(önceki 2: ${x.onceki.map(kisa).join(', ')})</span>`:(x&&x.acikTest?' <span style="color:var(--muted);font-size:.9em">(açık eski testlere göre)</span>':'');
-    return `<div>${ad}${kay} — <span style="font-weight:800;color:var(--green)">🟩 tutan (${a.say}):</span> ${a.h}${so(a)} <span style="font-weight:800;color:#c2410c;margin-left:8px">🟧 yakın (${b.say}):</span> ${b.h}${so(b)}</div>`;
+    const kay=x&&x.onceki?`<div style="color:var(--muted);font-size:.85em">önceki 2: ${x.onceki.map(kisa).join(', ')}</div>`:(x&&x.acikTest?'<div style="color:var(--muted);font-size:.85em">açık eski testlere göre</div>':'');
+    return `<div style="${cs}"><div>${ad}</div>${kay}<div style="margin-top:2px"><span style="font-weight:800;color:var(--green)">🟩 tutan (${a.say}):</span> ${a.h}${so(a)}</div><div style="margin-top:2px"><span style="font-weight:800;color:#c2410c">🟧 yakın (${b.say}):</span> ${b.h}${so(b)}</div></div>`;
   }
-  function icerik(res,nGec,baslik){
+  function icerik(res,nGec,baslik,tpl){
     let h=`<strong>📍 ${baslik}</strong> <span style="color:var(--muted)">· yeni tahmin: açık ${nGec} geçmiş testin hepsinde aynı satır ve sırada · geçmiş testler: o testten HEMEN ÖNCEKİ 2 çekilişin ortağı (ekranda olmasa da) → kendi sonucuyla ✓/~</span>`;
-    h+=satir('🔮 <strong>Yeni Tahmin</strong>',res.yeni,false);
-    res.gecmis.forEach(x=>{h+=satir('📊 <strong>Geçmiş Test '+kisa(x.tarih)+'</strong>',x.slots,true,x);});
-    return h;
+    const sutunlar=[sutun('🔮 <strong>Yeni Tahmin</strong>',res.yeni,false)].concat(res.gecmis.map(x=>sutun('📊 <strong>Geçmiş Test '+kisa(x.tarih)+'</strong>',x.slots,true,x)));
+    return h+`<div style="display:grid;grid-template-columns:${tpl||'repeat(auto-fit,minmax(270px,1fr))'};gap:8px 14px;align-items:start;margin-top:4px">${sutunlar.join('')}</div>`;
   }
   function kutuYap(tip,html,css){
     const b=document.createElement('div');b.dataset.knKutu=tip;b.setAttribute('data-ex-atla','1');b.setAttribute('data-ny-yok','1');b.style.cssText=css;b.innerHTML=html;b.dataset.s=html;return b;   // ex-atla: Excel yıldızı/Gülay ± işaretleri konmaz; ny-yok: ✓/~ özeti konmaz
@@ -32497,21 +32497,21 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
     for(const g of gruplar()){
       let res;try{res=hesapla(g);}catch(e){console.warn('konumOrtak hesapla',e);continue;}
       res.yeni.forEach(s=>s.el.setAttribute('data-kn',s.tip));
-      const html=icerik(res,g.gec.length,'Bu grupta ortak konumlar'),ank=ankraj(g.par);
+      const tpl=g.par.style.gridTemplateColumns||'',html=icerik(res,g.gec.length,'Bu grupta ortak konumlar',tpl),ank=ankraj(g.par);
       let kb=ank.previousElementSibling;
       if(kb&&kb.dataset&&kb.dataset.knKutu==='grup'){eski.delete(kb);if(kb.dataset.s!==html){kb.innerHTML=html;kb.dataset.s=html;}}
       else ank.parentNode.insertBefore(kutuYap('grup',html,CSS_G),ank);
       const root=g.par.closest('[id^="page-"]');
       if(root){
-        const o=sayfalar.get(root)||{yeni:[],gecmis:new Map(),nGec:g.gec.length,gr:0};
+        const o=sayfalar.get(root)||{yeni:[],gecmis:new Map(),nGec:g.gec.length,gr:0,tpl:g.par.style.gridTemplateColumns||''};
         o.yeni=o.yeni.concat(res.yeni);o.gr++;o.nGec=Math.min(o.nGec,g.gec.length);
         res.gecmis.forEach(x=>{const k=x.tarih||'?';const e=o.gecmis.get(k)||{tarih:x.tarih,slots:null,neden:x.neden};if(x.slots)e.slots=(e.slots||[]).concat(x.slots);if(x.bekle)e.bekle=true;if(x.onceki)e.onceki=x.onceki;if(x.acikTest&&!e.onceki)e.acikTest=true;o.gecmis.set(k,e);});
         sayfalar.set(root,o);
       }
     }
     for(const [root,o] of sayfalar){
-      const res={yeni:o.yeni,gecmis:[...o.gecmis.values()].sort((a,b)=>a.tarih<b.tarih?1:a.tarih>b.tarih?-1:0)};
-      const html=icerik(res,o.nGec,'Tüm sayfa — ortak konumlar ('+o.gr+' grup)'),yer=root.querySelector('[data-kn-sayfa-yer]');
+      const res={yeni:o.yeni,gecmis:[...o.gecmis.values()]};
+      const html=icerik(res,o.nGec,'Tüm sayfa — ortak konumlar ('+o.gr+' grup)',o.tpl),yer=root.querySelector('[data-kn-sayfa-yer]');
       let kb=yer?yer.querySelector(':scope > [data-kn-kutu="sayfa"]'):(root.firstElementChild&&root.firstElementChild.dataset&&root.firstElementChild.dataset.knKutu==='sayfa'?root.firstElementChild:null);
       if(kb){eski.delete(kb);if(kb.dataset.s!==html){kb.innerHTML=html;kb.dataset.s=html;}}
       else{kb=kutuYap('sayfa',html,CSS_S);if(yer)yer.appendChild(kb);else root.insertBefore(kb,root.firstChild);}
