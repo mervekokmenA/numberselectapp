@@ -30181,31 +30181,56 @@ function _tsAlgo2Doldur(){
   _tsAlgo3Doldur(null);
   if(t2.value===''&&!(document.getElementById('tfAlgo3')||{}).value){const a=document.getElementById('tfAlgo');if(a&&a.selectedIndex<0)a.selectedIndex=0;}
 }
-// 🧪 Yeni analizler seçicisi (tfAlgo3 / hoAlgo3): puan verilirse SON oyundaki başarıya göre sıralı (en iyi bilet net → 3+ bilet → ~yakın)
-function _yeniAlgoDoldur(elId,puan,bas){
+// 🧪 Yeni analizler seçicisi (tfAlgo3 / hoAlgo3): puan verilirse DÜZENLİ başarıya göre sıralı — son N çekilişte (her biri yalnızca öncesindeki veriyle,
+// walk-forward) 10 biletin EN İYİSİNİN ortalama neti (kullanıcı isteği 2026-11-27: 'en son oyuna bakmasın, düzenli olarak en çok net vermişe göre sıralansın').
+// puan[id]={ort:ortalama en iyi bilet neti, ort2:ortalama bilet başına net}; sırasız liste: puan yok
+const _YENI_SIRA_N=40;
+function _yeniAlgoDoldur(elId,puan,bas,zorla){
   const t=document.getElementById(elId);if(!t||typeof _HO_TIP_YENI==='undefined')return;
-  if(!puan&&t.options.length>1)return;   // sıralı liste varsa sırasız olanla ezme
-  const cur=t.value,l=_HO_TIP_YENI.map(x=>({x,p:(puan&&puan[x.id])||{b:-1,u:0,y:0}}));
-  if(puan)l.sort((a,b)=>b.p.b-a.p.b||b.p.u-a.p.u||b.p.y-a.p.y);
-  t.innerHTML=`<option value="">🧪 ${bas} (${_HO_TIP_YENI.length})…${puan?' (son oyuna göre sıralı)':''}</option>`+l.map(({x,p})=>`<option value="${x.id}">${x.ad}${p.b>=0?' — son: '+p.b+' net'+(p.y?' · ~'+p.y:''):''}</option>`).join('');
+  if(!puan&&!zorla&&t.options.length>1)return;   // sıralı liste varsa sırasız olanla ezme
+  const cur=t.value,l=_HO_TIP_YENI.map((x,i)=>({x,i,p:(puan&&puan[x.id])||null}));
+  if(puan)l.sort((a,b)=>((b.p?b.p.ort:-1)-(a.p?a.p.ort:-1))||((b.p?b.p.ort2:-1)-(a.p?a.p.ort2:-1))||a.i-b.i);
+  t.innerHTML=`<option value="">🧪 ${bas} (${_HO_TIP_YENI.length})…${puan?` (son ${puan._n||_YENI_SIRA_N} çekiliş ortalamasına göre sıralı)`:' (sıralama hesaplanıyor…)'}</option>`+l.map(({x,p})=>`<option value="${x.id}">${x.ad}${p?' — ort. '+p.ort.toFixed(2)+' net':''}</option>`).join('');
   t.value=cur;
 }
-function _tsAlgo3Doldur(puan){_yeniAlgoDoldur('tfAlgo3',puan,'Yeni analizler');}
-// Markov-Hazard: yeni analizleri son çekilişteki başarıya göre sırala
-let _tsSiraOnb3={};
+// Yürüyen ortalama hesaplayıcı: her çekiliş için S kurulur, tüm yeni analizlerin 10 bileti üretilir, gerçek sonuçla kıyaslanır. Tarayıcıyı dondurmamak için
+// çekiliş çekiliş (setTimeout) çalışır; iptal() true dönerse (sayfa/oyun/bilet boyu değişti) sessizce durur.
+const _yeniCalisan={};
+function _yeniSiraHesapla(anahtar,gid,draws,N,sKur,iptal,bitti){
+  if(_yeniCalisan[anahtar])return;   // aynı anahtar için zaten hesaplanıyor
+  N=Math.min(N,draws.length-100);if(N<5){return;}
+  _yeniCalisan[anahtar]=1;
+  const toplam={},tipler=_HO_TIP_YENI;tipler.forEach(t=>{toplam[t.id]=[0,0];});let i=0,j=0,S=null,F=null,aS=null;
+  const adim=()=>{   // zaman dilimli: her turda ≈35 ms çalışıp tarayıcıya nefes aldırır
+    const t0=performance.now();
+    while(performance.now()-t0<35){
+      if(iptal()){delete _yeniCalisan[anahtar];return;}
+      if(i>=N){delete _yeniCalisan[anahtar];const puan={_n:N};tipler.forEach(t=>{puan[t.id]={ort:toplam[t.id][0]/N,ort2:toplam[t.id][1]/N};});bitti(puan);return;}
+      try{
+        if(j===0){const a=draws[i];S=sKur(draws.slice(i+1),a);F=_tsOzellik(gid,S);aS=new Set(a.nums||[]);}
+        const tip=tipler[j];let b=0,top=0,n=0;
+        try{_tsBiletler(gid,S,F,tip,10).forEach(bl=>{const c=bl.filter(v=>aS.has(v)).length;if(c>b)b=c;top+=c;n++;});}catch(e){}
+        toplam[tip.id][0]+=b;toplam[tip.id][1]+=n?top/n:0;
+      }catch(e){}
+      if(++j>=tipler.length){j=0;i++;}
+    }
+    setTimeout(adim,0);
+  };
+  setTimeout(adim,30);
+}
+function _tsAlgo3Doldur(puan,zorla){_yeniAlgoDoldur('tfAlgo3',puan,'Yeni analizler',zorla);}
+// Markov-Hazard için HAFİF kaynak: yeni analizler yalnızca çekiliş geçmişini (S.prior) kullanır; Excel/Gülay/Nihai/Havuz gerekmez
+function _tsHafifS(gid,prior,tarih){return {gid,prior,tarih,ex:new Map(),G:{top:new Set(),cik:new Set(),hepsi:new Set()},hot:{},pair:{},pmax:0,wMap:{},wmax:0,nnUni:new Set(),pool:new Set(),nn:null};}
+let _tsSiraOnb3={},_tsSiraAnahtar='';
 function _tsYeniSirala(){
   const gid=_tsGame||(state&&state.selectedGame)||GAMES[0].id,draws=_kbGetDraws(gid)||[];
-  if(!document.getElementById('tfAlgo3')||draws.length<90)return;
+  if(!document.getElementById('tfAlgo3')||draws.length<140)return;
   const key=gid+'|'+draws[0].date;
-  if(_tsSiraOnb3[key]){_tsAlgo3Doldur(_tsSiraOnb3[key]);return;}
-  setTimeout(()=>{try{
-    const g=getGame(gid),a=draws[0],S=_tsKaynak(gid,draws.slice(1),a.date),F=_tsOzellik(gid,S),aS=new Set(a.nums||[]),yS=_fadYakinSet(aS,g.max),puan={};
-    _HO_TIP_YENI.forEach(tip=>{let b=0,u=0,y=0;
-      _tsBiletler(gid,S,F,tip,10).forEach(bl=>{const n=bl.filter(v=>aS.has(v)).length,yk=bl.filter(v=>!aS.has(v)&&yS.has(v)).length;if(n>b||(n===b&&yk>y)){b=n;y=yk;}if(n>=3)u++;});
-      puan[tip.id]={b,u,y};});
-    _tsSiraOnb3[key]=puan;
-    if(_curPage==='test'&&(_tsGame||(state&&state.selectedGame)||GAMES[0].id)===gid)_tsAlgo3Doldur(puan);
-  }catch(e){}},120);
+  if(_tsSiraOnb3[key]){_tsSiraAnahtar=key;_tsAlgo3Doldur(_tsSiraOnb3[key],true);return;}
+  if(_tsSiraAnahtar!==key){_tsSiraAnahtar=key;_tsAlgo3Doldur(null,true);}
+  _yeniSiraHesapla(key,gid,draws,_YENI_SIRA_N,(prior,a)=>_tsHafifS(gid,prior,a.date),
+    ()=>_tsSiraAnahtar!==key||_curPage!=='test',
+    puan=>{_tsSiraOnb3[key]=puan;_tsAlgo3Doldur(puan,true);});
 }
 function _tsSecenek(sifirla){
   _tsAlgo2Doldur();
@@ -31074,7 +31099,7 @@ function _hoAlgo2Doldur(puan){
   t2.innerHTML='<option value="">🎯 7 net hedefli…'+(puan?' (son çekilişe göre sıralı)':'')+'</option><optgroup label="🎯 7 net hedefli">'+op(7)+'</optgroup>';
   t2.value=cur;
   if(t2.value===''&&!(document.getElementById('hoAlgo3')||{}).value){const a=document.getElementById('hoAlgo');if(a&&a.selectedIndex<0)a.selectedIndex=0;}
-  _yeniAlgoDoldur('hoAlgo3',puan||null,'Yeni analizler');
+  _yeniAlgoDoldur('hoAlgo3',_hoYeniPuan||null,'Yeni analizler');
 }
 function _hoAlgoSec(h){
   const a=document.getElementById('hoAlgo'),b=document.getElementById('hoAlgo2'),c=document.getElementById('hoAlgo3');
@@ -31137,7 +31162,7 @@ function _hoRender(){
     if(tok!==_hoToken)return;
     let h;try{h=_hoKolonHtml(c.prior,c.hedef,c.actual,!c.actual,i-1);}catch(e){h=`<div style="color:#cc2222;font-size:.7rem">Hata: ${e.message}</div>`;}
     const cell=grid.children[i];if(cell)cell.outerHTML=h;
-    if(++bitti===sut.length){try{_hoKaydet(sut);}catch(e){}_hoGecmisRender();setTimeout(_hoSirala,200);}
+    if(++bitti===sut.length){try{_hoKaydet(sut);}catch(e){}_hoGecmisRender();setTimeout(_hoSirala,200);setTimeout(_hoYeniSirala,300);}
   },30+i*40));
 }
 function _hoSonrakiZaman(){
@@ -31183,10 +31208,18 @@ function _hoSirala(){
     [7].forEach(k=>_HO_TIPS_STD.forEach(id=>{const tip=_hoTip(id+'_h'+k);let b=0,u=0,y=0;
       _tsBiletler('hizlion',S,F,tip,10).forEach(bl=>{const n=bl.filter(v=>aS.has(v)).length,yk=bl.filter(v=>!aS.has(v)&&yS.has(v)).length;if(n>b||(n===b&&yk>y)){b=n;y=yk;}if(n>=3)u++;});
       puan[tip.id]={b,u,y};}));
-    _HO_TIP_YENI.forEach(tip=>{let b=0,u=0,y=0;   // 🧪 yeni analizler de son oyuna göre sıralanır
-      _tsBiletler('hizlion',S,F,tip,10).forEach(bl=>{const n=bl.filter(v=>aS.has(v)).length,yk=bl.filter(v=>!aS.has(v)&&yS.has(v)).length;if(n>b||(n===b&&yk>y)){b=n;y=yk;}if(n>=3)u++;});
-      puan[tip.id]={b,u,y};});
     _hoSiraOnb[key]=puan;if(_curPage==='hizlion')_hoAlgo2Doldur(puan);}catch(e){}},60);
+}
+// 🧪 Hızlı On 3. seçici: DÜZENLİ başarıya göre sıralama (son _YENI_SIRA_N çekiliş; bilet boyuna göre ayrı önbellek)
+let _hoYeniOnb={},_hoYeniAnahtar='',_hoYeniPuan=null;
+function _hoYeniSirala(){
+  if(_hoDraws.length<140||!document.getElementById('hoAlgo3'))return;
+  const key=_hoDraws[0].no+'|'+_HO_GAME.count;
+  if(_hoYeniOnb[key]){_hoYeniAnahtar=key;_hoYeniPuan=_hoYeniOnb[key];_yeniAlgoDoldur('hoAlgo3',_hoYeniPuan,'Yeni analizler',true);return;}
+  if(_hoYeniAnahtar!==key){_hoYeniAnahtar=key;_hoYeniPuan=null;_yeniAlgoDoldur('hoAlgo3',null,'Yeni analizler',true);}
+  _yeniSiraHesapla('ho|'+key,'hizlion',_hoDraws,_YENI_SIRA_N,(prior,a)=>_hoKaynak(prior,a.date,true),
+    ()=>_hoYeniAnahtar!==key||_curPage!=='hizlion',
+    puan=>{_hoYeniOnb[key]=puan;_hoYeniPuan=puan;_yeniAlgoDoldur('hoAlgo3',puan,'Yeni analizler',true);});
 }
 // ═══ 🔬 DENEME: yalnızca BİR ÖNCEKİ çekilişin 20 sayısıyla tahmin ═══
 // Aynı analizlerin biletleri yalnızca önceki çekilişte çıkan sayılardan kurulur. (Ölçüm alanı kullanıcı isteğiyle KALDIRILDI — geri koyma.)
