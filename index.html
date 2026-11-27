@@ -29757,7 +29757,7 @@ function _exRender(){
     const sirali=[...dist].sort((a,b)=>a-b);
     const net=aS?sirali.filter(n=>aS.has(n)).length:null,yk=aS?sirali.filter(n=>!aS.has(n)&&yS.has(n)).length:null;
     const yeni=!c.actual;
-    return `<div data-kn-sut="${yeni?'yeni':'gecmis'}" style="min-width:0;border:1px solid ${yeni?'rgba(124,58,237,.5)':'var(--border)'};border-radius:10px;padding:6px 8px;background:${yeni?'rgba(124,58,237,.05)':'var(--surface)'}" data-ex-atla="1">`
+    return `<div data-kn-sut="${yeni?'yeni':'gecmis'}" data-kn-tarih="${c.tarih}" style="min-width:0;border:1px solid ${yeni?'rgba(124,58,237,.5)':'var(--border)'};border-radius:10px;padding:6px 8px;background:${yeni?'rgba(124,58,237,.05)':'var(--surface)'}" data-ex-atla="1">`
       +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.62rem;font-weight:800;color:${yeni?'#7c3aed':'var(--text)'}">${c.ad}</span>`
       +(yeni?`<button class="copy-btn" onclick="_exYeniKopyala()" style="font-size:.54rem;padding:2px 8px">📋 Kopyala</button>`:'')+`</div>`
       +`<div style="font-size:.54rem;color:var(--muted);margin-bottom:4px">hedef ${c.tarih} · ${sirali.length} farklı sayı`
@@ -31142,7 +31142,7 @@ function _hoKolonHtml(prior,hedef,actual,yeni,k){
   const tip=_hoAktifTip(),esik=tip.hedef||(_HO_GAME.count<=5?_HO_GAME.count:3),adet=parseInt((document.getElementById('hoAdet')||{}).value)||10;
   const bil=_hoBiletUret(S,F,tip,adet);
   _hoSonKol[yeni?'y':'g'+k]={hedef,bil};
-  let h=`<div style="min-width:0" data-ex-atla="1" data-kn-sut="${yeni?'yeni':'gecmis'}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'}">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+hedef.slice(5,16)}</span>`;
+  let h=`<div style="min-width:0" data-ex-atla="1" data-kn-sut="${yeni?'yeni':'gecmis'}" data-kn-tarih="${hedef}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'}">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+hedef.slice(5,16)}</span>`;
   if(yeni){window._hoBiletler=bil.map(t=>t.slice());window._hoBiletTxt=`${tip.ad} — ${g.name} (${hedef}) — ${bil.length} bilet\n`+bil.map((t,i)=>`#${i+1}  ${t.join(' ')}`).join('\n');
     h+=`<span style="display:inline-flex;gap:4px"><button class="copy-btn" onclick="_caCopy(window._hoBiletTxt);showToast('📋 Tüm biletler kopyalandı')" style="font-size:.56rem;padding:2px 9px">📋 Biletleri Kopyala</button><button class="copy-btn" onclick="_hoKuponKopya()" title="Milli Piyango Hızlı On kuponunu bu biletlerle doldurmak için konsol kodu (yalnızca doldurur, oynamaz)" style="font-size:.56rem;padding:2px 9px">🧾 Kupon Kodu</button></span>`;}
   h+=`</div><div style="font-size:.56rem;color:var(--muted);margin-bottom:5px">hedef <strong style="color:var(--text)">${hedef}</strong>${actual?` · no ${actual.no} · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${actual.nums.join(' ')}</span>`:''}</div>`;
@@ -31416,7 +31416,7 @@ function _hoExcelKolon(prior,hedef,actual,yeni,k){
   const coklu=[...D.E.entries()].filter(x=>x[1].length>=2).sort((a,b)=>b[1].length-a[1].length||a[0]-b[0]);
   const say=l=>aS?{n:l.filter(x=>aS.has(x)).length,y:l.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length}:null;
   const oz=(l)=>{const s=say(l);return s?` <span style="font-size:.56rem"><strong style="color:var(--green)">✓ ${s.n} net</strong> · <strong style="color:#c2410c">~ ${s.y} yakın</strong></span>`:'';};
-  let h=`<div style="min-width:0" data-ex-atla="1" data-kn-sut="${yeni?'yeni':'gecmis'}"><div style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'};margin-bottom:3px">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+hedef.slice(5,16)}</div>`
+  let h=`<div style="min-width:0" data-ex-atla="1" data-kn-sut="${yeni?'yeni':'gecmis'}" data-kn-tarih="${hedef}"><div style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'};margin-bottom:3px">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+hedef.slice(5,16)}</div>`
    +`<div style="font-size:.56rem;color:var(--muted);margin-bottom:5px">hedef <strong style="color:var(--text)">${hedef}</strong>${actual?` · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${actual.nums.join(' ')}</span>`:''}</div>`;
   // 🎯 4'lü / 5'li bilet (en çok formülün ürettiği sayılar)
   h+=`<div style="padding:6px 8px;border:1px solid rgba(124,58,237,.4);border-radius:8px;background:rgba(124,58,237,.05);margin-bottom:6px;font-size:.66rem">`
@@ -32131,32 +32131,60 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
     }
     return out;
   }
-  function hesapla(g){
-    const yr=satirlar(g.yeni),gr=g.gec.map(satirlar),slots=[];
-    for(const r of yr){
-      const es=gr.map(L=>L.find(x=>x.key===r.key));if(es.some(x=>!x))continue;
+  // hedef sütunun satırları ile "diğer" sütunların satırlarını konum konum karşılaştırır: diğerlerinin HEPSİNDE ✓ ise 'net', hepsinde ✓/~ ise 'yakin'
+  function konumlar(hedef,digerleri){
+    const slots=[];
+    for(const r of hedef){
+      const es=digerleri.map(L=>L.find(x=>x.key===r.key));if(es.some(x=>!x))continue;
       const idli=r.ch.every(c=>c.id)&&es.every(e=>e.ch.every(c=>c.id));
       r.ch.forEach((c,i)=>{
         const kar=es.map(e=>idli?e.ch.find(x=>x.id===c.id):(e.ch.length===r.ch.length?e.ch[i]:null));
         if(kar.some(x=>!x))return;
         const tum=kar.every(x=>x.st==='net'),yak=!tum&&kar.every(x=>x.st==='net'||x.st==='yakin');
-        if(tum||yak)slots.push({el:c.el,num:c.num,tip:tum?'net':'yakin',key:r.key,pos:c.id||(i+1)});
+        if(tum||yak)slots.push({el:c.el,num:c.num,tip:tum?'net':'yakin',st:c.st,key:r.key,pos:c.id||(i+1)});
       });
     }
     return slots;
   }
-  const etiket=k=>k.charAt(0)==='#'?'satır '+k:k;
-  function liste(slots,tip){
-    const m=new Map();
-    slots.filter(s=>s.tip===tip).forEach(s=>{const o=m.get(s.num)||{n:0,yer:[]};o.n++;if(o.yer.length<6)o.yer.push(etiket(s.key)+' · '+s.pos+'.');m.set(s.num,o);});
-    const renk=tip==='net'?'rgba(0,200,100,.7);background:rgba(0,230,118,.14);color:var(--green)':'rgba(255,152,0,.8);background:rgba(255,152,0,.12);color:#c2410c';
-    const h=[...m.entries()].sort((a,b)=>a[0]-b[0]).map(([n,o])=>`<span title="${o.yer.join(' | ')}" style="display:inline-block;padding:0 6px;margin:1px 2px;border-radius:6px;border:1.5px solid ${renk};font-family:monospace;font-weight:800">${n}${o.n>1?`<span style="font-size:.8em;opacity:.8"> ×${o.n}</span>`:''}</span>`).join('');
-    return {say:m.size,h:h||'<span style="color:var(--muted)">yok</span>'};
+  function tarihOku(kol){
+    let v=kol.getAttribute('data-kn-tarih');
+    if(!v){const sg=kol.getAttribute('data-sk-gecmis');if(sg){const i=sg.indexOf('|');v=i>=0?sg.slice(i+1):sg;}}
+    if(!v||!/\d{4}-\d{2}-\d{2}/.test(v)){const m=/(\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2})?)/.exec((kol.textContent||'').slice(0,700));v=m?m[1].replace('T',' '):'';}
+    return v||'';
   }
-  function icerik(slots,nGec,baslik){
-    const a=liste(slots,'net'),b=liste(slots,'yakin');
-    return `<strong>📍 ${baslik}</strong> <span style="color:var(--muted)">· açık ${nGec} geçmiş testin hepsinde aynı satır ve sırada</span><br>`
-      +`<span style="font-weight:800;color:var(--green)">🟩 tutan (${a.say}):</span> ${a.h} <span style="font-weight:800;color:#c2410c;margin-left:8px">🟧 yakın (${b.say}):</span> ${b.h}`;
+  // YENİ sütun: açık geçmiş testlerin hepsinin ortağı. GEÇMİŞ test sütunu (kullanıcı isteği 2026-11-27: geçmiş test özelliği): o sütundan DAHA ESKİ açık geçmiş testlerin
+  // ortağı (walk-forward) → o sütundaki sayılar kendi gerçek sonucuyla ✓/~ değerlendirilir. En eski açık geçmiş testin daha eskisi olmadığından hesaplanamaz.
+  function hesapla(g){
+    const yr=satirlar(g.yeni),gl=g.gec.map(k=>({kol:k,tarih:tarihOku(k),rows:satirlar(k)}));
+    gl.sort((a,b)=>a.tarih<b.tarih?1:a.tarih>b.tarih?-1:0);   // yeni → eski
+    const yeni=konumlar(yr,gl.map(x=>x.rows));
+    const gecmis=gl.map((x,i)=>{const eski=gl.slice(i+1);return {tarih:x.tarih,slots:eski.length?konumlar(x.rows,eski.map(y=>y.rows)):null,nEski:eski.length};});
+    return {yeni,gecmis};
+  }
+  const etiket=k=>k.charAt(0)==='#'?'satır '+k:k;
+  // sayı rozetleri: tip=net/yakin (konumun türü); gecmisMi ise sayının KENDİ sonucu da gösterilir (✓ net / ~ yakın / gri çıkmadı)
+  function liste(slots,tip,gecmisMi){
+    const m=new Map();
+    slots.filter(s=>s.tip===tip).forEach(s=>{const o=m.get(s.num)||{n:0,yer:[],st:s.st};o.n++;if(o.yer.length<6)o.yer.push(etiket(s.key)+' · '+s.pos+'.');m.set(s.num,o);});
+    const stil=(o)=>{
+      if(!gecmisMi)return tip==='net'?'rgba(0,200,100,.7);background:rgba(0,230,118,.14);color:var(--green)':'rgba(255,152,0,.8);background:rgba(255,152,0,.12);color:#c2410c';
+      return o.st==='net'?'rgba(0,200,100,.9);background:rgba(0,230,118,.3);color:var(--green)':o.st==='yakin'?'rgba(255,152,0,.9);background:rgba(255,152,0,.22);color:#c2410c':'var(--border);background:var(--surface2);color:var(--muted)';};
+    const ent=[...m.entries()].sort((a,b)=>a[0]-b[0]);
+    const h=ent.map(([n,o])=>`<span title="${o.yer.join(' | ')}" style="display:inline-block;padding:0 6px;margin:1px 2px;border-radius:6px;border:1.5px solid ${stil(o)};font-family:monospace;font-weight:800">${n}${gecmisMi?(o.st==='net'?'✓':o.st==='yakin'?'~':''):''}${o.n>1?`<span style="font-size:.8em;opacity:.8"> ×${o.n}</span>`:''}</span>`).join('');
+    return {say:m.size,net:ent.filter(([n,o])=>o.st==='net').length,yk:ent.filter(([n,o])=>o.st==='yakin').length,h:h||'<span style="color:var(--muted)">yok</span>'};
+  }
+  const kisa=t=>t?(t.length>=16?t.slice(5,16):t.slice(5)||t):'';
+  function satir(ad,slots,gecmisMi){
+    if(slots===null)return `<div style="color:var(--muted)">${ad} — <em>daha eski açık geçmiş test yok, hesaplanamadı</em></div>`;
+    const a=liste(slots,'net',gecmisMi),b=liste(slots,'yakin',gecmisMi);
+    const so=x=>gecmisMi&&x.say?` <span style="font-size:.9em;color:var(--muted)">→ <strong style="color:var(--green)">✓ ${x.net}</strong> · <strong style="color:#c2410c">~ ${x.yk}</strong> / ${x.say}</span>`:'';
+    return `<div>${ad} — <span style="font-weight:800;color:var(--green)">🟩 tutan (${a.say}):</span> ${a.h}${so(a)} <span style="font-weight:800;color:#c2410c;margin-left:8px">🟧 yakın (${b.say}):</span> ${b.h}${so(b)}</div>`;
+  }
+  function icerik(res,nGec,baslik){
+    let h=`<strong>📍 ${baslik}</strong> <span style="color:var(--muted)">· açık ${nGec} geçmiş testin hepsinde aynı satır ve sırada · geçmiş testlerde: kendinden daha eski testlerin ortağı → kendi sonucuyla ✓/~</span>`;
+    h+=satir('🔮 <strong>Yeni Tahmin</strong>',res.yeni,false);
+    res.gecmis.forEach(x=>{h+=satir('📊 <strong>Geçmiş Test '+kisa(x.tarih)+'</strong>',x.slots,true);});
+    return h;
   }
   function kutuYap(tip,html,css){
     const b=document.createElement('div');b.dataset.knKutu=tip;b.setAttribute('data-ex-atla','1');b.setAttribute('data-ny-yok','1');b.style.cssText=css;b.innerHTML=html;b.dataset.s=html;return b;   // ex-atla: Excel yıldızı/Gülay ± işaretleri konmaz; ny-yok: ✓/~ özeti konmaz
@@ -32172,17 +32200,23 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
     document.querySelectorAll('[data-kn]').forEach(e=>e.removeAttribute('data-kn'));
     const eski=new Set(document.querySelectorAll('[data-kn-kutu]')),sayfalar=new Map();
     for(const g of gruplar()){
-      let slots;try{slots=hesapla(g);}catch(e){console.warn('konumOrtak hesapla',e);continue;}
-      slots.forEach(s=>s.el.setAttribute('data-kn',s.tip));
-      const html=icerik(slots,g.gec.length,'Bu grupta ortak konumlar'),ank=ankraj(g.par);
+      let res;try{res=hesapla(g);}catch(e){console.warn('konumOrtak hesapla',e);continue;}
+      res.yeni.forEach(s=>s.el.setAttribute('data-kn',s.tip));
+      const html=icerik(res,g.gec.length,'Bu grupta ortak konumlar'),ank=ankraj(g.par);
       let kb=ank.previousElementSibling;
       if(kb&&kb.dataset&&kb.dataset.knKutu==='grup'){eski.delete(kb);if(kb.dataset.s!==html){kb.innerHTML=html;kb.dataset.s=html;}}
       else ank.parentNode.insertBefore(kutuYap('grup',html,CSS_G),ank);
       const root=g.par.closest('[id^="page-"]');
-      if(root){const o=sayfalar.get(root)||{slots:[],nGec:g.gec.length,gr:0};o.slots=o.slots.concat(slots);o.gr++;o.nGec=Math.min(o.nGec,g.gec.length);sayfalar.set(root,o);}
+      if(root){
+        const o=sayfalar.get(root)||{yeni:[],gecmis:new Map(),nGec:g.gec.length,gr:0};
+        o.yeni=o.yeni.concat(res.yeni);o.gr++;o.nGec=Math.min(o.nGec,g.gec.length);
+        res.gecmis.forEach(x=>{const k=x.tarih||'?';const e=o.gecmis.get(k)||{tarih:x.tarih,slots:null};if(x.slots)e.slots=(e.slots||[]).concat(x.slots);o.gecmis.set(k,e);});
+        sayfalar.set(root,o);
+      }
     }
     for(const [root,o] of sayfalar){
-      const html=icerik(o.slots,o.nGec,'Tüm sayfa — ortak konumlar ('+o.gr+' grup)'),yer=root.querySelector('[data-kn-sayfa-yer]');
+      const res={yeni:o.yeni,gecmis:[...o.gecmis.values()].sort((a,b)=>a.tarih<b.tarih?1:a.tarih>b.tarih?-1:0)};
+      const html=icerik(res,o.nGec,'Tüm sayfa — ortak konumlar ('+o.gr+' grup)'),yer=root.querySelector('[data-kn-sayfa-yer]');
       let kb=yer?yer.querySelector(':scope > [data-kn-kutu="sayfa"]'):(root.firstElementChild&&root.firstElementChild.dataset&&root.firstElementChild.dataset.knKutu==='sayfa'?root.firstElementChild:null);
       if(kb){eski.delete(kb);if(kb.dataset.s!==html){kb.innerHTML=html;kb.dataset.s=html;}}
       else{kb=kutuYap('sayfa',html,CSS_S);if(yer)yer.appendChild(kb);else root.insertBefore(kb,root.firstChild);}
@@ -32194,7 +32228,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
     if(m.every(x=>(x.target.closest&&x.target.closest('[data-kn-kutu]'))||([...x.addedNodes,...x.removedNodes].length&&[...x.addedNodes,...x.removedNodes].every(n=>n.nodeType===1&&n.dataset&&n.dataset.knKutu))))return;
     clearTimeout(t);t=setTimeout(()=>{try{tara();}catch(e){console.warn('konumOrtak tara',e);}},450);
   }).observe(document.body,{childList:true,subtree:true});
-  window._konumOrtakTara=tara;window._konumOrtakSatirlar=satirlar;   // hata ayıklama kancaları
+  window._konumOrtakTara=tara;window._konumOrtakSatirlar=satirlar;window._konumOrtakHesapla=(g)=>hesapla(g);window._konumOrtakGruplar=gruplar;   // hata ayıklama kancaları
 })();
 
 // ═══ Sütun hizalama: Yeni Tahmin + geçmiş test sütunlarında AYNI sıradaki bölümler aynı üst hizadan başlar ═══
