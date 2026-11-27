@@ -29748,7 +29748,7 @@ function _exRender(){
       if(ok)dist.add(n);
       if(_exCokMin>1&&(!ok||say[n]<_exCokMin))return;       // 🔁 çoklanan filtresi
       const d=ok&&aS?_fadDurum(n,aS,yS):'';
-      hucre.push(`<span title="${k.h}${ok&&say[n]>1?' · '+say[n]+' formül aynı sayıyı üretti':''}" style="position:relative;display:flex;align-items:center;justify-content:center;gap:2px;font-family:monospace;font-size:.78rem;line-height:1.1;padding:6px 3px;border-radius:7px;border:1px solid var(--border);`
+      hucre.push(`<span data-kn-id="${k.h}" title="${k.h}${ok&&say[n]>1?' · '+say[n]+' formül aynı sayıyı üretti':''}" style="position:relative;display:flex;align-items:center;justify-content:center;gap:2px;font-family:monospace;font-size:.78rem;line-height:1.1;padding:6px 3px;border-radius:7px;border:1px solid var(--border);`
         +(d==='net'?'background:rgba(0,230,118,.22);color:var(--green);font-weight:800;border-color:rgba(0,200,100,.5);':d==='yakin'?'background:rgba(194,65,12,.1);color:#c2410c;font-weight:800;':ok?'':'opacity:.4;')
         +`"><span style="opacity:.55;font-size:.55rem">${k.h}</span> ${n==null?'·':n}${d==='net'?'✓':d==='yakin'?'~':''}`
         +(ok&&say[n]>1?`<span style="position:absolute;top:-5px;right:-3px;font-size:.52rem;font-weight:800;background:#7c3aed;color:#fff;border-radius:6px;padding:0 4px">×${say[n]}</span>`:'')+`</span>`);
@@ -29756,12 +29756,12 @@ function _exRender(){
     const sirali=[...dist].sort((a,b)=>a-b);
     const net=aS?sirali.filter(n=>aS.has(n)).length:null,yk=aS?sirali.filter(n=>!aS.has(n)&&yS.has(n)).length:null;
     const yeni=!c.actual;
-    return `<div style="min-width:0;border:1px solid ${yeni?'rgba(124,58,237,.5)':'var(--border)'};border-radius:10px;padding:6px 8px;background:${yeni?'rgba(124,58,237,.05)':'var(--surface)'}" data-ex-atla="1">`
+    return `<div data-kn-sut="${yeni?'yeni':'gecmis'}" style="min-width:0;border:1px solid ${yeni?'rgba(124,58,237,.5)':'var(--border)'};border-radius:10px;padding:6px 8px;background:${yeni?'rgba(124,58,237,.05)':'var(--surface)'}" data-ex-atla="1">`
       +`<div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.62rem;font-weight:800;color:${yeni?'#7c3aed':'var(--text)'}">${c.ad}</span>`
       +(yeni?`<button class="copy-btn" onclick="_exYeniKopyala()" style="font-size:.54rem;padding:2px 8px">📋 Kopyala</button>`:'')+`</div>`
       +`<div style="font-size:.54rem;color:var(--muted);margin-bottom:4px">hedef ${c.tarih} · ${sirali.length} farklı sayı`
       +(aS?` · <strong style="color:var(--green)">✓ ${net} net</strong> · <strong style="color:#c2410c">~ ${yk} yakın</strong> · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${[...c.actual.nums].sort((a,b)=>a-b).join(' ')}</span>`:'')+`</div>`
-      +`<div class="ex-izgara">${hucre.join('')||'<span style="grid-column:1/-1;font-size:.56rem;color:var(--muted)">Bu filtreye uyan sayı yok.</span>'}</div></div>`;
+      +`<div class="ex-izgara" data-kn-satir="izgara">${hucre.join('')||'<span style="grid-column:1/-1;font-size:.56rem;color:var(--muted)">Bu filtreye uyan sayı yok.</span>'}</div></div>`;
   };
   h+=`<div style="display:grid;grid-template-columns:repeat(${sut.length},minmax(0,1fr));gap:10px;align-items:start">${sut.map(kolHtml).join('')}</div>`;
   el.innerHTML=h;
@@ -32065,7 +32065,8 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
   const yeniMi=e=>e.hasAttribute('data-sk-yeni')||e.getAttribute('data-kn-sut')==='yeni';
   function chipOku(c){
     if(c.children.length>3)return null;
-    const m=CHIP.exec((c.textContent||'').replace(/\s+/g,''));if(!m)return null;
+    const t=(c.textContent||'').replace(/\s+/g,'');
+    const m=c.hasAttribute('data-kn-id')?/^(?:[A-Za-z]{1,3}·?)?(\d{1,2})([✓~]?)[+−±]?(?:×\d+)?$/.exec(t):CHIP.exec(t);if(!m)return null;
     return {el:c,num:+m[1],st:m[2]==='✓'?'net':m[2]==='~'?'yakin':'',id:c.getAttribute('data-kn-id')};
   }
   function satirlar(kol){
