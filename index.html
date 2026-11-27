@@ -32072,7 +32072,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
     const out=[];let idx=0;
     for(const P of [kol,...kol.querySelectorAll('*')]){
       if(P.closest('[data-kn-atla]'))continue;
-      if(P!==kol&&P.closest(KOL)!==kol)continue;   // iç içe sütun kendi satırlarını taşır
+      if(P!==kol){const ck=P.closest(KOL);if(ck&&ck!==kol)continue;}   // iç içe etiketli sütun kendi satırlarını taşır
       const ch=[...P.children].map(chipOku).filter(Boolean),ex=P.getAttribute('data-kn-satir');
       if(!ex&&(ch.length<2||ch.length<P.children.length*0.5))continue;
       if(ex&&!ch.length)continue;
@@ -32087,7 +32087,37 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
       if(!par.offsetWidth)return;
       const kols=[...par.children].filter(e=>e.matches(KOL)),yeni=kols.filter(yeniMi),gec=kols.filter(e=>!yeniMi(e));
       if(yeni.length===1&&gec.length>=1)out.push({par,yeni:yeni[0],gec});
+      else if(!yeni.length&&gec.length>=1){   // yalnız geçmiş sütunlar etiketli: etiketsiz TEK sütun yeni tahmindir
+        const bos=[...par.children].filter(e=>!e.matches(KOL)&&e.offsetWidth&&!(e.dataset&&e.dataset.knKutu)&&satirlar(e).length);
+        if(bos.length===1)out.push({par,yeni:bos[0],gec});
+      }
     });
+    // ETİKETSİZ sayfalar (Anlık, Basit, Kapsamlı, Tarama, Listeler …): ✓/~ taşıyan çiplerin atalarında yapı çıkarımı —
+    // bir üst öğenin 2–5 çocuğundan TAM BİRİ hiç ✓/~ taşımıyor (yeni tahmin), diğerleri taşıyor (geçmiş test) ve hepsinin satır/çip adedi birebir aynıysa grup sayılır.
+    const kok=document.getElementById('page-'+_curPage)||(_curPage==='home'?document.getElementById('homeWrap'):null);
+    if(kok){
+      const kabul=new Set(out.map(g=>g.par)),goz=new Set();
+      const isaretli=[...kok.querySelectorAll('span,div,td,b,strong')].filter(e=>e.children.length<=3&&/^(?:[A-Za-z]{1,3}·)?\d{1,2}[✓~]/.test((e.textContent||'').replace(/\s+/g,''))&&!e.closest('[data-ex-atla],[data-kn-kutu]'));
+      for(const c of isaretli.slice(0,3000)){
+        let a=c;
+        for(let i=0;i<12;i++){
+          const par=a.parentElement;if(!par||par===kok||/^page-/.test(par.id||''))break;
+          a=par;
+          if(goz.has(par))continue;goz.add(par);
+          if(par.closest(KOL)||!par.offsetWidth)continue;
+          const kids=[...par.children].filter(k=>k.offsetWidth&&!(k.dataset&&(k.dataset.knKutu||k.dataset.nyB)));
+          if(kids.length<2||kids.length>5)continue;
+          const info=kids.map(k=>{const r=satirlar(k);let ch=0,mk=0;r.forEach(x=>x.ch.forEach(y=>{ch++;if(y.st)mk++;}));return {k,r,ch,mk};});
+          if(info.some(x=>!x.r.length))continue;
+          const yeni=info.filter(x=>x.mk===0&&x.ch>=3),gec=info.filter(x=>x.mk>=1);
+          if(yeni.length!==1||gec.length!==info.length-1)continue;
+          const sig=x=>x.r.map(z=>z.ch.length).join(',');
+          if(info.some(x=>sig(x)!==sig(info[0])))continue;
+          if([...kabul].some(q=>q.contains(par)||par.contains(q)))continue;
+          kabul.add(par);out.push({par,yeni:yeni[0].k,gec:gec.map(x=>x.k),cikarim:true});
+        }
+      }
+    }
     return out;
   }
   function hesapla(g){
@@ -32131,7 +32161,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
     document.querySelectorAll('[data-kn]').forEach(e=>e.removeAttribute('data-kn'));
     const eski=new Set(document.querySelectorAll('[data-kn-kutu]')),sayfalar=new Map();
     for(const g of gruplar()){
-      let slots;try{slots=hesapla(g);}catch(e){continue;}
+      let slots;try{slots=hesapla(g);}catch(e){console.warn('konumOrtak hesapla',e);continue;}
       slots.forEach(s=>s.el.setAttribute('data-kn',s.tip));
       const html=icerik(slots,g.gec.length,'Bu grupta ortak konumlar'),ank=ankraj(g.par);
       let kb=ank.previousElementSibling;
@@ -32151,9 +32181,9 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
   let t=null;
   new MutationObserver(m=>{
     if(m.every(x=>(x.target.closest&&x.target.closest('[data-kn-kutu]'))||([...x.addedNodes,...x.removedNodes].length&&[...x.addedNodes,...x.removedNodes].every(n=>n.nodeType===1&&n.dataset&&n.dataset.knKutu))))return;
-    clearTimeout(t);t=setTimeout(()=>{try{tara();}catch(e){}},450);
+    clearTimeout(t);t=setTimeout(()=>{try{tara();}catch(e){console.warn('konumOrtak tara',e);}},450);
   }).observe(document.body,{childList:true,subtree:true});
-  window._konumOrtakTara=tara;
+  window._konumOrtakTara=tara;window._konumOrtakSatirlar=satirlar;   // hata ayıklama kancaları
 })();
 
 // ═══ Sütun hizalama: Yeni Tahmin + geçmiş test sütunlarında AYNI sıradaki bölümler aynı üst hizadan başlar ═══
