@@ -29784,6 +29784,7 @@ function _exRender(){
       +(aS?` · <strong style="color:var(--green)">✓ ${net} net</strong> · <strong style="color:#c2410c">~ ${yk} yakın</strong> · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${[...c.actual.nums].sort((a,b)=>a-b).join(' ')}</span>`:'')+`</div>`
       +`<div class="ex-izgara" data-kn-satir="izgara">${hucre.join('')||'<span style="grid-column:1/-1;font-size:.56rem;color:var(--muted)">Bu filtreye uyan sayı yok.</span>'}</div></div>`;
   };
+  window._exKolHtml=kolHtml;window._exRenderNo=(window._exRenderNo||0)+1;   // konum ortakları: gizli (ekranda olmayan) geçmiş sütunlar aynı çizici ile üretilir
   h+=`<div style="display:grid;grid-template-columns:repeat(${sut.length},minmax(0,1fr));gap:10px;align-items:start">${sut.map(kolHtml).join('')}</div>`;
   el.innerHTML=h;
 }
@@ -32391,13 +32392,66 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
     if(!v||!/\d{4}-\d{2}-\d{2}/.test(v)){const m=/(\d{4}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2})?)/.exec((kol.textContent||'').slice(0,700));v=m?m[1].replace('T',' '):'';}
     return v||'';
   }
-  // YENİ sütun: açık geçmiş testlerin hepsinin ortağı. GEÇMİŞ test sütunu (kullanıcı isteği 2026-11-27: geçmiş test özelliği): o sütundan DAHA ESKİ açık geçmiş testlerin
-  // ortağı (walk-forward) → o sütundaki sayılar kendi gerçek sonucuyla ✓/~ değerlendirilir. En eski açık geçmiş testin daha eskisi olmadığından hesaplanamaz.
+  // YENİ sütun: açık geçmiş testlerin hepsinin ortağı. GEÇMİŞ test sütunu (kullanıcı isteği 2026-11-27): o testin tarihinden HEMEN ÖNCEKİ 2 çekilişin sütunları
+  // (ekranda açık olsun olmasın; açık değilse aynı çizici ile gizli üretilir) ortak konumları bulur; o konumlardaki sayılar bu testin KENDİ sonucuyla ✓/~ değerlendirilir.
+  // Gizli üretim için sayfa 'sağlayıcı'sı yoksa (Anlık, Nihai…) eski davranış: kendinden daha eski AÇIK geçmiş testler.
+  const sv=(f)=>{try{return f();}catch(e){return null;}};
+  const SAGLAYICI=[
+    {ad:'Hızlı On',uygun:p=>p.id==='hoGrid',
+     imza:()=>['ho',(window._hoAktifTip()||{}).id,['hoAdet','hoSecim','hoYapi'].map(i=>(document.getElementById(i)||{}).value).join('/'),_hoDraws.length,(_hoDraws[0]||{}).date].join('|'),
+     onceki:(T)=>{const d=_hoDraws,ix=d.findIndex(x=>x.date===T);if(ix<0)return null;const r=[];for(let i=1;i<=2;i++){const a=d[ix+i];if(!a||d.length-(ix+i)-1<100)return null;r.push(a.date);}return r;},
+     kolon:(T)=>{const d=_hoDraws,ix=d.findIndex(x=>x.date===T),sk=Object.assign({},_hoSonKol);try{return _hoKolonHtml(d.slice(ix+1),T,d[ix],false,0);}finally{_hoSonKol=sk;}}},
+    {ad:'Hızlı On Excel',uygun:p=>!!p.closest('#hoExOut'),
+     imza:()=>['hoex',_hoDraws.length,(_hoDraws[0]||{}).date].join('|'),
+     onceki:(T)=>{const d=_hoDraws,ix=d.findIndex(x=>x.date===T);if(ix<0)return null;const r=[];for(let i=1;i<=2;i++){const a=d[ix+i];if(!a||ix+i+3>=d.length)return null;r.push(a.date);}return r;},
+     kolon:(T)=>{const d=_hoDraws,ix=d.findIndex(x=>x.date===T);return _hoExcelKolon(d.slice(ix+1),T,d[ix],false,0);}},
+    {ad:'Markov ve Hazard',uygun:p=>p.id==='tfGrid',
+     imza:()=>{const gid=_tsGame||state.selectedGame,dr=_kbGetDraws(gid)||[];return ['ts',gid,(_tsAktifTip()||{}).id,(document.getElementById('tfAdet')||{}).value,dr.length,(dr[0]||{}).date].join('|');},
+     onceki:(T)=>{const gid=_tsGame||state.selectedGame,d=_kbGetDraws(gid)||[],ix=d.findIndex(x=>x.date===T);if(ix<0)return null;const r=[];for(let i=1;i<=2;i++){const a=d[ix+i];if(!a||d.length-(ix+i)-1<70)return null;r.push(a.date);}return r;},
+     kolon:(T)=>{const gid=_tsGame||state.selectedGame,d=_kbGetDraws(gid)||[],ix=d.findIndex(x=>x.date===T),sk=Object.assign({},window._tsSonKol||{});try{return _tsKolonHtml(gid,d.slice(ix+1),T,d[ix],false,0);}finally{window._tsSonKol=sk;}}},
+    {ad:'KimaFiz',uygun:p=>p.id==='kfGrid',
+     imza:()=>{const gid=_kfGame||state.selectedGame,dr=_kbGetDraws(gid)||[];return ['kf',gid,(document.getElementById('kfAdet')||{}).value,dr.length,(dr[0]||{}).date].join('|');},
+     onceki:(T)=>{const gid=_kfGame||state.selectedGame,d=_kbGetDraws(gid)||[],ix=d.findIndex(x=>x.date===T);if(ix<0)return null;const r=[];for(let i=1;i<=2;i++){const a=d[ix+i];if(!a||d.length-(ix+i)-1<12)return null;r.push(a.date);}return r;},
+     kolon:(T)=>{const gid=_kfGame||state.selectedGame,d=_kbGetDraws(gid)||[],ix=d.findIndex(x=>x.date===T);return _kfKolonHtml(gid,d.slice(ix+1),T,d[ix],false,0);}},
+    {ad:'Excel',uygun:p=>!!p.closest('#exGrid'),
+     imza:()=>['ex',window._exRenderNo].join('|'),
+     onceki:(T)=>{const d=_kbGetDraws(_exGame)||[],ix=d.findIndex(x=>x.date===T);if(ix<0)return null;const r=[];for(let i=1;i<=2;i++){const a=d[ix+i];if(!a)return null;r.push(a.date);}return r;},
+     kolon:(T)=>{const d=_kbGetDraws(_exGame)||[],ix=d.findIndex(x=>x.date===T);return window._exKolHtml({ad:'',r:ix+1,actual:d[ix],tarih:T});}}
+  ];
+  const saglayici=g=>SAGLAYICI.find(x=>sv(()=>x.uygun(g.par)));
+  // gizli sütun önbelleği: imza (ayarlar/veri) değişince boşalır; üretim sırayla, tarayıcıyı dondurmadan yapılır
+  let onb=new Map(),onbImza='',kuyruk=[],kuyrukCalisiyor=false;
+  function kuyrukIsle(){
+    if(kuyrukCalisiyor)return;kuyrukCalisiyor=true;
+    const adim=()=>{
+      const is=kuyruk.shift();
+      if(!is){kuyrukCalisiyor=false;try{tara();}catch(e){}return;}
+      if(onb.has(is.imza+'|'+is.T)){setTimeout(adim,0);return;}
+      let rows=[];
+      try{const html=is.pv.kolon(is.T),d=document.createElement('div');d.innerHTML=html;const el=d.firstElementChild;rows=el?satirlar(el):[];}catch(e){console.warn('konumOrtak gizli sütun',e);}
+      onb.set(is.imza+'|'+is.T,rows);
+      setTimeout(adim,15);
+    };
+    setTimeout(adim,15);
+  }
   function hesapla(g){
     const yr=satirlar(g.yeni),gl=g.gec.map(k=>({kol:k,tarih:tarihOku(k),rows:satirlar(k)}));
     gl.sort((a,b)=>a.tarih<b.tarih?1:a.tarih>b.tarih?-1:0);   // yeni → eski
     const yeni=konumlar(yr,gl.map(x=>x.rows));
-    const gecmis=gl.map((x,i)=>{const eski=gl.slice(i+1);return {tarih:x.tarih,slots:eski.length?konumlar(x.rows,eski.map(y=>y.rows)):null,nEski:eski.length};});
+    const pv=saglayici(g);let imza='';
+    if(pv){imza=sv(()=>pv.imza())||'';onbImza=imza;if(onb.size>80){onb=new Map();kuyruk=[];}}
+    const gecmis=gl.map((x,i)=>{
+      if(pv&&imza){
+        const ds=sv(()=>pv.onceki(x.tarih));
+        if(!ds)return {tarih:x.tarih,slots:null,neden:'önceki 2 çekiliş yok / yetersiz veri'};
+        const rows=ds.map(d=>{const a=gl.find(y=>y.tarih===d);if(a)return a.rows;const k=imza+'|'+d;if(onb.has(k))return onb.get(k);if(!kuyruk.some(q=>q.imza===imza&&q.T===d))kuyruk.push({pv,imza,T:d});return undefined;});
+        if(rows.some(r=>r===undefined)){kuyrukIsle();return {tarih:x.tarih,slots:null,bekle:true,onceki:ds};}
+        if(rows.some(r=>!r.length))return {tarih:x.tarih,slots:null,neden:'önceki çekiliş sütunu üretilemedi',onceki:ds};
+        return {tarih:x.tarih,slots:konumlar(x.rows,rows),onceki:ds};
+      }
+      const eski=gl.slice(i+1);
+      return {tarih:x.tarih,slots:eski.length?konumlar(x.rows,eski.map(y=>y.rows)):null,neden:'bu sayfada gizli üretim yok; daha eski açık geçmiş test de yok',acikTest:true,nEski:eski.length};
+    });
     return {yeni,gecmis};
   }
   const etiket=k=>k.charAt(0)==='#'?'satır '+k:k;
@@ -32413,16 +32467,18 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
     return {say:m.size,net:ent.filter(([n,o])=>o.st==='net').length,yk:ent.filter(([n,o])=>o.st==='yakin').length,h:h||'<span style="color:var(--muted)">yok</span>'};
   }
   const kisa=t=>t?(t.length>=16?t.slice(5,16):t.slice(5)||t):'';
-  function satir(ad,slots,gecmisMi){
-    if(slots===null)return `<div style="color:var(--muted)">${ad} — <em>daha eski açık geçmiş test yok, hesaplanamadı</em></div>`;
+  function satir(ad,slots,gecmisMi,x){
+    if(x&&x.bekle)return `<div style="color:var(--muted)">${ad} — <em>⏳ önceki 2 çekiliş (${x.onceki.map(kisa).join(', ')}) hesaplanıyor…</em></div>`;
+    if(slots===null)return `<div style="color:var(--muted)">${ad} — <em>${(x&&x.neden)||'hesaplanamadı'}</em></div>`;
     const a=liste(slots,'net',gecmisMi),b=liste(slots,'yakin',gecmisMi);
-    const so=x=>gecmisMi&&x.say?` <span style="font-size:.9em;color:var(--muted)">→ <strong style="color:var(--green)">✓ ${x.net}</strong> · <strong style="color:#c2410c">~ ${x.yk}</strong> / ${x.say}</span>`:'';
-    return `<div>${ad} — <span style="font-weight:800;color:var(--green)">🟩 tutan (${a.say}):</span> ${a.h}${so(a)} <span style="font-weight:800;color:#c2410c;margin-left:8px">🟧 yakın (${b.say}):</span> ${b.h}${so(b)}</div>`;
+    const so=y=>gecmisMi&&y.say?` <span style="font-size:.9em;color:var(--muted)">→ <strong style="color:var(--green)">✓ ${y.net}</strong> · <strong style="color:#c2410c">~ ${y.yk}</strong> / ${y.say}</span>`:'';
+    const kay=x&&x.onceki?` <span style="color:var(--muted);font-size:.9em">(önceki 2: ${x.onceki.map(kisa).join(', ')})</span>`:(x&&x.acikTest?' <span style="color:var(--muted);font-size:.9em">(açık eski testlere göre)</span>':'');
+    return `<div>${ad}${kay} — <span style="font-weight:800;color:var(--green)">🟩 tutan (${a.say}):</span> ${a.h}${so(a)} <span style="font-weight:800;color:#c2410c;margin-left:8px">🟧 yakın (${b.say}):</span> ${b.h}${so(b)}</div>`;
   }
   function icerik(res,nGec,baslik){
-    let h=`<strong>📍 ${baslik}</strong> <span style="color:var(--muted)">· açık ${nGec} geçmiş testin hepsinde aynı satır ve sırada · geçmiş testlerde: kendinden daha eski testlerin ortağı → kendi sonucuyla ✓/~</span>`;
+    let h=`<strong>📍 ${baslik}</strong> <span style="color:var(--muted)">· yeni tahmin: açık ${nGec} geçmiş testin hepsinde aynı satır ve sırada · geçmiş testler: o testten HEMEN ÖNCEKİ 2 çekilişin ortağı (ekranda olmasa da) → kendi sonucuyla ✓/~</span>`;
     h+=satir('🔮 <strong>Yeni Tahmin</strong>',res.yeni,false);
-    res.gecmis.forEach(x=>{h+=satir('📊 <strong>Geçmiş Test '+kisa(x.tarih)+'</strong>',x.slots,true);});
+    res.gecmis.forEach(x=>{h+=satir('📊 <strong>Geçmiş Test '+kisa(x.tarih)+'</strong>',x.slots,true,x);});
     return h;
   }
   function kutuYap(tip,html,css){
@@ -32449,7 +32505,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
       if(root){
         const o=sayfalar.get(root)||{yeni:[],gecmis:new Map(),nGec:g.gec.length,gr:0};
         o.yeni=o.yeni.concat(res.yeni);o.gr++;o.nGec=Math.min(o.nGec,g.gec.length);
-        res.gecmis.forEach(x=>{const k=x.tarih||'?';const e=o.gecmis.get(k)||{tarih:x.tarih,slots:null};if(x.slots)e.slots=(e.slots||[]).concat(x.slots);o.gecmis.set(k,e);});
+        res.gecmis.forEach(x=>{const k=x.tarih||'?';const e=o.gecmis.get(k)||{tarih:x.tarih,slots:null,neden:x.neden};if(x.slots)e.slots=(e.slots||[]).concat(x.slots);if(x.bekle)e.bekle=true;if(x.onceki)e.onceki=x.onceki;if(x.acikTest&&!e.onceki)e.acikTest=true;o.gecmis.set(k,e);});
         sayfalar.set(root,o);
       }
     }
