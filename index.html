@@ -47,6 +47,11 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
    siyah çizgili çerçeveye alınır. Mevcut renkleri (yeşil net / turuncu yakın) BOZMAZ:
    sadece dışına bir çerçeve çizer, böylece iki bilgi aynı anda okunabilir. */
 [data-sk-tekrar]{outline:2px solid #111;outline-offset:1px;border-radius:5px}
+/* 📍 Konum ortakları: açık geçmiş testlerin HEPSİNDE aynı satır+aynı sırada tutan (parlak yeşil) / yakın çıkan (turuncu) konumun yeni tahmindeki sayısı.
+   Siyah kareleme (outline) ile birlikte görünür: ikisi aynı sayıdaysa siyah çerçeve dışta kalır. */
+[data-kn="net"]{box-shadow:0 0 0 2.5px #00e676,0 0 10px 2px rgba(0,230,118,.8)!important;border-radius:6px}
+[data-kn="yakin"]{box-shadow:0 0 0 2.5px #ff9800,0 0 8px 1px rgba(255,152,0,.65)!important;border-radius:6px}
+[data-kn][data-sk-tekrar]{outline-offset:5px}
 .lrow{display:flex;gap:1px;margin-bottom:1px;height:18px;min-height:18px;max-height:18px;align-items:center;overflow:hidden}
 .lrow-num{width:18px;height:18px;min-height:18px;max-height:18px;font-size:.58rem;color:var(--accent);display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;padding-right:2px;line-height:1;font-weight:600;opacity:.75;box-sizing:border-box;overflow:hidden}
 .listeler-col{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px;flex-shrink:0;min-width:0}
@@ -1392,6 +1397,7 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
    <button onclick="_hoKucukKupon(4)" title="Tek bilet, 4 sayı (4/4 hedefi)" style="font-size:.66rem;padding:4px 10px;border-radius:8px;border:1px solid rgba(124,58,237,.55);background:rgba(124,58,237,.1);color:#7c3aed;cursor:pointer;font-weight:800">🎯 Tek bilet: 4 sayı</button><button onclick="_hoKucukKupon(5)" title="Tek bilet, 5 sayı (5/5 hedefi)" style="font-size:.66rem;padding:4px 10px;border-radius:8px;border:1px solid rgba(124,58,237,.55);background:rgba(124,58,237,.1);color:#7c3aed;cursor:pointer;font-weight:800">🎯 Tek bilet: 5 sayı</button>
    <span style="font-size:.56rem;color:var(--muted)">Analiz tipini seç → biletler Yeni Tahmin ve geçmiş testlerde o analizden üretilir. Bilete basılı tutunca kopyalanır. Çıkan sayılar 20 olduğundan şans beklentisi yüksektir; analizlerin şansı geçtiği ölçülmedi.</span>
   </div>
+  <div id="hoKnSayfa" data-kn-sayfa-yer="1"></div>
   <div id="hoOut" data-ny-yok="1"></div>
  </div>
  <div class="card" style="border:2px solid rgba(124,58,237,.3)">
@@ -18979,8 +18985,10 @@ function _nnStepDate(dir){
 }
 // her sayı için: NET mi, YAKIN mı, hiçbiri mi
 function _nnMark(n,aSet){if(!aSet)return '';return aSet.has(n)?'net':(aSet.has(n-1)||aSet.has(n+1))?'near':'';}
-function _nnRenderTickets(game,tickets,aSet){
+function _nnRenderTickets(game,tickets,aSet,opts){
   let h='';
+  // opts.yon: yakın (~) sayının YANINA hangi komşunun çıktığı yazılır: + (n+1 çıktı), − (n−1 çıktı), ± (ikisi de). Yalnızca Hızlı On'da (kullanıcı isteği 2026-11-27).
+  const yon=n=>{if(!(opts&&opts.yon)||!aSet)return '';const u=aSet.has(n+1),d=aSet.has(n-1);return u&&d?'±':u?'+':d?'−':'';};
   tickets.forEach((t,i)=>{
     let net=0,near=0;
     t.main.forEach(n=>{const m=_nnMark(n,aSet);if(m==='net')net++;else if(m==='near')near++;});
@@ -18988,7 +18996,7 @@ function _nnRenderTickets(game,tickets,aSet){
     const ok=tot>=3;
     h+=`<div data-lp="${t.main.join(' ')}" style="display:flex;align-items:center;gap:8px;padding:5px 9px;background:${aSet?(ok?'rgba(0,230,118,.09)':'var(--surface2)'):'var(--surface2)'};border:1px solid ${aSet&&ok?'rgba(0,200,100,.45)':'var(--border)'};border-radius:8px;margin-bottom:4px;flex-wrap:wrap">`;
     h+=`<span style="font-size:.58rem;color:var(--muted);font-weight:700;min-width:26px">#${i+1}</span>`;
-    h+=`<span style="display:flex;gap:5px;flex-wrap:wrap;flex:1">${t.main.map(n=>{const m=_nnMark(n,aSet);return `<span style="font-family:monospace;font-size:.82rem;font-weight:${m?800:600};color:${m==='net'?'var(--green)':m==='near'?'#c2410c':'var(--muted)'}">${n}${m==='net'?'✓':m==='near'?'~':''}</span>`;}).join('')}${t.bonus&&t.bonus.length?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
+    h+=`<span style="display:flex;gap:5px;flex-wrap:wrap;flex:1">${t.main.map(n=>{const m=_nnMark(n,aSet);return `<span style="font-family:monospace;font-size:.82rem;font-weight:${m?800:600};color:${m==='net'?'var(--green)':m==='near'?'#c2410c':'var(--muted)'}">${n}${m==='net'?'✓':m==='near'?'~'+yon(n):''}</span>`;}).join('')}${t.bonus&&t.bonus.length?`<span style="color:var(--muted);font-size:.7rem">| ${t.bonus.join(' ')}</span>`:''}</span>`;
     if(aSet)h+=`<span style="font-size:.62rem;font-weight:800;color:${ok?'var(--green)':'var(--muted)'};flex-shrink:0">${tot} (${net} net · ${near} yakın)</span>`;
     h+=`</div>`;
   });
@@ -31133,7 +31141,7 @@ function _hoKolonHtml(prior,hedef,actual,yeni,k){
   const tip=_hoAktifTip(),esik=tip.hedef||(_HO_GAME.count<=5?_HO_GAME.count:3),adet=parseInt((document.getElementById('hoAdet')||{}).value)||10;
   const bil=_tsBiletler('hizlion',S,F,tip,adet);
   _hoSonKol[yeni?'y':'g'+k]={hedef,bil};
-  let h=`<div style="min-width:0" data-ex-atla="1"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'}">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+hedef.slice(5,16)}</span>`;
+  let h=`<div style="min-width:0" data-ex-atla="1" data-kn-sut="${yeni?'yeni':'gecmis'}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'}">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+hedef.slice(5,16)}</span>`;
   if(yeni){window._hoBiletler=bil.map(t=>t.slice());window._hoBiletTxt=`${tip.ad} — ${g.name} (${hedef}) — ${bil.length} bilet\n`+bil.map((t,i)=>`#${i+1}  ${t.join(' ')}`).join('\n');
     h+=`<span style="display:inline-flex;gap:4px"><button class="copy-btn" onclick="_caCopy(window._hoBiletTxt);showToast('📋 Tüm biletler kopyalandı')" style="font-size:.56rem;padding:2px 9px">📋 Biletleri Kopyala</button><button class="copy-btn" onclick="_hoKuponKopya()" title="Milli Piyango Hızlı On kuponunu bu biletlerle doldurmak için konsol kodu (yalnızca doldurur, oynamaz)" style="font-size:.56rem;padding:2px 9px">🧾 Kupon Kodu</button></span>`;}
   h+=`</div><div style="font-size:.56rem;color:var(--muted);margin-bottom:5px">hedef <strong style="color:var(--text)">${hedef}</strong>${actual?` · no ${actual.no} · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${actual.nums.join(' ')}</span>`:''}</div>`;
@@ -31141,7 +31149,7 @@ function _hoKolonHtml(prior,hedef,actual,yeni,k){
   if(aS)bil.forEach(t=>{const n=t.filter(x=>aS.has(x)).length,yk=t.filter(x=>!aS.has(x)&&yS.has(x)).length;if(n>en||(n===en&&yk>enYk)){en=n;enYk=yk;}if(n>=esik)uc++;});
   h+=`<div style="font-size:.64rem;font-weight:800;color:#7c3aed;margin:2px 0 3px" title="${tip.ac||''}">🎫 ${tip.ad} <span style="font-weight:600;color:var(--muted)">· ${bil.length} bilet · ${g.count} sayı</span></div>`
     +(aS?`<div style="font-size:.58rem;margin-bottom:4px"><strong style="color:var(--green)">✓ en iyi bilet ${en} net</strong> · <strong style="color:#c2410c">~ ${enYk} yakın</strong> · <strong style="color:#7c3aed">${esik}+ net: ${uc}/${bil.length} bilet</strong></div>`+_hoKazancHtml(bil,aS):'')
-    +_nnRenderTickets(g,bil.map(t=>({main:t})),aS);
+    +_nnRenderTickets(g,bil.map(t=>({main:t})),aS,{yon:true});
   return h+'</div>';
 }
 function _hoRender(){
@@ -31192,7 +31200,7 @@ function _hoGecmisRender(){
     if(aS)e.yeni.bil.forEach(t=>{const n=t.filter(x=>aS.has(x)).length,yk=t.filter(x=>!aS.has(x)&&yS.has(x)).length;if(n>en||(n===en&&yk>enYk)){en=n;enYk=yk;}});
     const zaman=new Date(e.t).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
     const ozet=aS?`<strong style="color:var(--green)">✓ en iyi bilet ${en} net</strong> · <strong style="color:#c2410c">~ ${enYk} yakın</strong>`:'<span style="color:var(--muted)">sonuç bekleniyor</span>';
-    const kol=(bas,bil,s2,renk)=>`<div style="min-width:0"><div style="font-size:.66rem;font-weight:800;color:${renk};margin-bottom:4px">${bas}</div>${_nnRenderTickets(g,bil.map(t=>({main:t})),s2)}</div>`;
+    const kol=(bas,bil,s2,renk)=>`<div style="min-width:0"><div style="font-size:.66rem;font-weight:800;color:${renk};margin-bottom:4px">${bas}</div>${_nnRenderTickets(g,bil.map(t=>({main:t})),s2,{yon:true})}</div>`;
     const kolonlar=[kol('🔮 Yeni Tahmin',e.yeni.bil,aS,'var(--accent)')].concat((e.gecmis||[]).map(c=>{const a2=_hoDraws.find(d=>d.date===c.hedef);return kol('📊 Geçmiş Test · '+c.hedef.slice(5,16),c.bil,a2?new Set(a2.nums):null,'var(--text)');}));
     return `<details${idx===0?' open':''} style="border:1px solid var(--border);border-radius:10px;padding:6px 9px;margin-bottom:6px;background:var(--surface)"><summary style="cursor:pointer;font-size:.64rem"><strong>${zaman}</strong> · ${tipAd(e.tip)} · ${e.adet} bilet × ${e.sayi||10} sayı · hedef <strong>${e.hedef.slice(5,16)}</strong> · ${ozet}</summary>`
       +`<div style="margin-top:8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:14px;align-items:start">${kolonlar.join('')}</div></details>`;
@@ -31347,7 +31355,7 @@ function _hoOnGecRender(){
     const ozet=oz?`<strong style="color:var(--green)">✓ en iyi bilet ${oz.en} net</strong> · <strong style="color:#c2410c">~ ${oz.enYk} yakın</strong> · <strong style="color:#7c3aed">💰 kazanan kolon: ${oz.uc}/${e.bil.length} · ${_hoKazanc(e.bil,aS).top}×</strong>`:'<span style="color:var(--muted)">sonuç bekleniyor</span>';
     return `<details style="border:1px solid var(--border);border-radius:10px;padding:6px 9px;margin-bottom:6px;background:var(--surface)"><summary style="cursor:pointer;font-size:.64rem"><strong>${zaman}</strong> · ${tipAd(e.tip)} · ${e.adet} bilet × ${e.sayi||10} sayı · hedef <strong>${String(e.zaman).slice(5)}</strong>${e.yapi==='cesit'?' · 🧩 çeşitli':''}${e.elle?' · ✍️ elle':''} · ${ozet}</summary>`
       +`<div style="margin-top:6px;font-size:.58rem;color:var(--muted)">Kaynak (önceki çekiliş${e.yapi==='cesit'?' — yalnızca analiz sıralaması için':''}): <span style="font-family:monospace;font-weight:700;color:var(--text)">${e.kaynak.join(' ')}</span>${g?`<br>Gerçek sonuç${e.gercek?'':' (kayıtlı veriden)'}: <span style="font-family:monospace;font-weight:700;color:var(--green)">${g.join(' ')}</span>`:''}</div>`
-      +`<div style="margin-top:6px">${_nnRenderTickets(_HO_GAME,e.bil.map(t=>({main:t})),aS)}</div></details>`;
+      +`<div style="margin-top:6px">${_nnRenderTickets(_HO_GAME,e.bil.map(t=>({main:t})),aS,{yon:true})}</div></details>`;
   }).join('');
 }
 // Şans referansı: 10 sayılı bilette tek bilet P(6+)=%1.32 (hipergeometrik). Çeşitlendirilmiş sette 'en az bir bilet 6+' olasılığı (Monte Carlo, 200k çekiliş)
@@ -31380,7 +31388,7 @@ function _hoOnBilet(){
   el.innerHTML=`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:8px 0 4px"><span style="font-size:.64rem;font-weight:800;color:#7c3aed">🔮 Sıradaki çekiliş (${zaman.slice(5)}) — ${yapi==='onc20'?'kaynak:':'analiz sıralaması için veri:'} ${PR.el?`elle girdiğin son çekiliş (${PR.el} elle girilen çekiliş kullanıldı)`:'no '+_hoDraws[0].no+' sayıları'}</span><button class="copy-btn" onclick="_caCopy(window._hoOnTxt);showToast('📋 Biletler kopyalandı')" style="font-size:.56rem;padding:2px 9px">📋 Biletleri Kopyala</button><button class="copy-btn" onclick="_hoKuponKopya(window._hoOnBiletler)" style="font-size:.56rem;padding:2px 9px">🧾 Kupon Kodu</button></div><div style="font-size:.58rem;color:var(--muted);margin-bottom:5px">Önceki çekiliş: <span style="font-family:monospace;font-weight:700;color:var(--text)">${pri[0].nums.join(' ')}</span></div>`
     +_hoSansSatiri(bil.length,yapi)
     +(aS?`<div style="font-size:.6rem;margin-bottom:5px;padding:5px 8px;border:1px solid rgba(0,200,100,.4);border-radius:8px;background:rgba(0,230,118,.06)"><div style="margin-bottom:3px">Gerçek sonuç: <span style="font-family:monospace;font-weight:700">${G.map(n=>`<span style="color:${tum.has(n)?'var(--green)':'var(--muted)'}">${n}${tum.has(n)?'✓':''}</span>`).join(' ')}</span></div><strong style="color:var(--green)">✓ en iyi bilet ${oz.en} net</strong> · <strong style="color:#c2410c">~ ${oz.enYk} yakın</strong> · <strong style="color:#7c3aed">💰 kazanan kolon: ${oz.uc}/${bil.length}</strong> · 5+ net: ${oz.u5} · tüm biletlerin birleşimi gerçek sonuçtan <strong>${G.filter(n=>tum.has(n)).length}/20</strong> sayıyı kapsıyor${_hoKazancHtml(bil,aS)}</div>`:'')
-    +_nnRenderTickets(_HO_GAME,bil.map(t=>({main:t})),aS);
+    +_nnRenderTickets(_HO_GAME,bil.map(t=>({main:t})),aS,{yon:true});
   _hoOnGecRender();
 }
 // ═══ 📊 EXCEL FORMÜLLERİ (Hızlı On) — kullanıcının On Numara formülleri, sonuç olarak gösterilir ═══
@@ -31393,22 +31401,23 @@ function _hoExcelKolon(prior,hedef,actual,yeni,k){
   if(yeni){window._hoExB4=b4;window._hoExB5=b5;}
   const isr=n=>!aS?'':aS.has(n)?'net':(aS.has(n-1)||aS.has(n+1))?'near':'';
   const renk=m=>m==='net'?'var(--green)':m==='near'?'#c2410c':'var(--text)';
-  const roz=n=>{const m=isr(n);return `<span style="font-family:monospace;font-weight:800;color:${renk(m)}">${n}${m==='net'?'✓':m==='near'?'~':''}</span>`;};
+  const yon=n=>aS?(aS.has(n+1)&&aS.has(n-1)?'±':aS.has(n+1)?'+':aS.has(n-1)?'−':''):'';
+  const roz=n=>{const m=isr(n);return `<span style="font-family:monospace;font-weight:800;color:${renk(m)}">${n}${m==='net'?'✓':m==='near'?'~'+yon(n):''}</span>`;};
   const coklu=[...D.E.entries()].filter(x=>x[1].length>=2).sort((a,b)=>b[1].length-a[1].length||a[0]-b[0]);
   const say=l=>aS?{n:l.filter(x=>aS.has(x)).length,y:l.filter(x=>!aS.has(x)&&(aS.has(x-1)||aS.has(x+1))).length}:null;
   const oz=(l)=>{const s=say(l);return s?` <span style="font-size:.56rem"><strong style="color:var(--green)">✓ ${s.n} net</strong> · <strong style="color:#c2410c">~ ${s.y} yakın</strong></span>`:'';};
-  let h=`<div style="min-width:0" data-ex-atla="1"><div style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'};margin-bottom:3px">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+hedef.slice(5,16)}</div>`
+  let h=`<div style="min-width:0" data-ex-atla="1" data-kn-sut="${yeni?'yeni':'gecmis'}"><div style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'};margin-bottom:3px">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+hedef.slice(5,16)}</div>`
    +`<div style="font-size:.56rem;color:var(--muted);margin-bottom:5px">hedef <strong style="color:var(--text)">${hedef}</strong>${actual?` · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${actual.nums.join(' ')}</span>`:''}</div>`;
   // 🎯 4'lü / 5'li bilet (en çok formülün ürettiği sayılar)
   h+=`<div style="padding:6px 8px;border:1px solid rgba(124,58,237,.4);border-radius:8px;background:rgba(124,58,237,.05);margin-bottom:6px;font-size:.66rem">`
-    +`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><strong style="color:#7c3aed">🎯 Excel 4'lü:</strong> ${b4.map(roz).join(' ')}${oz(b4)}${yeni?` <button class="copy-btn" onclick="_caCopy(window._hoExB4.join(' '));showToast('📋 Kopyalandı')" style="font-size:.54rem;padding:1px 8px">📋</button><button class="copy-btn" onclick="_hoKuponKopya([window._hoExB4])" style="font-size:.54rem;padding:1px 8px">🧾</button>`:''}</div>`
-    +`<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px"><strong style="color:#7c3aed">🎯 Excel 5'li:</strong> ${b5.map(roz).join(' ')}${oz(b5)}${yeni?` <button class="copy-btn" onclick="_caCopy(window._hoExB5.join(' '));showToast('📋 Kopyalandı')" style="font-size:.54rem;padding:1px 8px">📋</button><button class="copy-btn" onclick="_hoKuponKopya([window._hoExB5])" style="font-size:.54rem;padding:1px 8px">🧾</button>`:''}</div></div>`;
+    +`<div data-kn-satir="b4" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><strong style="color:#7c3aed">🎯 Excel 4'lü:</strong> ${b4.map(roz).join(' ')}${oz(b4)}${yeni?` <button class="copy-btn" onclick="_caCopy(window._hoExB4.join(' '));showToast('📋 Kopyalandı')" style="font-size:.54rem;padding:1px 8px">📋</button><button class="copy-btn" onclick="_hoKuponKopya([window._hoExB4])" style="font-size:.54rem;padding:1px 8px">🧾</button>`:''}</div>`
+    +`<div data-kn-satir="b5" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:3px"><strong style="color:#7c3aed">🎯 Excel 5'li:</strong> ${b5.map(roz).join(' ')}${oz(b5)}${yeni?` <button class="copy-btn" onclick="_caCopy(window._hoExB5.join(' '));showToast('📋 Kopyalandı')" style="font-size:.54rem;padding:1px 8px">📋</button><button class="copy-btn" onclick="_hoKuponKopya([window._hoExB5])" style="font-size:.54rem;padding:1px 8px">🧾</button>`:''}</div></div>`;
   // 🔁 çoklananlar
-  h+=`<div style="font-size:.6rem;font-weight:800;margin:4px 0 3px">🔁 Birden çok formülün ürettiği sayılar${oz(coklu.map(x=>x[0]))}</div><div style="display:flex;flex-wrap:wrap;gap:4px 8px;margin-bottom:6px;font-size:.66rem" data-lp="${coklu.map(x=>x[0]).join(' ')}">${coklu.map(([n,c])=>`<span>${roz(n)}<span style="color:#7c3aed;font-weight:800;font-size:.55rem">×${c.length}</span></span>`).join('')||'<span style="color:var(--muted)">yok</span>'}</div>`;
+  h+=`<div style="font-size:.6rem;font-weight:800;margin:4px 0 3px">🔁 Birden çok formülün ürettiği sayılar${oz(coklu.map(x=>x[0]))}</div><div data-kn-atla="1" style="display:flex;flex-wrap:wrap;gap:4px 8px;margin-bottom:6px;font-size:.66rem" data-lp="${coklu.map(x=>x[0]).join(' ')}">${coklu.map(([n,c])=>`<span>${roz(n)}<span style="color:#7c3aed;font-weight:800;font-size:.55rem">×${c.length}</span></span>`).join('')||'<span style="color:var(--muted)">yok</span>'}</div>`;
   // tüm formül sonuçları (harf·değer)
-  const hucre=[];D.g&&_DX_SABLON.hizlion.kol.forEach(([hf])=>{const v=D.deger[hf];if(typeof v!=='number'||!isFinite(v))return;const n=Math.round(v);if(n<1||n>80)return;const m=isr(n);hucre.push(`<span title="${hf} sütunu" style="font-size:.6rem;padding:1px 3px;border-radius:4px;background:var(--surface2);text-align:center"><span style="color:var(--muted);font-size:.5rem">${hf}·</span><strong style="color:${renk(m)}">${n}${m==='net'?'✓':m==='near'?'~':''}</strong></span>`);});
+  const hucre=[];D.g&&_DX_SABLON.hizlion.kol.forEach(([hf])=>{const v=D.deger[hf];if(typeof v!=='number'||!isFinite(v))return;const n=Math.round(v);if(n<1||n>80)return;const m=isr(n);hucre.push(`<span data-kn-id="${hf}" title="${hf} sütunu" style="font-size:.6rem;padding:1px 3px;border-radius:4px;background:var(--surface2);text-align:center"><span style="color:var(--muted);font-size:.5rem">${hf}·</span><strong style="color:${renk(m)}">${n}${m==='net'?'✓':m==='near'?'~'+yon(n):''}</strong></span>`);});
   const tum=[...D.E.keys()];
-  h+=`<details><summary style="cursor:pointer;font-size:.6rem;font-weight:800">📋 Tüm formül sonuçları (${hucre.length} formül · ${tum.length} farklı sayı)${oz(tum)}</summary><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:3px;margin-top:5px">${hucre.join('')}</div></details>`;
+  h+=`<details><summary style="cursor:pointer;font-size:.6rem;font-weight:800">📋 Tüm formül sonuçları (${hucre.length} formül · ${tum.length} farklı sayı)${oz(tum)}</summary><div data-kn-satir="formul" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(46px,1fr));gap:3px;margin-top:5px">${hucre.join('')}</div></details>`;
   return h+'</div>';
 }
 function _hoExcelRender(){
@@ -32018,7 +32027,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
 // ═══ ✓ net · ~ yakın özeti: sayı rozetlerinin (✓ net / ~ ±1 yakın) göründüğü HER sayı grubunun üstüne
 // "✓ N net · ~ M yakın" yazar (kural: CLAUDE.md). Sayfalara tek tek bağlı değildir; çizimden sonra gözlemciyle çalışır.
 (function _netYakinOzet(){
-  const CHIP=/^\d{1,2}[✓~]?(?:×\d+)?(?:T·Ç|T|Ç)?$/;
+  const CHIP=/^(?:[A-Za-z]{1,3}·)?\d{1,2}[✓~]?[+−±]?(?:×\d+)?(?:T·Ç|T|Ç)?$/;
   function tara(){
     document.querySelectorAll('div,span').forEach(g=>{
       if(g.dataset.nyB||g.closest('[data-ny-yok]'))return;
@@ -32042,6 +32051,109 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
   }
   let t=null;
   new MutationObserver(m=>{if(m.every(x=>[...x.addedNodes].every(n=>n.dataset&&n.dataset.nyB)&&!x.removedNodes.length))return;clearTimeout(t);t=setTimeout(tara,350);}).observe(document.body,{childList:true,subtree:true});
+})();
+
+// ═══ 📍 KONUM ORTAKLARI (kullanıcı isteği 2026-11-27) ═══
+// Yan yana sütunlarda (🔮 Yeni Tahmin + açık 📊 geçmiş testler) bir SATIRDAKİ aynı SIRADAKİ sayı, açık geçmiş testlerin HEPSİNDE tutmuşsa (✓) yeni tahmindeki
+// o konumdaki sayı parlak YEŞİL, hepsinde en az yakın (~, ±1) çıkmışsa (en az biri ~) TURUNCU çerçeveyle işaretlenir; bu sayılar ayrıca
+// (1) her sütun grubunun hemen üstünde, (2) sayfa genelinde (Hızlı On'da dropdown grubunun altında, diğer sayfalarda sayfa başında) listelenir.
+// Sütun etiketi: data-sk-yeni / data-sk-gecmis (eski sistem) ya da data-kn-sut="yeni|gecmis". Satır kimliği: data-kn-satir (yoksa sırası), sayı kimliği: data-kn-id
+// (yoksa sırası); data-kn-atla="1" satırı atlar. Sütunlar arasında satır/sayı adedi uyuşmayan konumlar işaretlenmez.
+(function _konumOrtak(){
+  const CHIP=/^(?:[A-Za-z]{1,3}·)?(\d{1,2})([✓~]?)[+−±]?(?:×\d+)?(?:T·Ç|T|Ç)?$/;
+  const KOL='[data-sk-yeni],[data-sk-gecmis],[data-kn-sut]';
+  const yeniMi=e=>e.hasAttribute('data-sk-yeni')||e.getAttribute('data-kn-sut')==='yeni';
+  function chipOku(c){
+    if(c.children.length>3)return null;
+    const m=CHIP.exec((c.textContent||'').replace(/\s+/g,''));if(!m)return null;
+    return {el:c,num:+m[1],st:m[2]==='✓'?'net':m[2]==='~'?'yakin':'',id:c.getAttribute('data-kn-id')};
+  }
+  function satirlar(kol){
+    const out=[];let idx=0;
+    for(const P of [kol,...kol.querySelectorAll('*')]){
+      if(P.closest('[data-kn-atla]'))continue;
+      if(P!==kol&&P.closest(KOL)!==kol)continue;   // iç içe sütun kendi satırlarını taşır
+      const ch=[...P.children].map(chipOku).filter(Boolean),ex=P.getAttribute('data-kn-satir');
+      if(!ex&&(ch.length<2||ch.length<P.children.length*0.5))continue;
+      if(ex&&!ch.length)continue;
+      out.push({key:ex||('#'+(++idx)),P,ch});
+    }
+    return out;
+  }
+  function gruplar(){
+    const out=[],gor=new Set();
+    document.querySelectorAll(KOL).forEach(c=>{
+      const par=c.parentElement;if(!par||gor.has(par))return;gor.add(par);
+      if(!par.offsetWidth)return;
+      const kols=[...par.children].filter(e=>e.matches(KOL)),yeni=kols.filter(yeniMi),gec=kols.filter(e=>!yeniMi(e));
+      if(yeni.length===1&&gec.length>=1)out.push({par,yeni:yeni[0],gec});
+    });
+    return out;
+  }
+  function hesapla(g){
+    const yr=satirlar(g.yeni),gr=g.gec.map(satirlar),slots=[];
+    for(const r of yr){
+      const es=gr.map(L=>L.find(x=>x.key===r.key));if(es.some(x=>!x))continue;
+      const idli=r.ch.every(c=>c.id)&&es.every(e=>e.ch.every(c=>c.id));
+      r.ch.forEach((c,i)=>{
+        const kar=es.map(e=>idli?e.ch.find(x=>x.id===c.id):(e.ch.length===r.ch.length?e.ch[i]:null));
+        if(kar.some(x=>!x))return;
+        const tum=kar.every(x=>x.st==='net'),yak=!tum&&kar.every(x=>x.st==='net'||x.st==='yakin');
+        if(tum||yak)slots.push({el:c.el,num:c.num,tip:tum?'net':'yakin',key:r.key,pos:c.id||(i+1)});
+      });
+    }
+    return slots;
+  }
+  const etiket=k=>k.charAt(0)==='#'?'satır '+k:k;
+  function liste(slots,tip){
+    const m=new Map();
+    slots.filter(s=>s.tip===tip).forEach(s=>{const o=m.get(s.num)||{n:0,yer:[]};o.n++;if(o.yer.length<6)o.yer.push(etiket(s.key)+' · '+s.pos+'.');m.set(s.num,o);});
+    const renk=tip==='net'?'rgba(0,200,100,.7);background:rgba(0,230,118,.14);color:var(--green)':'rgba(255,152,0,.8);background:rgba(255,152,0,.12);color:#c2410c';
+    const h=[...m.entries()].sort((a,b)=>a[0]-b[0]).map(([n,o])=>`<span title="${o.yer.join(' | ')}" style="display:inline-block;padding:0 6px;margin:1px 2px;border-radius:6px;border:1.5px solid ${renk};font-family:monospace;font-weight:800">${n}${o.n>1?`<span style="font-size:.8em;opacity:.8"> ×${o.n}</span>`:''}</span>`).join('');
+    return {say:m.size,h:h||'<span style="color:var(--muted)">yok</span>'};
+  }
+  function icerik(slots,nGec,baslik){
+    const a=liste(slots,'net'),b=liste(slots,'yakin');
+    return `<strong>📍 ${baslik}</strong> <span style="color:var(--muted)">· açık ${nGec} geçmiş testin hepsinde aynı satır ve sırada</span><br>`
+      +`<span style="font-weight:800;color:var(--green)">🟩 tutan (${a.say}):</span> ${a.h} <span style="font-weight:800;color:#c2410c;margin-left:8px">🟧 yakın (${b.say}):</span> ${b.h}`;
+  }
+  function kutuYap(tip,html,css){
+    const b=document.createElement('div');b.dataset.knKutu=tip;b.setAttribute('data-ex-atla','1');b.setAttribute('data-ny-yok','1');b.style.cssText=css;b.innerHTML=html;b.dataset.s=html;return b;   // ex-atla: Excel yıldızı/Gülay ± işaretleri konmaz; ny-yok: ✓/~ özeti konmaz
+  }
+  const CSS_G='font-size:.62rem;margin:4px 0 6px;padding:5px 9px;border:1px solid rgba(0,200,100,.45);border-radius:9px;background:rgba(0,230,118,.05);line-height:1.7';
+  const CSS_S='font-size:.64rem;margin:6px 0 8px;padding:6px 10px;border:2px solid rgba(0,200,100,.55);border-radius:10px;background:rgba(0,230,118,.07);line-height:1.75';
+  function ankraj(par){
+    let a=par;
+    while(a.parentElement&&!/^page-/.test(a.parentElement.id||'')&&/grid|flex/.test(getComputedStyle(a.parentElement).display))a=a.parentElement;
+    return a;
+  }
+  function tara(){
+    document.querySelectorAll('[data-kn]').forEach(e=>e.removeAttribute('data-kn'));
+    const eski=new Set(document.querySelectorAll('[data-kn-kutu]')),sayfalar=new Map();
+    for(const g of gruplar()){
+      let slots;try{slots=hesapla(g);}catch(e){continue;}
+      slots.forEach(s=>s.el.setAttribute('data-kn',s.tip));
+      const html=icerik(slots,g.gec.length,'Bu grupta ortak konumlar'),ank=ankraj(g.par);
+      let kb=ank.previousElementSibling;
+      if(kb&&kb.dataset&&kb.dataset.knKutu==='grup'){eski.delete(kb);if(kb.dataset.s!==html){kb.innerHTML=html;kb.dataset.s=html;}}
+      else ank.parentNode.insertBefore(kutuYap('grup',html,CSS_G),ank);
+      const root=g.par.closest('[id^="page-"]');
+      if(root){const o=sayfalar.get(root)||{slots:[],nGec:g.gec.length,gr:0};o.slots=o.slots.concat(slots);o.gr++;o.nGec=Math.min(o.nGec,g.gec.length);sayfalar.set(root,o);}
+    }
+    for(const [root,o] of sayfalar){
+      const html=icerik(o.slots,o.nGec,'Tüm sayfa — ortak konumlar ('+o.gr+' grup)'),yer=root.querySelector('[data-kn-sayfa-yer]');
+      let kb=yer?yer.querySelector(':scope > [data-kn-kutu="sayfa"]'):(root.firstElementChild&&root.firstElementChild.dataset&&root.firstElementChild.dataset.knKutu==='sayfa'?root.firstElementChild:null);
+      if(kb){eski.delete(kb);if(kb.dataset.s!==html){kb.innerHTML=html;kb.dataset.s=html;}}
+      else{kb=kutuYap('sayfa',html,CSS_S);if(yer)yer.appendChild(kb);else root.insertBefore(kb,root.firstChild);}
+    }
+    eski.forEach(b=>b.remove());
+  }
+  let t=null;
+  new MutationObserver(m=>{
+    if(m.every(x=>(x.target.closest&&x.target.closest('[data-kn-kutu]'))||([...x.addedNodes,...x.removedNodes].length&&[...x.addedNodes,...x.removedNodes].every(n=>n.nodeType===1&&n.dataset&&n.dataset.knKutu))))return;
+    clearTimeout(t);t=setTimeout(()=>{try{tara();}catch(e){}},450);
+  }).observe(document.body,{childList:true,subtree:true});
+  window._konumOrtakTara=tara;
 })();
 
 // ═══ Sütun hizalama: Yeni Tahmin + geçmiş test sütunlarında AYNI sıradaki bölümler aynı üst hizadan başlar ═══
