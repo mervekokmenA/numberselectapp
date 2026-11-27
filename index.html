@@ -31054,7 +31054,7 @@ function _hoSecenek(sifirla,koruBos){
   const h='<option value="">— geçmiş test seç —</option>'+_hoDraws.slice(0,2000).map(d=>`<option value="${d.date}">${d.date.slice(8,10)}.${d.date.slice(5,7)} ${d.date.slice(11)} · ${d.no}</option>`).join('');
   ['hoDateSel','hoDateSel2','hoDateSel3'].forEach((id,i)=>{
     const e=document.getElementById(id);if(!e)return;const prev=e.value;e.innerHTML=h;
-    if(!sifirla&&(prev||koruBos))e.value=prev;else if(i===0&&_hoDraws[0]&&_hoDraws.length>200)e.value=_hoDraws[0].date;   // varsayılan: yalnızca EN SON geçmiş test dolu (kullanıcı isteği)
+    if(!sifirla&&(prev||koruBos))e.value=prev;else if(_hoDraws[i]&&_hoDraws.length>200)e.value=_hoDraws[i].date;   // varsayılan: EN SON 3 geçmiş test dolu (kullanıcı isteği 2026-11-27)
   });
 }
 const _HO_DATE_IDS=['hoDateSel','hoDateSel2','hoDateSel3'];
@@ -31062,7 +31062,7 @@ const _HO_DATE_IDS=['hoDateSel','hoDateSel2','hoDateSel3'];
 // kullanıcı kendi tarihlerini seçtiyse (ya da ✕ ile kapattıysa) olduğu gibi korunur.
 function _hoSecYenile(eskiUst){
   const v=_HO_DATE_IDS.map(id=>(document.getElementById(id)||{}).value);
-  const varsayilan=v[0]===eskiUst[0]&&v.slice(1).every(x=>!x);   // varsayılan durum: yalnızca en yeni geçmiş test seçili
+  const varsayilan=v.every((x,i)=>x&&x===eskiUst[i]);   // varsayılan durum: en yeni 3 geçmiş test seçili
   _hoSecenek(varsayilan,true);
 }
 function _hoAlgo2Doldur(puan){
@@ -31390,9 +31390,15 @@ function _hoOnInit(){
   if(a&&!a.options.length)a.innerHTML=_HO_TIPS.map(id=>`<option value="${id}">${(_hoTip(id)||{}).ad}</option>`).join('')+'<optgroup label="🧪 Yeni analizler">'+_HO_TIP_YENI.map(t=>`<option value="${t.id}">${t.ad}</option>`).join('')+'</optgroup>';
   _hoOnBilet();
 }
+// Sayfa açılışındaki varsayılan seçimler (kullanıcı isteği 2026-11-27): 3. seçicide ⛓️ Sıklık Durumlu Markov, 10 bilet, 5 sayılı (5/5); diğer iki analiz seçici boş
+function _hoVarsayilanSec(){
+  const a=document.getElementById('hoAlgo'),b=document.getElementById('hoAlgo2'),c=document.getElementById('hoAlgo3'),ad=document.getElementById('hoAdet'),sc=document.getElementById('hoSecim');
+  if(c&&[...c.options].some(o=>o.value==='y_mksd')){c.value='y_mksd';if(b)b.value='';if(a)a.selectedIndex=-1;}
+  if(ad)ad.value='10';if(sc)sc.value='5';
+}
 async function _hoInit(){
   {const k=document.getElementById('hoKod');if(k)k.value=_HO_SNIPPET;}
-  await _hoYukle();_hoDurumYaz();_hoSecenek(false);_hoRender();_hoGecmisRender();
+  await _hoYukle();_hoDurumYaz();_hoSecenek(false);_hoVarsayilanSec();_hoRender();_hoGecmisRender();
   _hoYerImiYaz();_hoOnInit();
 }
 
