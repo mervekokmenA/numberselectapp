@@ -431,7 +431,7 @@ input.counter-val{background:rgba(0,0,0,.04)}
 /* ⚡ Hızlı On: telefon içe aktarma yönergesi YALNIZCA telefonda görünür (dokunmatik + fare yok + küçük ekran; yatay telefon dahil). Masaüstü (dar pencere dahil) ve tablette gizli. */
 .ho-mobil{display:none}
 @media (hover:none) and (pointer:coarse) and (max-width:767px),(hover:none) and (pointer:coarse) and (max-height:500px){.ho-mobil{display:block}}
-select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDateSel3),select[id$="DateSel3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDateSel3){display:none!important}
+select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDateSel3):not(#kfDateSel3),select[id$="DateSel3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDateSel3):not(#kfDateSel3){display:none!important}
 @media(min-width:601px){.qt-pair-row.qt-n1{grid-template-columns:minmax(0,1fr)!important}.qt-pair-row.qt-n2{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
 @media(min-width:1101px){.qt-pair-row.qt-n3{grid-template-columns:repeat(3,minmax(0,1fr))!important}}
 /* Excel sekmesi hücre ızgarası: sabit sütun sayısı (dar ekranda 3, orta 4, geniş 6) — okunur boyut */
@@ -473,6 +473,7 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
       <button class="nav-link" id="navBtn-astro" onclick="showMainPage('astro')">🪐 Astro Tahmin</button>
       <button class="nav-link" id="navBtn-test" onclick="showMainPage('test')">🧫 Markov ve Hazard</button>
       <button class="nav-link" id="navBtn-hizlion" onclick="showMainPage('hizlion')">⚡ Hızlı On</button>
+      <button class="nav-link" id="navBtn-kimafiz" onclick="showMainPage('kimafiz')">🔬 KimaFiz</button>
       <button class="nav-link" id="navBtn-db" onclick="showMainPage('db')">🗄️ Veritabanı</button>
     </div>
     <div id="navSag" style="display:flex;gap:4px;align-items:center;flex-shrink:0">
@@ -1361,6 +1362,24 @@ select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDa
   <div id="tfGecmisOut" data-ny-yok="1" data-ex-atla="1"></div>
   </details>
 </div>
+</div>
+
+
+<!-- ═══════════ PAGE: KIMAFIZ ═══════════ -->
+<div style="grid-column:1/-1;display:none;min-width:0;max-width:100%" id="page-kimafiz">
+ <div class="card" style="border:2px solid rgba(14,165,233,.45)">
+  <div id="kfBaslik" style="font-size:.78rem;font-weight:800;color:#0369a1;margin-bottom:4px">🔬 KimaFiz</div>
+  <div style="font-size:.58rem;color:var(--muted);margin-bottom:8px;line-height:1.55">Fizik, kimya, matematik ve geometri formülleri <strong>son çekilişin</strong> sayılarına ve <strong>son 3 çekilişin</strong> aynı konumlarına uygulanır. Yalnızca son 4 çekilişin (her biri kendinden öncekilerle) <strong>en az birinde ≥1 net</strong> veren formül örnekleri dahil edilir; dahil olanların ürettiği sayılar çoklanmaya göre bilete çevrilir.</div>
+  <div style="display:flex;gap:6px;margin-bottom:10px">
+   <select id="kfDateSel" onchange="_kfRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
+   <select id="kfDateSel2" onchange="_kfRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
+   <select id="kfDateSel3" onchange="_kfRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px;flex:1;min-width:0"></select>
+  </div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+   <select id="kfAdet" onchange="_kfRender()" style="font-size:.7rem;background:var(--surface2);border:1px solid var(--border);color:var(--text);border-radius:6px;padding:4px 8px"><option value="5">5 bilet</option><option value="10" selected>10 bilet</option><option value="15">15 bilet</option><option value="20">20 bilet</option></select>
+  </div>
+  <div id="kfOut" data-ny-yok="1"></div>
+ </div>
 </div>
 
 
@@ -14963,8 +14982,8 @@ function _homeLazy(key,fn){
 function _homeFlush(){
   Object.keys(_homePending).forEach(k=>{const f=_homePending[k];delete _homePending[k];try{f();}catch(e){}});
 }
-const _PAGE_IDS=['home','anlik','nihai','scan','listeler','kazanan','kapsamli','deneme','cht','soz','nsa','basit','excel','test','hizlion','db','formul','formul2','haber','astro'];
-const _PAGE_LABELS={home:'🏠 Ana Sayfa',anlik:'⏱️ Anlık Tahmin',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',deneme:'🧪 Deneme',cht:'🧠 CHT',soz:'📖 Sözlük',nsa:'🔢 NSA',basit:'🔬 Detaylı Tahmin',excel:'📊 Excel',test:'🧫 Markov ve Hazard',hizlion:'⚡ Hızlı On',db:'🗄️ Veritabanı',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
+const _PAGE_IDS=['home','anlik','nihai','scan','listeler','kazanan','kapsamli','deneme','cht','soz','nsa','basit','excel','test','hizlion','kimafiz','db','formul','formul2','haber','astro'];
+const _PAGE_LABELS={home:'🏠 Ana Sayfa',anlik:'⏱️ Anlık Tahmin',nihai:'🏁 Nihai',scan:'🔍 Tarama',listeler:'📋 Listeler',kazanan:'🏆 Kazanan/Kronoloji',kapsamli:'🧭 Kapsamlı',deneme:'🧪 Deneme',cht:'🧠 CHT',soz:'📖 Sözlük',nsa:'🔢 NSA',basit:'🔬 Detaylı Tahmin',excel:'📊 Excel',test:'🧫 Markov ve Hazard',hizlion:'⚡ Hızlı On',kimafiz:'🔬 KimaFiz',db:'🗄️ Veritabanı',formul:'🧮 Formül Sistemi',formul2:'📅 Formül 2',haber:'📰 Haber Yöntemleri + Lab',astro:'🪐 Astro Tahmin'};
 // Bir sayfanın kök elemanı. Anasayfa tek kap değil, birden çok bölüm → boot'ta #homeWrap'e sarılır.
 function _pageEl(id){return id==='home'?document.getElementById('homeWrap'):document.getElementById('page-'+id);}
 function _pageInit(id){
@@ -14986,6 +15005,7 @@ function _pageInit(id){
   if(id==='excel')_exInit();
   if(id==='test')_tsInit();
   if(id==='hizlion')_hoInit();
+  if(id==='kimafiz')_kfInit();
   {const gb=document.getElementById('globalOyunBar');if(gb)gb.style.display=(id==='hizlion'&&!_splitOn)?'none':'flex';}   // Hızlı On kendi oyununu taşır; global oyun çubuğu gizlenir
   if(id==='db')_dbInit();
   if(id==='haber')_hyInit();
@@ -15002,11 +15022,11 @@ function showMainPage(id){
     const el=document.getElementById(sid);
     if(el)el.style.display=home?'':'none';
   });
-  ['page-anlik','page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-deneme','page-cht','page-soz','page-nsa','page-basit','page-excel','page-test','page-hizlion','page-db','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
+  ['page-anlik','page-nihai','page-scan','page-listeler','page-kazanan','page-kapsamli','page-deneme','page-cht','page-soz','page-nsa','page-basit','page-excel','page-test','page-hizlion','page-kimafiz','page-db','page-formul','page-formul2','page-haber','page-astro'].forEach(pid=>{
     const suffix=pid.replace('page-','');
     document.getElementById(pid)?.style.setProperty('display',id===suffix?'block':'none');
   });
-  ['navBtn-home','navBtn-anlik','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-deneme','navBtn-cht','navBtn-soz','navBtn-nsa','navBtn-basit','navBtn-excel','navBtn-test','navBtn-hizlion','navBtn-db','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
+  ['navBtn-home','navBtn-anlik','navBtn-nihai','navBtn-scan','navBtn-listeler','navBtn-kazanan','navBtn-kapsamli','navBtn-deneme','navBtn-cht','navBtn-soz','navBtn-nsa','navBtn-basit','navBtn-excel','navBtn-test','navBtn-hizlion','navBtn-kimafiz','navBtn-db','navBtn-formul','navBtn-formul2','navBtn-haber','navBtn-astro'].forEach(bid=>{
     document.getElementById(bid)?.classList.toggle('active',bid==='navBtn-'+id);
   });
   _pageInit(id);
@@ -30748,6 +30768,225 @@ function _tsInit(){
 
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 🔬 KİMAFİZ — fizik · kimya · matematik · geometri formül kütüphanesi (kullanıcı isteği 2026-11-27)
+// Her formül; SON çekilişin sayılarından ve SON 3 çekilişin aynı konumlarından beslenir. Formül ÖRNEKLERİ (formül × bağlama) yalnızca son 4 çekilişin
+// (walk-forward: her biri yalnızca kendinden öncekilerle) EN AZ BİRİNDE ≥1 net verdiyse dahil edilir; dahil olanların ürettiği sayılar çoklanma sayısına göre
+// puanlanır ve standart biletler kurulur. Ölçüm sonucu CLAUDE.md'de (başarı iddiası yok).
+// ═══════════════════════════════════════════════════════════════════════════
+const _KF_PI=Math.PI,_KF_PHI=(1+Math.sqrt(5))/2,_KF_G=9.80665,_KF_MOD=1000003;
+const _KF_AM=[0,1,4,7,9,11,12,14,16,19,20,23,24,27,28,31,32,35,40,39,40,45,48,51,52,55,56,59,59,64,65,70,73,75,79,80,84,85,88,89,91,93,96,98,101,103,106,108,112,115,119,122,128,127,131,133,137,139,140,141,144,145,150,152,157,159,163,165,167,169,173,175,178,181,184,186,190,192,195,197,201,204,207,209,209,210,222,223,226,227,232,231,238];
+const _KF_EN=[0,2.20,0,0.98,1.57,2.04,2.55,3.04,3.44,3.98,0,0.93,1.31,1.61,1.90,2.19,2.58,3.16,0,0.82,1.00,1.36,1.54,1.63,1.66,1.55,1.83,1.88,1.91,1.90,1.65,1.81,2.01,2.18,2.55,2.96,3.00];
+const _KF_ASAL=(()=>{const p=[];for(let n=2;p.length<120;n++){let o=true;for(let d=2;d*d<=n;d++)if(n%d===0){o=false;break;}if(o)p.push(n);}return p;})();
+function _kfZ(x){return ((Math.round(Math.abs(x))-1)%92+92)%92+1;}
+function _kfA(x){return _KF_AM[_kfZ(x)];}
+function _kfEN(x){const z=((Math.round(Math.abs(x))-1)%36+36)%36+1;return _KF_EN[z];}
+function _kfPow(b,e){b=Math.round(Math.abs(b));e=Math.round(Math.abs(e));let r=1,m=_KF_MOD;b%=m;while(e>0){if(e&1)r=Number(BigInt(r)*BigInt(b)%BigInt(m));b=Number(BigInt(b)*BigInt(b)%BigInt(m));e>>=1;}return r;}
+const _kfFC={},_kfBC={};
+function _kfFakt(x){x=Math.round(Math.abs(x));if(x>400)x=400;if(_kfFC[x]!=null)return _kfFC[x];let r=1;for(let i=2;i<=x;i++)r=(r*i)%_KF_MOD;return _kfFC[x]=r;}
+function _kfFib(x){x=Math.round(Math.abs(x));let a=0,b=1;for(let i=0;i<x%1500;i++){const t=(a+b)%_KF_MOD;a=b;b=t;}return a;}
+function _kfLucas(x){x=Math.round(Math.abs(x));let a=2,b=1;for(let i=0;i<x%1500;i++){const t=(a+b)%_KF_MOD;a=b;b=t;}return a;}
+function _kfBinom(n,k){n=Math.round(Math.abs(n));k=Math.round(Math.abs(k));if(k>n)return null;if(n>300)return null;k=Math.min(k,n-k);const key=n*400+k;if(_kfBC[key]!=null)return _kfBC[key];let r=1n;for(let i=1;i<=k;i++){r=r*BigInt(n-k+i)/BigInt(i);}return _kfBC[key]=Number(r%BigInt(_KF_MOD));}
+function _kfGcd(a,b){a=Math.round(Math.abs(a));b=Math.round(Math.abs(b));while(b){const t=a%b;a=b;b=t;}return a;}
+function _kfPhi(x){x=Math.round(Math.abs(x));if(x<1)return null;let r=x,n=x;for(let p=2;p*p<=n;p++){if(n%p===0){while(n%p===0)n/=p;r-=r/p;}}if(n>1)r-=r/n;return r;}
+function _kfSigma(x){x=Math.round(Math.abs(x));let s=0;for(let d=1;d<=x;d++)if(x%d===0)s+=d;return s;}
+function _kfDiv(x){x=Math.round(Math.abs(x));let s=0;for(let d=1;d<=x;d++)if(x%d===0)s++;return s;}
+function _kfBas(x){return String(Math.round(Math.abs(x))).split('').reduce((q,c)=>q+(+c),0);}
+function _kfDeger(x){const z=_kfZ(x);const k=z<=2?z:z<=10?z-2:z<=18?z-10:z%8||8;return Math.min(k,8);}
+function _kfPeriyot(x){const z=_kfZ(x);return z<=2?1:z<=10?2:z<=18?3:z<=36?4:z<=54?5:z<=86?6:7;}
+function _kfGrup(x){const z=_kfZ(x);return z<=2?(z===1?1:18):z<=10?(z-2<=2?z-2:z+8):z<=18?(z-10<=2?z-10:z):z%18||18;}
+// [grup, ad, arity, f]
+const _KF_LIB=[
+ // ── MATEMATİK · tek bağımsız değişken ──
+ ['Matematik','n²',1,x=>x*x],['Matematik','n³',1,x=>x*x*x],['Matematik','√n ×10',1,x=>Math.sqrt(x)*10],['Matematik','∛n ×10',1,x=>Math.cbrt(x)*10],
+ ['Matematik','n! (mod)',1,x=>_kfFakt(x)],['Matematik','Fibonacci(n)',1,x=>_kfFib(x)],['Matematik','Lucas(n)',1,x=>_kfLucas(x)],
+ ['Matematik','Üçgen sayı n(n+1)/2',1,x=>x*(x+1)/2],['Matematik','Beşgen sayı n(3n−1)/2',1,x=>x*(3*x-1)/2],['Matematik','Altıgen sayı n(2n−1)',1,x=>x*(2*x-1)],
+ ['Matematik','Tetrahedral sayı',1,x=>x*(x+1)*(x+2)/6],['Matematik','Kare piramit sayı',1,x=>x*(x+1)*(2*x+1)/6],['Matematik','Merkezli altıgen 3n(n−1)+1',1,x=>3*x*(x-1)+1],
+ ['Matematik','2ⁿ (mod)',1,x=>_kfPow(2,x)],['Matematik','3ⁿ (mod)',1,x=>_kfPow(3,x)],['Matematik','5ⁿ (mod)',1,x=>_kfPow(5,x)],['Matematik','7ⁿ (mod)',1,x=>_kfPow(7,x)],['Matematik','nⁿ (mod)',1,x=>_kfPow(x,x)],
+ ['Matematik','C(2n,n) (mod)',1,x=>_kfBinom(2*x,x)],
+ ['Matematik','ln n ×10',1,x=>Math.log(x)*10],['Matematik','log₁₀ n ×100',1,x=>Math.log10(x)*100],['Matematik','log₂ n ×10',1,x=>Math.log2(x)*10],['Matematik','e^(n/10)',1,x=>Math.exp(x/10)],
+ ['Matematik','sin(n°) ×100',1,x=>Math.sin(x*_KF_PI/180)*100],['Matematik','cos(n°) ×100',1,x=>Math.cos(x*_KF_PI/180)*100],['Matematik','tan(n°) ×10',1,x=>Math.tan(x*_KF_PI/180)*10],
+ ['Matematik','sin(n rad) ×100',1,x=>Math.sin(x)*100],['Matematik','cos(n rad) ×100',1,x=>Math.cos(x)*100],['Matematik','sinh(n/10) ×10',1,x=>Math.sinh(x/10)*10],['Matematik','arctan(n) ×100',1,x=>Math.atan(x)*100],
+ ['Matematik','n. asal sayı',1,x=>_KF_ASAL[(Math.round(Math.abs(x))-1)%120]],['Matematik','Euler φ(n)',1,x=>_kfPhi(x)],['Matematik','σ(n) bölenler toplamı',1,x=>_kfSigma(x)],['Matematik','d(n)·n',1,x=>_kfDiv(x)*x],
+ ['Matematik','n + basamak toplamı',1,x=>x+_kfBas(x)],['Matematik','n ters sayı',1,x=>+String(Math.round(Math.abs(x))).split('').reverse().join('')],
+ ['Matematik','n × altın oran',1,x=>x*_KF_PHI],['Matematik','n ÷ altın oran',1,x=>x/_KF_PHI],['Matematik','n × π',1,x=>x*_KF_PI],['Matematik','n × e',1,x=>x*Math.E],['Matematik','n × √2',1,x=>x*Math.SQRT2],['Matematik','n × √3',1,x=>x*Math.sqrt(3)],['Matematik','n × √5',1,x=>x*Math.sqrt(5)],
+ ['Matematik','Euler n²+n+41',1,x=>x*x+x+41],['Matematik','Collatz adımı',1,x=>Math.round(x)%2?3*x+1:x/2],['Matematik','n − ⌊√n⌋²',1,x=>x-Math.floor(Math.sqrt(x))**2],
+ // ── GEOMETRİ · tek ──
+ ['Geometri','Daire alanı πr²',1,x=>_KF_PI*x*x],['Geometri','Çember 2πr',1,x=>2*_KF_PI*x],['Geometri','Küre hacmi 4/3πr³',1,x=>4/3*_KF_PI*x**3],['Geometri','Küre yüzeyi 4πr²',1,x=>4*_KF_PI*x*x],
+ ['Geometri','Küp köşegeni a√3',1,x=>x*Math.sqrt(3)],['Geometri','Kare köşegeni a√2',1,x=>x*Math.SQRT2],['Geometri','Eşkenar üçgen alanı √3/4·a²',1,x=>Math.sqrt(3)/4*x*x],['Geometri','Düzgün altıgen alanı 3√3/2·a²',1,x=>3*Math.sqrt(3)/2*x*x],
+ ['Geometri','İç açılar toplamı (n−2)·180°',1,x=>(x-2)*180],['Geometri','Düzgün n-gen iç açısı',1,x=>x>=3?(x-2)*180/x:null],['Geometri','n-genin köşegen sayısı',1,x=>x>=3?x*(x-3)/2:null],
+ ['Geometri','Koni hacmi (r=h=n)',1,x=>_KF_PI*x**3/3],['Geometri','Silindir hacmi (r=h=n)',1,x=>_KF_PI*x**3],['Geometri','Altın açı n×137.5°',1,x=>x*137.5077640500378%360],
+ ['Geometri','Derece→radyan ×100',1,x=>x*_KF_PI/180*100],['Geometri','Düzgün sekizyüzlü hacmi',1,x=>x**3*Math.SQRT2/3],['Geometri','Düzgün dörtyüzlü hacmi',1,x=>x**3/(6*Math.SQRT2)],['Geometri','İkosahedron hacmi',1,x=>5*(3+Math.sqrt(5))/12*x**3],['Geometri','Küpün yüzey alanı 6a²',1,x=>6*x*x],
+ // ── FİZİK · tek ──
+ ['Fizik','Kinetik enerji ½v² (m=1)',1,x=>x*x/2],['Fizik','Serbest düşme yolu ½gt²',1,x=>_KF_G*x*x/2],['Fizik','Serbest düşme hızı gt',1,x=>_KF_G*x],['Fizik','Eğik atış menzili v²/g',1,x=>x*x/_KF_G],
+ ['Fizik','Sarkaç periyodu 2π√(L/g) ×100',1,x=>2*_KF_PI*Math.sqrt(x/_KF_G)*100],['Fizik','Kaçış hızı √(2gR) (R=n)',1,x=>Math.sqrt(2*_KF_G*x)],
+ ['Fizik','km/sa→m/s ×10',1,x=>x/3.6*10],['Fizik','m/s→km/sa',1,x=>x*3.6],['Fizik','°C→K',1,x=>x+273.15],['Fizik','°C→°F',1,x=>x*9/5+32],['Fizik','°F→°C',1,x=>(x-32)*5/9],
+ ['Fizik','Dalga boyu c/f (f=n MHz)',1,x=>299.792458/x],['Fizik','Foton enerjisi hf (mantis)',1,x=>6.62607015*x],['Fizik','Yerçekimi GM/r² (mantis)',1,x=>6.674*x/40.59],['Fizik','Ses hızı 331+0.6T',1,x=>331+0.6*x],
+ ['Fizik','atm→kPa',1,x=>x*101.325],['Fizik','Desibel 10·log₁₀ n',1,x=>10*Math.log10(x)],['Fizik','Lorentz γ (v=n% c) ×10',1,x=>x<100?10/Math.sqrt(1-(x/100)**2):null],['Fizik','E=mc² (mantis)',1,x=>x*8.987551787],['Fizik','Stefan–Boltzmann σT⁴ (mantis)',1,x=>5.670374*x**4],
+ // ── KİMYA · tek ──
+ ['Kimya','Atom kütlesi A(Z=n)',1,x=>_kfA(x)],['Kimya','Nötron sayısı A−Z',1,x=>_kfA(x)-_kfZ(x)],['Kimya','Değerlik elektronu',1,x=>_kfDeger(x)],['Kimya','Periyot numarası',1,x=>_kfPeriyot(x)],['Kimya','Grup numarası',1,x=>_kfGrup(x)],
+ ['Kimya','Mol→litre n·22.414',1,x=>x*22.414],['Kimya','Mol→molekül (mantis)',1,x=>x*6.02214076],['Kimya','Yarı ömür 100·2^(−n/10)',1,x=>100*Math.pow(2,-x/10)],['Kimya','[H⁺]=10^(−n/10) (mantis)',1,x=>Math.pow(10,-x/10)],
+ ['Kimya','Elektronegatiflik ×10',1,x=>_kfEN(x)*10],['Kimya','Faraday n·96.485',1,x=>x*96.485],['Kimya','Gaz yoğunluğu A/22.414 ×100',1,x=>_kfA(x)/22.414*100],['Kimya','Elektron kapasitesi 2n²',1,x=>2*x*x],['Kimya','Bohr E=13.6/n² ×100',1,x=>13.6/(x*x)*100],
+ // ── MATEMATİK · iki ──
+ ['Matematik','x+y',2,(x,y)=>x+y],['Matematik','|x−y|',2,(x,y)=>Math.abs(x-y)],['Matematik','x·y',2,(x,y)=>x*y],['Matematik','⌊x/y⌋',2,(x,y)=>y?Math.floor(x/y):null],['Matematik','x mod y',2,(x,y)=>y?x%y:null],['Matematik','y mod x',2,(x,y)=>x?y%x:null],
+ ['Matematik','EBOB(x,y)',2,(x,y)=>_kfGcd(x,y)],['Matematik','EKOK(x,y)',2,(x,y)=>{const g=_kfGcd(x,y);return g?x*y/g:null;}],['Matematik','xʸ (mod)',2,(x,y)=>_kfPow(x,y)],['Matematik','C(x,y) (mod)',2,(x,y)=>x>=y?_kfBinom(x,y):_kfBinom(y,x)],
+ ['Matematik','x²+y²',2,(x,y)=>x*x+y*y],['Matematik','x²−y²',2,(x,y)=>x*x-y*y],['Matematik','(x+y)²',2,(x,y)=>(x+y)**2],['Matematik','(x−y)²',2,(x,y)=>(x-y)**2],['Matematik','x³+y³',2,(x,y)=>x**3+y**3],['Matematik','x²+xy+y²',2,(x,y)=>x*x+x*y+y*y],
+ ['Matematik','√(x²+y²)',2,(x,y)=>Math.hypot(x,y)],['Matematik','Aritmetik ort. (x+y)/2',2,(x,y)=>(x+y)/2],['Matematik','Geometrik ort. √(xy)',2,(x,y)=>Math.sqrt(x*y)],['Matematik','Harmonik ort. 2xy/(x+y)',2,(x,y)=>x+y?2*x*y/(x+y):null],
+ ['Matematik','Karesel ort. √((x²+y²)/2)',2,(x,y)=>Math.sqrt((x*x+y*y)/2)],['Matematik','x XOR y',2,(x,y)=>Math.round(x)^Math.round(y)],['Matematik','x AND y',2,(x,y)=>Math.round(x)&Math.round(y)],['Matematik','x OR y',2,(x,y)=>Math.round(x)|Math.round(y)],
+ ['Matematik','x·y mod (x+y)',2,(x,y)=>x+y?(x*y)%(x+y):null],['Matematik','log_y(x) ×10',2,(x,y)=>y>1&&x>0?Math.log(x)/Math.log(y)*10:null],['Matematik','atan2(x,y) ×100',2,(x,y)=>Math.atan2(x,y)*100],['Matematik','y·sin(x°)',2,(x,y)=>y*Math.sin(x*_KF_PI/180)],
+ // ── GEOMETRİ · iki ──
+ ['Geometri','Dik kenar √(x²−y²)',2,(x,y)=>x>y?Math.sqrt(x*x-y*y):null],['Geometri','Dikdörtgen çevresi 2(x+y)',2,(x,y)=>2*(x+y)],['Geometri','Dik üçgen alanı xy/2',2,(x,y)=>x*y/2],['Geometri','Elips alanı πxy',2,(x,y)=>_KF_PI*x*y],
+ ['Geometri','Elips çevresi (Ramanujan)',2,(x,y)=>_KF_PI*(3*(x+y)-Math.sqrt((3*x+y)*(x+3*y)))],['Geometri','Silindir hacmi πx²y',2,(x,y)=>_KF_PI*x*x*y],['Geometri','Silindir yüzeyi 2πx(x+y)',2,(x,y)=>2*_KF_PI*x*(x+y)],
+ ['Geometri','Koni hacmi πx²y/3',2,(x,y)=>_KF_PI*x*x*y/3],['Geometri','Koni yanal alanı πx√(x²+y²)',2,(x,y)=>_KF_PI*x*Math.hypot(x,y)],['Geometri','Daire dilimi (x°) alanı',2,(x,y)=>x/360*_KF_PI*y*y],['Geometri','Yay uzunluğu (x°)',2,(x,y)=>x/360*2*_KF_PI*y],
+ ['Geometri','Kiriş uzunluğu 2y·sin(x°/2)',2,(x,y)=>2*y*Math.sin(x/2*_KF_PI/180)],['Geometri','Kare piramit hacmi x²y/3',2,(x,y)=>x*x*y/3],['Geometri','Torus hacmi 2π²xy²',2,(x,y)=>2*_KF_PI*_KF_PI*x*y*y],
+ ['Geometri','Paralelkenar alanı xy·sin60°',2,(x,y)=>x*y*Math.sqrt(3)/2],['Geometri','Küre kabuğu hacmi',2,(x,y)=>x>y?4/3*_KF_PI*(x**3-y**3):null],['Geometri','Halka alanı π(x²−y²)',2,(x,y)=>x>y?_KF_PI*(x*x-y*y):null],
+ ['Geometri','Düzgün x-gen alanı (kenar y)',2,(x,y)=>x>=3?x*y*y/(4*Math.tan(_KF_PI/x)):null],['Geometri','Dikdörtgen köşegeni',2,(x,y)=>Math.hypot(x,y)*1.0001],
+ // ── FİZİK · iki ──
+ ['Fizik','F=ma',2,(x,y)=>x*y],['Fizik','Kinetik ½mv²',2,(x,y)=>x*y*y/2],['Fizik','Potansiyel mgh',2,(x,y)=>x*_KF_G*y],['Fizik','İş F·d·cos45°',2,(x,y)=>x*y*Math.SQRT1_2],['Fizik','Güç P=W/t',2,(x,y)=>y?x/y:null],
+ ['Fizik','Paralel direnç xy/(x+y)',2,(x,y)=>x+y?x*y/(x+y):null],['Fizik','P=I²R',2,(x,y)=>x*x*y],['Fizik','Newton çekim Gm₁m₂/r² (r=10)',2,(x,y)=>6.674*x*y/100],['Fizik','Coulomb kq₁q₂/r² (r=10)',2,(x,y)=>8.98755*x*y/100],
+ ['Fizik','Doppler f(343+v)/343',2,(x,y)=>x*(343+y)/343],['Fizik','İdeal gaz P=nRT/V (V=22.414)',2,(x,y)=>x*8.314462*y/22.414],['Fizik','Yoğunluk m/V',2,(x,y)=>y?x/y:null],['Fizik','Eğik atış v²sin(2θ)/g',2,(x,y)=>x*x*Math.sin(2*y*_KF_PI/180)/_KF_G],
+ ['Fizik','Bileşke kuvvet (60°)',2,(x,y)=>Math.sqrt(x*x+y*y+x*y)],['Fizik','Sürtünme μN (μ=0.3)',2,(x,y)=>x*y*0.3],['Fizik','Bağıl hız (x+y)/(1+xy/c²)',2,(x,y)=>(x+y)/(1+x*y/90000)],['Fizik','Snell asin(x·sin y°/1.5)',2,(x,y)=>{const s=x*Math.sin(y*_KF_PI/180)/Math.max(x,1.5);return Math.abs(s)<=1?Math.asin(s)*180/_KF_PI:null;}],
+ // ── KİMYA · iki ──
+ ['Kimya','Mol kütlesi A(x)+A(y)',2,(x,y)=>_kfA(x)+_kfA(y)],['Kimya','2A(x)+A(y) (H₂O tipi)',2,(x,y)=>2*_kfA(x)+_kfA(y)],['Kimya','A(x)+2A(y) (CO₂ tipi)',2,(x,y)=>_kfA(x)+2*_kfA(y)],['Kimya','Mol sayısı x/A(y)',2,(x,y)=>x/_kfA(y)],
+ ['Kimya','Molarite x/y',2,(x,y)=>y?x/y:null],['Kimya','|EN(x)−EN(y)| ×10',2,(x,y)=>Math.abs(_kfEN(x)-_kfEN(y))*10],['Kimya','Avogadro x·N/y (mantis)',2,(x,y)=>y?x*6.02214076/y:null],['Kimya','|A(x)−A(y)|',2,(x,y)=>Math.abs(_kfA(x)-_kfA(y))],
+ ['Kimya','Z(x)+Z(y)',2,(x,y)=>_kfZ(x)+_kfZ(y)],['Kimya','Isı Q=mcΔT (c=4.186)',2,(x,y)=>x*4.186*y],['Kimya','pH=−log₁₀(x/y) ×10',2,(x,y)=>y&&x>0?-Math.log10(x/y)*10:null],['Kimya','Arrhenius e^(−y/RT) (mantis)',2,(x,y)=>x*Math.exp(-y/(8.314*0.298))],
+ // ── ÜÇ bağımsız değişken ──
+ ['Matematik','x+y+z',3,(x,y,z)=>x+y+z],['Matematik','x·y·z',3,(x,y,z)=>x*y*z],['Matematik','(x+y+z)/3',3,(x,y,z)=>(x+y+z)/3],['Matematik','x²+y²+z²',3,(x,y,z)=>x*x+y*y+z*z],['Matematik','x·y+z',3,(x,y,z)=>x*y+z],
+ ['Matematik','x·y−z',3,(x,y,z)=>x*y-z],['Matematik','(x·y) mod z',3,(x,y,z)=>z?(x*y)%z:null],['Matematik','xʸ mod z',3,(x,y,z)=>{z=Math.round(Math.abs(z));if(!z)return null;let r=1,b=Math.round(Math.abs(x))%z,e=Math.round(Math.abs(y));while(e>0){if(e&1)r=(r*b)%z;b=(b*b)%z;e>>=1;}return r;}],
+ ['Matematik','Ortanca(x,y,z)',3,(x,y,z)=>[x,y,z].sort((a,b)=>a-b)[1]],['Matematik','maks−min',3,(x,y,z)=>Math.max(x,y,z)-Math.min(x,y,z)],['Matematik','İkinci derece kök (a=x,b=y,c=z)',3,(x,y,z)=>{const d=y*y-4*x*z;return x&&d>=0?Math.abs((-y+Math.sqrt(d))/(2*x))*10:null;}],['Matematik','Diskriminant |y²−4xz|',3,(x,y,z)=>Math.abs(y*y-4*x*z)],
+ ['Geometri','Heron üçgen alanı',3,(x,y,z)=>{const s=(x+y+z)/2,a=s*(s-x)*(s-y)*(s-z);return a>0?Math.sqrt(a):null;}],['Geometri','Kosinüs yasası √(x²+y²−2xy·cos z°)',3,(x,y,z)=>Math.sqrt(Math.max(0,x*x+y*y-2*x*y*Math.cos(z*_KF_PI/180)))],
+ ['Geometri','Dikdörtgen prizma hacmi',3,(x,y,z)=>x*y*z],['Geometri','Elipsoid hacmi 4/3πxyz',3,(x,y,z)=>4/3*_KF_PI*x*y*z],['Geometri','Prizma yüzeyi 2(xy+yz+zx)',3,(x,y,z)=>2*(x*y+y*z+z*x)],['Geometri','Prizma köşegeni',3,(x,y,z)=>Math.sqrt(x*x+y*y+z*z)*1.0001],
+ ['Geometri','Kesik koni hacmi',3,(x,y,z)=>_KF_PI*x/3*(y*y+y*z+z*z)],['Geometri','Üçgen çevrel çember R=abc/4A',3,(x,y,z)=>{const s=(x+y+z)/2,a=s*(s-x)*(s-y)*(s-z);return a>0?x*y*z/(4*Math.sqrt(a)):null;}],['Geometri','Üçgen iç açı acos((x²+y²−z²)/2xy)°',3,(x,y,z)=>{const c=(x*x+y*y-z*z)/(2*x*y);return x&&y&&Math.abs(c)<=1?Math.acos(c)*180/_KF_PI:null;}],
+ ['Fizik','Birleşik gaz yasası PV/T',3,(x,y,z)=>z?x*y/z:null],['Fizik','İş W=F·d·cosθ',3,(x,y,z)=>x*y*Math.cos(z*_KF_PI/180)],['Fizik','Newton çekim Gxy/z² (mantis)',3,(x,y,z)=>z?6.674*x*y/(z*z):null],['Fizik','Coulomb kxy/z² (mantis)',3,(x,y,z)=>z?8.98755*x*y/(z*z):null],
+ ['Fizik','Üçlü paralel direnç',3,(x,y,z)=>x&&y&&z?1/(1/x+1/y+1/z):null],['Fizik','Kinetik ½m(vx²+vy²)',3,(x,y,z)=>x*(y*y+z*z)/2],['Fizik','İdeal gaz P=xRy/z',3,(x,y,z)=>z?x*8.314462*y/z:null],['Fizik','Tork F·r·sinθ',3,(x,y,z)=>x*y*Math.sin(z*_KF_PI/180)],['Fizik','Elektrik gücü VI·cosφ',3,(x,y,z)=>x*y*Math.cos(z*_KF_PI/180)],
+ ['Kimya','A(x)+A(y)+A(z)',3,(x,y,z)=>_kfA(x)+_kfA(y)+_kfA(z)],['Kimya','A(x)+2A(y)+3A(z)',3,(x,y,z)=>_kfA(x)+2*_kfA(y)+3*_kfA(z)],['Kimya','İdeal gaz n=PV/RT',3,(x,y,z)=>z?x*y/(8.314462*z):null],['Kimya','Z toplamı',3,(x,y,z)=>_kfZ(x)+_kfZ(y)+_kfZ(z)]
+];
+// değer → bilet sayısı: tamsayıya yuvarla; <1 ise anlamlı basamaklara ölçekle; M'e sar (1…M). Geçersiz → 0
+function _kfNo(v,M){
+  if(v==null||!isFinite(v))return 0;
+  let a=Math.abs(v);if(a===0)return 0;
+  let g=0;while(a<1&&g++<14)a*=10;
+  const r=Math.round(a);if(!r)return 0;
+  return ((r-1)%M)+1;
+}
+// k sayı/çekiliş için bağlama listesi (kaynak çekiliş d∈{0,1,2}=son/önceki/ondan önceki, konum i)
+const _kfBagC={};
+function _kfBag(k){
+  if(_kfBagC[k])return _kfBagC[k];
+  const b1=[],b2=[],b3=[];
+  for(let d=0;d<3;d++)for(let i=0;i<k;i++)b1.push([[d,i]]);
+  for(let i=0;i<k-1;i++)b2.push([[0,i],[0,i+1]]);
+  for(let i=0;i<Math.floor(k/2);i++)b2.push([[0,i],[0,k-1-i]]);
+  for(let i=0;i<k;i++){b2.push([[0,i],[1,i]]);b2.push([[0,i],[2,i]]);b2.push([[1,i],[2,i]]);}
+  for(let i=0;i<k;i++)b3.push([[0,i],[1,i],[2,i]]);
+  for(let i=0;i<k-2;i++)b3.push([[0,i],[0,i+1],[0,i+2]]);
+  return _kfBagC[k]={1:b1,2:b2,3:b3};
+}
+// bir bağlamdaki (3 çekiliş) TÜM formül örneklerinin çıktıları (aynı sıra); D3=[son,önceki,ondan önceki] sıralı sayı dizileri
+function _kfEvalHepsi(D3,M){
+  const k=D3[0].length,bag=_kfBag(k),out=[];
+  for(let fi=0;fi<_KF_LIB.length;fi++){
+    const f=_KF_LIB[fi],ar=f[2],fn=f[3],B=bag[ar];
+    for(let bi=0;bi<B.length;bi++){
+      const a=B[bi];let v;
+      try{v=ar===1?fn(D3[a[0][0]][a[0][1]]):ar===2?fn(D3[a[0][0]][a[0][1]],D3[a[1][0]][a[1][1]]):fn(D3[a[0][0]][a[0][1]],D3[a[1][0]][a[1][1]],D3[a[2][0]][a[2][1]]);}catch(e){v=null;}
+      out.push(_kfNo(v,M));
+    }
+  }
+  return out;
+}
+const _kfSirala=d=>[...(d.nums||[])].sort((a,b)=>a-b);
+// Hedef için (prior: hedeften ÖNCEKİ çekilişler, yeniden eskiye) formül örneği değerlendirmesi; son 4 çekilişte (walk-forward) ≥1 net filtresi
+function _kfHesapla(gid,prior){
+  const g=getGame(gid),M=g.max;
+  if(prior.length<8)return null;
+  const k=_kfSirala(prior[0]).length;
+  const D=prior.slice(0,8).map(_kfSirala);
+  if(D.some(x=>x.length!==k))return null;
+  const yeni=_kfEvalHepsi([D[0],D[1],D[2]],M),n=yeni.length,uyg=new Uint8Array(n);
+  for(let j=1;j<=4;j++){
+    const hedef=new Set(D[j-1]),v=_kfEvalHepsi([D[j],D[j+1],D[j+2]],M);
+    for(let i=0;i<n;i++)if(v[i]&&hedef.has(v[i]))uyg[i]=Math.min(255,uyg[i]+1);
+  }
+  const say=new Array(M+2).fill(0);let dahil=0;
+  for(let i=0;i<n;i++)if(uyg[i]&&yeni[i]){say[yeni[i]]++;dahil++;}
+  // aile dökümü
+  const bag=_kfBag(k),fam=[];let idx=0;
+  for(let fi=0;fi<_KF_LIB.length;fi++){
+    const B=bag[_KF_LIB[fi][2]],m=new Map();let u=0,hit=0;
+    for(let bi=0;bi<B.length;bi++,idx++){if(uyg[idx]){hit+=uyg[idx];if(yeni[idx]){u++;m.set(yeni[idx],(m.get(yeni[idx])||0)+1);}}}
+    fam.push({fi,grup:_KF_LIB[fi][0],ad:_KF_LIB[fi][1],ar:_KF_LIB[fi][2],toplam:B.length,uyg:u,hit,sayilar:m});
+  }
+  return {M,k,toplam:n,dahil,say,fam};
+}
+let _kfGame=null,_kfToken=0;
+function _kfSetGame(){_kfGame=(state&&state.selectedGame)||GAMES[0].id;if(_curPage==='kimafiz'){_kfSecenek(true);_kfRender();}}
+function _kfSecenek(sifirla){
+  const gid=(state&&state.selectedGame)||GAMES[0].id;_kfGame=gid;
+  const draws=_kbGetDraws(gid)||[];
+  const h='<option value="">— geçmiş test seç —</option>'+draws.slice(0,85).map(d=>`<option value="${d.date}">${d.date}</option>`).join('');
+  ['kfDateSel','kfDateSel2','kfDateSel3'].forEach((id,i)=>{
+    const e=document.getElementById(id);if(!e)return;
+    const prev=e.value;e.innerHTML=h;
+    if(!sifirla&&prev)e.value=prev;else if(draws[i]&&draws.length>80)e.value=draws[i].date;
+  });
+}
+function _kfKolonHtml(gid,prior,tarih,actual,yeni,k){
+  const g=getGame(gid),R=_kfHesapla(gid,prior);
+  const aS=actual?new Set(actual.nums||[]):null,yS=aS?_fadYakinSet(aS,g.max):null;
+  const adet=parseInt((document.getElementById('kfAdet')||{}).value)||10;
+  let h=`<div style="min-width:0" data-ex-atla="1" ${yeni?`data-sk-yeni="${gid}"`:`data-sk-gecmis="${gid}|${tarih}"`} data-kn-tarih="${tarih}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'}">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+tarih}</span>`;
+  if(!R){return h+`</div><div style="font-size:.62rem;color:var(--muted)">Yeterli geçmiş çekiliş yok (en az 8 gerekir).</div></div>`;}
+  const S=_tsHafifS(gid,prior,tarih);S.kfPuan=R.say;
+  const tip={id:'kf',ad:'🔬 KimaFiz — dahil formül örneklerinin çoklanan sayıları',ac:'Son 4 çekilişin en az birinde ≥1 net veren fizik/kimya/matematik/geometri formül örneklerinin ürettiği sayılar (çoklanma sayısına göre)',puan:(F,n,SS)=>(SS.kfPuan[n]||0)};
+  const F=_tsOzellik(gid,S),bil=_tsBiletler(gid,S,F,tip,adet);
+  if(yeni){window._kfBiletTxt=`${tip.ad} — ${g.name} (${tarih}) — ${bil.length} bilet\n`+bil.map((t,i)=>`#${i+1}  ${t.join(' ')}`).join('\n');
+    h+=`<button class="copy-btn" onclick="_caCopy(window._kfBiletTxt);showToast('📋 Tüm biletler kopyalandı')" style="font-size:.56rem;padding:2px 9px">📋 Biletleri Kopyala</button>`;}
+  h+=`</div><div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">hedef <strong style="color:var(--text)">${tarih}</strong>${actual?` · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${[...actual.nums].sort((a,b)=>a-b).join(' ')}</span>`:''}</div>`;
+  h+=`<div style="font-size:.6rem;margin-bottom:5px;padding:4px 8px;border-radius:8px;background:rgba(14,165,233,.08);border:1px solid rgba(14,165,233,.35)">🔬 <strong>${R.dahil}</strong> / ${R.toplam} formül örneği dahil <span style="color:var(--muted)">(son 4 çekilişin en az birinde ≥1 net) · ${_KF_LIB.length} formül × ${R.toplam/_KF_LIB.length|0} ort. bağlam</span></div>`;
+  let en=0,enYk=0,uc=0;
+  if(aS)bil.forEach(t=>{const n=t.filter(x=>aS.has(x)).length,yk=t.filter(x=>!aS.has(x)&&yS.has(x)).length;if(n>en||(n===en&&yk>enYk)){en=n;enYk=yk;}if(n>=2)uc++;});
+  h+=`<div style="font-size:.64rem;font-weight:800;color:#0369a1;margin:2px 0 3px">🎫 ${tip.ad.slice(0,22)} <span style="font-weight:600;color:var(--muted)">· ${bil.length} bilet · ${g.count} sayı</span></div>`
+    +(aS?`<div style="font-size:.58rem;margin-bottom:4px"><strong style="color:var(--green)">✓ en iyi bilet ${en} net</strong> · <strong style="color:#c2410c">~ ${enYk} yakın</strong> · <strong style="color:#7c3aed">2+ net: ${uc}/${bil.length} bilet</strong></div>`:'')
+    +_nnRenderTickets(g,bil.map(t=>({main:t})),aS);
+  // çoklanan sayılar (en çok formül örneğinin ürettiği)
+  const top=[];for(let n=1;n<=g.max;n++)if(R.say[n]>0)top.push([n,R.say[n]]);top.sort((a,b)=>b[1]-a[1]||a[0]-b[0]);
+  const rz=n=>_fadRozet(n,_fadDurum(n,aS,yS));
+  h+=`<div style="font-size:.6rem;font-weight:800;margin:6px 0 3px">🔁 En çok formül örneğinin ürettiği sayılar</div><div data-kn-atla="1" data-lp="${top.slice(0,g.count).map(x=>x[0]).join(' ')}" style="display:flex;flex-wrap:wrap;gap:4px 8px;font-size:.66rem">${top.slice(0,16).map(([n,c])=>`<span>${rz(n)}<span style="color:#7c3aed;font-weight:800;font-size:.55rem">×${c}</span></span>`).join('')||'<span style="color:var(--muted)">Dahil edilen örnek yok.</span>'}</div>`;
+  // aile dökümü
+  const gruplar=['Matematik','Geometri','Fizik','Kimya'],ik={Matematik:'➗',Geometri:'📐',Fizik:'⚛️',Kimya:'🧪'};
+  const fh=gruplar.map(gr=>{
+    const L=R.fam.filter(f=>f.grup===gr).sort((a,b)=>b.uyg-a.uyg||b.hit-a.hit);
+    const hucre=L.map(f=>{const t=[...f.sayilar.entries()].sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,5).map(([n,c])=>`<span style="font-family:monospace;font-weight:800;color:${aS?(aS.has(n)?'var(--green)':yS.has(n)?'#c2410c':'var(--muted)'):'var(--text)'}">${n}${aS?(aS.has(n)?'✓':yS.has(n)?'~':''):''}</span>`).join(' ');
+      return `<div style="padding:2px 6px;border:1px solid var(--border);border-radius:6px;background:var(--surface2);${f.uyg?'':'opacity:.45'}" title="${f.ad} · ${f.ar} değişkenli · dahil ${f.uyg}/${f.toplam} örnek · son 4 çekilişte ${f.hit} net"><span style="font-size:.52rem;color:var(--muted)">${f.ad} <strong>${f.uyg}/${f.toplam}</strong></span><br>${t||'—'}</div>`;}).join('');
+    return `<div style="font-size:.6rem;font-weight:800;margin:6px 0 3px">${ik[gr]} ${gr} (${L.filter(f=>f.uyg).length}/${L.length} formülde dahil örnek var)</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:3px">${hucre}</div>`;}).join('');
+  h+=`<details data-kn-atla="1" data-ny-yok="1" style="margin-top:6px"><summary style="cursor:pointer;font-size:.6rem;font-weight:800">📋 Formül ailesi dökümü (ad · dahil/toplam örnek · ürettiği sayılar)</summary>${fh}</details>`;
+  return h+'</div>';
+}
+function _kfRender(){
+  const el=document.getElementById('kfOut');if(!el)return;
+  const gid=_kfGame||(state&&state.selectedGame)||GAMES[0].id;_kfGame=gid;
+  const g=getGame(gid),draws=_kbGetDraws(gid)||[];
+  const bas=document.getElementById('kfBaslik');if(bas)bas.textContent='🔬 KimaFiz — '+g.emoji+' '+g.name;
+  if(draws.length<20){el.innerHTML='<div style="font-size:.7rem;color:var(--muted);padding:10px">Yeterli veri yok.</div>';return;}
+  const sut=[{prior:draws,tarih:_dxSonraki(gid),actual:null}];
+  ['kfDateSel','kfDateSel2','kfDateSel3'].forEach(id=>{
+    const v=(document.getElementById(id)||{}).value;if(!v)return;
+    const ix=draws.findIndex(d=>d.date===v);if(ix<0||draws.length-ix-1<12)return;
+    sut.push({prior:draws.slice(ix+1),tarih:v,actual:draws[ix]});
+  });
+  const tok=++_kfToken;let bitti=0;
+  el.innerHTML=`<div id="kfGrid" style="display:grid;gap:14px;align-items:start;grid-template-columns:repeat(auto-fit,minmax(270px,1fr))">${sut.map(()=>'<div style="padding:14px;font-size:.7rem;color:var(--muted)">⏳ Formüller hesaplanıyor…</div>').join('')}</div>`;
+  const grid=document.getElementById('kfGrid');
+  sut.forEach((c,i)=>setTimeout(()=>{
+    if(tok!==_kfToken)return;
+    let h;try{h=_kfKolonHtml(gid,c.prior,c.tarih,c.actual,!c.actual,i-1);}catch(e){h=`<div style="color:#cc2222;font-size:.7rem">Hata: ${e.message}</div>`;}
+    const cell=grid.children[i];if(cell)cell.outerHTML=h;
+    bitti++;
+  },30+i*60));
+}
+function _kfInit(){_kfGame=(state&&state.selectedGame)||GAMES[0].id;_kfSecenek(false);_kfRender();}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ⚡ HIZLI ON — Milli Piyango Hızlı On Numara (5 dakikada bir, 80 sayıdan 20 sayı çekilir).
 // 🧫 'Markov ve Hazard' sayfasının bu oyuna özel kopyası. Bu oyunun sonuçları YALNIZCA bu sayfada yaşar:
 // GAMES listesine, global oyun çubuğuna, drawCache_/DB senkronuna ve başka hiçbir sayfaya girmez
@@ -31937,7 +32176,7 @@ try{
 const _OYUN_SETTERS=['selectGame','_chtSetGame','_kbSetGame','_hbSetGame','_niSetGame','_caSetGame','_npSetGame',
   '_nnSetGame','_cbSetGame','_mpRSetGame','_kazananSetGame','_soSetGame','_mrSetGame','_snSetGame',
   '_qtSetGame','_htsOyunYay','_agSetGame','_hySetGame','_fmSetGame','_f2SetGame','_htSetGame','_gsSetGame',
-  '_gizliSetGame','_dxSetGame','_tsSetGame'];
+  '_gizliSetGame','_dxSetGame','_tsSetGame','_kfSetGame'];
 // ── Menü altı global oyun çubuğu ──
 function _globalOyunRender(){
   const row=document.getElementById('globalOyunRow');if(!row)return;
@@ -32021,7 +32260,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
 // 3. slot seçicisi gizlenir ve değeri hep '' döner → hiçbir sayfa 3. geçmiş test sütunu kurmaz,
 // "son çekilişleri doldur" da yalnızca 2 alanı doldurur.
 (function _iki(){
-  const sec='select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDateSel3),select[id$="DateSel3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDateSel3)';
+  const sec='select[id$="Date3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDateSel3):not(#kfDateSel3),select[id$="DateSel3"]:not(#dxDateSel3):not(#exDateSel3):not(#tfDateSel3):not(#hoDateSel3):not(#kfDateSel3)';
   function nötr(){
     document.querySelectorAll(sec).forEach(e=>{
       if(e.dataset.iki)return;e.dataset.iki='1';
@@ -32235,7 +32474,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
 // Sütunlar aynı yapıdaysa (alt öğe sayıları eşit) CSS subgrid ile satır yükseklikleri sütunlar arasında ortaklaşır.
 // Yapı uyuşmazsa o düğüm ve altı olduğu gibi bırakılır. Yeniden çizimlerden sonra gözlemciyle tekrar uygulanır.
 (function _hizalaKur(){
-  const SEL='#tfGrid,.so-row,.sn-row,.fm-row,.hy-row,.a3-row,.agx-row,.ls-ai-row,#nnGrid,#npGrid,#f2Grid,#kbGrid,#scanGrid,#caNihaiGrid,#cbNihaiGrid';
+  const SEL='#tfGrid,#kfGrid,.so-row,.sn-row,.fm-row,.hy-row,.a3-row,.agx-row,.ls-ai-row,#nnGrid,#npGrid,#f2Grid,#kbGrid,#scanGrid,#caNihaiGrid,#cbNihaiGrid';
   const gorunur=e=>getComputedStyle(e).display!=='none';
   const cocuk=e=>[...e.children].filter(gorunur);
   const sablon=n=>cocuk(n).length;
