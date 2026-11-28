@@ -30603,6 +30603,24 @@ function _tsBiletler(gid,S,F,tip,adet){
   if(tip.ozel){return ((S.nn&&S.nn.tickets)||[]).slice(0,adet).map(t=>[...t.main].sort((a,b)=>a-b));}
   const ham=[];let mx=0;
   for(let n=1;n<=g.max;n++){const p=tip.puan(F,n,S);ham[n]=p;if(p>mx)mx=p;}
+  // 3+ NET için PAKETLEME (kullanıcı isteği 2026-11-28; Şans Topu / Süper Loto / Sayısal): 3 net bir bileti ödüllü yapar; 'en az bir bilet ≥3 net' olasılığı biletler BİRBİRİNE
+  // ne kadar az sayı paylaşırsa o kadar yüksektir (olaylar örtüşmez). Sıklığa göre yığılan biletler bu oranı bağımsız rastgele biletlerin altına düşürür (ölçüm: CLAUDE.md).
+  // Bu yüzden skor sırasıyla, önceki biletlerle EN ÇOK 1 ortak sayı kuralıyla (gerekirse gevşeterek) bilet kurulur; sayı seçimi (skor) DEĞİŞMEZ, yalnızca dağılımı.
+  if(gid==='sans'||gid==='super'||gid==='sayisal'){
+    const ord=[];for(let n=1;n<=g.max;n++)ord.push(n);
+    ord.sort((a,b)=>(ham[b]||0)-(ham[a]||0)||(F[b].w-F[a].w)||a-b);
+    const pk=[];
+    for(let i=0;i<adet;i++){
+      let t=null;
+      for(let ov=1;ov<=cnt&&!t;ov++){
+        const cand=ord.slice(i%ord.length).concat(ord.slice(0,i%ord.length)),cur=[];
+        for(const n of cand){if(cur.length===cnt)break;const tt=cur.concat([n]);if(pk.every(o=>{let c=0;for(const x of tt)if(o.includes(x))c++;return c<=ov;}))cur.push(n);}
+        if(cur.length===cnt)t=cur;
+      }
+      pk.push((t||ord.slice(0,cnt)).slice().sort((a,b)=>a-b));
+    }
+    return pk;
+  }
   const kul={},out=[];
   for(let i=0;i<adet;i++){
     const l=[];
@@ -30899,28 +30917,179 @@ function _kfEvalHepsi(D3,M){
 }
 const _kfSirala=d=>[...(d.nums||[])].sort((a,b)=>a-b);
 // Hedef için (prior: hedeften ÖNCEKİ çekilişler, yeniden eskiye) formül örneği değerlendirmesi; son 4 çekilişte (walk-forward) ≥1 net filtresi
-function _kfHesapla(gid,prior){
+function _kfCtx(tarih,idx){const t=String(tarih||'').slice(0,10),y=+t.slice(0,4)||2026,mo=+t.slice(5,7)||1,dd=+t.slice(8,10)||1;const doy=Math.floor((Date.UTC(y,mo-1,dd)-Date.UTC(y,0,1))/864e5)+1,dow=new Date(Date.UTC(y,mo-1,dd)).getUTCDay()+1;return {dom:dd,mon:mo,yr:y%100,doy,dow,idx};}
+function _kfHesapla(gid,prior,tarih){
   const g=getGame(gid),M=g.max;
   if(prior.length<8)return null;
   const k=_kfSirala(prior[0]).length;
   const D=prior.slice(0,8).map(_kfSirala);
   if(D.some(x=>x.length!==k))return null;
-  const yeni=_kfEvalHepsi([D[0],D[1],D[2]],M),n=yeni.length,uyg=new Uint8Array(n);
+  const yeniK=_kfEvalHepsi([D[0],D[1],D[2]],M),nK=yeniK.length;
+  const uygK=new Uint8Array(nK);
   for(let j=1;j<=4;j++){
     const hedef=new Set(D[j-1]),v=_kfEvalHepsi([D[j],D[j+1],D[j+2]],M);
-    for(let i=0;i<n;i++)if(v[i]&&hedef.has(v[i]))uyg[i]=Math.min(255,uyg[i]+1);
+    for(let i=0;i<nK;i++)if(v[i]&&hedef.has(v[i]))uygK[i]=Math.min(255,uygK[i]+1);
+  }
+  // İLERİ motor: son 105 çekiliş yeterliyse (gecikme 60, frekans 100) aynı süzme
+  let eng=null,yeniI=null,uygI=null;
+  if(prior.length>=106){
+    const Hs=prior.slice(0,105).map(_kfSirala);
+    if(Hs.every(x=>x.length===k)){
+      eng=_kiMotor(M,k);
+      yeniI=eng.eval(Hs,_kfCtx(tarih,prior.length));
+      uygI=new Uint8Array(eng.NI);
+      for(let j=1;j<=4;j++){
+        const hedef=new Set(Hs[j-1]),v=eng.eval(Hs.slice(j),_kfCtx(prior[j-1].date,prior.length-j));
+        for(let i=0;i<eng.NI;i++)if(v[i]&&hedef.has(v[i]))uygI[i]=Math.min(255,uygI[i]+1);
+      }
+    }
   }
   const say=new Array(M+2).fill(0);let dahil=0;
-  for(let i=0;i<n;i++)if(uyg[i]&&yeni[i]){say[yeni[i]]++;dahil++;}
+  for(let i=0;i<nK;i++)if(uygK[i]&&yeniK[i]){say[yeniK[i]]++;dahil++;}
+  let toplam=nK;
+  if(eng){toplam+=eng.NI;for(let i=0;i<eng.NI;i++)if(uygI[i]&&yeniI[i]){say[yeniI[i]]++;dahil++;}}
   // aile dökümü
   const bag=_kfBag(k),fam=[];let idx=0;
   for(let fi=0;fi<_KF_LIB.length;fi++){
     const B=bag[_KF_LIB[fi][2]],m=new Map();let u=0,hit=0;
-    for(let bi=0;bi<B.length;bi++,idx++){if(uyg[idx]){hit+=uyg[idx];if(yeni[idx]){u++;m.set(yeni[idx],(m.get(yeni[idx])||0)+1);}}}
+    for(let bi=0;bi<B.length;bi++,idx++){if(uygK[idx]){hit+=uygK[idx];if(yeniK[idx]){u++;m.set(yeniK[idx],(m.get(yeniK[idx])||0)+1);}}}
     fam.push({fi,grup:_KF_LIB[fi][0],ad:_KF_LIB[fi][1],ar:_KF_LIB[fi][2],toplam:B.length,uyg:u,hit,sayilar:m});
   }
-  return {M,k,toplam:n,dahil,say,fam};
+  if(eng){
+    for(let si=0;si<eng.seg.length-1;si++){
+      const m=new Map();let u=0,hit=0;const s0=eng.seg[si].s,s1=eng.seg[si+1].s;
+      for(let i=s0;i<s1;i++){if(uygI[i]){hit+=uygI[i];if(yeniI[i]){u++;m.set(yeniI[i],(m.get(yeniI[i])||0)+1);}}}
+      fam.push({fi:-1,grup:'İleri',ad:eng.seg[si].ad,ar:0,toplam:s1-s0,uyg:u,hit,sayilar:m});
+    }
+  }
+  return {M,k,toplam,dahil,say,fam,ileri:!!eng};
 }
+// ── 🧮 İLERİ formül motoru (kullanıcı isteği 2026-11-28: 'ileri formülleri de dene, sadece son 2 çekilişe sınırlama'): ~18.500 formül örneği (son 10–100 çekilişten; sayı teorisi, iki değişkenli işlemler, seri ekstrapolasyonu, toplamlar, LCG, tarih, gecikme, frekans)
+const _kiCache={};
+function _kiMotor(M,k){
+  const key=M+'|'+k;if(_kiCache[key])return _kiCache[key];
+  const P_=0;
+const P=(()=>{const p=[];for(let n=2;p.length<200;n++){let o=true;for(let d=2;d*d<=n;d++)if(n%d===0){o=false;break;}if(o)p.push(n);}return p;})();
+const isP=n=>n>=2&&P.includes(n)||(n>P[P.length-1]&&(()=>{for(let d=2;d*d<=n;d++)if(n%d===0)return false;return true;})());
+const pM=P.find(x=>x>M); // M'den büyük ilk asal
+const pM2=P.find(x=>x>pM);
+const wrap=v=>{if(v==null||!isFinite(v))return 0;let a=Math.abs(v);if(a===0)return 0;a=Math.round(a);if(!a)return 0;return ((a-1)%M)+1;};
+const frac=x=>x-Math.floor(x);
+const gcd=(a,b)=>{a=Math.abs(a);b=Math.abs(b);while(b){const t=a%b;a=b;b=t;}return a;};
+const mulmod=(a,b,m)=>Number((BigInt(a)*BigInt(b))%BigInt(m));
+const powmod=(b,e,m)=>{let r=1;b%=m;while(e>0){if(e&1)r=mulmod(r,b,m);b=mulmod(b,b,m);e=Math.floor(e/2);}return r;};
+const nextPrime=x=>{for(let n=x+1;;n++)if(isP(n))return n;};
+const prevPrime=x=>{for(let n=x-1;n>1;n--)if(isP(n))return n;return 2;};
+const piF=x=>{let c=0;for(let n=2;n<=x;n++)if(isP(n))c++;return c;};
+const phiF=x=>{let r=x,n=x;for(let p=2;p*p<=n;p++)if(n%p===0){while(n%p===0)n/=p;r-=r/p;}if(n>1)r-=r/n;return r;};
+const sigF=x=>{let s=0;for(let d=1;d<=x;d++)if(x%d===0)s+=d;return s;};
+const dF=x=>{let s=0;for(let d=1;d<=x;d++)if(x%d===0)s++;return s;};
+const dsum=x=>String(x).split('').reduce((a,c)=>a+ +c,0);
+const rev=x=>+String(x).split('').reverse().join('');
+const pop=x=>x.toString(2).split('1').length-1;
+const bitrev=x=>{const b=Math.max(7,x.toString(2).length);return parseInt(x.toString(2).padStart(b,'0').split('').reverse().join(''),2);};
+const gray=x=>x^(x>>1);
+const collatzS=x=>{let c=0;while(x!==1&&c<500){x=x%2?3*x+1:x/2;c++;}return c;};
+const collatzMax=x=>{let m=x,c=0;while(x!==1&&c<500){x=x%2?3*x+1:x/2;if(x>m)m=x;c++;}return m;};
+const mob=x=>{let n=x,r=1;for(let p=2;p*p<=n;p++){if(n%p===0){n/=p;if(n%p===0)return 0;r=-r;}}if(n>1)r=-r;return r;};
+const omega=x=>{let n=x,c=0;for(let p=2;p*p<=n;p++){if(n%p===0){c++;while(n%p===0)n/=p;}}if(n>1)c++;return c;};
+const bigOmega=x=>{let n=x,c=0;for(let p=2;p*p<=n;p++){while(n%p===0){c++;n/=p;}}if(n>1)c++;return c;};
+const rad=x=>{let n=x,r=1;for(let p=2;p*p<=n;p++){if(n%p===0){r*=p;while(n%p===0)n/=p;}}if(n>1)r*=n;return r;};
+const fibm=(x,m)=>{let a=0,b=1;for(let i=0;i<x;i++){const t=(a+b)%m;a=b;b=t;}return a;};
+const lucm=(x,m)=>{let a=2,b=1;for(let i=0;i<x;i++){const t=(a+b)%m;a=b;b=t;}return a;};
+const josephus=(n,q)=>{let r=0;for(let i=2;i<=n;i++)r=(r+q)%i;return r+1;};
+const stern=n=>{const a=[0,1];for(let i=2;i<=n;i++)a[i]=i%2?a[(i-1)/2]+a[(i+1)/2]:a[i/2];return a[n];};
+const partitions=(()=>{const N=130,p=[1n];for(let n=1;n<=N;n++){let s=0n;for(let j=1;;j++){const g1=j*(3*j-1)/2,g2=j*(3*j+1)/2;if(g1>n)break;const sg=j%2?1n:-1n;s+=sg*p[n-g1];if(g2<=n)s+=sg*p[n-g2];}p[n]=s;}return p;})();
+const partM=(x,m)=>Number(partitions[Math.min(x,130)]%BigInt(m));
+const catalanM=(x,m)=>{let c=1n;for(let i=0;i<Math.min(x,150);i++)c=c*BigInt(2*(2*i+1))/BigInt(i+2);return Number(c%BigInt(m));};
+const bellM=(x,m)=>{x=Math.min(x,80);let row=[1n];for(let i=1;i<=x;i++){const nr=[row[row.length-1]];for(let j=0;j<row.length;j++)nr.push(nr[j]+row[j]);row=nr;}return Number(row[0]%BigInt(m));};
+const squareFree=x=>mob(x)!==0?x:0;
+const jac=(a,n)=>{if(n%2===0)return 0;a%=n;let t=1;while(a){while(a%2===0){a/=2;const r=n%8;if(r===3||r===5)t=-t;}[a,n]=[n,a];if(a%4===3&&n%4===3)t=-t;a%=n;}return n===1?t:0;};
+const happy=x=>{let s=0;for(const c of String(x))s+=c*c;return s;};
+const digprod=x=>String(x).split('').reduce((a,c)=>a*(+c||1),1);
+const tri=x=>x*(x+1)/2;
+const toBase=(x,b)=>parseInt(String(x.toString(b)),10);
+const wk=(x,a)=>frac(x*a)*M;
+const ALF={phi:(1+Math.sqrt(5))/2,s2:Math.SQRT2,s3:Math.sqrt(3),pi:Math.PI,e:Math.E,ln2:Math.LN2,s5:Math.sqrt(5),s7:Math.sqrt(7)};
+// ---- tek değişkenli haritalar (x ∈ 1..M için tablo)
+const U=[];
+const addU=(n,f)=>U.push([n,f]);
+addU('id',x=>x);addU('x2',x=>x*x);addU('x3',x=>x**3);addU('x4',x=>x**4);addU('sqrt*10',x=>Math.sqrt(x)*10);addU('cbrt*10',x=>Math.cbrt(x)*10);addU('ln*10',x=>Math.log(x)*10);addU('log2*10',x=>Math.log2(x)*10);addU('exp(x/10)',x=>Math.exp(x/10));
+for(const [n,a] of Object.entries(ALF))addU('weyl_'+n,x=>wk(x,a));
+for(const [n,a] of Object.entries(ALF))addU('weyl2_'+n,x=>wk(x*x,a));
+for(const [n,a] of Object.entries(ALF))addU('wsqrt_'+n,x=>wk(Math.sqrt(x),a)+0);
+addU('sin',x=>Math.abs(Math.sin(x))*M);addU('cos',x=>Math.abs(Math.cos(x))*M);addU('tan',x=>Math.abs(Math.tan(x))%M);addU('sin2',x=>Math.abs(Math.sin(x*x))*M);addU('sin_deg',x=>Math.abs(Math.sin(x*Math.PI/180))*M);addU('cos_deg',x=>Math.abs(Math.cos(x*Math.PI/180))*M);
+addU('phi',x=>phiF(x));addU('sigma',x=>sigF(x));addU('d*x',x=>dF(x)*x);addU('d',x=>dF(x));addU('nextP',nextPrime);addU('prevP',prevPrime);addU('pi(x)',piF);addU('p_x(x-th prime)',x=>P[(x-1)%200]);addU('dsum',dsum);addU('x+dsum',x=>x+dsum(x));addU('rev',rev);addU('x+rev',x=>x+rev(x));addU('pop',pop);addU('x^pop',x=>x^pop(x));addU('bitrev',bitrev);addU('gray',gray);addU('~x(M)',x=>M+1-x);addU('collatzS',collatzS);addU('collatzMax',collatzMax);addU('mob',x=>mob(x));addU('omega*x',x=>omega(x)*x);addU('Omega',bigOmega);addU('rad',rad);addU('digprod',digprod);addU('happy',happy);addU('tri',tri);addU('x(x+1)(x+2)/6',x=>x*(x+1)*(x+2)/6);addU('josephus2',x=>josephus(x,2));addU('josephus3',x=>josephus(x,3));addU('stern',stern);
+for(const m of [M,pM,pM2,97,101,127,251]){addU('fib%'+m,x=>fibm(x,m));addU('luc%'+m,x=>lucm(x,m));addU('2^x%'+m,x=>powmod(2,x,m));addU('3^x%'+m,x=>powmod(3,x,m));addU('5^x%'+m,x=>powmod(5,x,m));addU('7^x%'+m,x=>powmod(7,x,m));addU('x^x%'+m,x=>powmod(x,x,m));addU('x^2%'+m,x=>x*x%m);addU('x^3%'+m,x=>x*x*x%m);addU('x!%'+m,x=>{let r=1;for(let i=2;i<=x;i++)r=r*i%m;return r;});addU('inv%'+m,x=>m>1&&gcd(x,m)===1?powmod(x,m-2,m):0);addU('cat%'+m,x=>catalanM(x,m));addU('bell%'+m,x=>bellM(x,m));addU('part%'+m,x=>partM(x,m));}
+addU('jac_pM',x=>jac(x,pM)+2);addU('QR_pM',x=>powmod(x,(pM-1)/2,pM)===1?x:0);
+addU('ellip y2=x3+7 mod pM',x=>{const r=(x**3+7)%pM;for(let y=1;y<pM;y++)if(y*y%pM===r)return y;return 0;});
+addU('ellip y2=x3-x mod pM',x=>{const r=(x**3-x+pM*pM)%pM;for(let y=1;y<pM;y++)if(y*y%pM===r)return y;return 0;});
+addU('base3',x=>toBase(x,3));addU('base5',x=>toBase(x,5));addU('base7',x=>toBase(x,7));addU('base2',x=>parseInt(x.toString(2),10)%M);
+addU('gamma',x=>{let r=1;for(let i=2;i<x;i++)r=(r*i)%M;return r;});
+addU('lcm(1..x)%M',x=>{let l=1;for(let i=2;i<=x;i++)l=l/gcd(l,i)*i%100003;return l;});
+addU('sum_div_phi',x=>{let s=0;for(let i=1;i<=x;i++)s+=phiF(i);return s;});
+addU('zeta2',x=>{let s=0;for(let i=1;i<=x;i++)s+=1/(i*i);return s*1e3;});
+addU('harmonic',x=>{let s=0;for(let i=1;i<=x;i++)s+=1/i;return s*10;});
+addU('cheb T3',x=>4*x**3-3*x);addU('cheb T5(x/10)',x=>{const t=x/ M;return Math.abs(16*t**5-20*t**3+5*t)*M;});
+addU('legendre P3',x=>(5*x**3-3*x)/2);addU('gauss sum',x=>x*(x+1)*(2*x+1)/6);addU('x^x%100',x=>powmod(x,x,1009));
+const UT=U.map(([n,f])=>{const t=new Int16Array(M+2);for(let x=1;x<=M;x++){let v=0;try{v=f(x);}catch(e){}t[x]=wrap(v);}return t;});
+// ---- iki değişkenli işlemler
+const B=[];const addB=(n,f)=>B.push([n,f]);
+addB('x+y',(x,y)=>x+y);addB('|x-y|',(x,y)=>Math.abs(x-y));addB('x-y',(x,y)=>x-y);addB('x*y',(x,y)=>x*y);addB('x*y+1',(x,y)=>x*y+1);addB('x/y',(x,y)=>y?Math.floor(x/y):0);addB('x%y',(x,y)=>y?x%y:0);addB('y%x',(x,y)=>x?y%x:0);
+addB('gcd',gcd);addB('lcm',(x,y)=>{const g=gcd(x,y);return g?x*y/g:0;});addB('x^y%pM',(x,y)=>powmod(x,y,pM));addB('y^x%pM',(x,y)=>powmod(y,x,pM));addB('C(x,y)%pM',(x,y)=>{let a=Math.max(x,y),b=Math.min(x,y);let r=1n;b=Math.min(b,a-b);for(let i=1;i<=b;i++)r=r*BigInt(a-b+i)/BigInt(i);return Number(r%BigInt(pM));});
+addB('hypot',(x,y)=>Math.hypot(x,y));addB('geo',(x,y)=>Math.sqrt(x*y));addB('harm',(x,y)=>x+y?2*x*y/(x+y):0);addB('quad',(x,y)=>Math.sqrt((x*x+y*y)/2));addB('xor',(x,y)=>x^y);addB('and',(x,y)=>x&y);addB('or',(x,y)=>x|y);addB('concat',(x,y)=>+(''+x+y));addB('x2+y2',(x,y)=>x*x+y*y);addB('x2-y2',(x,y)=>x*x-y*y);addB('(x+y)2',(x,y)=>(x+y)**2);addB('x2+xy+y2',(x,y)=>x*x+x*y+y*y);
+addB('cantor',(x,y)=>(x+y)*(x+y+1)/2+y);addB('x*y%pM',(x,y)=>x*y%pM);addB('2x+y',(x,y)=>2*x+y);addB('x+2y',(x,y)=>x+2*y);addB('2x-y',(x,y)=>2*x-y);addB('3x-2y',(x,y)=>3*x-2*y);addB('x*y%(x+y)',(x,y)=>x+y?x*y%(x+y):0);addB('sqrt(xy)',(x,y)=>Math.floor(Math.sqrt(x*y)));addB('x2%y',(x,y)=>y?x*x%y:0);addB('fib(x+y)',(x,y)=>fibm(x+y,pM));addB('tri(x+y)',(x,y)=>tri(x+y));addB('atan2',(x,y)=>Math.atan2(x,y)*100);addB('x+rev y',(x,y)=>x+rev(y));addB('x*sin y',(x,y)=>Math.abs(x*Math.sin(y)));addB('(x+y)/2',(x,y)=>(x+y)/2);addB('x*phi+y',(x,y)=>x*ALF.phi+y);addB('x+y*phi',(x,y)=>x+y*ALF.phi);addB('x*e+y*pi',(x,y)=>x*Math.E+y*Math.PI);addB('M-|x-y|',(x,y)=>M-Math.abs(x-y));addB('M+1-x-y',(x,y)=>M+1-x-y);addB('x*y/gcd2',(x,y)=>{const g=gcd(x,y);return g?x*y/(g*g):0;});addB('x^2+y',(x,y)=>x*x+y);addB('x+y^2',(x,y)=>x+y*y);addB('x*(y+1)',(x,y)=>x*(y+1));addB('mod M x*y+x+y',(x,y)=>x*y+x+y);addB('sum digits x+y',(x,y)=>dsum(x)+dsum(y));addB('|x-y|*(x+y)',(x,y)=>Math.abs(x-y)*(x+y));
+// ---- seri tahmin (pozisyon serisi s0 en yeni, s1 önceki ...)
+const SR=[];const addS=(n,f)=>SR.push([n,f]);
+addS('lin',s=>2*s[0]-s[1]);addS('quad',s=>3*s[0]-3*s[1]+s[2]);addS('cubic',s=>4*s[0]-6*s[1]+4*s[2]-s[3]);addS('4th',s=>5*s[0]-10*s[1]+10*s[2]-5*s[3]+s[4]);
+for(const d of [2,3,4,5,7,10])addS('mean'+d,s=>s.slice(0,d).reduce((a,b)=>a+b,0)/d);
+for(const d of [3,5,7,9])addS('med'+d,s=>s.slice(0,d).sort((a,b)=>a-b)[(d-1)/2]);
+for(const d of [3,5,7,10])addS('regr'+d,s=>{const n=d;let sx=0,sy=0,sxy=0,sxx=0;for(let i=0;i<n;i++){const x=-i,y=s[i];sx+=x;sy+=y;sxy+=x*y;sxx+=x*x;}const b=(n*sxy-sx*sy)/(n*sxx-sx*sx),a=(sy-b*sx)/n;return a+b*1;});
+for(const al of [.3,.5,.7])addS('ewma'+al,s=>{let v=s[9],w=0;for(let i=9;i>=0;i--)v=al*s[i]+(1-al)*v;return v;});
+addS('s0+s1',s=>s[0]+s[1]);addS('s0+s1+s2',s=>s[0]+s[1]+s[2]);addS('s0+s1-s2',s=>s[0]+s[1]-s[2]);addS('s0-s1+s2',s=>s[0]-s[1]+s[2]);addS('s0*s1/s2',s=>s[2]?s[0]*s[1]/s[2]:0);addS('s0^2/s1',s=>s[1]?s[0]*s[0]/s[1]:0);addS('s1+s2',s=>s[1]+s[2]);addS('2s1-s2',s=>2*s[1]-s[2]);addS('s0+s2',s=>s[0]+s[2]);addS('s0+s3',s=>s[0]+s[3]);addS('s0+s4',s=>s[0]+s[4]);addS('s0-s2',s=>s[0]-s[2]);addS('sum5',s=>s.slice(0,5).reduce((a,b)=>a+b,0));addS('sum10',s=>s.slice(0,10).reduce((a,b)=>a+b,0));addS('alt4',s=>s[0]-s[1]+s[2]-s[3]);addS('max10',s=>Math.max(...s));addS('min10',s=>Math.min(...s));addS('range10',s=>Math.max(...s)-Math.min(...s));addS('mid10',s=>(Math.max(...s)+Math.min(...s))/2);
+addS('ar1',s=>{let n=0,d=0,m=s.reduce((a,b)=>a+b,0)/10;for(let i=0;i<9;i++){n+=(s[i]-m)*(s[i+1]-m);d+=(s[i+1]-m)**2;}const r=d?n/d:0;return m+r*(s[0]-m);});
+addS('holt',s=>{let l=s[9],b=s[8]-s[9];for(let i=8;i>=0;i--){const nl=.5*s[i]+.5*(l+b);b=.3*(nl-l)+.7*b;l=nl;}return l+b;});
+addS('lagrange5',s=>{ // 5 noktalı polinom ekstrapolasyonu (t=1)
+  const xs=[0,-1,-2,-3,-4];let r=0;for(let i=0;i<5;i++){let l=1;for(let j=0;j<5;j++)if(i!==j)l*=(1-xs[j])/(xs[i]-xs[j]);r+=s[i]*l;}return r;});
+addS('fourier',s=>{ // en iyi periyot (2..8) tekrarı
+  let best=0,bp=2;for(let p=2;p<=8;p++){let e=0;for(let i=0;i+p<10;i++)e+=Math.abs(s[i]-s[i+p]);const c=-e/(10-p);if(p===2||c>best){best=c;bp=p;}}return s[bp-1];});
+// ---- zaman özellikleri
+const TF=[['dom',c=>c.dom],['mon',c=>c.mon],['doy',c=>c.doy],['dow',c=>c.dow],['idx',c=>c.idx],['dom+mon',c=>c.dom+c.mon],['dom*mon',c=>c.dom*c.mon],['yr+dom',c=>c.yr+c.dom],['ymd',c=>c.yr*10+c.mon*31+c.dom]];
+
+const W0=110;
+const posList=k>7?[0,Math.floor(k*0.15),Math.floor(k*0.3),Math.floor(k*0.5),Math.floor(k*0.7),Math.floor(k*0.85),k-1]:[...Array(k).keys()];
+const slots=[],seg=[];const segS=(ad)=>seg.push({ad,s:slots.length});
+segS('Sayı-teorisi / özel fonksiyon haritaları (tek değişken · son 5 çekiliş)');
+for(let ui=0;ui<U.length;ui++)for(let d=0;d<5;d++)for(const i of posList){const tb=UT[ui];slots.push(H=>tb[H[d][i]]);}
+segS('İki değişkenli işlemler (son 3 çekiliş · konum çiftleri)');
+const sl=[];for(let d=0;d<3;d++)for(const i of posList)sl.push([d,i]);
+for(let bi=0;bi<B.length;bi++){const f=B[bi][1];for(let a=0;a<sl.length;a++)for(let b2=0;b2<sl.length;b2++){if(a===b2)continue;const [d1,i]=sl[a],[d2,j]=sl[b2];slots.push(H=>wrap(f(H[d1][i],H[d2][j])));}}
+segS('Seri tahmini (son 10 çekiliş · ekstrapolasyon, ortalama, regresyon, AR, Holt, Lagrange…)');
+for(let si=0;si<SR.length;si++)for(const i of posList){const f=SR[si][1];slots.push(H=>{const s=[];for(let q=0;q<10;q++)s.push(H[q][i]);return wrap(f(s));});}
+segS('Çekiliş toplamları (toplam, kareler toplamı, XOR, çarpım, farklar…)');
+const AG=[['sum',a=>a.reduce((x,y)=>x+y,0)],['sumsq',a=>a.reduce((x,y)=>x+y*y,0)],['xor',a=>a.reduce((x,y)=>x^y,0)],['wsum',a=>a.reduce((x,y,i)=>x+(i+1)*y,0)],['alt',a=>a.reduce((x,y,i)=>x+(i%2?-y:y),0)],['prod%pM',a=>a.reduce((x,y)=>x*y%pM,1)],['mean',a=>a.reduce((x,y)=>x+y,0)/a.length],['median',a=>a[Math.floor(a.length/2)]],['range',a=>a[a.length-1]-a[0]],['gaps sum sq',a=>a.reduce((x,y,i)=>i?x+(y-a[i-1])**2:x,0)],['min gap',a=>Math.min(...a.slice(1).map((y,i)=>y-a[i]))],['max gap',a=>Math.max(...a.slice(1).map((y,i)=>y-a[i]))],['lcm%',a=>a.reduce((x,y)=>{const g=gcd(x,y);return x/g*y%100003;},1)],['dsum all',a=>a.reduce((x,y)=>x+dsum(y),0)],['popcount all',a=>a.reduce((x,y)=>x+pop(y),0)]];
+for(const [an,af] of AG)for(let d=0;d<4;d++)for(const c of [0,1,-1,2])slots.push(H=>wrap(af(H[d])+c));
+for(const [an,af] of AG)for(let d=0;d<3;d++){slots.push(H=>wrap(af(H[d])+af(H[d+1])));slots.push(H=>wrap(af(H[d])-af(H[d+1])));}
+segS('Doğrusal eşlik (a·x+c mod M)');
+for(let d=0;d<2;d++)for(const i of posList)for(let a=2;a<=24;a++)for(const c of [0,1,3,7,11,13,17,Math.floor(M/2)])slots.push(H=>wrap(a*H[d][i]+c));
+segS('Tarih / zaman özellikleri (gün, ay, yılın günü, çekiliş sırası…)');
+for(const [tn,tf] of TF){slots.push((H,c)=>wrap(tf(c)));for(const i of posList.slice(0,4))for(const [a,b] of [[1,1],[1,-1],[2,1],[1,2],[3,1],[1,3]])slots.push((H,c)=>wrap(a*tf(c)+b*H[0][i]));
+ for(const pr of [pM,pM2,97])for(const g of [2,3,5])slots.push((H,c)=>wrap(powmod(g,Math.abs(Math.round(tf(c))),pr)));}
+segS('Gecikme tekrarı (1–60 çekiliş önceki aynı konum)');
+for(let p=1;p<=60;p++)for(const i of posList)slots.push(H=>H[p-1][i]);
+segS('Frekans (son 5/10/20/50/100 çekilişin en sık ve en seyrek sayıları)');
+const NF=slots.length,FRQN=[5,10,20,50,100],NI=NF+FRQN.length*6;
+seg.push({ad:'_son',s:NI});
+function evalAll(H,c){
+  const out=new Int16Array(NI);
+  for(let i=0;i<NF;i++){let v=0;try{v=slots[i](H,c);}catch(e){}out[i]=v|0;}
+  let o=NF;
+  for(const N of FRQN){const cn=new Int16Array(M+2);for(let q=0;q<N;q++)for(const x of H[q])cn[x]++;const ord=[];for(let x=1;x<=M;x++)ord.push(x);ord.sort((a,b)=>cn[b]-cn[a]||a-b);for(let r=0;r<3;r++){out[o++]=ord[r];out[o++]=ord[M-1-r];}}
+  return out;
+}
+return _kiCache[key]={NI,seg,eval:evalAll};
+}
+
 let _kfGame=null,_kfToken=0;
 function _kfSetGame(){_kfGame=(state&&state.selectedGame)||GAMES[0].id;if(_curPage==='kimafiz'){_kfSecenek(true);_kfRender();}}
 function _kfSecenek(sifirla){
@@ -30934,7 +31103,7 @@ function _kfSecenek(sifirla){
   });
 }
 function _kfKolonHtml(gid,prior,tarih,actual,yeni,k){
-  const g=getGame(gid),R=_kfHesapla(gid,prior);
+  const g=getGame(gid),R=_kfHesapla(gid,prior,tarih);
   const aS=actual?new Set(actual.nums||[]):null,yS=aS?_fadYakinSet(aS,g.max):null;
   const adet=parseInt((document.getElementById('kfAdet')||{}).value)||10;
   let h=`<div style="min-width:0" data-ex-atla="1" ${yeni?`data-sk-yeni="${gid}"`:`data-sk-gecmis="${gid}|${tarih}"`} data-kn-tarih="${tarih}"><div style="display:flex;justify-content:space-between;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:3px"><span style="font-size:.7rem;font-weight:800;color:${yeni?'var(--accent)':'var(--text)'}">${yeni?'🔮 Yeni Tahmin':'📊 '+(k?(k+1)+'. ':'')+'Geçmiş Test · '+tarih}</span>`;
@@ -30945,7 +31114,7 @@ function _kfKolonHtml(gid,prior,tarih,actual,yeni,k){
   if(yeni){window._kfBiletTxt=`${tip.ad} — ${g.name} (${tarih}) — ${bil.length} bilet\n`+bil.map((t,i)=>`#${i+1}  ${t.join(' ')}`).join('\n');
     h+=`<button class="copy-btn" onclick="_caCopy(window._kfBiletTxt);showToast('📋 Tüm biletler kopyalandı')" style="font-size:.56rem;padding:2px 9px">📋 Biletleri Kopyala</button>`;}
   h+=`</div><div style="font-size:.56rem;color:var(--muted);margin-bottom:4px">hedef <strong style="color:var(--text)">${tarih}</strong>${actual?` · sonuç <span style="font-family:monospace;color:var(--green);font-weight:800">${[...actual.nums].sort((a,b)=>a-b).join(' ')}</span>`:''}</div>`;
-  h+=`<div style="font-size:.6rem;margin-bottom:5px;padding:4px 8px;border-radius:8px;background:rgba(14,165,233,.08);border:1px solid rgba(14,165,233,.35)">🔬 <strong>${R.dahil}</strong> / ${R.toplam} formül örneği dahil <span style="color:var(--muted)">(son 4 çekilişin en az birinde ≥1 net) · ${_KF_LIB.length} formül × ${R.toplam/_KF_LIB.length|0} ort. bağlam</span></div>`;
+  h+=`<div style="font-size:.6rem;margin-bottom:5px;padding:4px 8px;border-radius:8px;background:rgba(14,165,233,.08);border:1px solid rgba(14,165,233,.35)">🔬 <strong>${R.dahil}</strong> / ${R.toplam} formül örneği dahil <span style="color:var(--muted)">(son 4 çekilişin en az birinde ≥1 net)${R.ileri?' · ileri motor dahil':''}</span></div>`;
   let en=0,enYk=0,uc=0;
   if(aS)bil.forEach(t=>{const n=t.filter(x=>aS.has(x)).length,yk=t.filter(x=>!aS.has(x)&&yS.has(x)).length;if(n>en||(n===en&&yk>enYk)){en=n;enYk=yk;}if(n>=2)uc++;});
   h+=`<div style="font-size:.64rem;font-weight:800;color:#0369a1;margin:2px 0 3px">🎫 ${tip.ad.slice(0,22)} <span style="font-weight:600;color:var(--muted)">· ${bil.length} bilet · ${g.count} sayı</span></div>`
@@ -30956,7 +31125,7 @@ function _kfKolonHtml(gid,prior,tarih,actual,yeni,k){
   const rz=n=>_fadRozet(n,_fadDurum(n,aS,yS));
   h+=`<div style="font-size:.6rem;font-weight:800;margin:6px 0 3px">🔁 En çok formül örneğinin ürettiği sayılar</div><div data-kn-atla="1" data-lp="${top.slice(0,g.count).map(x=>x[0]).join(' ')}" style="display:flex;flex-wrap:wrap;gap:4px 8px;font-size:.66rem">${top.slice(0,16).map(([n,c])=>`<span>${rz(n)}<span style="color:#7c3aed;font-weight:800;font-size:.55rem">×${c}</span></span>`).join('')||'<span style="color:var(--muted)">Dahil edilen örnek yok.</span>'}</div>`;
   // aile dökümü
-  const gruplar=['Matematik','Geometri','Fizik','Kimya'],ik={Matematik:'➗',Geometri:'📐',Fizik:'⚛️',Kimya:'🧪'};
+  const gruplar=['Matematik','Geometri','Fizik','Kimya','İleri'],ik={Matematik:'➗',Geometri:'📐',Fizik:'⚛️',Kimya:'🧪','İleri':'🧮'};
   const fh=gruplar.map(gr=>{
     const L=R.fam.filter(f=>f.grup===gr).sort((a,b)=>b.uyg-a.uyg||b.hit-a.hit);
     const hucre=L.map(f=>{const t=[...f.sayilar.entries()].sort((a,b)=>b[1]-a[1]||a[0]-b[0]).slice(0,5).map(([n,c])=>`<span style="font-family:monospace;font-weight:800;color:${aS?(aS.has(n)?'var(--green)':yS.has(n)?'#c2410c':'var(--muted)'):'var(--text)'}">${n}${aS?(aS.has(n)?'✓':yS.has(n)?'~':''):''}</span>`).join(' ');
