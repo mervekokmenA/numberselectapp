@@ -51,6 +51,7 @@ body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
    Siyah kareleme (outline) ile birlikte görünür: ikisi aynı sayıdaysa siyah çerçeve dışta kalır. */
 [data-kn="net"]{box-shadow:0 0 0 2.5px #00e676,0 0 10px 2px rgba(0,230,118,.8)!important;border-radius:6px}
 [data-kn="yakin"]{box-shadow:0 0 0 2.5px #ff9800,0 0 8px 1px rgba(255,152,0,.65)!important;border-radius:6px}
+[data-kn="karisik"]{box-shadow:0 0 0 2.5px #facc15,0 0 9px 2px rgba(250,204,21,.75)!important;border-radius:6px}
 [data-kn][data-sk-tekrar]{outline-offset:5px}
 .lrow{display:flex;gap:1px;margin-bottom:1px;height:18px;min-height:18px;max-height:18px;align-items:center;overflow:hidden}
 .lrow-num{width:18px;height:18px;min-height:18px;max-height:18px;font-size:.58rem;color:var(--accent);display:flex;align-items:center;justify-content:flex-end;flex-shrink:0;padding-right:2px;line-height:1;font-weight:600;opacity:.75;box-sizing:border-box;overflow:hidden}
@@ -32380,8 +32381,9 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
       r.ch.forEach((c,i)=>{
         const kar=es.map(e=>idli?e.ch.find(x=>x.id===c.id):(e.ch.length===r.ch.length?e.ch[i]:null));
         if(kar.some(x=>!x))return;
-        const tum=kar.every(x=>x.st==='net'),yak=!tum&&kar.every(x=>x.st==='net'||x.st==='yakin');
-        if(tum||yak)slots.push({el:c.el,num:c.num,tip:tum?'net':'yakin',st:c.st,key:r.key,pos:c.id||(i+1)});
+        // hepsi ✓ → yeşil 'net'; hepsi ~ → turuncu 'yakin'; aynı konumda biri ✓ biri ~ (karışık) → sarı 'karisik'
+        const tum=kar.every(x=>x.st==='net'),hepY=kar.every(x=>x.st==='yakin'),kar2=!tum&&!hepY&&kar.every(x=>x.st==='net'||x.st==='yakin');
+        if(tum||hepY||kar2)slots.push({el:c.el,num:c.num,tip:tum?'net':hepY?'yakin':'karisik',st:c.st,key:r.key,pos:c.id||(i+1)});
       });
     }
     return slots;
@@ -32459,7 +32461,7 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
     const m=new Map();
     slots.filter(s=>s.tip===tip).forEach(s=>{const o=m.get(s.num)||{n:0,yer:[],st:s.st};o.n++;if(o.yer.length<6)o.yer.push(etiket(s.key)+' · '+s.pos+'.');m.set(s.num,o);});
     const stil=(o)=>{
-      if(!gecmisMi)return tip==='net'?'rgba(0,200,100,.7);background:rgba(0,230,118,.14);color:var(--green)':'rgba(255,152,0,.8);background:rgba(255,152,0,.12);color:#c2410c';
+      if(!gecmisMi)return tip==='net'?'rgba(0,200,100,.7);background:rgba(0,230,118,.14);color:var(--green)':tip==='karisik'?'rgba(234,179,8,.9);background:rgba(250,204,21,.2);color:#a16207':'rgba(255,152,0,.8);background:rgba(255,152,0,.12);color:#c2410c';
       return o.st==='net'?'rgba(0,200,100,.9);background:rgba(0,230,118,.3);color:var(--green)':o.st==='yakin'?'rgba(255,152,0,.9);background:rgba(255,152,0,.22);color:#c2410c':'var(--border);background:var(--surface2);color:var(--muted)';};
     const ent=[...m.entries()].sort((a,b)=>a[0]-b[0]);
     const h=ent.map(([n,o])=>`<span title="${o.yer.join(' | ')}" style="display:inline-block;padding:0 6px;margin:1px 2px;border-radius:6px;border:1.5px solid ${stil(o)};font-family:monospace;font-weight:800">${n}${gecmisMi?(o.st==='net'?'✓':o.st==='yakin'?'~':''):''}${o.n>1?`<span style="font-size:.8em;opacity:.8"> ×${o.n}</span>`:''}</span>`).join('');
@@ -32471,13 +32473,13 @@ setTimeout(()=>{try{_globalOyunRender();}catch(e){}},1500);
     const cs='min-width:0;padding:4px 7px;border:1px solid rgba(0,200,100,.3);border-radius:8px;background:var(--surface)';
     if(x&&x.bekle)return `<div style="${cs};color:var(--muted)"><div>${ad}</div><em>⏳ önceki 2 çekiliş (${x.onceki.map(kisa).join(', ')}) hesaplanıyor…</em></div>`;
     if(slots===null)return `<div style="${cs};color:var(--muted)"><div>${ad}</div><em>${(x&&x.neden)||'hesaplanamadı'}</em></div>`;
-    const a=liste(slots,'net',gecmisMi),b=liste(slots,'yakin',gecmisMi);
+    const a=liste(slots,'net',gecmisMi),b=liste(slots,'yakin',gecmisMi),c=liste(slots,'karisik',gecmisMi);
     const so=y=>gecmisMi&&y.say?` <span style="font-size:.9em;color:var(--muted)">→ <strong style="color:var(--green)">✓ ${y.net}</strong> · <strong style="color:#c2410c">~ ${y.yk}</strong> / ${y.say}</span>`:'';
     const kay=x&&x.onceki?`<div style="color:var(--muted);font-size:.85em">önceki 2: ${x.onceki.map(kisa).join(', ')}</div>`:(x&&x.acikTest?'<div style="color:var(--muted);font-size:.85em">açık eski testlere göre</div>':'');
-    return `<div style="${cs}"><div>${ad}</div>${kay}<div style="margin-top:2px"><span style="font-weight:800;color:var(--green)">🟩 tutan (${a.say}):</span> ${a.h}${so(a)}</div><div style="margin-top:2px"><span style="font-weight:800;color:#c2410c">🟧 yakın (${b.say}):</span> ${b.h}${so(b)}</div></div>`;
+    return `<div style="${cs}"><div>${ad}</div>${kay}<div style="margin-top:2px"><span style="font-weight:800;color:var(--green)">🟩 tutan (${a.say}):</span> ${a.h}${so(a)}</div><div style="margin-top:2px"><span style="font-weight:800;color:#a16207">🟨 karışık (${c.say}):</span> ${c.h}${so(c)}</div><div style="margin-top:2px"><span style="font-weight:800;color:#c2410c">🟧 yakın (${b.say}):</span> ${b.h}${so(b)}</div></div>`;
   }
   function icerik(res,nGec,baslik,tpl){
-    let h=`<strong>📍 ${baslik}</strong> <span style="color:var(--muted)">· yeni tahmin: açık ${nGec} geçmiş testin hepsinde aynı satır ve sırada · geçmiş testler: o testten HEMEN ÖNCEKİ 2 çekilişin ortağı (ekranda olmasa da) → kendi sonucuyla ✓/~</span>`;
+    let h=`<strong>📍 ${baslik}</strong> <span style="color:var(--muted)">· yeni tahmin: açık ${nGec} geçmiş testin hepsinde aynı satır ve sırada (🟩 hepsi ✓ · 🟧 hepsi ~ · 🟨 aynı konumda biri ✓ biri ~) · geçmiş testler: o testten HEMEN ÖNCEKİ 2 çekilişin ortağı (ekranda olmasa da) → kendi sonucuyla ✓/~</span>`;
     const sutunlar=[sutun('🔮 <strong>Yeni Tahmin</strong>',res.yeni,false)].concat(res.gecmis.map(x=>sutun('📊 <strong>Geçmiş Test '+kisa(x.tarih)+'</strong>',x.slots,true,x)));
     return h+`<div style="display:grid;grid-template-columns:${tpl||'repeat(auto-fit,minmax(270px,1fr))'};gap:8px 14px;align-items:start;margin-top:4px">${sutunlar.join('')}</div>`;
   }
